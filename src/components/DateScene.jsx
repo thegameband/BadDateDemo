@@ -103,28 +103,47 @@ function DateScene() {
   // Start and maintain continuous conversation
   useEffect(() => {
     conversationActiveRef.current = true
+    let isMounted = true
     
-    // Initial greeting from dater
-    if (dateConversation.length === 0) {
-      setTimeout(() => {
+    const startConversation = async () => {
+      // Initial greeting from dater
+      if (dateConversation.length === 0) {
+        await new Promise(r => setTimeout(r, 1500))
+        if (!isMounted) return
         addDateMessage('dater', `So... here we are! I have to say, ${avatar.name}, you seem really interesting. What made you want to meet up tonight?`)
         lastSpeakerRef.current = 'dater'
-      }, 1500)
-    }
-    
-    // Set up continuous conversation - runs every 6-10 seconds
-    const runConversation = () => {
-      if (conversationActiveRef.current && !isConversing) {
-        generateNextTurn()
+        
+        // Avatar responds after a short delay
+        await new Promise(r => setTimeout(r, 2500))
+        if (!isMounted) return
+        
+        const avatarResponse = await getAvatarDateResponse(avatar, selectedDater, [
+          { speaker: 'dater', message: `So... here we are! I have to say, ${avatar.name}, you seem really interesting. What made you want to meet up tonight?` }
+        ])
+        
+        if (avatarResponse && isMounted) {
+          addDateMessage('avatar', avatarResponse)
+          lastSpeakerRef.current = 'avatar'
+        }
       }
     }
     
-    // Start conversation loop after initial delay
+    startConversation()
+    
+    // Set up continuous conversation - runs every 5-8 seconds
+    const runConversation = async () => {
+      if (conversationActiveRef.current && isMounted) {
+        await generateNextTurn()
+      }
+    }
+    
+    // Start conversation loop after initial exchange
     const startDelay = setTimeout(() => {
-      conversationIntervalRef.current = setInterval(runConversation, 7000 + Math.random() * 3000)
-    }, 4000)
+      conversationIntervalRef.current = setInterval(runConversation, 5000 + Math.random() * 3000)
+    }, 6000)
     
     return () => {
+      isMounted = false
       conversationActiveRef.current = false
       clearTimeout(startDelay)
       if (conversationIntervalRef.current) {
