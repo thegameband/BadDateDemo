@@ -11,11 +11,27 @@ import './DateScene.css'
 /**
  * Evaluate the Dater's response to determine compatibility change
  * Returns a number: positive = good, negative = bad, 0 = neutral
+ * 
+ * @param {string} response - The Dater's response text
+ * @param {number} reactionsLeft - How many heightened reactions remain (2 = first reaction, 1 = second, 0 = normal)
  */
-function evaluateDaterSentiment(response, isReactingToAttribute = false) {
+function evaluateDaterSentiment(response, reactionsLeft = 0) {
   const lower = response.toLowerCase()
   
-  // Strong positive signals (bigger impact)
+  // Determine multiplier based on how recent the attribute was added
+  // First reaction after attribute: 3x impact (BIG swing)
+  // Second reaction: 1.5x impact (still notable)
+  // Normal conversation: 0.5x impact (slow drip)
+  let multiplier
+  if (reactionsLeft === 2) {
+    multiplier = 3.0 // First response after attribute - HUGE impact
+  } else if (reactionsLeft === 1) {
+    multiplier = 1.5 // Second response - moderate impact
+  } else {
+    multiplier = 0.5 // Normal conversation - slow drip
+  }
+  
+  // Strong positive signals
   const strongPositive = [
     'love', 'amazing', 'perfect', 'incredible', 'fantastic', 'wonderful',
     'exactly what', 'dream', 'can\'t believe', 'so happy', 'best', 'wow',
@@ -29,7 +45,7 @@ function evaluateDaterSentiment(response, isReactingToAttribute = false) {
     'tell me more', 'fascinating', 'intriguing', '😊', '🥰'
   ]
   
-  // Strong negative signals (bigger impact)
+  // Strong negative signals
   const strongNegative = [
     'deal breaker', 'dealbreaker', 'can\'t', 'won\'t work', 'absolutely not',
     'horrified', 'disgusted', 'appalled', 'what the', 'excuse me', 'seriously?',
@@ -49,20 +65,20 @@ function evaluateDaterSentiment(response, isReactingToAttribute = false) {
     'what?', 'huh?', 'sorry?', 'come again', 'didn\'t catch', 'confused'
   ]
   
-  // Calculate sentiment score
-  let score = 0
+  // Calculate base sentiment score
+  let baseScore = 0
   
   // Check strong signals first
   for (const word of strongPositive) {
     if (lower.includes(word)) {
-      score += isReactingToAttribute ? 12 : 8
+      baseScore += 8
       break // Only count once per category
     }
   }
   
   for (const word of strongNegative) {
     if (lower.includes(word)) {
-      score -= isReactingToAttribute ? 15 : 10
+      baseScore -= 10
       break
     }
   }
@@ -70,43 +86,46 @@ function evaluateDaterSentiment(response, isReactingToAttribute = false) {
   // Check mild signals
   for (const word of mildPositive) {
     if (lower.includes(word)) {
-      score += isReactingToAttribute ? 5 : 3
+      baseScore += 3
       break
     }
   }
   
   for (const word of mildNegative) {
     if (lower.includes(word)) {
-      score -= isReactingToAttribute ? 6 : 4
+      baseScore -= 4
       break
     }
   }
   
   for (const word of confused) {
     if (lower.includes(word)) {
-      score -= 2
+      baseScore -= 2
       break
     }
   }
   
   // Exclamation marks suggest strong emotion (amplify existing sentiment)
   const exclamationCount = (response.match(/!/g) || []).length
-  if (exclamationCount > 0 && score !== 0) {
-    score = Math.round(score * (1 + exclamationCount * 0.15))
+  if (exclamationCount > 0 && baseScore !== 0) {
+    baseScore = Math.round(baseScore * (1 + exclamationCount * 0.15))
   }
   
   // Question marks in dater response often show interest
   const questionCount = (response.match(/\?/g) || []).length
-  if (questionCount > 0 && score >= 0) {
-    score += questionCount * 2
+  if (questionCount > 0 && baseScore >= 0) {
+    baseScore += questionCount
   }
+  
+  // Apply the multiplier based on attribute timing
+  let score = Math.round(baseScore * multiplier)
   
   // Add some randomness for natural variation
   if (score === 0) {
-    // Even neutral exchanges should have small fluctuations
-    score = Math.floor(Math.random() * 5) - 2 // -2 to +2
+    // Even neutral exchanges should have tiny fluctuations (slow drip)
+    score = Math.floor(Math.random() * 3) - 1 // -1 to +1
   } else {
-    // Add ±20% variance to non-zero scores
+    // Add ±15% variance to non-zero scores
     const variance = Math.floor(Math.abs(score) * 0.2)
     score += Math.floor(Math.random() * (variance * 2 + 1)) - variance
   }
@@ -208,7 +227,7 @@ function DateScene() {
         
         // Update compatibility based on Dater's reactions
         if (nextSpeaker === 'dater') {
-          const change = evaluateDaterSentiment(response, reactionsLeft > 0)
+          const change = evaluateDaterSentiment(response, reactionsLeft)
           if (change !== 0) {
             updateCompatibility(change)
           }
