@@ -8,6 +8,112 @@ import {
 } from '../services/llmService'
 import './DateScene.css'
 
+/**
+ * Evaluate the Dater's response to determine compatibility change
+ * Returns a number: positive = good, negative = bad, 0 = neutral
+ */
+function evaluateDaterSentiment(response, isReactingToAttribute = false) {
+  const lower = response.toLowerCase()
+  
+  // Strong positive signals (bigger impact)
+  const strongPositive = [
+    'love', 'amazing', 'perfect', 'incredible', 'fantastic', 'wonderful',
+    'exactly what', 'dream', 'can\'t believe', 'so happy', 'best', 'wow',
+    'marry', 'soulmate', 'connection', 'chemistry', '😍', '❤️', '💕'
+  ]
+  
+  // Mild positive signals
+  const mildPositive = [
+    'nice', 'cool', 'great', 'like that', 'appreciate', 'sweet', 'cute',
+    'fun', 'enjoy', 'glad', 'happy', 'good', 'awesome', 'interesting',
+    'tell me more', 'fascinating', 'intriguing', '😊', '🥰'
+  ]
+  
+  // Strong negative signals (bigger impact)
+  const strongNegative = [
+    'deal breaker', 'dealbreaker', 'can\'t', 'won\'t work', 'absolutely not',
+    'horrified', 'disgusted', 'appalled', 'what the', 'excuse me', 'seriously?',
+    'spider', 'criminal', 'prison', 'hate', 'despise', 'never', 'leave',
+    'uncomfortable', 'scared', 'afraid', 'yikes', '😱', '🤮', '😨'
+  ]
+  
+  // Mild negative signals
+  const mildNegative = [
+    'hmm', 'oh...', 'really?', 'um', 'uh', 'not sure', 'concerning',
+    'weird', 'strange', 'odd', 'unusual', 'skeptical', 'hesitant',
+    'pause', 'wait', 'hold on', '😬', '🤔', '😅'
+  ]
+  
+  // Confused/neutral signals (slight negative - uncertainty isn't great)
+  const confused = [
+    'what?', 'huh?', 'sorry?', 'come again', 'didn\'t catch', 'confused'
+  ]
+  
+  // Calculate sentiment score
+  let score = 0
+  
+  // Check strong signals first
+  for (const word of strongPositive) {
+    if (lower.includes(word)) {
+      score += isReactingToAttribute ? 12 : 8
+      break // Only count once per category
+    }
+  }
+  
+  for (const word of strongNegative) {
+    if (lower.includes(word)) {
+      score -= isReactingToAttribute ? 15 : 10
+      break
+    }
+  }
+  
+  // Check mild signals
+  for (const word of mildPositive) {
+    if (lower.includes(word)) {
+      score += isReactingToAttribute ? 5 : 3
+      break
+    }
+  }
+  
+  for (const word of mildNegative) {
+    if (lower.includes(word)) {
+      score -= isReactingToAttribute ? 6 : 4
+      break
+    }
+  }
+  
+  for (const word of confused) {
+    if (lower.includes(word)) {
+      score -= 2
+      break
+    }
+  }
+  
+  // Exclamation marks suggest strong emotion (amplify existing sentiment)
+  const exclamationCount = (response.match(/!/g) || []).length
+  if (exclamationCount > 0 && score !== 0) {
+    score = Math.round(score * (1 + exclamationCount * 0.15))
+  }
+  
+  // Question marks in dater response often show interest
+  const questionCount = (response.match(/\?/g) || []).length
+  if (questionCount > 0 && score >= 0) {
+    score += questionCount * 2
+  }
+  
+  // Add some randomness for natural variation
+  if (score === 0) {
+    // Even neutral exchanges should have small fluctuations
+    score = Math.floor(Math.random() * 5) - 2 // -2 to +2
+  } else {
+    // Add ±20% variance to non-zero scores
+    const variance = Math.floor(Math.abs(score) * 0.2)
+    score += Math.floor(Math.random() * (variance * 2 + 1)) - variance
+  }
+  
+  return score
+}
+
 function DateScene() {
   const {
     phase,
@@ -100,16 +206,11 @@ function DateScene() {
         addDateMessage(nextSpeaker, response)
         lastSpeakerRef.current = nextSpeaker
         
-        // Update compatibility based on conversation (simplified for demo)
+        // Update compatibility based on Dater's reactions
         if (nextSpeaker === 'dater') {
-          // Check if dater's response suggests positive or negative reaction
-          const lowerResponse = response.toLowerCase()
-          if (lowerResponse.includes('love') || lowerResponse.includes('amazing') || 
-              lowerResponse.includes('perfect') || lowerResponse.includes('wow')) {
-            updateCompatibility(Math.floor(Math.random() * 5) + 3)
-          } else if (lowerResponse.includes('hmm') || lowerResponse.includes('interesting') ||
-                     lowerResponse.includes('really?') || lowerResponse.includes('oh...')) {
-            updateCompatibility(Math.floor(Math.random() * 5) - 2)
+          const change = evaluateDaterSentiment(response, reactionsLeft > 0)
+          if (change !== 0) {
+            updateCompatibility(change)
           }
         }
       } else if (conversationActiveRef.current) {
