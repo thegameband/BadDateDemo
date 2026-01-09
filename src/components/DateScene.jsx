@@ -293,14 +293,31 @@ function DateScene() {
             </div>
           </motion.div>
           
-          {/* Dater */}
+          {/* Dater - with mood based on compatibility */}
           <motion.div 
-            className="character dater-character"
+            className={`character dater-character ${
+              compatibility > 75 ? 'mood-loving' : 
+              compatibility > 55 ? 'mood-happy' : 
+              compatibility > 35 ? 'mood-neutral' : 
+              compatibility > 20 ? 'mood-concerned' : 'mood-upset'
+            }`}
             initial={{ x: 100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
           >
             <div className="character-image">
               <img src={selectedDater.photo} alt={selectedDater.name} />
+              <motion.div 
+                className="mood-indicator"
+                key={compatibility > 75 ? 'loving' : compatibility > 55 ? 'happy' : compatibility > 35 ? 'neutral' : compatibility > 20 ? 'concerned' : 'upset'}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 400 }}
+              >
+                {compatibility > 75 ? '😍' : 
+                 compatibility > 55 ? '😊' : 
+                 compatibility > 35 ? '🤔' : 
+                 compatibility > 20 ? '😬' : '😒'}
+              </motion.div>
             </div>
             <div className="character-info">
               <h3>{selectedDater.name}</h3>
