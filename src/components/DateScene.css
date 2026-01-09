@@ -23,7 +23,7 @@
   justify-content: center;
   gap: 40px;
   padding: 32px;
-  margin-left: -170px; /* Offset for sidebar to center on full screen */
+  margin-left: 80px; /* Offset to center on full screen */
   background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 100%);
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
