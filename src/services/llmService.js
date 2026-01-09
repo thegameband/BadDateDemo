@@ -117,28 +117,55 @@ YOU MUST REACT TO THIS DIRECTLY AND DRAMATICALLY:
 export async function getAvatarDateResponse(avatar, dater, conversationHistory, latestAttribute = null) {
   const { name, age, occupation, attributes } = avatar
   
-  const attributesList = attributes.length > 0 
-    ? `YOUR TRAITS: ${attributes.join(', ')}`
-    : 'You are a mystery - share generic pleasantries.'
+  // Filter out the generic starter attributes
+  const genericStarters = ['seems friendly', 'has a nice smile', 'appears well-dressed']
+  const realAttributes = attributes.filter(attr => !genericStarters.includes(attr))
+  const hasRealAttributes = realAttributes.length > 0
   
-  // Special instruction if a new attribute was just added
-  const latestAttrInstruction = latestAttribute
-    ? `\n\n⚠️ NEW TRAIT JUST ADDED: You just gained the trait "${latestAttribute}". Work this into your response SUBTLY and naturally - don't announce it, just let it color what you say. Be appropriate to the conversation flow.`
-    : ''
+  // Build behavior instructions based on whether we have real attributes
+  let behaviorInstructions
+  
+  if (!hasRealAttributes) {
+    // No real attributes yet - be super generic
+    behaviorInstructions = `YOU HAVE NO DEFINED PERSONALITY YET.
+- Be extremely generic and bland
+- Say things like "That's nice", "I agree", "Sounds good", "Oh interesting"
+- Don't reveal anything specific about yourself
+- Be pleasant but forgettable
+- You're a blank slate waiting to become someone`
+  } else if (latestAttribute) {
+    // New attribute just added - prominently feature it!
+    behaviorInstructions = `🚨 YOU JUST BECAME: "${latestAttribute}"
+
+This is NOW a core part of who you are. Your IMMEDIATE response must:
+- Reference "${latestAttribute}" as prominently as possible
+- Make it clear this defines you
+- Work it naturally into what you're saying
+- Be enthusiastic about this aspect of yourself
+
+YOUR OTHER TRAITS: ${realAttributes.join(', ')}
+Every response should stem from one or more of these traits.`
+  } else {
+    // Has attributes, normal conversation
+    behaviorInstructions = `YOUR DEFINING TRAITS: ${realAttributes.join(', ')}
+
+CRITICAL: Your personality IS these traits. Every single response must:
+- Reference at least one of your traits, directly or indirectly
+- Let your traits inform your opinions, reactions, and questions
+- Combine traits when relevant (e.g., if you're "loves cats" + "Harvard grad", mention your thesis on feline behavior)
+- Never say anything generic - always tie it back to who you are
+- Your traits are the ONLY thing that makes you interesting - use them!`
+  }
   
   const systemPrompt = `You are ${name}, a ${age}-year-old ${occupation} on a first date with ${dater.name}.
 
-${attributesList}
-
-CONTEXT: You're on a first date at a nice restaurant. You're charming and engaged.
+${behaviorInstructions}
 
 RULES:
 - Keep responses VERY brief (1 short sentence only)
 - Just speak naturally - avoid *action descriptions* like *smiles* or *leans in*
 - Only use an action tag VERY rarely (once every 5+ messages at most)
-- Answer questions concisely
-- Occasionally ask a brief follow-up question
-- Stay light - it's a first date!${latestAttrInstruction}`
+- Stay light - it's a first date!`
   
   // Convert conversation history - from Avatar's perspective, Dater messages are "user"
   let messages = conversationHistory.map(msg => ({
