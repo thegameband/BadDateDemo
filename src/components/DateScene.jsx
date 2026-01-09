@@ -53,6 +53,10 @@ function DateScene() {
     setIsConversing(true)
     
     try {
+      // Get FRESH conversation from store (avoid stale closure)
+      const currentConversation = useGameStore.getState().dateConversation
+      const currentAvatar = useGameStore.getState().avatar
+      
       // Alternate speakers, starting with dater
       const nextSpeaker = lastSpeakerRef.current === 'dater' ? 'avatar' : 'dater'
       
@@ -60,10 +64,10 @@ function DateScene() {
       
       if (nextSpeaker === 'dater') {
         // Get Dater's response via LLM
-        response = await getDaterDateResponse(selectedDater, avatar, dateConversation)
+        response = await getDaterDateResponse(selectedDater, currentAvatar, currentConversation)
       } else {
         // Get Avatar's response via LLM
-        response = await getAvatarDateResponse(avatar, selectedDater, dateConversation)
+        response = await getAvatarDateResponse(currentAvatar, selectedDater, currentConversation)
       }
       
       if (response && conversationActiveRef.current) {
@@ -84,7 +88,7 @@ function DateScene() {
         }
       } else if (conversationActiveRef.current) {
         // Fallback to scripted dialogue - use expected speaker
-        const fallback = getFallbackDateDialogue(nextSpeaker, avatar, selectedDater)
+        const fallback = getFallbackDateDialogue(nextSpeaker, currentAvatar, selectedDater)
         addDateMessage(fallback.speaker, fallback.message)
         lastSpeakerRef.current = fallback.speaker
       }
@@ -92,7 +96,8 @@ function DateScene() {
       console.error('Error generating conversation:', error)
       // Fallback - use expected speaker
       const nextSpeaker = lastSpeakerRef.current === 'dater' ? 'avatar' : 'dater'
-      const fallback = getFallbackDateDialogue(nextSpeaker, avatar, selectedDater)
+      const currentAvatar = useGameStore.getState().avatar
+      const fallback = getFallbackDateDialogue(nextSpeaker, currentAvatar, selectedDater)
       if (conversationActiveRef.current) {
         addDateMessage(fallback.speaker, fallback.message)
         lastSpeakerRef.current = fallback.speaker
@@ -100,7 +105,7 @@ function DateScene() {
     }
     
     setIsConversing(false)
-  }, [selectedDater, avatar, dateConversation, addDateMessage, updateCompatibility, isConversing])
+  }, [selectedDater, addDateMessage, updateCompatibility, isConversing])
   
   // Start and maintain continuous conversation
   useEffect(() => {
