@@ -54,20 +54,20 @@ function ChatPhase() {
         setIsTyping(false)
         addChatMessage(llmResponse, false)
         
-        // Extract a trait from the response
-        const trait = await extractTraitFromResponse(playerMsg, llmResponse)
+        // Extract a specific, diverse trait from the response
+        const trait = await extractTraitFromResponse(playerMsg, llmResponse, discoveredTraits)
         if (trait) {
           addDiscoveredTrait(trait)
         }
       } else {
         // Fallback to hardcoded responses
-        setTimeout(() => {
+        setTimeout(async () => {
           setIsTyping(false)
           const fallbackResponse = getFallbackDaterResponse(selectedDater, playerMsg)
           addChatMessage(fallbackResponse, false)
           
           // Extract trait from fallback too
-          const trait = extractTraitFromResponse(playerMsg, fallbackResponse)
+          const trait = await extractTraitFromResponse(playerMsg, fallbackResponse, discoveredTraits)
           if (trait) {
             addDiscoveredTrait(trait)
           }

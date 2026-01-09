@@ -228,16 +228,20 @@ export function getFallbackDaterResponse(dater, playerMessage) {
 }
 
 /**
- * Extract a 1-2 word trait from a Dater's response
+ * Extract a specific, diverse trait from a Dater's response
  * This helps players discover who the Dater is through conversation
  */
-export async function extractTraitFromResponse(question, response) {
+export async function extractTraitFromResponse(question, response, existingTraits = []) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   
   if (!apiKey) {
     // Fallback: simple keyword extraction
     return extractTraitSimple(question, response)
   }
+  
+  const existingContext = existingTraits.length > 0 
+    ? `\n\nALREADY DISCOVERED (avoid these): ${existingTraits.join(', ')}`
+    : ''
   
   try {
     const result = await fetch(ANTHROPIC_API_URL, {
@@ -250,14 +254,39 @@ export async function extractTraitFromResponse(question, response) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 20,
-        system: `You extract 1-2 word personality traits from dating app conversations.
-Given a question and answer, respond with ONLY a 1-2 word trait that was revealed.
-Examples: "artistic", "adventurous", "Portland native", "values honesty", "hates small talk", "loves travel"
-If nothing specific was revealed, respond with just "NONE".`,
+        max_tokens: 25,
+        system: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
+
+Your job: Find the most interesting, specific detail revealed in the answer.
+
+GOOD traits (specific & memorable):
+- "left corporate job" (specific life choice)
+- "paints sunsets" (specific hobby detail)
+- "Buddhist curious" (specific belief)
+- "hates small talk" (specific preference)
+- "Portland raised" (specific origin)
+- "admires Bourdain" (specific influence)
+- "ex-accountant" (specific background)
+- "fears routine" (specific dealbreaker)
+- "midnight hiker" (specific quirk)
+- "vinyl collector" (specific interest)
+
+BAD traits (too generic):
+- "nice" / "friendly" / "interesting"
+- "creative" / "adventurous" (too broad)
+- "likes fun" / "enjoys life"
+
+Rules:
+1. Be SPECIFIC - extract the exact detail, not a category
+2. Be DIVERSE - look for values, origins, quirks, fears, influences, not just hobbies
+3. 1-3 words maximum
+4. If nothing specific was revealed, respond with just "NONE"${existingContext}`,
         messages: [{
           role: 'user',
-          content: `Question: "${question}"\nAnswer: "${response}"\n\nExtracted trait (1-2 words only):`
+          content: `Question asked: "${question}"
+Their answer: "${response}"
+
+What SPECIFIC trait or detail was revealed? (1-3 words only):`
         }],
       }),
     })
@@ -267,11 +296,23 @@ If nothing specific was revealed, respond with just "NONE".`,
     }
     
     const data = await result.json()
-    const trait = data.content[0].text.trim()
+    let trait = data.content[0].text.trim()
+    
+    // Clean up the response
+    trait = trait.replace(/^["']|["']$/g, '') // Remove quotes
+    trait = trait.replace(/^-\s*/, '') // Remove leading dash
     
     // Return null if nothing specific was found
-    if (trait === 'NONE' || trait.length > 25) {
+    if (trait.toUpperCase() === 'NONE' || trait.length > 30 || trait.length < 2) {
       return null
+    }
+    
+    // Check it's not too similar to existing traits
+    const lowerTrait = trait.toLowerCase()
+    for (const existing of existingTraits) {
+      if (existing.toLowerCase() === lowerTrait) {
+        return null
+      }
     }
     
     return trait
