@@ -36,7 +36,7 @@ export async function getChatResponse(messages, systemPrompt) {
     
     if (!response.ok) {
       const error = await response.json()
-      console.error('Claude API error:', error)
+      console.error('Claude API error:', JSON.stringify(error, null, 2))
       return null
     }
     
@@ -189,6 +189,10 @@ export function getFallbackDaterResponse(dater, playerMessage) {
   return defaults[Math.floor(Math.random() * defaults.length)]
 }
 
+// Track used fallback lines to avoid repetition
+const usedDaterLines = new Set()
+const usedAvatarLines = new Set()
+
 /**
  * Fallback date conversation (initial greeting handled separately)
  */
@@ -199,19 +203,41 @@ export function getFallbackDateDialogue(turn, avatar, dater) {
     "I'm curious - what are you looking for in a partner?",
     "What do you think makes a good connection?",
     "So what do you like to do for fun?",
+    "What's your favorite way to spend a weekend?",
+    "If you could travel anywhere tomorrow, where would you go?",
+    "What's something you're really passionate about?",
+    "Do you have any hidden talents?",
+    "What made you decide to try dating apps?",
   ]
   
   const avatarLines = [
-    "Thanks! I've been looking forward to this.",
-    "Well, there's a lot to unpack there...",
-    "That's a great question. Let me think...",
-    "I'm an open book, really.",
-    "Honestly, I'm just happy to be here.",
+    "Thanks! I've been really looking forward to meeting you.",
+    "Well, there's a lot to unpack there... where do I start?",
+    "That's a great question. Let me think about that.",
+    "I'm an open book, really. Ask me anything!",
+    "Honestly, I'm just happy to be here with good company.",
+    "Ha! That's a fun question. Okay so...",
+    "You know, I've never really thought about it that way before.",
+    "I love how curious you are! It's refreshing.",
+    "That actually reminds me of something...",
+    "Hmm, good question. I'd have to say...",
   ]
   
+  // Get an unused line for the current speaker
+  const getUnusedLine = (lines, usedSet) => {
+    const unused = lines.filter((_, i) => !usedSet.has(i))
+    if (unused.length === 0) {
+      usedSet.clear() // Reset if all used
+      return lines[Math.floor(Math.random() * lines.length)]
+    }
+    const idx = lines.indexOf(unused[Math.floor(Math.random() * unused.length)])
+    usedSet.add(idx)
+    return lines[idx]
+  }
+  
   if (turn % 2 === 0) {
-    return { speaker: 'dater', message: daterLines[turn % daterLines.length] }
+    return { speaker: 'dater', message: getUnusedLine(daterLines, usedDaterLines) }
   } else {
-    return { speaker: 'avatar', message: avatarLines[turn % avatarLines.length] }
+    return { speaker: 'avatar', message: getUnusedLine(avatarLines, usedAvatarLines) }
   }
 }
