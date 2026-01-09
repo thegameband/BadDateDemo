@@ -23,7 +23,7 @@
   justify-content: center;
   gap: 40px;
   padding: 32px;
-  padding-right: calc(32px + 170px); /* Offset for sidebar to center on screen */
+  margin-left: -170px; /* Offset for sidebar to center on full screen */
   background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 100%);
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
@@ -569,7 +569,7 @@
     flex-wrap: wrap;
     gap: 20px;
     padding: 20px;
-    padding-right: 20px; /* Reset offset on mobile */
+    margin-left: 0; /* Reset offset on mobile */
   }
   
   .character-image {
