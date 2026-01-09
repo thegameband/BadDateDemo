@@ -1,16 +1,78 @@
-# React + Vite
+# Bad Date 💔
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A synchronous multiplayer party game for 2–200 players where the audience collaboratively shapes a disastrous (or perfect?) first date.
 
-Currently, two official plugins are available:
+## 🎮 How to Play
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Phase 1: Matchmaking
+Swipe through potential Daters Tinder-style. Vote "Yes" or "No" on each candidate. Once three candidates have enough "Yes" votes, choose your favorite from the top 3!
 
-## React Compiler
+### Phase 2: Chatting
+Chat with your chosen Dater to gather intel. Ask about their job, interests, and dealbreakers. The more you learn, the better you can shape your Avatar later!
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Phase 3-6: The Date
+Watch as your Avatar and the Dater go on their date. Submit attributes to shape who your Avatar becomes:
+- **Small Talk**: Submit freeform attributes ("went to Harvard", "loves cats", "just got out of prison")
+- **Voting**: Vote on submitted attributes to apply to your Avatar
+- **Hot Seat**: One player gets randomly selected to instantly apply any attribute they want!
 
-## Expanding the ESLint configuration
+### Win Condition
+- **80%+ Compatibility**: They kiss! 💋
+- **Below 80%**: Awkward silence or rejection 💀
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🚀 Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## 🎨 Features
+
+- **Tinder-style swiping** for matchmaking
+- **Real-time chat** with AI-powered Dater responses
+- **Live date conversation** that reacts to player input
+- **Compatibility meter** that fluctuates based on Avatar attributes
+- **Hot Seat moments** for individual spotlight pressure
+- **Beautiful animations** with Framer Motion
+
+## 🛠️ Tech Stack
+
+- **React 18** + **Vite**
+- **Zustand** for state management
+- **Framer Motion** for animations
+- **CSS Variables** for theming
+
+## 📁 Project Structure
+
+```
+src/
+├── components/
+│   ├── Lobby.jsx         # Start screen
+│   ├── Matchmaking.jsx   # Tinder-style swipe interface
+│   ├── ChatPhase.jsx     # Pre-date chat with Dater
+│   ├── DateScene.jsx     # Main date with voting/hot seat
+│   ├── Results.jsx       # End-game results screen
+│   └── GameHeader.jsx    # Top bar with timer & compatibility
+├── store/
+│   └── gameStore.js      # Zustand game state
+└── index.css             # Global styles & theme
+```
+
+## 🎯 Future Enhancements
+
+- [ ] Real multiplayer with WebSockets
+- [ ] LLM integration for dynamic conversations
+- [ ] More Dater personalities and hidden attributes
+- [ ] Sound effects and music
+- [ ] Mobile-responsive design improvements
+
+---
+
+Built with 💔 for chaotic dating fun!

@@ -1,0 +1,121 @@
+.game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: rgba(26, 18, 22, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-left, .header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  font-size: 1.8rem;
+  animation: heartbeat 2s ease-in-out infinite;
+}
+
+.logo-text {
+  font-size: 1.4rem;
+  font-weight: 800;
+  background: var(--gradient-love);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.phase-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dating-status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.dating-status strong {
+  color: var(--accent-pink);
+}
+
+.compatibility-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  padding: 8px 16px;
+  border-radius: 50px;
+}
+
+.meter-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.meter-bar {
+  width: 100px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.meter-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-width: 45px;
+  text-align: right;
+}
+
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  padding: 8px 16px;
+  border-radius: 50px;
+}
+
+.timer-icon {
+  font-size: 1.1rem;
+}
+
+.timer-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-gold);
+}
+

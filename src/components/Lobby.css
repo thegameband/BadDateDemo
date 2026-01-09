@@ -1,0 +1,144 @@
+.lobby {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 40px 20px;
+}
+
+.lobby-background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.floating-hearts {
+  position: absolute;
+  inset: 0;
+}
+
+.floating-heart {
+  position: absolute;
+  font-size: 2rem;
+  opacity: 0.6;
+}
+
+.lobby-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 10;
+  max-width: 600px;
+}
+
+.title-container {
+  margin-bottom: 32px;
+}
+
+.game-title {
+  font-size: 5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  line-height: 1;
+}
+
+.title-bad {
+  background: var(--gradient-chaos);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.title-heart {
+  font-size: 4rem;
+  animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+.title-date {
+  background: var(--gradient-love);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.game-tagline {
+  font-size: 2rem;
+  color: var(--text-secondary);
+  margin-top: 12px;
+}
+
+.lobby-description {
+  font-size: 1.15rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 40px;
+}
+
+.lobby-description .highlight {
+  color: var(--accent-pink);
+  font-weight: 600;
+}
+
+.lobby-features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+  width: 100%;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  padding: 16px 20px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.feature:hover {
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  font-size: 1.5rem;
+}
+
+.start-button {
+  font-size: 1.2rem;
+  padding: 18px 48px;
+}
+
+.player-count {
+  margin-top: 24px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .game-title {
+    font-size: 3rem;
+  }
+  
+  .title-heart {
+    font-size: 2.5rem;
+  }
+  
+  .game-tagline {
+    font-size: 1.4rem;
+  }
+  
+  .lobby-features {
+    grid-template-columns: 1fr;
+  }
+}
+

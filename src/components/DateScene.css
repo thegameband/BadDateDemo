@@ -1,0 +1,358 @@
+.date-scene {
+  flex: 1;
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+  max-height: calc(100vh - 80px);
+  overflow: hidden;
+}
+
+.date-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+/* Characters */
+.date-characters {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 32px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.character {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.character-image {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--accent-pink);
+  box-shadow: 0 0 30px rgba(255, 77, 109, 0.3);
+}
+
+.character-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-character .character-image {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 30px rgba(157, 78, 221, 0.3);
+}
+
+.character-info h3 {
+  font-size: 1.2rem;
+  margin-bottom: 2px;
+}
+
+.character-info span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.character-attributes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 200px;
+}
+
+.attr-tag {
+  background: rgba(157, 78, 221, 0.2);
+  color: var(--accent-purple);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.vs-badge {
+  font-size: 2.5rem;
+}
+
+/* Conversation */
+.conversation-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dialogue {
+  display: flex;
+  flex-direction: column;
+  max-width: 70%;
+}
+
+.dialogue.avatar {
+  align-self: flex-start;
+}
+
+.dialogue.dater {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.dialogue-bubble {
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: var(--bg-card-hover);
+}
+
+.dialogue.avatar .dialogue-bubble {
+  border-bottom-left-radius: 4px;
+  background: rgba(157, 78, 221, 0.2);
+  border: 1px solid rgba(157, 78, 221, 0.3);
+}
+
+.dialogue.dater .dialogue-bubble {
+  border-bottom-right-radius: 4px;
+  background: rgba(255, 77, 109, 0.2);
+  border: 1px solid rgba(255, 77, 109, 0.3);
+}
+
+.dialogue-bubble p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.dialogue-speaker {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding: 0 8px;
+}
+
+/* Sidebar */
+.date-sidebar {
+  width: 340px;
+  flex-shrink: 0;
+}
+
+.sidebar-panel {
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-panel h3 {
+  font-size: 1.3rem;
+  margin-bottom: 8px;
+}
+
+.panel-desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* Attribute Form */
+.attribute-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.attribute-form input {
+  border-radius: 16px;
+}
+
+/* Submitted List */
+.submitted-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.submitted-list h4 {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.submitted-attr {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+/* Voting Panel */
+.voting-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.vote-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  padding: 14px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.vote-option:hover:not(:disabled) {
+  border-color: var(--accent-pink);
+  background: rgba(255, 77, 109, 0.1);
+}
+
+.vote-option.voted {
+  border-color: var(--accent-mint);
+  background: rgba(6, 214, 160, 0.15);
+}
+
+.vote-option:disabled:not(.voted) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vote-count {
+  font-weight: 600;
+  color: var(--accent-gold);
+}
+
+.finish-vote-btn {
+  width: 100%;
+}
+
+/* Applying Panel */
+.applying-panel {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.applying-animation {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
+
+.applied-attrs {
+  margin-top: 24px;
+  width: 100%;
+}
+
+.applied-attr {
+  background: rgba(6, 214, 160, 0.15);
+  color: var(--accent-mint);
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+/* Hot Seat Panel */
+.hotseat-panel {
+  background: linear-gradient(180deg, rgba(255, 107, 107, 0.1) 0%, var(--bg-card) 100%);
+  border: 2px solid var(--accent-coral);
+  text-align: center;
+}
+
+.hotseat-spotlight {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spotlight-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--accent-coral);
+}
+
+.fire-icon {
+  font-size: 2.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.hotseat-panel h3 {
+  font-size: 1.8rem;
+  color: var(--accent-coral);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.hotseat-player {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.hotseat-player strong {
+  color: var(--accent-gold);
+}
+
+.hotseat-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.hotseat-form input {
+  text-align: center;
+  border-color: var(--accent-coral);
+}
+
+@media (max-width: 900px) {
+  .date-scene {
+    flex-direction: column;
+  }
+  
+  .date-sidebar {
+    width: 100%;
+    max-height: 300px;
+  }
+  
+  .date-characters {
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 20px;
+  }
+  
+  .character-image {
+    width: 70px;
+    height: 70px;
+  }
+}
+

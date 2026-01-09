@@ -1,0 +1,211 @@
+import { motion } from 'framer-motion'
+import { useGameStore } from '../store/gameStore'
+import './Results.css'
+
+function Results() {
+  const { 
+    compatibility, 
+    selectedDater, 
+    avatar, 
+    appliedAttributes,
+    resetGame 
+  } = useGameStore()
+  
+  const isWin = compatibility >= 80
+  const isGreatMatch = compatibility >= 95
+  const isTerrible = compatibility <= 20
+  
+  const getResultTitle = () => {
+    if (isGreatMatch) return "💒 PERFECT MATCH!"
+    if (isWin) return "😘 They're Into You!"
+    if (isTerrible) return "💀 Absolute Disaster"
+    if (compatibility >= 50) return "😬 Awkward Silence..."
+    return "❌ Total Rejection"
+  }
+  
+  const getResultDescription = () => {
+    if (isGreatMatch) {
+      return `${selectedDater.name} is already texting their friends about you. Vegas wedding incoming? 💍`
+    }
+    if (isWin) {
+      return `You did it! ${selectedDater.name} definitely wants a second date. The chemistry was real! ✨`
+    }
+    if (isTerrible) {
+      return `${selectedDater.name} has already blocked you on every platform. They're telling this story at parties for years.`
+    }
+    if (compatibility >= 50) {
+      return `It wasn't terrible, but ${selectedDater.name} is giving you the "I'll text you" that never comes.`
+    }
+    return `${selectedDater.name} excused themselves to the bathroom 20 minutes ago. They're not coming back.`
+  }
+  
+  const getEndingScene = () => {
+    if (isGreatMatch) return "🌅 Walking hand-in-hand into the sunset..."
+    if (isWin) return "💋 A sweet goodnight kiss at the door."
+    if (isTerrible) return "🚕 They called an Uber from the table."
+    if (compatibility >= 50) return "🤝 An awkward handshake goodbye."
+    return "🏃 Speed-walking in the opposite direction."
+  }
+  
+  return (
+    <div className={`results ${isWin ? 'win' : 'lose'}`}>
+      <div className="results-background">
+        {isWin ? (
+          [...Array(20)].map((_, i) => (
+            <motion.span
+              key={i}
+              className="confetti"
+              initial={{ 
+                y: -20, 
+                x: Math.random() * window.innerWidth,
+                rotate: 0,
+                opacity: 1 
+              }}
+              animate={{ 
+                y: window.innerHeight + 100,
+                rotate: Math.random() * 720 - 360,
+                opacity: 0
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+                ease: 'linear'
+              }}
+            >
+              {['💕', '❤️', '✨', '💖', '🎉'][Math.floor(Math.random() * 5)]}
+            </motion.span>
+          ))
+        ) : (
+          [...Array(10)].map((_, i) => (
+            <motion.span
+              key={i}
+              className="confetti"
+              initial={{ 
+                y: -20, 
+                x: Math.random() * window.innerWidth,
+                opacity: 0.6 
+              }}
+              animate={{ 
+                y: window.innerHeight + 100,
+                opacity: 0
+              }}
+              transition={{
+                duration: 4 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 3,
+                ease: 'linear'
+              }}
+            >
+              {['💔', '😬', '🙈', '❌'][Math.floor(Math.random() * 4)]}
+            </motion.span>
+          ))
+        )}
+      </div>
+      
+      <motion.div 
+        className="results-card"
+        initial={{ opacity: 0, scale: 0.8, y: 50 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+      >
+        <motion.div 
+          className="compatibility-result"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.3, type: 'spring', stiffness: 300 }}
+        >
+          <div className={`compat-circle ${isWin ? 'success' : 'fail'}`}>
+            <span className="compat-value">{compatibility}%</span>
+            <span className="compat-label">Compatible</span>
+          </div>
+        </motion.div>
+        
+        <motion.h1 
+          className="result-title"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          {getResultTitle()}
+        </motion.h1>
+        
+        <motion.p 
+          className="result-description"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.7 }}
+        >
+          {getResultDescription()}
+        </motion.p>
+        
+        <motion.div 
+          className="ending-scene"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.9 }}
+        >
+          <p>{getEndingScene()}</p>
+        </motion.div>
+        
+        <motion.div 
+          className="date-summary"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.1 }}
+        >
+          <h3>Date Recap</h3>
+          
+          <div className="summary-row">
+            <div className="summary-item">
+              <img src={selectedDater.photo} alt={selectedDater.name} />
+              <div>
+                <strong>{selectedDater.name}</strong>
+                <span>{selectedDater.tagline}</span>
+              </div>
+            </div>
+            
+            <span className="summary-vs">💕</span>
+            
+            <div className="summary-item">
+              <img 
+                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Avatar&backgroundColor=b6e3f4" 
+                alt="Avatar" 
+              />
+              <div>
+                <strong>{avatar.name}</strong>
+                <span>{avatar.occupation}</span>
+              </div>
+            </div>
+          </div>
+          
+          {appliedAttributes.length > 0 && (
+            <div className="applied-summary">
+              <h4>Your Avatar Became:</h4>
+              <div className="attr-list">
+                {appliedAttributes.map((attr, i) => (
+                  <span key={i} className="attr-badge">{attr}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+        
+        <motion.button
+          className="btn btn-primary play-again-btn"
+          onClick={resetGame}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.3 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          🔄 Play Again
+        </motion.button>
+      </motion.div>
+    </div>
+  )
+}
+
+export default Results
+
