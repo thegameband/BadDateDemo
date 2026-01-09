@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
 import './Matchmaking.css'
@@ -13,6 +13,11 @@ function Matchmaking() {
   // Motion values for drag
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-200, 0, 200], [-25, 0, 25])
+  
+  // Reset x position when dater changes
+  useEffect(() => {
+    x.set(0)
+  }, [currentDaterIndex, x])
   
   // Transform for swipe indicators
   const likeOpacity = useTransform(x, [0, 100], [0, 1])
@@ -54,14 +59,14 @@ function Matchmaking() {
             dragElastic={1}
             onDragStart={() => setIsDragging(true)}
             onDragEnd={handleDragEnd}
-            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            initial={{ opacity: 0, scale: 0.8, y: 50, x: 0 }}
             animate={{ 
               opacity: 1,
               scale: 1, 
               y: 0,
-              x: swipeDirection === 'left' ? -400 : swipeDirection === 'right' ? 400 : undefined,
+              x: swipeDirection === 'left' ? -400 : swipeDirection === 'right' ? 400 : 0,
             }}
-            exit={{ opacity: 0, scale: 0.8 }}
+            exit={{ opacity: 0, scale: 0.8, x: swipeDirection === 'left' ? -400 : 400 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             whileTap={{ cursor: 'grabbing' }}
           >
