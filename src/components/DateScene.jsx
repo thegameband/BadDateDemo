@@ -396,7 +396,6 @@ function DateScene() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="e.g., 'went to Harvard', 'loves cats'..."
-                maxLength={50}
                 disabled={attributeCooldown}
               />
               <button 
