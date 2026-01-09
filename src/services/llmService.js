@@ -195,8 +195,9 @@ const usedAvatarLines = new Set()
 
 /**
  * Fallback date conversation (initial greeting handled separately)
+ * @param {string} expectedSpeaker - 'dater' or 'avatar'
  */
-export function getFallbackDateDialogue(turn, avatar, dater) {
+export function getFallbackDateDialogue(expectedSpeaker, avatar, dater) {
   const daterLines = [
     "Tell me something about yourself that would surprise me.",
     "What's the most spontaneous thing you've ever done?",
@@ -235,7 +236,7 @@ export function getFallbackDateDialogue(turn, avatar, dater) {
     return lines[idx]
   }
   
-  if (turn % 2 === 0) {
+  if (expectedSpeaker === 'dater') {
     return { speaker: 'dater', message: getUnusedLine(daterLines, usedDaterLines) }
   } else {
     return { speaker: 'avatar', message: getUnusedLine(avatarLines, usedAvatarLines) }

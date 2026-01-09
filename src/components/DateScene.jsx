@@ -83,15 +83,16 @@ function DateScene() {
           }
         }
       } else if (conversationActiveRef.current) {
-        // Fallback to scripted dialogue
-        const fallback = getFallbackDateDialogue(dateConversation.length, avatar, selectedDater)
+        // Fallback to scripted dialogue - use expected speaker
+        const fallback = getFallbackDateDialogue(nextSpeaker, avatar, selectedDater)
         addDateMessage(fallback.speaker, fallback.message)
         lastSpeakerRef.current = fallback.speaker
       }
     } catch (error) {
       console.error('Error generating conversation:', error)
-      // Fallback
-      const fallback = getFallbackDateDialogue(dateConversation.length, avatar, selectedDater)
+      // Fallback - use expected speaker
+      const nextSpeaker = lastSpeakerRef.current === 'dater' ? 'avatar' : 'dater'
+      const fallback = getFallbackDateDialogue(nextSpeaker, avatar, selectedDater)
       if (conversationActiveRef.current) {
         addDateMessage(fallback.speaker, fallback.message)
         lastSpeakerRef.current = fallback.speaker
