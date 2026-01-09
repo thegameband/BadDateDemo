@@ -195,70 +195,9 @@ function DateScene() {
     }
   }, []) // Only run on mount
   
-  // React to newly applied attributes with IMMEDIATE conversation
-  useEffect(() => {
-    if (appliedAttributes.length > 0 && phase === 'applying') {
-      // Get fresh state for the latest attribute
-      const currentLatestAttr = useGameStore.getState().latestAttribute
-      
-      // After brief "applying" feedback, trigger immediate reactions
-      setTimeout(async () => {
-        const freshConversation = useGameStore.getState().dateConversation
-        const freshAvatar = useGameStore.getState().avatar
-        const freshLatestAttr = useGameStore.getState().latestAttribute
-        
-        console.log('Triggering attribute reaction for:', freshLatestAttr)
-        
-        // Avatar works in the new attribute subtly
-        const avatarResponse = await getAvatarDateResponse(
-          freshAvatar,
-          selectedDater,
-          freshConversation,
-          freshLatestAttr // Pass the latest attribute!
-        )
-        
-        if (avatarResponse) {
-          addDateMessage('avatar', avatarResponse)
-          lastSpeakerRef.current = 'avatar'
-          
-          // Dater reacts with heightened intensity after a delay
-          setTimeout(async () => {
-            const newestConversation = useGameStore.getState().dateConversation
-            const newestAvatar = useGameStore.getState().avatar
-            const newestLatestAttr = useGameStore.getState().latestAttribute
-            const reactionsLeft = useGameStore.getState().latestAttributeReactionsLeft
-            
-            console.log('Dater reacting to:', newestLatestAttr, 'reactions left:', reactionsLeft)
-            
-            const daterReaction = await getDaterDateResponse(
-              selectedDater,
-              newestAvatar,
-              newestConversation,
-              reactionsLeft > 0 ? newestLatestAttr : null // Heightened reaction!
-            )
-            
-            if (daterReaction) {
-              addDateMessage('dater', daterReaction)
-              lastSpeakerRef.current = 'dater'
-              
-              // Consume one heightened reaction
-              if (reactionsLeft > 0) {
-                useGameStore.getState().consumeDaterReaction()
-              }
-              
-              // Adjust compatibility based on reaction
-              const lowerReaction = daterReaction.toLowerCase()
-              if (lowerReaction.includes('!') && (lowerReaction.includes('love') || lowerReaction.includes('amazing'))) {
-                updateCompatibility(10)
-              } else if (lowerReaction.includes('spider') || lowerReaction.includes('what') || lowerReaction.includes('wait')) {
-                updateCompatibility(-8)
-              }
-            }
-          }, 3000)
-        }
-      }, 1800) // After the "applying" phase ends
-    }
-  }, [appliedAttributes.length, phase, selectedDater, addDateMessage, updateCompatibility])
+  // Attribute reactions are now handled naturally by the conversation loop
+  // The latestAttribute is stored in the store and will be picked up on the next turn
+  // Avatar incorporates it subtly, Dater reacts with heightened intensity
   
   // Timer tick
   useEffect(() => {
