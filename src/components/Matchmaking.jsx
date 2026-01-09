@@ -13,7 +13,6 @@ function Matchmaking() {
   // Motion values for drag
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-200, 0, 200], [-25, 0, 25])
-  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5])
   
   // Transform for swipe indicators
   const likeOpacity = useTransform(x, [0, 100], [0, 1])
@@ -49,7 +48,7 @@ function Matchmaking() {
           <motion.div
             key={currentDater.id}
             className={`dater-card ${swipeDirection ? `swiping-${swipeDirection}` : ''} ${isDragging ? 'dragging' : ''}`}
-            style={{ x, rotate, opacity }}
+            style={{ x, rotate }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={1}
@@ -57,6 +56,7 @@ function Matchmaking() {
             onDragEnd={handleDragEnd}
             initial={{ opacity: 0, scale: 0.8, y: 50 }}
             animate={{ 
+              opacity: 1,
               scale: 1, 
               y: 0,
               x: swipeDirection === 'left' ? -400 : swipeDirection === 'right' ? 400 : undefined,
