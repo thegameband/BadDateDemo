@@ -190,15 +190,15 @@ export function getFallbackDaterResponse(dater, playerMessage) {
 }
 
 /**
- * Fallback date conversation
+ * Fallback date conversation (initial greeting handled separately)
  */
 export function getFallbackDateDialogue(turn, avatar, dater) {
   const daterLines = [
-    `So... here we are! I have to say, ${avatar.name}, you seem really interesting.`,
     "Tell me something about yourself that would surprise me.",
     "What's the most spontaneous thing you've ever done?",
-    "I'm curious what made you want to meet up tonight.",
+    "I'm curious - what are you looking for in a partner?",
     "What do you think makes a good connection?",
+    "So what do you like to do for fun?",
   ]
   
   const avatarLines = [
@@ -206,11 +206,12 @@ export function getFallbackDateDialogue(turn, avatar, dater) {
     "Well, there's a lot to unpack there...",
     "That's a great question. Let me think...",
     "I'm an open book, really.",
+    "Honestly, I'm just happy to be here.",
   ]
   
   if (turn % 2 === 0) {
-    return { speaker: 'dater', message: daterLines[Math.floor(turn / 2) % daterLines.length] }
+    return { speaker: 'dater', message: daterLines[turn % daterLines.length] }
   } else {
-    return { speaker: 'avatar', message: avatarLines[Math.floor(turn / 2) % avatarLines.length] }
+    return { speaker: 'avatar', message: avatarLines[turn % avatarLines.length] }
   }
 }
