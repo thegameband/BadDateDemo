@@ -390,7 +390,7 @@ function DateScene() {
               />
             </div>
             <div className="compatibility-emoji">
-              {compatibility > 80 ? '💕' : compatibility > 60 ? '💗' : compatibility > 40 ? '💛' : compatibility > 20 ? '😬' : '💔'}
+              {compatibility > 80 ? '💕' : compatibility > 60 ? '💗' : compatibility > 40 ? '🙂' : compatibility > 20 ? '😬' : '💔'}
             </div>
           </motion.div>
           
