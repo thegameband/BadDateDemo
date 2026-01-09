@@ -1,83 +1,5 @@
 import { create } from 'zustand'
-
-// Generate mock Daters with hidden attributes
-const generateDaters = () => [
-  {
-    id: 1,
-    name: 'Alex',
-    age: 28,
-    photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=ffdfbf',
-    tagline: 'Adventure seeker & coffee enthusiast ☕',
-    visibleTraits: ['Loves hiking', 'Works in tech'],
-    hiddenAttributes: {
-      job: 'Software Engineer',
-      interests: ['hiking', 'coding', 'craft beer', 'board games'],
-      dealbreakers: ['smoking', 'hates dogs', 'no sense of humor'],
-      idealPartner: ['creative', 'outdoorsy', 'witty', 'dog lover'],
-      personality: 'Nerdy but adventurous. Loves deep conversations and bad puns.',
-    },
-  },
-  {
-    id: 2,
-    name: 'Jordan',
-    age: 32,
-    photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jordan&backgroundColor=c0aede',
-    tagline: 'Artist by day, DJ by night 🎨🎧',
-    visibleTraits: ['Creative soul', 'Night owl'],
-    hiddenAttributes: {
-      job: 'Graphic Designer & DJ',
-      interests: ['art', 'music', 'vinyl records', 'late night diners'],
-      dealbreakers: ['boring', 'early bird', 'hates music'],
-      idealPartner: ['spontaneous', 'creative', 'music lover', 'night owl'],
-      personality: 'Eccentric and passionate. Lives for creative expression and good vibes.',
-    },
-  },
-  {
-    id: 3,
-    name: 'Sam',
-    age: 26,
-    photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=ffd5dc',
-    tagline: 'Gym rat with a heart of gold 💪❤️',
-    visibleTraits: ['Fitness fanatic', 'Dog parent'],
-    hiddenAttributes: {
-      job: 'Personal Trainer',
-      interests: ['fitness', 'nutrition', 'dogs', 'Netflix binges'],
-      dealbreakers: ['lazy', 'mean to animals', 'negative attitude'],
-      idealPartner: ['healthy lifestyle', 'positive', 'animal lover', 'supportive'],
-      personality: 'Energetic and encouraging. Believes in balance between gains and couch time.',
-    },
-  },
-  {
-    id: 4,
-    name: 'Morgan',
-    age: 30,
-    photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Morgan&backgroundColor=d1d4f9',
-    tagline: 'Bookworm seeking plot twist 📚✨',
-    visibleTraits: ['Literature lover', 'Tea obsessed'],
-    hiddenAttributes: {
-      job: 'Librarian',
-      interests: ['reading', 'writing', 'tea', 'cozy cafes', 'cats'],
-      dealbreakers: ['anti-intellectual', 'loud', 'impatient'],
-      idealPartner: ['intellectual', 'calm', 'loves books', 'good listener'],
-      personality: 'Quiet and thoughtful. Finds magic in words and comfortable silences.',
-    },
-  },
-  {
-    id: 5,
-    name: 'Riley',
-    age: 29,
-    photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Riley&backgroundColor=baffc9',
-    tagline: 'Chaos coordinator & meme lord 🔥😂',
-    visibleTraits: ['Life of the party', 'Zero filter'],
-    hiddenAttributes: {
-      job: 'Event Planner',
-      interests: ['parties', 'memes', 'karaoke', 'spicy food', 'pranks'],
-      dealbreakers: ['uptight', 'no humor', 'party pooper'],
-      idealPartner: ['funny', 'spontaneous', 'bold', 'can take a joke'],
-      personality: 'Chaotic good energy. Will make you laugh until you cry.',
-    },
-  },
-]
+import { daters } from '../data/daters'
 
 // Initial Avatar state
 const initialAvatar = {
@@ -92,13 +14,10 @@ export const useGameStore = create((set, get) => ({
   // Game phase: 'lobby' | 'matchmaking' | 'chatting' | 'smalltalk' | 'voting' | 'applying' | 'hotseat' | 'results'
   phase: 'lobby',
   
-  // Daters
-  daters: generateDaters(),
+  // Daters - now using rich character data
+  daters: daters,
   currentDaterIndex: 0,
-  votes: {}, // { daterId: { yes: count, no: count } }
   selectedDater: null,
-  topThreeDaters: [],
-  showingTopThree: false,
   
   // Chat phase
   chatMessages: [],
@@ -129,39 +48,30 @@ export const useGameStore = create((set, get) => ({
   // Actions
   setPhase: (phase) => set({ phase }),
   
-  // Matchmaking actions
+  // Matchmaking actions - SIMPLIFIED: first right swipe = instant match
   swipeDater: (daterId, direction) => {
-    const { votes, daters, currentDaterIndex } = get()
-    const newVotes = { ...votes }
-    
-    if (!newVotes[daterId]) {
-      newVotes[daterId] = { yes: 0, no: 0 }
-    }
+    const { daters, currentDaterIndex } = get()
     
     if (direction === 'right' || direction === 'yes') {
-      newVotes[daterId].yes += 1
+      // Instant match! Go straight to chat
+      const matchedDater = daters.find(d => d.id === daterId)
+      set({ 
+        selectedDater: matchedDater, 
+        phase: 'chatting', 
+        chatMessages: [] 
+      })
     } else {
-      newVotes[daterId].no += 1
-    }
-    
-    set({ votes: newVotes })
-    
-    // For single-player demo: advance immediately after each vote
-    // Check if we have 3 candidates with yes votes
-    const yesVotedDaters = daters.filter(d => newVotes[d.id]?.yes >= 1)
-    
-    if (yesVotedDaters.length >= 3) {
-      // Sort by yes votes and take top 3
-      const topThree = [...yesVotedDaters]
-        .sort((a, b) => (newVotes[b.id]?.yes || 0) - (newVotes[a.id]?.yes || 0))
-        .slice(0, 3)
-      set({ topThreeDaters: topThree, showingTopThree: true })
-    } else if (currentDaterIndex < daters.length - 1) {
-      // Move to next card
-      set({ currentDaterIndex: currentDaterIndex + 1 })
+      // Swiped left - move to next card
+      if (currentDaterIndex < daters.length - 1) {
+        set({ currentDaterIndex: currentDaterIndex + 1 })
+      } else {
+        // Wrapped around - go back to first
+        set({ currentDaterIndex: 0 })
+      }
     }
   },
   
+  // Legacy function for compatibility
   selectFinalDater: (daterId) => {
     const { daters } = get()
     const selected = daters.find(d => d.id === daterId)
@@ -175,6 +85,7 @@ export const useGameStore = create((set, get) => ({
       id: Date.now(),
       text: message,
       sender: isPlayer ? 'player' : selectedDater.name,
+      isPlayer: isPlayer,
       timestamp: new Date(),
     }
     set({ chatMessages: [...chatMessages, newMessage] })
@@ -283,12 +194,8 @@ export const useGameStore = create((set, get) => ({
   resetGame: () => {
     set({
       phase: 'lobby',
-      daters: generateDaters(),
       currentDaterIndex: 0,
-      votes: {},
       selectedDater: null,
-      topThreeDaters: [],
-      showingTopThree: false,
       chatMessages: [],
       avatar: { ...initialAvatar },
       dateConversation: [],
@@ -302,4 +209,3 @@ export const useGameStore = create((set, get) => ({
     })
   },
 }))
-

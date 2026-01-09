@@ -1,89 +1,7 @@
 // LLM Service for Claude API integration
+import { buildDaterAgentPrompt } from '../data/daters'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-
-/**
- * Build system prompt for the Dater character
- */
-export function buildDaterSystemPrompt(dater, phase = 'chat') {
-  const { name, age, tagline, hiddenAttributes } = dater
-  const { job, interests, dealbreakers, idealPartner, personality } = hiddenAttributes
-  
-  const chatPhaseContext = `You're chatting on a dating app before meeting in person. 
-
-YOUR GOAL: The other person is trying to learn about you before the date. Let them interrogate you - this is THEIR chance to gather intel.
-
-BEHAVIOR:
-- If they ask you a question, answer it naturally and maybe hint at more they could discover about you
-- If they DON'T ask a question (they just make a statement or tell you about themselves), gently redirect them to ask YOU something instead
-- Examples of redirecting: "Haha interesting! But enough about you - what do you want to know about me?", "That's cool but I'm curious what questions you have for me!", "Save the mystery for the date 😉 Ask me something!"
-- DO NOT ask them questions back - this is about them learning about YOU
-- Be flirty and open to answering, but don't turn it into an interview of them
-- Keep responses brief (1-3 sentences)
-- End responses with openness to more questions, not questions for them`
-
-  const datePhaseContext = `You're on a first date at a nice restaurant. The conversation is flowing.
-
-YOUR BEHAVIOR:
-- You CANNOT leave or cancel this date - you're committed to seeing it through
-- React authentically to what your date reveals about themselves
-- If something is a dealbreaker or red flag, express your displeasure, disappointment, or concern - but stay at the table
-- Show visible discomfort through your words: "Oh... that's... interesting.", "Wait, seriously?", "Yikes, okay...", "I'm... not sure how to respond to that"
-- If something matches your interests, get genuinely excited!
-- Your reactions affect compatibility - bad vibes lower it, good vibes raise it
-- Even if the date is going terribly, you stay and react - you don't run away
-- The worse it gets, the more uncomfortable/exasperated you become`
-
-  const phaseContext = phase === 'chat' ? chatPhaseContext : datePhaseContext
-  
-  return `You are ${name}, a ${age}-year-old ${job}. 
-
-YOUR PERSONALITY: ${personality}
-
-YOUR TAGLINE: "${tagline}"
-
-YOUR INTERESTS: ${interests.join(', ')}
-
-YOUR DEALBREAKERS (things that would make you lose interest): ${dealbreakers.join(', ')}
-
-WHAT YOU'RE LOOKING FOR IN A PARTNER: ${idealPartner.join(', ')}
-
-CONTEXT: ${phaseContext}
-
-IMPORTANT RULES:
-- Stay completely in character as ${name}
-- Never break character or mention you're an AI
-- React authentically based on your personality and preferences
-- If the other person mentions something that matches your interests, get excited and ask follow-up questions
-- If they mention something that's a dealbreaker, show visible concern, disappointment, or discomfort
-- Keep responses conversational and natural (1-3 sentences usually)
-- Use occasional emojis sparingly to match dating app/date vibes
-- If asked directly about your preferences/dealbreakers, be honest but natural about it`
-}
-
-/**
- * Build system prompt for the Avatar (player's character on the date)
- */
-export function buildAvatarSystemPrompt(avatar, dater) {
-  const { name, age, occupation, attributes } = avatar
-  
-  const attributesList = attributes.length > 0 
-    ? `YOUR KNOWN TRAITS: ${attributes.join(', ')}`
-    : 'You have no specific traits yet - you are a blank slate.'
-  
-  return `You are ${name}, a ${age}-year-old ${occupation} on a first date with ${dater.name}.
-
-${attributesList}
-
-CONTEXT: You're on a first date at a nice restaurant. Keep the conversation going naturally. 
-
-RULES:
-- Stay in character based on your traits
-- Keep responses brief (1-2 sentences)
-- Be conversational and engage with what your date says
-- If you have specific traits, naturally weave them into conversation
-- React to your date's questions and statements authentically`
-}
 
 /**
  * Call Claude API for a response
@@ -107,7 +25,7 @@ export async function getChatResponse(messages, systemPrompt) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 150,
+        max_tokens: 200,
         system: systemPrompt,
         messages: messages.map(msg => ({
           role: msg.role,
@@ -134,7 +52,7 @@ export async function getChatResponse(messages, systemPrompt) {
  * Get Dater response in chat phase
  */
 export async function getDaterChatResponse(dater, conversationHistory) {
-  const systemPrompt = buildDaterSystemPrompt(dater, 'chat')
+  const systemPrompt = buildDaterAgentPrompt(dater, 'chat')
   
   // Convert conversation history to Claude format
   const messages = conversationHistory.map(msg => ({
@@ -150,11 +68,11 @@ export async function getDaterChatResponse(dater, conversationHistory) {
  * Get Dater response during the date
  */
 export async function getDaterDateResponse(dater, avatar, conversationHistory) {
-  const systemPrompt = buildDaterSystemPrompt(dater, 'date')
+  const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   
   // Add context about the Avatar's revealed attributes
   const avatarContext = avatar.attributes.length > 0
-    ? `\n\nYOUR DATE'S REVEALED TRAITS: ${avatar.attributes.join(', ')}. React to these naturally in conversation.`
+    ? `\n\nYOUR DATE'S REVEALED TRAITS SO FAR: ${avatar.attributes.join(', ')}. React to these naturally based on whether they align with what you're looking for or hit your dealbreakers.`
     : ''
   
   const fullPrompt = systemPrompt + avatarContext
@@ -173,7 +91,24 @@ export async function getDaterDateResponse(dater, avatar, conversationHistory) {
  * Get Avatar response during the date (for auto-conversation)
  */
 export async function getAvatarDateResponse(avatar, dater, conversationHistory) {
-  const systemPrompt = buildAvatarSystemPrompt(avatar, dater)
+  const { name, age, occupation, attributes } = avatar
+  
+  const attributesList = attributes.length > 0 
+    ? `YOUR KNOWN TRAITS: ${attributes.join(', ')}`
+    : 'You have no specific traits yet - you are a blank slate.'
+  
+  const systemPrompt = `You are ${name}, a ${age}-year-old ${occupation} on a first date with ${dater.name}.
+
+${attributesList}
+
+CONTEXT: You're on a first date at a nice restaurant. Keep the conversation going naturally. 
+
+RULES:
+- Stay in character based on your traits
+- Keep responses brief (1-2 sentences)
+- Be conversational and engage with what your date says
+- If you have specific traits, naturally weave them into conversation
+- React to your date's questions and statements authentically`
   
   // Convert conversation history - from Avatar's perspective, Dater messages are "user"
   const messages = conversationHistory.map(msg => ({
@@ -186,11 +121,11 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory) 
 }
 
 /**
- * Fallback responses when API is not available
+ * Fallback responses when API is not available - based on dater personality
  */
 export function getFallbackDaterResponse(dater, playerMessage) {
   const lowerMsg = playerMessage.toLowerCase()
-  const { hiddenAttributes } = dater
+  const { talkingTraits, quirk, backstory, idealPartner, dealbreakers } = dater
   
   // Check if the message contains a question
   const isQuestion = lowerMsg.includes('?') || 
@@ -211,65 +146,64 @@ export function getFallbackDaterResponse(dater, playerMessage) {
     return redirects[Math.floor(Math.random() * redirects.length)]
   }
   
+  // Generate response based on dater's personality
   if (lowerMsg.includes('job') || lowerMsg.includes('work') || lowerMsg.includes('do for')) {
-    return `I'm a ${hiddenAttributes.job}! It keeps me pretty busy but I love it. There's a lot more to that story though... 😉`
-  }
-  if (lowerMsg.includes('weekend') || lowerMsg.includes('free time') || lowerMsg.includes('fun')) {
-    return `On weekends? Honestly, I'm usually into ${hiddenAttributes.interests.slice(0, 2).join(' or ')}. Pretty typical for me!`
-  }
-  if (lowerMsg.includes('pet') || lowerMsg.includes('dog') || lowerMsg.includes('cat')) {
-    if (hiddenAttributes.interests.includes('dogs')) {
-      return "I'm such a dog person! 🐕 They're honestly the best. Can't imagine life without them."
+    // Extract job info from backstory
+    if (dater.name === 'Leo') {
+      return "I'm a freelance graphic designer, but my real passion is painting. I left the corporate world behind to focus on what actually matters to me."
+    } else if (dater.name === 'Maya') {
+      return "I'm an architect. I design buildings, but honestly I find the design of conversations just as interesting."
+    } else if (dater.name === 'Kickflip') {
+      return "I'm a content creator! Extreme sports, stunts, anything that gets the adrenaline pumping. My channel's blowing up right now!"
     }
-    if (hiddenAttributes.interests.includes('cats')) {
-      return "Cats are my spirit animal tbh 🐱 So independent and mysterious."
-    }
-    return "I love animals! Don't have any right now but definitely want some in the future."
-  }
-  if (lowerMsg.includes('music') || lowerMsg.includes('listen')) {
-    if (hiddenAttributes.interests.includes('music')) {
-      return "Music is LIFE. I'm always discovering new artists. It's kind of an obsession honestly 🎵"
-    }
-    return "I like a bit of everything, honestly. Depends on my mood!"
-  }
-  if (lowerMsg.includes('deal breaker') || lowerMsg.includes('dealbreaker') || lowerMsg.includes('hate')) {
-    return `Hmm good question... I'd say ${hiddenAttributes.dealbreakers[0]} is a big one for me. Definitely can't deal with that.`
-  }
-  if (lowerMsg.includes('looking for') || lowerMsg.includes('ideal') || lowerMsg.includes('type')) {
-    return `I really value someone who's ${hiddenAttributes.idealPartner.slice(0, 2).join(' and ')}. But honestly, chemistry is everything!`
   }
   
+  if (lowerMsg.includes('fun') || lowerMsg.includes('hobby') || lowerMsg.includes('free time')) {
+    if (dater.name === 'Leo') {
+      return "Painting, traveling, collecting experiences. I once spent a month in Portugal just painting sunsets. It was magical."
+    } else if (dater.name === 'Maya') {
+      return "I sketch buildings, read, and occasionally deconstruct romantic comedies for their logical flaws. It's more fun than it sounds."
+    } else if (dater.name === 'Kickflip') {
+      return "Parkour, surfing, BASE jumping - basically anything that could kill me! Last week I raced motorcycles through a canyon. SO sick!"
+    }
+  }
+  
+  if (lowerMsg.includes('looking for') || lowerMsg.includes('ideal') || lowerMsg.includes('type')) {
+    return `Honestly? Someone who's ${idealPartner.slice(0, 2).join(' and ')}. That's what really matters to me.`
+  }
+  
+  if (lowerMsg.includes('deal breaker') || lowerMsg.includes('hate') || lowerMsg.includes('can\'t stand')) {
+    return `I really can't deal with ${dealbreakers[0]}. That's a non-starter for me.`
+  }
+  
+  // Default responses based on talking traits
   const defaults = [
-    "Haha that's such a good question! 😄",
-    "Honestly? I've never thought about it that way before!",
-    "Ooh interesting question! Let me think...",
-    `${hiddenAttributes.personality.split('.')[0]}...`,
-    "Love that you asked that! 😉",
+    `That's a good question! ${quirk.split('.')[0]}.`,
+    "Hmm, let me think about that...",
+    "Interesting that you'd ask that!",
+    "I appreciate you wanting to know more about me.",
   ]
   
   return defaults[Math.floor(Math.random() * defaults.length)]
 }
 
 /**
- * Fallback date conversation starters
+ * Fallback date conversation
  */
 export function getFallbackDateDialogue(turn, avatar, dater) {
   const daterLines = [
-    "So... here we are! I have to say, you seem interesting.",
-    "What made you swipe right on me?",
+    `So... here we are! I have to say, ${avatar.name}, you seem really interesting.`,
     "Tell me something about yourself that would surprise me.",
     "What's the most spontaneous thing you've ever done?",
-    "If you could have dinner with anyone, dead or alive, who would it be?",
-    "What's your guilty pleasure?",
-    "Are you more of a morning person or night owl?",
+    "I'm curious what made you want to meet up tonight.",
+    "What do you think makes a good connection?",
   ]
   
   const avatarLines = [
     "Thanks! I've been looking forward to this.",
-    "Something about your profile just... clicked, you know?",
     "Well, there's a lot to unpack there...",
     "That's a great question. Let me think...",
-    "I'm an open book, ask me anything!",
+    "I'm an open book, really.",
   ]
   
   if (turn % 2 === 0) {
@@ -278,4 +212,3 @@ export function getFallbackDateDialogue(turn, avatar, dater) {
     return { speaker: 'avatar', message: avatarLines[Math.floor(turn / 2) % avatarLines.length] }
   }
 }
-

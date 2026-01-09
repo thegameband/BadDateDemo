@@ -152,6 +152,19 @@
   font-size: 0.9rem;
 }
 
+.instant-match-notice {
+  color: var(--accent-pink);
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+.dater-archetype {
+  font-size: 0.9rem;
+  color: var(--accent-gold);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
 .key {
   background: var(--bg-card);
   padding: 4px 10px;
