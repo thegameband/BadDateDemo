@@ -105,35 +105,41 @@ function DateScene() {
   useEffect(() => {
     conversationActiveRef.current = true
     let isMounted = true
+    let greetingStarted = false
     
     const startConversation = async () => {
-      // Initial greeting from dater - only send once
-      if (dateConversation.length === 0 && !greetingSentRef.current) {
-        greetingSentRef.current = true
-        
-        await new Promise(r => setTimeout(r, 1500))
-        if (!isMounted) return
-        
-        const greeting = `So... here we are! I have to say, ${avatar.name}, you seem really interesting. What made you want to meet up tonight?`
-        addDateMessage('dater', greeting)
-        lastSpeakerRef.current = 'dater'
-        
-        // Avatar responds after a short delay
-        await new Promise(r => setTimeout(r, 2500))
-        if (!isMounted) return
-        
-        const avatarResponse = await getAvatarDateResponse(avatar, selectedDater, [
-          { speaker: 'dater', message: greeting }
-        ])
-        
-        if (avatarResponse && isMounted) {
-          addDateMessage('avatar', avatarResponse)
-          lastSpeakerRef.current = 'avatar'
-        }
+      // Only start if no messages exist and we haven't started
+      if (greetingStarted) return
+      greetingStarted = true
+      
+      await new Promise(r => setTimeout(r, 1500))
+      if (!isMounted) return
+      
+      // Double-check no messages were added while we waited
+      const currentMessages = useGameStore.getState().dateConversation
+      if (currentMessages.length > 0) return
+      
+      const greeting = `So... here we are! I have to say, ${avatar.name}, you seem really interesting. What made you want to meet up tonight?`
+      addDateMessage('dater', greeting)
+      lastSpeakerRef.current = 'dater'
+      
+      // Avatar responds after a short delay
+      await new Promise(r => setTimeout(r, 2500))
+      if (!isMounted) return
+      
+      const avatarResponse = await getAvatarDateResponse(avatar, selectedDater, [
+        { speaker: 'dater', message: greeting }
+      ])
+      
+      if (avatarResponse && isMounted) {
+        addDateMessage('avatar', avatarResponse)
+        lastSpeakerRef.current = 'avatar'
       }
     }
     
-    startConversation()
+    if (dateConversation.length === 0) {
+      startConversation()
+    }
     
     // Set up continuous conversation - runs every 5-8 seconds
     const runConversation = async () => {
