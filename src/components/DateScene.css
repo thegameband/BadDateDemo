@@ -202,6 +202,170 @@
   margin-top: 4px;
 }
 
+/* Compatibility Debug Panel */
+.compatibility-debug {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 12px;
+  background: rgba(15, 15, 35, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 16px;
+  min-width: 320px;
+  z-index: 100;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.debug-turn {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.debug-factors {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.debug-factor {
+  display: grid;
+  grid-template-columns: 24px 70px 1fr 32px 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.debug-factor.inactive {
+  opacity: 0.5;
+}
+
+.debug-factor.activated {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.factor-status {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.debug-factor.activated .factor-status {
+  color: #06d6a0;
+}
+
+.debug-factor.inactive .factor-status {
+  color: #ff8fab;
+  font-size: 0.6rem;
+}
+
+.factor-emoji {
+  font-size: 1rem;
+}
+
+.factor-name {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.factor-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.factor-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.factor-fill.physical {
+  background: linear-gradient(90deg, #ff6b9d, #ff4d6d);
+}
+
+.factor-fill.interests {
+  background: linear-gradient(90deg, #ffd166, #f7b32b);
+}
+
+.factor-fill.values {
+  background: linear-gradient(90deg, #06d6a0, #05c793);
+}
+
+.factor-fill.tastes {
+  background: linear-gradient(90deg, #118ab2, #0a7ea4);
+}
+
+.factor-fill.intelligence {
+  background: linear-gradient(90deg, #9d4edd, #7b2cbf);
+}
+
+.factor-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: right;
+  color: var(--text-primary);
+}
+
+.debug-calculation {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.calc-explanation {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.calc-weights {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.calc-result {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent-mint);
+  text-align: center;
+}
+
+/* Make compatibility meter container relative for debug positioning */
+.date-characters {
+  position: relative;
+}
+
 /* Conversation */
 .conversation-area {
   flex: 1;

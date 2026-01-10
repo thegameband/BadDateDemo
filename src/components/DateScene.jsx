@@ -9,14 +9,94 @@ import {
 import './DateScene.css'
 
 /**
+ * Determine which compatibility factor should be affected based on conversation content
+ * @param {string} response - The response text
+ * @param {string} avatarMessage - The Avatar's previous message (for context)
+ * @returns {string} - One of: 'physical', 'interests', 'values', 'tastes', 'intelligence'
+ */
+function determineAffectedFactor(response, avatarMessage = '') {
+  const combined = (response + ' ' + avatarMessage).toLowerCase()
+  
+  // Physical attraction keywords
+  const physicalKeywords = [
+    'attractive', 'cute', 'hot', 'handsome', 'beautiful', 'gorgeous', 'pretty',
+    'eyes', 'smile', 'body', 'look', 'looking', 'appearance', 'tall', 'short',
+    'outfit', 'dressed', 'wearing', 'hair', 'face', 'sexy', 'ugly', 'hideous',
+    'spider', 'monster', 'tentacle', 'gross', 'disgusting'
+  ]
+  
+  // Interests keywords
+  const interestsKeywords = [
+    'hobby', 'hobbies', 'fun', 'enjoy', 'like to', 'love to', 'into',
+    'music', 'movies', 'books', 'games', 'sports', 'travel', 'cooking',
+    'hiking', 'art', 'painting', 'reading', 'netflix', 'weekend', 'free time',
+    'activities', 'passion', 'favorite'
+  ]
+  
+  // Values keywords
+  const valuesKeywords = [
+    'believe', 'think', 'feel about', 'important', 'matter', 'value',
+    'family', 'religion', 'politics', 'honesty', 'loyalty', 'trust',
+    'moral', 'ethics', 'right', 'wrong', 'should', 'shouldn\'t',
+    'kids', 'marriage', 'future', 'goals', 'dreams', 'career'
+  ]
+  
+  // Tastes keywords  
+  const tastesKeywords = [
+    'food', 'restaurant', 'eat', 'drink', 'coffee', 'wine', 'beer',
+    'music taste', 'genre', 'style', 'fashion', 'decor', 'aesthetic',
+    'prefer', 'favorite', 'best', 'worst', 'love', 'hate', 'can\'t stand',
+    'delicious', 'gross', 'amazing', 'terrible'
+  ]
+  
+  // Intelligence keywords
+  const intelligenceKeywords = [
+    'smart', 'intelligent', 'clever', 'brilliant', 'genius', 'dumb', 'stupid',
+    'education', 'school', 'college', 'university', 'degree', 'harvard', 'yale',
+    'read', 'learn', 'know', 'understand', 'think', 'philosophy', 'science',
+    'interesting', 'fascinating', 'curious', 'question', 'discuss', 'debate',
+    'witty', 'humor', 'joke', 'pun'
+  ]
+  
+  // Count matches for each category
+  const counts = {
+    physical: physicalKeywords.filter(k => combined.includes(k)).length,
+    interests: interestsKeywords.filter(k => combined.includes(k)).length,
+    values: valuesKeywords.filter(k => combined.includes(k)).length,
+    tastes: tastesKeywords.filter(k => combined.includes(k)).length,
+    intelligence: intelligenceKeywords.filter(k => combined.includes(k)).length,
+  }
+  
+  // Find the factor with the most matches
+  const maxCount = Math.max(...Object.values(counts))
+  
+  if (maxCount === 0) {
+    // No clear category - pick randomly with slight bias toward interests
+    const factors = ['physical', 'interests', 'interests', 'values', 'tastes', 'intelligence']
+    return factors[Math.floor(Math.random() * factors.length)]
+  }
+  
+  // Return the factor with the most matches (first one if tie)
+  for (const [factor, count] of Object.entries(counts)) {
+    if (count === maxCount) return factor
+  }
+  
+  return 'interests' // fallback
+}
+
+/**
  * Evaluate the Dater's response to determine compatibility change
- * Returns a number: positive = good, negative = bad, 0 = neutral
+ * Returns { score, factor }: score is positive = good, negative = bad, 0 = neutral
  * 
  * @param {string} response - The Dater's response text
  * @param {number} reactionsLeft - How many heightened reactions remain (2 = first reaction, 1 = second, 0 = normal)
+ * @param {string} avatarMessage - The Avatar's previous message (for context)
  */
-function evaluateDaterSentiment(response, reactionsLeft = 0) {
+function evaluateDaterSentiment(response, reactionsLeft = 0, avatarMessage = '') {
   const lower = response.toLowerCase()
+  
+  // Determine which factor this affects
+  const factor = determineAffectedFactor(response, avatarMessage)
   
   // Determine multiplier based on how recent the attribute was added
   // First reaction after attribute: 3x impact (BIG swing)
@@ -68,17 +148,17 @@ function evaluateDaterSentiment(response, reactionsLeft = 0) {
   // Calculate base sentiment score
   let baseScore = 0
   
-  // Check strong signals first
+  // Check strong signals first (BUFFED positive, NERFED negative for easier gameplay)
   for (const word of strongPositive) {
     if (lower.includes(word)) {
-      baseScore += 8
+      baseScore += 12 // Was 8, now 12
       break // Only count once per category
     }
   }
   
   for (const word of strongNegative) {
     if (lower.includes(word)) {
-      baseScore -= 10
+      baseScore -= 6 // Was -10, now -6 (softer penalty)
       break
     }
   }
@@ -86,21 +166,21 @@ function evaluateDaterSentiment(response, reactionsLeft = 0) {
   // Check mild signals
   for (const word of mildPositive) {
     if (lower.includes(word)) {
-      baseScore += 3
+      baseScore += 5 // Was 3, now 5
       break
     }
   }
   
   for (const word of mildNegative) {
     if (lower.includes(word)) {
-      baseScore -= 4
+      baseScore -= 2 // Was -4, now -2 (softer penalty)
       break
     }
   }
   
   for (const word of confused) {
     if (lower.includes(word)) {
-      baseScore -= 2
+      baseScore -= 1 // Was -2, now -1 (softer penalty)
       break
     }
   }
@@ -122,15 +202,86 @@ function evaluateDaterSentiment(response, reactionsLeft = 0) {
   
   // Add some randomness for natural variation
   if (score === 0) {
-    // Even neutral exchanges should have tiny fluctuations (slow drip)
-    score = Math.floor(Math.random() * 3) - 1 // -1 to +1
+    // Neutral exchanges now lean slightly positive (easier gameplay)
+    score = Math.floor(Math.random() * 4) // 0 to +3 (was -1 to +1)
   } else {
     // Add ±15% variance to non-zero scores
     const variance = Math.floor(Math.abs(score) * 0.2)
     score += Math.floor(Math.random() * (variance * 2 + 1)) - variance
   }
   
-  return score
+  return { score, factor }
+}
+
+/**
+ * Generate a spontaneous non-verbal action for a character
+ * Returns null most of the time (actions should be rare)
+ * @param {string} speaker - 'avatar' or 'dater'
+ * @param {number} compatibility - current compatibility score
+ * @param {object} dater - the dater's data (for personality-based actions)
+ */
+function getSpontaneousAction(speaker, compatibility, dater) {
+  // Only ~10% chance of a spontaneous action
+  if (Math.random() > 0.10) return null
+  
+  // Actions for when things are going well
+  const positiveActions = [
+    '*laughs genuinely*',
+    '*smiles warmly*',
+    '*leans in with interest*',
+    '*chuckles*',
+    '*grins*',
+    '*playfully raises an eyebrow*',
+    '*nods appreciatively*',
+  ]
+  
+  // Actions for when things are awkward/bad
+  const negativeActions = [
+    '*shifts uncomfortably*',
+    '*clears throat*',
+    '*takes a long sip of water*',
+    '*glances at phone briefly*',
+    '*fidgets with napkin*',
+    '*forces a polite smile*',
+    '*looks around the room*',
+  ]
+  
+  // Neutral actions that work anytime
+  const neutralActions = [
+    '*takes a sip of drink*',
+    '*adjusts in seat*',
+    '*brushes hair aside*',
+    '*taps fingers lightly on table*',
+    '*sighs softly*',
+    '*stretches slightly*',
+  ]
+  
+  // Fun/quirky actions (rarer)
+  const quirkyActions = [
+    '*accidentally snorts while laughing*',
+    '*burps quietly and looks embarrassed*',
+    '*hiccups once*',
+    '*yawns and quickly covers mouth*',
+    '*stomach growls audibly*',
+    '*sneezes suddenly*',
+  ]
+  
+  // Pick action based on compatibility mood
+  let actionPool
+  const quirkyRoll = Math.random()
+  
+  if (quirkyRoll < 0.15) {
+    // 15% of actions are quirky/funny
+    actionPool = quirkyActions
+  } else if (compatibility > 65) {
+    actionPool = positiveActions
+  } else if (compatibility < 35) {
+    actionPool = negativeActions
+  } else {
+    actionPool = neutralActions
+  }
+  
+  return actionPool[Math.floor(Math.random() * actionPool.length)]
 }
 
 function DateScene() {
@@ -146,17 +297,28 @@ function DateScene() {
     attributeCooldown,
     hotSeatPlayer,
     compatibility,
+    timedBehaviors,
+    pendingTimedEvent,
+    compatibilityFactors,
+    factorsActivated,
+    conversationTurns,
     addDateMessage,
     submitAttribute,
     consumeDaterReaction,
+    triggerTimedEvent,
+    consumeTimedEvent,
+    updateCompatibilityFactor,
+    incrementConversationTurn,
     voteForAttribute,
     applyTopAttributes,
     selectRandomHotSeat,
     applyHotSeatAttribute,
     setPhase,
     tickTimer,
-    updateCompatibility,
   } = useGameStore()
+  
+  const timedBehaviorIntervalsRef = useRef({})
+  const [showDebugPanel, setShowDebugPanel] = useState(false)
   
   const [inputValue, setInputValue] = useState('')
   const [votedAttributes, setVotedAttributes] = useState(new Set())
@@ -226,15 +388,33 @@ function DateScene() {
       }
       
       if (response && conversationActiveRef.current) {
-        addDateMessage(nextSpeaker, response)
+        // Check if we should add a spontaneous non-verbal action
+        const currentCompat = useGameStore.getState().compatibility
+        const spontaneousAction = getSpontaneousAction(nextSpeaker, currentCompat, selectedDater)
+        
+        if (spontaneousAction) {
+          // Add the action, then the verbal response after a short delay
+          addDateMessage(nextSpeaker, spontaneousAction)
+          await new Promise(r => setTimeout(r, 1500))
+          if (conversationActiveRef.current) {
+            addDateMessage(nextSpeaker, response)
+          }
+        } else {
+          addDateMessage(nextSpeaker, response)
+        }
+        
         lastSpeakerRef.current = nextSpeaker
         
         // Update compatibility based on Dater's reactions
         if (nextSpeaker === 'dater') {
-          const change = evaluateDaterSentiment(response, reactionsLeft)
-          if (change !== 0) {
-            updateCompatibility(change)
+          // Get the Avatar's last message for context
+          const lastAvatarMsg = currentConversation.filter(m => m.speaker === 'avatar').pop()?.message || ''
+          const { score, factor } = evaluateDaterSentiment(response, reactionsLeft, lastAvatarMsg)
+          if (score !== 0) {
+            useGameStore.getState().updateCompatibilityFactor(factor, score)
           }
+          // Increment conversation turn counter (affects weight calculation)
+          useGameStore.getState().incrementConversationTurn()
         }
       } else if (conversationActiveRef.current) {
         // LLM FAILED - show error instead of silent fallback
@@ -253,7 +433,7 @@ function DateScene() {
     }
     
     setIsConversing(false)
-  }, [selectedDater, addDateMessage, updateCompatibility, isConversing])
+  }, [selectedDater, addDateMessage, isConversing])
   
   // Start and maintain continuous conversation
   useEffect(() => {
@@ -327,6 +507,71 @@ function DateScene() {
     return () => clearInterval(timer)
   }, [tickTimer])
   
+  // Set up intervals for timed behaviors (e.g., "farts every 10 seconds")
+  useEffect(() => {
+    // Set up new intervals for any behaviors we don't have yet
+    timedBehaviors.forEach(behavior => {
+      if (!timedBehaviorIntervalsRef.current[behavior.id]) {
+        const getInterval = () => {
+          if (behavior.randomRange) {
+            const [min, max] = behavior.randomRange
+            return min + Math.random() * (max - min)
+          }
+          return behavior.intervalMs
+        }
+        
+        // First trigger after initial interval
+        const setupNextTrigger = () => {
+          const interval = getInterval()
+          timedBehaviorIntervalsRef.current[behavior.id] = setTimeout(() => {
+            triggerTimedEvent(behavior)
+            setupNextTrigger() // Schedule next one
+          }, interval)
+        }
+        
+        setupNextTrigger()
+      }
+    })
+    
+    // Cleanup intervals for removed behaviors
+    Object.keys(timedBehaviorIntervalsRef.current).forEach(id => {
+      if (!timedBehaviors.find(b => b.id === parseInt(id))) {
+        clearTimeout(timedBehaviorIntervalsRef.current[id])
+        delete timedBehaviorIntervalsRef.current[id]
+      }
+    })
+    
+    return () => {
+      // Cleanup all intervals on unmount
+      Object.values(timedBehaviorIntervalsRef.current).forEach(clearTimeout)
+      timedBehaviorIntervalsRef.current = {}
+    }
+  }, [timedBehaviors, triggerTimedEvent])
+  
+  // Handle pending timed events by injecting them into conversation
+  useEffect(() => {
+    if (pendingTimedEvent && !isConversing) {
+      const action = pendingTimedEvent.action
+      
+      // Create an action message for the Avatar
+      const actionMessage = `*${action}*`
+      addDateMessage('avatar', actionMessage)
+      
+      // Mark this as the Avatar's turn so Dater responds next
+      lastSpeakerRef.current = 'avatar'
+      
+      // Clear the pending event
+      consumeTimedEvent()
+      
+      // Trigger an immediate Dater reaction
+      setTimeout(() => {
+        if (conversationActiveRef.current) {
+          generateNextTurn()
+        }
+      }, 1500)
+    }
+  }, [pendingTimedEvent, isConversing, addDateMessage, consumeTimedEvent, generateNextTurn])
+  
   // Single player: just return to smalltalk after applying (handled in store)
   
   const handleSubmitAttribute = (e) => {
@@ -377,9 +622,11 @@ function DateScene() {
             </div>
           </motion.div>
           
-          {/* Compatibility Meter */}
+          {/* Compatibility Meter - Click to show debug panel */}
           <motion.div 
             className={`compatibility-meter ${compatibilityFlash || ''}`}
+            onClick={() => setShowDebugPanel(!showDebugPanel)}
+            style={{ cursor: 'pointer' }}
             animate={compatibilityFlash ? {
               scale: [1, 1.3, 1],
               boxShadow: compatibilityFlash === 'positive' 
@@ -414,6 +661,105 @@ function DateScene() {
               {compatibility > 80 ? '💕' : compatibility > 60 ? '💗' : compatibility > 40 ? '🙂' : compatibility > 20 ? '😬' : '💔'}
             </div>
           </motion.div>
+          
+          {/* Debug Panel - Hidden, accessible by clicking compatibility */}
+          <AnimatePresence>
+            {showDebugPanel && (
+              <motion.div 
+                className="compatibility-debug"
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="debug-header">
+                  <span>🔧 Compatibility Debug</span>
+                  <span className="debug-turn">Turn {conversationTurns}</span>
+                </div>
+                
+                <div className="debug-factors">
+                  <div className={`debug-factor ${factorsActivated.physicalAttraction ? 'activated' : 'inactive'}`}>
+                    <span className="factor-emoji">👀</span>
+                    <span className="factor-name">Physical</span>
+                    <div className="factor-bar">
+                      <div 
+                        className="factor-fill physical" 
+                        style={{ width: `${compatibilityFactors.physicalAttraction}%` }}
+                      />
+                    </div>
+                    <span className="factor-value">{compatibilityFactors.physicalAttraction}</span>
+                    <span className="factor-status">{factorsActivated.physicalAttraction ? '✓' : '10%'}</span>
+                  </div>
+                  
+                  <div className={`debug-factor ${factorsActivated.similarInterests ? 'activated' : 'inactive'}`}>
+                    <span className="factor-emoji">🎯</span>
+                    <span className="factor-name">Interests</span>
+                    <div className="factor-bar">
+                      <div 
+                        className="factor-fill interests" 
+                        style={{ width: `${compatibilityFactors.similarInterests}%` }}
+                      />
+                    </div>
+                    <span className="factor-value">{compatibilityFactors.similarInterests}</span>
+                    <span className="factor-status">{factorsActivated.similarInterests ? '✓' : '10%'}</span>
+                  </div>
+                  
+                  <div className={`debug-factor ${factorsActivated.similarValues ? 'activated' : 'inactive'}`}>
+                    <span className="factor-emoji">⚖️</span>
+                    <span className="factor-name">Values</span>
+                    <div className="factor-bar">
+                      <div 
+                        className="factor-fill values" 
+                        style={{ width: `${compatibilityFactors.similarValues}%` }}
+                      />
+                    </div>
+                    <span className="factor-value">{compatibilityFactors.similarValues}</span>
+                    <span className="factor-status">{factorsActivated.similarValues ? '✓' : '10%'}</span>
+                  </div>
+                  
+                  <div className={`debug-factor ${factorsActivated.similarTastes ? 'activated' : 'inactive'}`}>
+                    <span className="factor-emoji">🍽️</span>
+                    <span className="factor-name">Tastes</span>
+                    <div className="factor-bar">
+                      <div 
+                        className="factor-fill tastes" 
+                        style={{ width: `${compatibilityFactors.similarTastes}%` }}
+                      />
+                    </div>
+                    <span className="factor-value">{compatibilityFactors.similarTastes}</span>
+                    <span className="factor-status">{factorsActivated.similarTastes ? '✓' : '10%'}</span>
+                  </div>
+                  
+                  <div className={`debug-factor ${factorsActivated.similarIntelligence ? 'activated' : 'inactive'}`}>
+                    <span className="factor-emoji">🧠</span>
+                    <span className="factor-name">Intelligence</span>
+                    <div className="factor-bar">
+                      <div 
+                        className="factor-fill intelligence" 
+                        style={{ width: `${compatibilityFactors.similarIntelligence}%` }}
+                      />
+                    </div>
+                    <span className="factor-value">{compatibilityFactors.similarIntelligence}</span>
+                    <span className="factor-status">{factorsActivated.similarIntelligence ? '✓' : '10%'}</span>
+                  </div>
+                </div>
+                
+                <div className="debug-calculation">
+                  <div className="calc-explanation">
+                    <span>📊 Calculation:</span>
+                    <span>Drop lowest → Average top 4</span>
+                  </div>
+                  <div className="calc-weights">
+                    <span>Physical weight: {(2.5 - (1.5 * Math.min(conversationTurns / 10, 1))).toFixed(2)}x</span>
+                    <span>Others weight: {(0.625 + (0.375 * Math.min(conversationTurns / 10, 1))).toFixed(2)}x</span>
+                  </div>
+                  <div className="calc-result">
+                    <span>= {compatibility}% overall</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           
           {/* Dater - with mood based on compatibility */}
           <motion.div 

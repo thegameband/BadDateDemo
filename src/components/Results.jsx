@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion'
+import { useRef, useState } from 'react'
+import html2canvas from 'html2canvas'
 import { useGameStore } from '../store/gameStore'
 import './Results.css'
 
@@ -8,8 +10,13 @@ function Results() {
     selectedDater, 
     avatar, 
     appliedAttributes,
+    dateConversation,
     resetGame 
   } = useGameStore()
+  
+  const shareCardRef = useRef(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [showShareCard, setShowShareCard] = useState(false)
   
   const isWin = compatibility >= 80
   const isGreatMatch = compatibility >= 95
@@ -45,6 +52,50 @@ function Results() {
     if (isTerrible) return "🚕 They called an Uber from the table."
     if (compatibility >= 50) return "🤝 An awkward handshake goodbye."
     return "🏃 Speed-walking in the opposite direction."
+  }
+  
+  const handleShareDate = async () => {
+    setShowShareCard(true)
+    setIsGenerating(true)
+    
+    // Wait for the card to render
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    if (shareCardRef.current) {
+      try {
+        const canvas = await html2canvas(shareCardRef.current, {
+          backgroundColor: '#1a1a2e',
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+        })
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.download = `bad-date-${selectedDater.name.toLowerCase()}-${Date.now()}.png`
+          link.href = url
+          link.click()
+          URL.revokeObjectURL(url)
+          setIsGenerating(false)
+        }, 'image/png')
+      } catch (error) {
+        console.error('Error generating image:', error)
+        setIsGenerating(false)
+      }
+    }
+  }
+  
+  // Get the most interesting messages for the share card (limit to 8)
+  const getHighlightMessages = () => {
+    if (dateConversation.length <= 8) return dateConversation
+    // Take first 2, last 2, and 4 from the middle
+    const first = dateConversation.slice(0, 2)
+    const last = dateConversation.slice(-2)
+    const middleStart = Math.floor(dateConversation.length / 2) - 2
+    const middle = dateConversation.slice(middleStart, middleStart + 4)
+    return [...first, ...middle, ...last]
   }
   
   return (
@@ -191,18 +242,96 @@ function Results() {
           )}
         </motion.div>
         
-        <motion.button
-          className="btn btn-primary play-again-btn"
-          onClick={resetGame}
+        <motion.div 
+          className="results-buttons"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.3 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
         >
-          🔄 Play Again
-        </motion.button>
+          <motion.button
+            className="btn btn-secondary share-btn"
+            onClick={handleShareDate}
+            disabled={isGenerating}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {isGenerating ? '⏳ Generating...' : '📸 Share Date'}
+          </motion.button>
+          
+          <motion.button
+            className="btn btn-primary play-again-btn"
+            onClick={resetGame}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            🔄 Play Again
+          </motion.button>
+        </motion.div>
       </motion.div>
+      
+      {/* Hidden share card for image capture */}
+      {showShareCard && (
+        <div className="share-card-container">
+          <div ref={shareCardRef} className="share-card">
+            <div className="share-header">
+              <h2>💔 BAD DATE 💔</h2>
+              <div className="share-compat">
+                <span className={`compat-badge ${isWin ? 'win' : 'lose'}`}>
+                  {compatibility}% Compatible
+                </span>
+              </div>
+            </div>
+            
+            <div className="share-profiles">
+              <div className="share-profile">
+                <img src={selectedDater.photo} alt={selectedDater.name} />
+                <strong>{selectedDater.name}</strong>
+              </div>
+              <span className="share-heart">{isWin ? '💕' : '💔'}</span>
+              <div className="share-profile">
+                <img 
+                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Avatar&backgroundColor=b6e3f4" 
+                  alt="Avatar" 
+                />
+                <strong>{avatar.name}</strong>
+              </div>
+            </div>
+            
+            {appliedAttributes.length > 0 && (
+              <div className="share-attributes">
+                <span className="attr-label">Avatar was:</span>
+                <div className="attr-tags">
+                  {appliedAttributes.slice(0, 5).map((attr, i) => (
+                    <span key={i} className="attr-tag">{attr}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="share-conversation">
+              <h3>💬 Highlights</h3>
+              <div className="share-messages">
+                {getHighlightMessages().map((msg, i) => (
+                  <div 
+                    key={i} 
+                    className={`share-msg ${msg.speaker === 'avatar' ? 'avatar' : 'dater'}`}
+                  >
+                    <span className="msg-name">
+                      {msg.speaker === 'avatar' ? avatar.name : selectedDater.name}:
+                    </span>
+                    <span className="msg-text">{msg.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="share-footer">
+              <span className="share-result">{getResultTitle()}</span>
+              <span className="share-url">bad-date-demo.vercel.app</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

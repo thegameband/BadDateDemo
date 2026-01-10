@@ -209,6 +209,225 @@
   padding: 16px 40px;
 }
 
+/* Results buttons */
+.results-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.share-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.share-btn:hover {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+}
+
+.share-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Share card container - positioned off-screen for capture */
+.share-card-container {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+}
+
+/* Share card styles */
+.share-card {
+  width: 600px;
+  background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+  border-radius: 24px;
+  padding: 32px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.share-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.share-header h2 {
+  font-size: 1.8rem;
+  margin: 0 0 12px 0;
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.share-compat {
+  display: flex;
+  justify-content: center;
+}
+
+.compat-badge {
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.compat-badge.win {
+  background: rgba(6, 214, 160, 0.2);
+  color: #06d6a0;
+  border: 2px solid #06d6a0;
+}
+
+.compat-badge.lose {
+  background: rgba(255, 77, 109, 0.2);
+  color: #ff4d6d;
+  border: 2px solid #ff4d6d;
+}
+
+.share-profiles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.share-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-profile img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.share-profile strong {
+  font-size: 1rem;
+  color: #fff;
+}
+
+.share-heart {
+  font-size: 2rem;
+}
+
+.share-attributes {
+  background: rgba(157, 78, 221, 0.15);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.share-attributes .attr-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  display: block;
+  margin-bottom: 10px;
+}
+
+.attr-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.attr-tag {
+  background: rgba(157, 78, 221, 0.3);
+  color: #c792ea;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.share-conversation {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.share-conversation h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 16px 0;
+  text-align: center;
+}
+
+.share-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.share-msg {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.share-msg.avatar {
+  background: rgba(99, 102, 241, 0.2);
+  margin-right: 40px;
+  border-left: 3px solid #6366f1;
+}
+
+.share-msg.dater {
+  background: rgba(255, 107, 157, 0.2);
+  margin-left: 40px;
+  border-right: 3px solid #ff6b9d;
+  text-align: right;
+}
+
+.share-msg .msg-name {
+  font-weight: 600;
+  font-size: 0.8rem;
+  display: block;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.share-msg.avatar .msg-name {
+  color: #818cf8;
+}
+
+.share-msg.dater .msg-name {
+  color: #ff8fab;
+}
+
+.share-msg .msg-text {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.share-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.share-result {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.share-url {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 @media (max-width: 600px) {
   .results-card {
     padding: 32px 24px;
@@ -221,6 +440,10 @@
   .summary-row {
     flex-direction: column;
     gap: 16px;
+  }
+  
+  .results-buttons {
+    flex-direction: column;
   }
 }
 

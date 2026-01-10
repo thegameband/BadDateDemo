@@ -14,6 +14,56 @@ const initialAvatar = {
   personality: 'A pleasant person with enough baseline traits to hold a conversation, waiting to be shaped by the crowd.',
 }
 
+/**
+ * Parse an attribute for time-based behavior
+ * Returns { action, intervalMs } or null if not time-based
+ */
+function parseTimedAttribute(attribute) {
+  const lowerAttr = attribute.toLowerCase()
+  
+  // Patterns to match:
+  // "farts every 10 seconds" -> { action: "farts", intervalMs: 10000 }
+  // "sneezes once a minute" -> { action: "sneezes", intervalMs: 60000 }
+  // "hiccups every 30 seconds" -> { action: "hiccups", intervalMs: 30000 }
+  // "says 'yeehaw' every 15 seconds" -> { action: "says 'yeehaw'", intervalMs: 15000 }
+  
+  // Match "every X seconds/minutes"
+  const everyMatch = lowerAttr.match(/(.+?)\s+every\s+(\d+)\s*(second|seconds|sec|s|minute|minutes|min|m)/i)
+  if (everyMatch) {
+    const action = everyMatch[1].trim()
+    const num = parseInt(everyMatch[2])
+    const unit = everyMatch[3].toLowerCase()
+    const isMinutes = unit.startsWith('min') || unit === 'm'
+    const intervalMs = num * (isMinutes ? 60000 : 1000)
+    return { action, intervalMs, originalAttribute: attribute }
+  }
+  
+  // Match "once a minute/second"
+  const onceMatch = lowerAttr.match(/(.+?)\s+once\s+a\s*(second|minute)/i)
+  if (onceMatch) {
+    const action = onceMatch[1].trim()
+    const unit = onceMatch[2].toLowerCase()
+    const intervalMs = unit === 'minute' ? 60000 : 1000
+    return { action, intervalMs, originalAttribute: attribute }
+  }
+  
+  // Match "every few seconds" (random 3-8 seconds)
+  const fewSecondsMatch = lowerAttr.match(/(.+?)\s+every\s+few\s+seconds/i)
+  if (fewSecondsMatch) {
+    const action = fewSecondsMatch[1].trim()
+    return { action, intervalMs: 5000, randomRange: [3000, 8000], originalAttribute: attribute }
+  }
+  
+  // Match "constantly" or "all the time" (every 5-10 seconds)
+  const constantMatch = lowerAttr.match(/(.+?)\s+(constantly|all the time|nonstop|non-stop)/i)
+  if (constantMatch) {
+    const action = constantMatch[1].trim()
+    return { action, intervalMs: 7000, randomRange: [5000, 10000], originalAttribute: attribute }
+  }
+  
+  return null
+}
+
 export const useGameStore = create((set, get) => ({
   // Game phase: 'lobby' | 'matchmaking' | 'chatting' | 'smalltalk' | 'voting' | 'applying' | 'hotseat' | 'results'
   phase: 'lobby',
@@ -30,8 +80,28 @@ export const useGameStore = create((set, get) => ({
   // Date phase
   avatar: { ...initialAvatar },
   dateConversation: [],
-  compatibility: 50,
   dateTimer: 300, // 5 minutes in seconds
+  conversationTurns: 0, // Track conversation progress for weight adjustment
+  
+  // 5-factor compatibility system
+  compatibilityFactors: {
+    physicalAttraction: 60, // Starting higher for easier gameplay
+    similarInterests: 60,
+    similarValues: 60,
+    similarTastes: 60,
+    similarIntelligence: 60,
+  },
+  // Track which factors have been "activated" (discussed in conversation)
+  // Unactivated factors contribute only 10% to the overall calculation
+  factorsActivated: {
+    physicalAttraction: false,
+    similarInterests: false,
+    similarValues: false,
+    similarTastes: false,
+    similarIntelligence: false,
+  },
+  // Computed overall compatibility (calculated from factors)
+  compatibility: 50,
   
   // Attribute submission & voting
   submittedAttributes: [],
@@ -44,6 +114,10 @@ export const useGameStore = create((set, get) => ({
   // Hot seat
   hotSeatPlayer: null,
   hotSeatAttribute: null,
+  
+  // Timed behaviors (e.g., "farts every 10 seconds")
+  timedBehaviors: [],
+  pendingTimedEvent: null, // Event waiting to be injected into conversation
   
   // Players (for demo, we'll simulate)
   players: [
@@ -113,6 +187,22 @@ export const useGameStore = create((set, get) => ({
       dateConversation: [], 
       submittedAttributes: [],
       discoveredTraits: [], // Hide traits discovered during chat
+      conversationTurns: 0,
+      compatibilityFactors: {
+        physicalAttraction: 60, // Starting higher for easier gameplay
+        similarInterests: 60,
+        similarValues: 60,
+        similarTastes: 60,
+        similarIntelligence: 60,
+      },
+      factorsActivated: {
+        physicalAttraction: false,
+        similarInterests: false,
+        similarValues: false,
+        similarTastes: false,
+        similarIntelligence: false,
+      },
+      compatibility: 50,
     })
   },
   
@@ -129,10 +219,16 @@ export const useGameStore = create((set, get) => ({
   
   // Attribute submission - SINGLE PLAYER: immediately apply with cooldown
   submitAttribute: (attribute) => {
-    const { avatar, appliedAttributes, attributeCooldown } = get()
+    const { avatar, appliedAttributes, attributeCooldown, timedBehaviors } = get()
     
     // Check cooldown
     if (attributeCooldown) return false
+    
+    // Check if this is a time-based attribute
+    const timedBehavior = parseTimedAttribute(attribute)
+    const newTimedBehaviors = timedBehavior 
+      ? [...timedBehaviors, { ...timedBehavior, id: Date.now() }]
+      : timedBehaviors
     
     // Immediately apply the attribute to the avatar
     set({
@@ -145,6 +241,7 @@ export const useGameStore = create((set, get) => ({
       latestAttributeReactionsLeft: 2, // Dater gets 1-2 heightened reactions
       phase: 'applying', // Brief visual feedback
       attributeCooldown: true, // Start 10 second cooldown
+      timedBehaviors: newTimedBehaviors,
     })
     
     // Return to small talk after brief delay
@@ -154,6 +251,16 @@ export const useGameStore = create((set, get) => ({
     setTimeout(() => set({ attributeCooldown: false }), 10000)
     
     return true
+  },
+  
+  // Trigger a timed event (called by interval in DateScene)
+  triggerTimedEvent: (behavior) => {
+    set({ pendingTimedEvent: behavior })
+  },
+  
+  // Consume the pending timed event (after it's been incorporated into conversation)
+  consumeTimedEvent: () => {
+    set({ pendingTimedEvent: null })
   },
   
   // Called after Dater speaks to decrement heightened reaction counter
@@ -198,11 +305,108 @@ export const useGameStore = create((set, get) => ({
     })
   },
   
-  // Compatibility
-  updateCompatibility: (change) => {
-    const { compatibility } = get()
-    const newCompat = Math.max(0, Math.min(100, compatibility + change))
+  // Compatibility - 5-factor system with dynamic weighting
+  /**
+   * Calculate overall compatibility from the 5 factors
+   * - Drops the lowest factor (so one bad area is okay)
+   * - Weights physical attraction higher at start, equalizes over time
+   * - Unactivated factors (never discussed) contribute only 10%
+   */
+  calculateCompatibility: () => {
+    const { compatibilityFactors, factorsActivated, conversationTurns } = get()
+    const { physicalAttraction, similarInterests, similarValues, similarTastes, similarIntelligence } = compatibilityFactors
+    
+    // Calculate dynamic weights based on conversation progress
+    // At turn 0: physical = 2.5, others = 0.625 each
+    // By turn 10+: all weights equal at 1.0
+    const progressFactor = Math.min(conversationTurns / 10, 1) // 0 to 1 over 10 turns
+    
+    const basePhysicalWeight = 2.5 - (1.5 * progressFactor) // 2.5 -> 1.0
+    const baseOtherWeight = 0.625 + (0.375 * progressFactor) // 0.625 -> 1.0
+    
+    // Apply activation multiplier: unactivated factors get only 10% weight
+    const getWeight = (baseWeight, factorName) => {
+      return factorsActivated[factorName] ? baseWeight : baseWeight * 0.1
+    }
+    
+    // Apply weights with activation consideration
+    const weightedScores = [
+      { name: 'physicalAttraction', value: physicalAttraction, weight: getWeight(basePhysicalWeight, 'physicalAttraction'), activated: factorsActivated.physicalAttraction },
+      { name: 'similarInterests', value: similarInterests, weight: getWeight(baseOtherWeight, 'similarInterests'), activated: factorsActivated.similarInterests },
+      { name: 'similarValues', value: similarValues, weight: getWeight(baseOtherWeight, 'similarValues'), activated: factorsActivated.similarValues },
+      { name: 'similarTastes', value: similarTastes, weight: getWeight(baseOtherWeight, 'similarTastes'), activated: factorsActivated.similarTastes },
+      { name: 'similarIntelligence', value: similarIntelligence, weight: getWeight(baseOtherWeight, 'similarIntelligence'), activated: factorsActivated.similarIntelligence },
+    ]
+    
+    // Sort by weighted value to find the lowest
+    weightedScores.sort((a, b) => (a.value * a.weight) - (b.value * b.weight))
+    
+    // Drop the lowest, sum the rest
+    const topFour = weightedScores.slice(1) // Remove lowest
+    const totalWeight = topFour.reduce((sum, s) => sum + s.weight, 0)
+    const weightedSum = topFour.reduce((sum, s) => sum + (s.value * s.weight), 0)
+    
+    // Calculate weighted average (handle edge case of all weights being 0)
+    const compatibility = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 50
+    
+    return Math.max(0, Math.min(100, compatibility))
+  },
+  
+  /**
+   * Update a specific compatibility factor
+   * @param {string} factor - One of: 'physical', 'interests', 'values', 'tastes', 'intelligence', or 'random'
+   * @param {number} change - Positive or negative change amount
+   */
+  updateCompatibilityFactor: (factor, change) => {
+    const { compatibilityFactors, factorsActivated } = get()
+    
+    // Map short names to full names
+    const factorMap = {
+      'physical': 'physicalAttraction',
+      'interests': 'similarInterests',
+      'values': 'similarValues',
+      'tastes': 'similarTastes',
+      'intelligence': 'similarIntelligence',
+    }
+    
+    // If 'random', pick a random factor
+    let targetFactor = factorMap[factor]
+    if (factor === 'random' || !targetFactor) {
+      const factors = Object.keys(factorMap)
+      targetFactor = factorMap[factors[Math.floor(Math.random() * factors.length)]]
+    }
+    
+    // Update the specific factor
+    const newValue = Math.max(0, Math.min(100, compatibilityFactors[targetFactor] + change))
+    const newFactors = { ...compatibilityFactors, [targetFactor]: newValue }
+    
+    // Mark this factor as activated (it's now been discussed)
+    const newActivated = { ...factorsActivated, [targetFactor]: true }
+    
+    set({ 
+      compatibilityFactors: newFactors,
+      factorsActivated: newActivated,
+    })
+    
+    // Recalculate overall compatibility
+    const newCompat = get().calculateCompatibility()
     set({ compatibility: newCompat })
+    
+    return { factor: targetFactor, oldValue: compatibilityFactors[targetFactor], newValue, overallCompat: newCompat }
+  },
+  
+  // Increment conversation turn counter (called after each exchange)
+  incrementConversationTurn: () => {
+    const { conversationTurns } = get()
+    set({ conversationTurns: conversationTurns + 1 })
+    // Recalculate compatibility with new weights
+    const newCompat = get().calculateCompatibility()
+    set({ compatibility: newCompat })
+  },
+  
+  // Legacy function - update random factor
+  updateCompatibility: (change) => {
+    get().updateCompatibilityFactor('random', change)
   },
   
   // Timer
@@ -225,12 +429,29 @@ export const useGameStore = create((set, get) => ({
       avatar: { ...initialAvatar },
       dateConversation: [],
       compatibility: 50,
+      compatibilityFactors: {
+        physicalAttraction: 60, // Starting higher for easier gameplay
+        similarInterests: 60,
+        similarValues: 60,
+        similarTastes: 60,
+        similarIntelligence: 60,
+      },
+      factorsActivated: {
+        physicalAttraction: false,
+        similarInterests: false,
+        similarValues: false,
+        similarTastes: false,
+        similarIntelligence: false,
+      },
+      conversationTurns: 0,
       dateTimer: 300,
       submittedAttributes: [],
       attributeVotes: {},
       appliedAttributes: [],
       hotSeatPlayer: null,
       hotSeatAttribute: null,
+      timedBehaviors: [],
+      pendingTimedEvent: null,
     })
   },
 }))
