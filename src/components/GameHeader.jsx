@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import './GameHeader.css'
 
 function GameHeader() {
-  const { phase, compatibility, dateTimer, selectedDater } = useGameStore()
+  const { phase, compatibility, dateTimer, selectedDater, avatar } = useGameStore()
   
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
@@ -25,9 +25,17 @@ function GameHeader() {
   
   const showDateUI = ['smalltalk', 'voting', 'applying', 'hotseat'].includes(phase)
   
+  // Compatibility bar color
+  const getCompatColor = () => {
+    if (compatibility >= 70) return '#06d6a0'
+    if (compatibility >= 40) return '#ffd166'
+    return '#ff4d6d'
+  }
+  
   return (
     <header className="game-header">
-      <div className="header-left">
+      {/* Desktop: Logo */}
+      <div className="header-left desktop-only">
         <motion.div 
           className="logo"
           initial={{ opacity: 0, x: -20 }}
@@ -38,8 +46,34 @@ function GameHeader() {
         </motion.div>
       </div>
       
+      {/* Mobile: Avatar + Compat + Dater (only during date) */}
+      {showDateUI && selectedDater && (
+        <div className="header-mobile-date mobile-only">
+          <div className="mobile-avatar">
+            <img src={avatar?.photo || '/avatar-placeholder.png'} alt="You" />
+            <span>{avatar?.name || 'You'}</span>
+          </div>
+          
+          <div className="mobile-compat">
+            <span className="mobile-compat-value">{compatibility}%</span>
+            <div className="mobile-compat-bar">
+              <div 
+                className="mobile-compat-fill" 
+                style={{ width: `${compatibility}%`, background: getCompatColor() }}
+              />
+            </div>
+          </div>
+          
+          <div className="mobile-dater">
+            <img src={selectedDater.photo} alt={selectedDater.name} />
+            <span>{selectedDater.name}</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Desktop: Phase label and dating status */}
       <motion.div 
-        className="header-center"
+        className="header-center desktop-only"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >

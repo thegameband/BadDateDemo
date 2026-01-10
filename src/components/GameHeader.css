@@ -64,41 +64,6 @@
   color: var(--accent-pink);
 }
 
-.compatibility-meter {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg-card);
-  padding: 8px 16px;
-  border-radius: 50px;
-}
-
-.meter-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.meter-bar {
-  width: 100px;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.meter-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease;
-}
-
-.meter-value {
-  font-size: 0.9rem;
-  font-weight: 700;
-  min-width: 45px;
-  text-align: right;
-}
-
 .timer {
   display: flex;
   align-items: center;
@@ -119,7 +84,6 @@
   color: var(--accent-gold);
 }
 
-/* Large timer variant */
 .timer.timer-large {
   padding: 12px 24px;
   gap: 12px;
@@ -136,3 +100,165 @@
   letter-spacing: 0.05em;
 }
 
+/* Mobile-only elements (hidden by default) */
+.mobile-only {
+  display: none;
+}
+
+/* Desktop-only elements (shown by default) */
+.desktop-only {
+  display: flex;
+}
+
+/* MOBILE RESPONSIVE HEADER */
+@media (max-width: 768px) {
+  .game-header {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  
+  .desktop-only {
+    display: none !important;
+  }
+  
+  .mobile-only {
+    display: flex !important;
+  }
+  
+  .header-right {
+    flex: 0 0 auto;
+  }
+  
+  .header-mobile-date {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .mobile-avatar,
+  .mobile-dater {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  
+  .mobile-avatar img,
+  .mobile-dater img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-purple);
+  }
+  
+  .mobile-dater img {
+    border-color: var(--accent-pink);
+  }
+  
+  .mobile-avatar span,
+  .mobile-dater span {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    max-width: 50px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .mobile-compat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 70px;
+  }
+  
+  .mobile-compat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+  
+  .mobile-compat-bar {
+    width: 60px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .mobile-compat-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease, background 0.3s ease;
+  }
+  
+  .timer {
+    padding: 6px 10px;
+  }
+  
+  .timer-icon {
+    font-size: 0.9rem;
+  }
+  
+  .timer-value {
+    font-size: 0.95rem;
+  }
+  
+  .timer.timer-large {
+    padding: 6px 12px;
+    gap: 6px;
+    border-width: 1px;
+  }
+  
+  .timer.timer-large .timer-icon {
+    font-size: 1rem;
+  }
+  
+  .timer.timer-large .timer-value {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .game-header {
+    padding: 6px 8px;
+  }
+  
+  .header-mobile-date {
+    gap: 8px;
+  }
+  
+  .mobile-avatar img,
+  .mobile-dater img {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .mobile-avatar span,
+  .mobile-dater span {
+    font-size: 0.6rem;
+    max-width: 40px;
+  }
+  
+  .mobile-compat {
+    min-width: 55px;
+  }
+  
+  .mobile-compat-value {
+    font-size: 1.2rem;
+  }
+  
+  .mobile-compat-bar {
+    width: 50px;
+    height: 5px;
+  }
+  
+  .timer.timer-large .timer-value {
+    font-size: 1rem;
+  }
+}

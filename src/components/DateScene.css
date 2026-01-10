@@ -720,48 +720,6 @@
 }
 
 /* ============================================
-   TABLET RESPONSIVE (max-width: 900px)
-   ============================================ */
-@media (max-width: 900px) {
-  .date-scene {
-    flex-direction: column;
-    padding: 12px;
-    gap: 12px;
-  }
-  
-  .date-sidebar {
-    width: 100%;
-    max-height: none;
-    order: 2; /* Move sidebar below main content */
-  }
-  
-  .date-main {
-    order: 1;
-  }
-  
-  .date-characters {
-    flex-wrap: wrap;
-    gap: 16px;
-    padding: 16px;
-    padding-left: 16px; /* Reset offset */
-  }
-  
-  .character-image {
-    width: 70px;
-    height: 70px;
-  }
-  
-  .compatibility-meter {
-    min-width: 220px;
-    padding: 12px 20px;
-  }
-  
-  .compatibility-value {
-    font-size: 1.8rem;
-  }
-}
-
-/* ============================================
    MOBILE PORTRAIT (max-width: 768px)
    ============================================ */
 @media (max-width: 768px) {
@@ -769,8 +727,8 @@
     flex-direction: column;
     padding: 6px;
     gap: 6px;
-    max-height: calc(100vh - 70px);
-    height: calc(100vh - 70px);
+    max-height: calc(100vh - 60px);
+    height: calc(100vh - 60px);
     overflow: hidden;
   }
   
@@ -783,84 +741,17 @@
     overflow: hidden;
   }
   
-  /* Compact character header on mobile */
+  /* HIDE characters section on mobile - now in header */
   .date-characters {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 12px;
-    padding-left: 12px;
-    background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, transparent 100%);
-    flex-shrink: 0;
+    display: none !important;
   }
   
-  .avatar-character,
-  .dater-character {
-    flex: 0 0 auto;
-  }
-  
-  .compatibility-meter {
-    flex: 0 0 auto;
-    min-width: auto;
-    padding: 6px 12px;
-    margin: 0 4px;
-  }
-  
-  .character {
-    gap: 4px;
-  }
-  
-  .character-image {
-    width: 40px;
-    height: 40px;
-    border-width: 2px;
-  }
-  
-  .character-info h3 {
-    font-size: 0.75rem;
-  }
-  
-  .character-info span {
-    font-size: 0.6rem;
-    display: none; /* Hide tagline on mobile */
-  }
-  
-  .character-attributes {
-    display: none;
-  }
-  
-  .compatibility-label {
-    font-size: 0.55rem;
-  }
-  
-  .compatibility-value {
-    font-size: 1.2rem;
-  }
-  
-  .compatibility-bar {
-    height: 4px;
-    width: 60px;
-  }
-  
-  .compatibility-emoji {
-    font-size: 1rem;
-    margin-top: 0;
-  }
-  
-  .mood-indicator {
-    font-size: 0.9rem;
-    bottom: -2px;
-    right: -2px;
-  }
-  
-  /* CONVERSATION AREA - This is the key fix! */
+  /* CONVERSATION AREA - Now the star of the show! */
   .conversation-area {
     flex: 1;
-    min-height: 150px;
+    min-height: 0;
     max-height: none;
-    padding: 10px;
+    padding: 12px;
     gap: 10px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -871,21 +762,21 @@
   }
   
   .dialogue-bubble {
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-radius: 14px;
   }
   
   .dialogue-bubble p {
-    font-size: 0.8rem;
-    line-height: 1.35;
+    font-size: 0.9rem;
+    line-height: 1.4;
   }
   
   .dialogue-speaker {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     margin-top: 2px;
   }
   
-  /* Hide conversation status on mobile to save space */
+  /* Hide conversation status on mobile */
   .conversation-status {
     display: none;
   }
@@ -894,7 +785,7 @@
   .date-sidebar {
     width: 100%;
     flex: 0 0 auto;
-    max-height: 140px;
+    max-height: 130px;
     overflow: hidden;
   }
   
@@ -910,7 +801,7 @@
   }
   
   .panel-desc {
-    display: none; /* Hide description on mobile */
+    display: none;
   }
   
   .attribute-form {
@@ -933,7 +824,6 @@
     white-space: nowrap;
   }
   
-  /* Hide traits list on mobile - just show latest */
   .applied-list {
     display: none;
   }
@@ -951,7 +841,6 @@
     display: none;
   }
   
-  /* Applying panel - compact */
   .sidebar-panel.applying-panel {
     padding: 12px;
   }
@@ -970,13 +859,18 @@
     margin: 6px 0;
   }
   
-  /* Debug panel mobile */
   .compatibility-debug {
-    min-width: 260px;
-    padding: 10px;
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 280px;
+    max-width: 90vw;
+    padding: 12px;
     font-size: 0.8rem;
-    max-height: 50vh;
+    max-height: 60vh;
     overflow-y: auto;
+    z-index: 200;
   }
   
   .debug-factor {
@@ -1003,47 +897,21 @@
     gap: 4px;
   }
   
-  .date-characters {
-    padding: 6px 8px;
-    gap: 6px;
-  }
-  
-  .character-image {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .character-info h3 {
-    font-size: 0.7rem;
-  }
-  
-  .compatibility-meter {
-    padding: 5px 10px;
-  }
-  
-  .compatibility-value {
-    font-size: 1.1rem;
-  }
-  
-  .compatibility-bar {
-    width: 50px;
-  }
-  
   .conversation-area {
     padding: 8px;
     gap: 8px;
   }
   
   .dialogue-bubble {
-    padding: 6px 10px;
+    padding: 8px 12px;
   }
   
   .dialogue-bubble p {
-    font-size: 0.75rem;
+    font-size: 0.85rem;
   }
   
   .date-sidebar {
-    max-height: 120px;
+    max-height: 110px;
   }
   
   .sidebar-panel {
@@ -1063,56 +931,3 @@
     font-size: 0.75rem;
   }
 }
-
-/* ============================================
-   LANDSCAPE PHONE (height constrained)
-   ============================================ */
-@media (max-width: 900px) and (orientation: landscape) {
-  .date-scene {
-    flex-direction: row;
-    max-height: calc(100vh - 60px);
-    overflow: hidden;
-  }
-  
-  .date-main {
-    flex: 1;
-    max-width: 60%;
-  }
-  
-  .date-sidebar {
-    width: 40%;
-    max-height: none;
-    order: 0;
-  }
-  
-  .date-characters {
-    display: flex;
-    flex-direction: row;
-    padding: 8px 12px;
-    gap: 12px;
-  }
-  
-  .character-image {
-    width: 50px;
-    height: 50px;
-  }
-  
-  .compatibility-meter {
-    padding: 6px 12px;
-    min-width: 160px;
-  }
-  
-  .compatibility-value {
-    font-size: 1.3rem;
-  }
-  
-  .conversation-area {
-    max-height: calc(100vh - 200px);
-    padding: 10px;
-  }
-  
-  .sidebar-panel {
-    padding: 12px;
-  }
-}
-
