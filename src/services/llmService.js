@@ -72,20 +72,24 @@ export async function getDaterDateResponse(dater, avatar, conversationHistory, l
   
   // Add context about the Avatar's revealed attributes
   const avatarContext = avatar.attributes.length > 0
-    ? `\n\nYOUR DATE'S REVEALED TRAITS SO FAR: ${avatar.attributes.join(', ')}. React to these naturally based on whether they align with what you're looking for or hit your dealbreakers.`
+    ? `\n\nYOUR DATE'S TRAITS YOU'VE NOTICED: ${avatar.attributes.join(', ')}
+
+PHYSICAL ATTRIBUTES: If any trait is physical/visible (appearance, body features, clothing, etc.), YOU CAN SEE IT. You don't need them to mention it - you notice it yourself. Feel free to comment on visible things even if they're talking about something else.`
     : ''
   
   // Special instruction if a new attribute was just revealed
   const latestAttrContext = latestAttribute
-    ? `\n\n🚨 BREAKING NEWS - YOUR DATE JUST REVEALED: "${latestAttribute}"
+    ? `\n\n🚨 YOUR DATE JUST GAINED A NEW TRAIT: "${latestAttribute}"
 
-YOU MUST REACT TO THIS DIRECTLY AND DRAMATICALLY:
+IF THIS IS PHYSICAL/VISIBLE: You NOTICE it immediately - comment on it even if they didn't mention it! ("Wait, is that a...?" or "Did you always have...?")
+
+IF THIS IS A PERSONALITY/FACT: React when it comes up naturally in conversation.
+
+REACT DRAMATICALLY:
 - This is a BIG moment - react with genuine shock, excitement, horror, fascination, or delight
-- Actually acknowledge what they just said - don't ignore it!
-- If it's weird/alarming (like "giant spider"), be visibly taken aback or intrigued
+- If it's weird/alarming, be visibly taken aback
 - If it's positive for you, show real excitement
-- If it hits a dealbreaker, show visible concern or discomfort
-- Your reaction should be 2-3x more intense than your normal responses
+- Your reaction should be 2-3x more intense than normal
 - Still keep it to 1-2 sentences, but make them COUNT`
     : ''
   
