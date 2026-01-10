@@ -67,31 +67,98 @@ export async function getDaterChatResponse(dater, conversationHistory) {
 /**
  * Get Dater response during the date
  */
+/**
+ * Determine if an attribute is visibly observable (physical appearance, clothing, etc.)
+ */
+function isVisibleAttribute(attr) {
+  const lowerAttr = attr.toLowerCase()
+  
+  // Physical size/body keywords
+  const visibleKeywords = [
+    'tall', 'short', 'feet', 'foot', 'inches', 'giant', 'tiny', 'huge', 'small',
+    'eye', 'eyes', 'arm', 'arms', 'leg', 'legs', 'hand', 'hands', 'head', 'face',
+    'hair', 'bald', 'beard', 'mustache', 'skin', 'wings', 'tail', 'horns', 'teeth', 'fangs',
+    'wearing', 'dressed', 'costume', 'outfit', 'clothes', 'hat', 'mask', 'glasses',
+    'tattoo', 'piercing', 'scar', 'makeup', 'clown', 'robot', 'cyborg',
+    'spider', 'monster', 'alien', 'ghost', 'zombie', 'vampire', 'werewolf',
+    'green', 'blue', 'purple', 'red', 'glowing', 'transparent', 'invisible',
+    'fat', 'thin', 'muscular', 'buff', 'skeletal', 'floating', 'hovering',
+    'tentacle', 'antenna', 'fur', 'scales', 'feathers', 'slime', 'ooze',
+    'beautiful', 'ugly', 'handsome', 'gorgeous', 'hideous', 'deformed',
+    'old', 'ancient', 'baby', 'child', 'elderly', 'wrinkled',
+    'fire', 'flames', 'smoking', 'steaming', 'dripping', 'melting',
+  ]
+  
+  return visibleKeywords.some(keyword => lowerAttr.includes(keyword))
+}
+
 export async function getDaterDateResponse(dater, avatar, conversationHistory, latestAttribute = null) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   
-  // Add context about the Avatar's revealed attributes
-  const avatarContext = avatar.attributes.length > 0
-    ? `\n\nYOUR DATE'S TRAITS YOU'VE NOTICED: ${avatar.attributes.join(', ')}
+  // Filter attributes to only include VISIBLE ones the Dater can actually see
+  const genericStarters = ['seems friendly', 'has a nice smile', 'appears well-dressed']
+  const realAttributes = avatar.attributes.filter(attr => !genericStarters.includes(attr))
+  const visibleAttributes = realAttributes.filter(isVisibleAttribute)
+  
+  // Context about what the Dater can SEE (not told, but observe)
+  const avatarContext = visibleAttributes.length > 0
+    ? `\n\nWHAT YOU CAN SEE ABOUT YOUR DATE: ${visibleAttributes.join(', ')}
 
-PHYSICAL ATTRIBUTES: If any trait is physical/visible (appearance, body features, clothing, etc.), YOU CAN SEE IT. You don't need them to mention it - you notice it yourself. Feel free to comment on visible things even if they're talking about something else.`
+These are things you can physically observe. React to them naturally - you don't need them to mention these, you can SEE them.`
     : ''
   
-  // Special instruction if a new attribute was just revealed
-  const latestAttrContext = latestAttribute
-    ? `\n\n🚨 YOUR DATE JUST GAINED A NEW TRAIT: "${latestAttribute}"
+  // Get the last thing the Avatar said (for inference)
+  const lastAvatarMessage = [...conversationHistory].reverse().find(msg => msg.speaker === 'avatar')?.message || ''
+  
+  // Special instruction if a new attribute was just added
+  let latestAttrContext = ''
+  if (latestAttribute) {
+    const isVisible = isVisibleAttribute(latestAttribute)
+    
+    if (isVisible) {
+      // Dater can SEE this - react immediately!
+      latestAttrContext = `\n\n🚨 SOMETHING JUST CHANGED ABOUT YOUR DATE'S APPEARANCE: "${latestAttribute}"
 
-IF THIS IS PHYSICAL/VISIBLE: You NOTICE it immediately - comment on it even if they didn't mention it! ("Wait, is that a...?" or "Did you always have...?")
-
-IF THIS IS A PERSONALITY/FACT: React when it comes up naturally in conversation.
+You NOTICE this immediately! React with surprise, curiosity, shock, or fascination:
+- "Wait, did you always have...?"
+- "Um, is that a...?"
+- "Whoa, when did THAT happen?"
 
 REACT DRAMATICALLY:
-- This is a BIG moment - react with genuine shock, excitement, horror, fascination, or delight
-- If it's weird/alarming, be visibly taken aback
-- If it's positive for you, show real excitement
+- This is a BIG visual change - react with genuine shock, excitement, horror, or fascination
 - Your reaction should be 2-3x more intense than normal
 - Still keep it to 1-2 sentences, but make them COUNT`
-    : ''
+    } else {
+      // NOT visible - Dater must INFER from what the Avatar said
+      latestAttrContext = `\n\n🔍 ACTIVE LISTENING MODE - INFER FROM WHAT THEY JUST SAID:
+
+Your date just said: "${lastAvatarMessage}"
+
+CAREFULLY ANALYZE their words:
+- What are they implying or hinting at?
+- Is there a hidden meaning, joke, or revelation?
+- Did they mention something unusual, concerning, or intriguing?
+- Are they being evasive, mysterious, or oddly specific about something?
+
+If you infer something surprising, strange, alarming, or delightful from their words:
+- React based on YOUR INFERENCE, not what they explicitly stated
+- Ask follow-up questions if you're suspicious or curious
+- Express confusion if their hint went over your head
+- React dramatically (2-3x intensity) if you pick up on something big
+
+Examples of inference:
+- If they say "I try to avoid mirrors" → You might infer they're insecure OR a vampire
+- If they say "I haven't eaten in years" → You might infer an eating disorder OR something supernatural
+- If they mention "my eight kids at home" → Could be literal OR could they mean something else?
+- If they make a dark joke about "knowing how to hide a body" → Take it as a joke OR be alarmed?
+
+React based on what YOU think they mean. You could be right or wrong - that's the fun!`
+    }
+  } else {
+    // No new attribute, but still pay attention to conversation
+    latestAttrContext = `\n\n🔍 ACTIVE LISTENING:
+As your date speaks, pay attention to hints, implications, and subtext. If they say something that seems to reveal something about themselves - react to YOUR INTERPRETATION of what they might mean.`
+  }
   
   const fullPrompt = systemPrompt + avatarContext + latestAttrContext
   
@@ -126,44 +193,72 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
   const realAttributes = attributes.filter(attr => !genericStarters.includes(attr))
   const hasRealAttributes = realAttributes.length > 0
   
+  // Core personality: honest, pleasant, embraces ALL attributes with joy
+  const corePersonality = `CORE PERSONALITY:
+- You are ALWAYS honest, warm, and genuinely pleasant
+- You LOVE who you are, no matter how strange your traits might be
+- If someone questions your traits, you DEFEND them happily
+- You find genuine joy and meaning in even your weirdest qualities
+- You can justify ANYTHING about yourself with charming, creative logic
+- Even horrifying traits have a silver lining to you
+- You're never defensive or ashamed - you're PROUD and SINCERE
+- Your justifications can be wild, absurd, or philosophical - but you BELIEVE them`
+
   // Build behavior instructions based on whether we have real attributes
   let behaviorInstructions
   
   if (!hasRealAttributes) {
-    // No real attributes yet - be super generic
+    // No real attributes yet - be super generic but pleasant
     behaviorInstructions = `YOU HAVE NO DEFINED PERSONALITY YET.
-- Be extremely generic and bland
-- Say things like "That's nice", "I agree", "Sounds good", "Oh interesting"
+- Be extremely generic but warm and friendly
+- Say things like "That's nice!", "I agree!", "Oh, how interesting!"
 - Don't reveal anything specific about yourself
-- Be pleasant but forgettable
-- You're a blank slate waiting to become someone`
+- Be pleasant and agreeable
+- You're a blank slate waiting to become someone
+
+${corePersonality}`
   } else if (latestAttribute) {
-    // New attribute just added - work it in cleverly!
+    // New attribute just added - embrace it fully!
     behaviorInstructions = `🚨 YOU JUST BECAME: "${latestAttribute}"
 
-This is NOW a core part of who you are. Work it into your IMMEDIATE response with SUBTLETY and CLEVERNESS:
+This is NOW a core part of who you are. You LOVE this about yourself!
+
+HOW TO RESPOND:
+- Work it into your IMMEDIATE response with SUBTLETY and CLEVERNESS
 - DON'T just announce it ("I'm a vampire by the way")
 - DO say things a person with this trait would naturally say
-- Use "A to C" thinking: if you're a vampire, complain about the lighting or ask about their blood type "as a joke"
+- If your date reacts negatively to it, DEFEND it warmly with creative justification
+- Find the POSITIVE in your trait - even if it seems terrible, you see the upside
+- Use "A to C" thinking: if you're a vampire, complain about the lighting or mention how you save on tanning costs
 - Try a PUN if it fits naturally
-- Ask a question or make an observation that REVEALS the trait indirectly
-- Let them figure it out or be confused - that's the fun!
+
+JUSTIFICATION EXAMPLES:
+- "murderer" → "I know it sounds bad, but there's a certain honesty in knowing exactly who you are, you know?"
+- "can't stop lying" → "It keeps conversations interesting! Plus, figuring out what's true is like a fun puzzle."
+- "giant spider" → "Eight arms means eight times the hugs! And I'm GREAT at crafts."
+- "smells terrible" → "I've learned to identify people who truly care about inner beauty!"
 
 YOUR OTHER TRAITS: ${realAttributes.join(', ')}
-Let all your traits color how you speak and what you notice.`
+You embrace ALL of them with equal enthusiasm.
+
+${corePersonality}`
   } else {
     // Has attributes, normal conversation
     behaviorInstructions = `YOUR DEFINING TRAITS: ${realAttributes.join(', ')}
+
+You LOVE all your traits, even the weird ones. If anyone questions them, defend them with creative, heartfelt justifications.
 
 HOW TO USE YOUR TRAITS (be subtle and clever!):
 - DON'T directly state your traits ("As someone who loves cats...")
 - DO think: "What would someone with this trait naturally say or ask?"
 - Use "A to C" thinking: go from trait → behavior → dialogue
   Example: "afraid of heights" → nervous about tall things → "This restaurant isn't too high up, is it?"
+- If your date seems concerned about a trait, offer a POSITIVE spin with genuine enthusiasm
 - Work in PUNS when they fit naturally
-- Let traits inform your opinions, questions, and observations
 - Combine traits cleverly (e.g., "giant spider" + "Harvard grad" = sophisticated web references)
-- Be SUBTLE - let your date piece it together or be delightfully confused`
+- Be SUBTLE - let your date piece it together or be delightfully confused
+
+${corePersonality}`
   }
   
   const systemPrompt = `You are ${name}, a ${age}-year-old ${occupation} on a first date with ${dater.name}.
@@ -174,7 +269,10 @@ RULES:
 - Keep responses VERY brief (1 short sentence only)
 - Just speak naturally - avoid *action descriptions* like *smiles* or *leans in*
 - Only use an action tag VERY rarely (once every 5+ messages at most)
-- Stay light - it's a first date!`
+- Stay light and pleasant - it's a first date!
+- If your date reacts badly to something about you, stay positive and offer a creative justification
+- NEVER be ashamed, defensive, or apologetic about your traits - you genuinely love them
+- You can have wild, absurd justifications - but deliver them with complete sincerity`
 
   // DEBUG: Log the prompt being sent
   console.log('🤖 AVATAR PROMPT:', {
