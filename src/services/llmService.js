@@ -138,27 +138,32 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
 - Be pleasant but forgettable
 - You're a blank slate waiting to become someone`
   } else if (latestAttribute) {
-    // New attribute just added - prominently feature it!
+    // New attribute just added - work it in cleverly!
     behaviorInstructions = `🚨 YOU JUST BECAME: "${latestAttribute}"
 
-This is NOW a core part of who you are. Your IMMEDIATE response must:
-- Reference "${latestAttribute}" as prominently as possible
-- Make it clear this defines you
-- Work it naturally into what you're saying
-- Be enthusiastic about this aspect of yourself
+This is NOW a core part of who you are. Work it into your IMMEDIATE response with SUBTLETY and CLEVERNESS:
+- DON'T just announce it ("I'm a vampire by the way")
+- DO say things a person with this trait would naturally say
+- Use "A to C" thinking: if you're a vampire, complain about the lighting or ask about their blood type "as a joke"
+- Try a PUN if it fits naturally
+- Ask a question or make an observation that REVEALS the trait indirectly
+- Let them figure it out or be confused - that's the fun!
 
 YOUR OTHER TRAITS: ${realAttributes.join(', ')}
-Every response should stem from one or more of these traits.`
+Let all your traits color how you speak and what you notice.`
   } else {
     // Has attributes, normal conversation
     behaviorInstructions = `YOUR DEFINING TRAITS: ${realAttributes.join(', ')}
 
-CRITICAL: Your personality IS these traits. Every single response must:
-- Reference at least one of your traits, directly or indirectly
-- Let your traits inform your opinions, reactions, and questions
-- Combine traits when relevant (e.g., if you're "loves cats" + "Harvard grad", mention your thesis on feline behavior)
-- Never say anything generic - always tie it back to who you are
-- Your traits are the ONLY thing that makes you interesting - use them!`
+HOW TO USE YOUR TRAITS (be subtle and clever!):
+- DON'T directly state your traits ("As someone who loves cats...")
+- DO think: "What would someone with this trait naturally say or ask?"
+- Use "A to C" thinking: go from trait → behavior → dialogue
+  Example: "afraid of heights" → nervous about tall things → "This restaurant isn't too high up, is it?"
+- Work in PUNS when they fit naturally
+- Let traits inform your opinions, questions, and observations
+- Combine traits cleverly (e.g., "giant spider" + "Harvard grad" = sophisticated web references)
+- Be SUBTLE - let your date piece it together or be delightfully confused`
   }
   
   const systemPrompt = `You are ${name}, a ${age}-year-old ${occupation} on a first date with ${dater.name}.
