@@ -219,7 +219,7 @@ export const useGameStore = create((set, get) => ({
   
   // Attribute submission - SINGLE PLAYER: immediately apply with cooldown
   submitAttribute: (attribute) => {
-    const { avatar, appliedAttributes, attributeCooldown, timedBehaviors } = get()
+    const { avatar, appliedAttributes, attributeCooldown, timedBehaviors, compatibility } = get()
     
     // Check cooldown
     if (attributeCooldown) return false
@@ -229,6 +229,11 @@ export const useGameStore = create((set, get) => ({
     const newTimedBehaviors = timedBehavior 
       ? [...timedBehaviors, { ...timedBehavior, id: Date.now() }]
       : timedBehaviors
+    
+    // IMMEDIATE COMPATIBILITY BOOST: Adding any trait gives a small immediate boost
+    // This ensures the player sees positive feedback right away
+    const immediateBoost = 3 + Math.floor(Math.random() * 4) // +3 to +6
+    const newCompatibility = Math.min(100, compatibility + immediateBoost)
     
     // Immediately apply the attribute to the avatar
     set({
@@ -242,6 +247,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'applying', // Brief visual feedback
       attributeCooldown: true, // Start 10 second cooldown
       timedBehaviors: newTimedBehaviors,
+      compatibility: newCompatibility, // Immediate boost!
     })
     
     // Return to small talk after brief delay
