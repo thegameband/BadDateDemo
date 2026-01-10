@@ -382,12 +382,13 @@ export const useGameStore = create((set, get) => ({
     // Get the starting value for this factor
     let startingValue = compatibilityFactors[targetFactor]
     
-    // KEY FIX: When a factor is activated for the FIRST time with a POSITIVE change,
-    // start it from 50 (neutral) so it doesn't drag down the score.
-    // If the change is negative, it should start from 50 and go down.
+    // KEY FIX: When a factor is activated for the FIRST time,
+    // start it from the CURRENT COMPATIBILITY (not 50) so positive changes
+    // can only raise the score, never lower it.
     if (isFirstActivation) {
-      // First activation - start from neutral baseline of 50
-      startingValue = 50
+      // First activation - start from current compatibility level
+      // This ensures positive changes raise the score, negative changes lower it
+      startingValue = currentCompatibility
     }
     
     // Calculate new value
@@ -403,7 +404,18 @@ export const useGameStore = create((set, get) => ({
     })
     
     // Recalculate overall compatibility
-    const newCompat = get().calculateCompatibility()
+    let newCompat = get().calculateCompatibility()
+    
+    // SAFETY: If this was a POSITIVE change on first activation, 
+    // ensure the compatibility didn't drop (edge case protection)
+    if (isFirstActivation && change > 0 && newCompat < currentCompatibility) {
+      // Force the factor value higher to maintain at least current compatibility
+      const boostedValue = Math.min(100, newValue + (currentCompatibility - newCompat + 1))
+      const boostedFactors = { ...newFactors, [targetFactor]: boostedValue }
+      set({ compatibilityFactors: boostedFactors })
+      newCompat = get().calculateCompatibility()
+    }
+    
     set({ compatibility: newCompat })
     
     return { factor: targetFactor, oldValue: startingValue, newValue, overallCompat: newCompat, isFirstActivation }
