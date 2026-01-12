@@ -718,27 +718,29 @@
   text-align: center;
   margin: 0;
 }
-
 /* ============================================
    MOBILE PORTRAIT (max-width: 768px)
    ============================================ */
 @media (max-width: 768px) {
+  /* Main container - vertical stack */
   .date-scene {
-    flex-direction: column;
-    padding: 6px;
-    gap: 6px;
-    max-height: calc(100vh - 60px);
-    height: calc(100vh - 60px);
-    overflow: hidden;
+    flex-direction: column !important;
+    padding: 8px !important;
+    gap: 8px !important;
+    max-height: calc(100vh - 55px) !important;
+    height: calc(100vh - 55px) !important;
+    overflow: hidden !important;
   }
   
+  /* Main area containing conversation */
   .date-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border-radius: 12px;
-    overflow: hidden;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    order: 1 !important;
   }
   
   /* HIDE characters section on mobile - now in header */
@@ -746,145 +748,143 @@
     display: none !important;
   }
   
-  /* CONVERSATION AREA - Now the star of the show! */
+  /* CONVERSATION AREA - main focus on mobile */
   .conversation-area {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    padding: 12px;
-    gap: 10px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 200px !important;
+    max-height: none !important;
+    padding: 12px !important;
+    gap: 10px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    background: var(--bg-card) !important;
+    border-radius: 12px !important;
   }
   
   .dialogue {
-    max-width: 90%;
+    max-width: 90% !important;
   }
   
   .dialogue-bubble {
-    padding: 10px 14px;
-    border-radius: 14px;
+    padding: 10px 14px !important;
+    border-radius: 14px !important;
   }
   
   .dialogue-bubble p {
-    font-size: 0.9rem;
-    line-height: 1.4;
+    font-size: 0.9rem !important;
+    line-height: 1.4 !important;
   }
   
   .dialogue-speaker {
-    font-size: 0.7rem;
-    margin-top: 2px;
+    font-size: 0.7rem !important;
+    margin-top: 2px !important;
   }
   
   /* Hide conversation status on mobile */
   .conversation-status {
-    display: none;
+    display: none !important;
   }
   
   /* Sidebar becomes compact bottom panel */
   .date-sidebar {
-    width: 100%;
-    flex: 0 0 auto;
-    max-height: 130px;
-    overflow: hidden;
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    max-height: 120px !important;
+    overflow: hidden !important;
+    order: 2 !important;
   }
   
   .sidebar-panel {
-    border-radius: 12px;
-    padding: 10px 12px;
-    height: auto;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    height: auto !important;
+    max-height: 110px !important;
+    overflow: hidden !important;
   }
   
   .sidebar-panel h3 {
-    font-size: 0.95rem;
-    margin-bottom: 4px;
+    font-size: 0.9rem !important;
+    margin-bottom: 4px !important;
   }
   
   .panel-desc {
-    display: none;
+    display: none !important;
   }
   
   .attribute-form {
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    margin-bottom: 6px;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    margin-bottom: 0 !important;
   }
   
   .attribute-form input {
-    flex: 1;
-    padding: 10px 12px;
-    font-size: 16px;
-    border-radius: 10px;
+    flex: 1 !important;
+    padding: 10px 12px !important;
+    font-size: 16px !important;
+    border-radius: 10px !important;
   }
   
   .attribute-form .btn {
-    padding: 10px 14px;
-    font-size: 0.8rem;
-    white-space: nowrap;
+    padding: 10px 14px !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
   }
   
-  .applied-list {
-    display: none;
-  }
-  
-  .submitted-list {
-    display: none;
-  }
-  
+  /* Hide extra UI elements */
+  .applied-list,
+  .submitted-list,
+  .conversation-reminder,
   .cooldown-hint {
-    font-size: 0.7rem;
-    margin-top: 4px;
-  }
-  
-  .conversation-reminder {
-    display: none;
+    display: none !important;
   }
   
   .sidebar-panel.applying-panel {
-    padding: 12px;
+    padding: 12px !important;
   }
   
   .applying-panel .applying-animation {
-    font-size: 2rem;
-    margin-bottom: 8px;
+    font-size: 2rem !important;
+    margin-bottom: 8px !important;
   }
   
   .applying-panel h3 {
-    font-size: 1rem;
+    font-size: 1rem !important;
   }
   
   .latest-trait {
-    font-size: 0.85rem;
-    margin: 6px 0;
+    font-size: 0.85rem !important;
+    margin: 6px 0 !important;
   }
   
   .compatibility-debug {
-    position: fixed;
-    top: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-    min-width: 280px;
-    max-width: 90vw;
-    padding: 12px;
-    font-size: 0.8rem;
-    max-height: 60vh;
-    overflow-y: auto;
-    z-index: 200;
+    position: fixed !important;
+    top: 60px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    min-width: 280px !important;
+    max-width: 90vw !important;
+    padding: 12px !important;
+    font-size: 0.8rem !important;
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+    z-index: 200 !important;
   }
   
   .debug-factor {
-    grid-template-columns: 18px 55px 1fr 26px 26px;
-    gap: 3px;
-    padding: 2px 3px;
+    grid-template-columns: 18px 55px 1fr 26px 26px !important;
+    gap: 3px !important;
+    padding: 2px 3px !important;
   }
   
   .factor-name {
-    font-size: 0.65rem;
+    font-size: 0.65rem !important;
   }
   
   .factor-value {
-    font-size: 0.7rem;
+    font-size: 0.7rem !important;
   }
 }
 
@@ -893,41 +893,43 @@
    ============================================ */
 @media (max-width: 380px) {
   .date-scene {
-    padding: 4px;
-    gap: 4px;
+    padding: 4px !important;
+    gap: 4px !important;
   }
   
   .conversation-area {
-    padding: 8px;
-    gap: 8px;
+    padding: 8px !important;
+    gap: 8px !important;
+    min-height: 150px !important;
   }
   
   .dialogue-bubble {
-    padding: 8px 12px;
+    padding: 8px 12px !important;
   }
   
   .dialogue-bubble p {
-    font-size: 0.85rem;
+    font-size: 0.85rem !important;
   }
   
   .date-sidebar {
-    max-height: 110px;
+    max-height: 100px !important;
   }
   
   .sidebar-panel {
-    padding: 8px 10px;
+    padding: 8px 10px !important;
+    max-height: 95px !important;
   }
   
   .sidebar-panel h3 {
-    font-size: 0.85rem;
+    font-size: 0.8rem !important;
   }
   
   .attribute-form input {
-    padding: 8px 10px;
+    padding: 8px 10px !important;
   }
   
   .attribute-form .btn {
-    padding: 8px 12px;
-    font-size: 0.75rem;
+    padding: 8px 12px !important;
+    font-size: 0.75rem !important;
   }
 }
