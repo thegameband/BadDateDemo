@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useGameStore } from './store/gameStore'
 import Lobby from './components/Lobby'
 import Matchmaking from './components/Matchmaking'
@@ -9,6 +10,17 @@ import './App.css'
 
 function App() {
   const phase = useGameStore((state) => state.phase)
+  
+  // Debug: Add ?mobile=true to URL to force mobile layout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('mobile') === 'true') {
+      document.body.classList.add('force-mobile')
+      console.log('🔧 Debug: Mobile layout forced via ?mobile=true')
+    } else {
+      document.body.classList.remove('force-mobile')
+    }
+  }, [])
   
   const renderPhase = () => {
     switch (phase) {

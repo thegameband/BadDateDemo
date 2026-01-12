@@ -262,3 +262,105 @@
     font-size: 1rem;
   }
 }
+
+/* ============================================
+   DEBUG: Force mobile layout with ?mobile=true
+   ============================================ */
+body.force-mobile .game-header {
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+body.force-mobile .desktop-only {
+  display: none !important;
+}
+
+body.force-mobile .mobile-only {
+  display: flex !important;
+}
+
+body.force-mobile .header-right {
+  flex: 0 0 auto;
+}
+
+body.force-mobile .header-mobile-date {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+body.force-mobile .mobile-avatar,
+body.force-mobile .mobile-dater {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+body.force-mobile .mobile-avatar img,
+body.force-mobile .mobile-dater img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-purple);
+}
+
+body.force-mobile .mobile-dater img {
+  border-color: var(--accent-pink);
+}
+
+body.force-mobile .mobile-avatar span,
+body.force-mobile .mobile-dater span {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.force-mobile .mobile-compat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 70px;
+}
+
+body.force-mobile .mobile-compat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+body.force-mobile .mobile-compat-bar {
+  width: 60px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+body.force-mobile .mobile-compat-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+body.force-mobile .timer.timer-large {
+  padding: 6px 12px;
+  gap: 6px;
+  border-width: 1px;
+}
+
+body.force-mobile .timer.timer-large .timer-icon {
+  font-size: 1rem;
+}
+
+body.force-mobile .timer.timer-large .timer-value {
+  font-size: 1.1rem;
+}

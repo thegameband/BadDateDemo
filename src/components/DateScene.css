@@ -933,3 +933,96 @@
     font-size: 0.75rem !important;
   }
 }
+
+/* ============================================
+   DEBUG: Force mobile layout with ?mobile=true
+   ============================================ */
+body.force-mobile .date-scene {
+  flex-direction: column !important;
+  padding: 8px !important;
+  gap: 8px !important;
+  max-height: calc(100vh - 55px) !important;
+  height: calc(100vh - 55px) !important;
+  overflow: hidden !important;
+}
+
+body.force-mobile .date-main {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  order: 1 !important;
+}
+
+body.force-mobile .date-characters {
+  display: none !important;
+}
+
+body.force-mobile .conversation-area {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 200px !important;
+  max-height: none !important;
+  padding: 12px !important;
+  gap: 10px !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  background: var(--bg-card) !important;
+  border-radius: 12px !important;
+}
+
+body.force-mobile .conversation-status {
+  display: none !important;
+}
+
+body.force-mobile .date-sidebar {
+  width: 100% !important;
+  flex: 0 0 auto !important;
+  max-height: 120px !important;
+  overflow: hidden !important;
+  order: 2 !important;
+}
+
+body.force-mobile .sidebar-panel {
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  height: auto !important;
+  max-height: 110px !important;
+  overflow: hidden !important;
+}
+
+body.force-mobile .sidebar-panel h3 {
+  font-size: 0.9rem !important;
+  margin-bottom: 4px !important;
+}
+
+body.force-mobile .panel-desc,
+body.force-mobile .applied-list,
+body.force-mobile .submitted-list,
+body.force-mobile .conversation-reminder,
+body.force-mobile .cooldown-hint {
+  display: none !important;
+}
+
+body.force-mobile .attribute-form {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  margin-bottom: 0 !important;
+}
+
+body.force-mobile .dialogue {
+  max-width: 90% !important;
+}
+
+body.force-mobile .dialogue-bubble {
+  padding: 10px 14px !important;
+  border-radius: 14px !important;
+}
+
+body.force-mobile .dialogue-bubble p {
+  font-size: 0.9rem !important;
+}
