@@ -218,8 +218,9 @@ export const useGameStore = create((set, get) => ({
   },
   
   // Attribute submission - SINGLE PLAYER: immediately apply with cooldown
+  // NOTE: Compatibility does NOT change here - only when Dater reacts in conversation
   submitAttribute: (attribute) => {
-    const { avatar, appliedAttributes, attributeCooldown, timedBehaviors, compatibility } = get()
+    const { avatar, appliedAttributes, attributeCooldown, timedBehaviors } = get()
     
     // Check cooldown
     if (attributeCooldown) return false
@@ -230,12 +231,7 @@ export const useGameStore = create((set, get) => ({
       ? [...timedBehaviors, { ...timedBehavior, id: Date.now() }]
       : timedBehaviors
     
-    // IMMEDIATE COMPATIBILITY BOOST: Adding any trait gives a SIGNIFICANT immediate boost
-    // This ensures the player sees positive feedback that sticks even after conversation fluctuation
-    const immediateBoost = 8 + Math.floor(Math.random() * 5) // +8 to +12
-    const newCompatibility = Math.min(100, compatibility + immediateBoost)
-    
-    // Immediately apply the attribute to the avatar
+    // Apply the attribute to the avatar (NO compatibility change yet - that happens when Dater reacts)
     set({
       avatar: {
         ...avatar,
@@ -247,7 +243,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'applying', // Brief visual feedback
       attributeCooldown: true, // Start 10 second cooldown
       timedBehaviors: newTimedBehaviors,
-      compatibility: newCompatibility, // Immediate boost!
+      // NO compatibility change - score only changes when Dater speaks/emotes
     })
     
     // Return to small talk after brief delay
