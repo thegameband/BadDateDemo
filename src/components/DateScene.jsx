@@ -228,56 +228,95 @@ function evaluateDaterSentiment(response, reactionsLeft = 0, avatarMessage = '',
     }
   }
   
-  // Generate a descriptive reason sentence based on what was detected
+  // Generate a reason explaining WHY the dater reacted this way (based on the factor)
   let reason = ''
-  const factorLabels = {
-    'physicalAttraction': 'your looks',
-    'similarInterests': 'shared interests',
-    'similarValues': 'your values',
-    'similarTastes': 'similar tastes',
-    'similarIntelligence': 'the connection',
+  
+  // Reason templates by factor - focused on WHY they liked/disliked it
+  const positiveReasonsByFactor = {
+    'physicalAttraction': [
+      `Finds you attractive`,
+      `Likes what they see`,
+      `Thinks you're cute`,
+      `Into your look`,
+    ],
+    'similarInterests': [
+      `You have something in common!`,
+      `Shares that interest`,
+      `Excited you're into the same things`,
+      `Loves that you both like that`,
+    ],
+    'similarValues': [
+      `Respects your perspective`,
+      `Values align`,
+      `Appreciates your honesty`,
+      `Admires your principles`,
+    ],
+    'similarTastes': [
+      `Great taste match!`,
+      `You like the same things`,
+      `Appreciates your style`,
+      `Similar preferences`,
+    ],
+    'similarIntelligence': [
+      `Enjoys the banter`,
+      `Thinks you're clever`,
+      `Loves your wit`,
+      `Impressed by that`,
+    ],
   }
-  const factorLabel = factorLabels[factor] || 'the vibe'
+  
+  const negativeReasonsByFactor = {
+    'physicalAttraction': [
+      `Not their type physically`,
+      `Put off by appearance`,
+      `Uncomfortable with that`,
+    ],
+    'similarInterests': [
+      `Doesn't share that interest`,
+      `Not into that at all`,
+      `Can't relate to that`,
+    ],
+    'similarValues': [
+      `Values don't align`,
+      `Disagrees with that stance`,
+      `That crosses a line for them`,
+    ],
+    'similarTastes': [
+      `Taste mismatch`,
+      `Not into that at all`,
+      `Very different preferences`,
+    ],
+    'similarIntelligence': [
+      `Didn't land well`,
+      `Went over their head`,
+      `Found that off-putting`,
+    ],
+  }
+  
+  const mildPositiveReasons = [
+    `Intrigued by that`,
+    `Found that charming`,
+    `Pleasantly surprised`,
+  ]
+  
+  const mildNegativeReasons = [
+    `A bit unsure about that`,
+    `Slightly concerned`,
+    `Gave them pause`,
+  ]
   
   if (score > 10) {
-    const positiveReasons = [
-      `${daterName} is really into ${factorLabel}!`,
-      `${daterName} loved that moment.`,
-      `${daterName} seems genuinely excited!`,
-      `That really resonated with ${daterName}.`,
-      `${daterName} is feeling the chemistry.`,
-    ]
-    reason = positiveReasons[Math.floor(Math.random() * positiveReasons.length)]
+    const reasons = positiveReasonsByFactor[factor] || [`Really connecting!`]
+    reason = reasons[Math.floor(Math.random() * reasons.length)]
   } else if (score > 5) {
-    const mildPositiveReasons = [
-      `${daterName} appreciated ${factorLabel}.`,
-      `${daterName} liked that.`,
-      `Good impression on ${daterName}.`,
-      `${daterName} is warming up to you.`,
-      `${daterName} seems interested.`,
-    ]
-    reason = mildPositiveReasons[Math.floor(Math.random() * mildPositiveReasons.length)]
+    const reasons = positiveReasonsByFactor[factor] || mildPositiveReasons
+    reason = reasons[Math.floor(Math.random() * reasons.length)]
   } else if (score > 0) {
-    const slightPositiveReasons = [
-      `${daterName} noticed ${factorLabel}.`,
-      `${daterName} seems okay with that.`,
-      `Slight positive from ${daterName}.`,
-    ]
-    reason = slightPositiveReasons[Math.floor(Math.random() * slightPositiveReasons.length)]
+    reason = mildPositiveReasons[Math.floor(Math.random() * mildPositiveReasons.length)]
   } else if (score < -5) {
-    const negativeReasons = [
-      `${daterName} didn't like that.`,
-      `${daterName} seems put off.`,
-      `That rubbed ${daterName} the wrong way.`,
-      `${daterName} is having second thoughts.`,
-    ]
-    reason = negativeReasons[Math.floor(Math.random() * negativeReasons.length)]
+    const reasons = negativeReasonsByFactor[factor] || [`That was a turn-off`]
+    reason = reasons[Math.floor(Math.random() * reasons.length)]
   } else if (score < 0) {
-    const mildNegativeReasons = [
-      `${daterName} seemed uncertain.`,
-      `Slight hesitation from ${daterName}.`,
-      `${daterName} isn't sure about that.`,
-    ]
     reason = mildNegativeReasons[Math.floor(Math.random() * mildNegativeReasons.length)]
   }
   
