@@ -188,7 +188,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'smalltalk', 
       dateConversation: [], 
       submittedAttributes: [],
-      discoveredTraits: [], // Hide traits discovered during chat
+      // NOTE: discoveredTraits are KEPT - they carry over from chat to date!
       conversationTurns: 0,
       compatibilityFactors: {
         physicalAttraction: 50, // Neutral baseline
