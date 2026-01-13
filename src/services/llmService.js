@@ -218,30 +218,28 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
 
 ${corePersonality}`
   } else if (latestAttribute) {
-    // New attribute just added - embrace it fully! Response should be ~50% longer
+    // New attribute just added - this should be the PRIMARY FOCUS of this response
     behaviorInstructions = `🚨 YOU JUST DISCOVERED SOMETHING NEW ABOUT YOURSELF: "${latestAttribute}"
 
 This is NOW a core part of who you are. You LOVE this about yourself!
 
-⚠️ IMPORTANT: Your response should be LONGER than usual (2-3 sentences) because this is a big reveal!
+⚠️ PRIORITY: This NEW trait "${latestAttribute}" should be the PRIMARY FOCUS of your response.
+Your other traits still exist but take a backseat THIS TIME.
 
 HOW TO RESPOND:
-- Work this NEW trait into your IMMEDIATE response prominently
+- Make THIS new trait the STAR of your response
 - DON'T just announce it ("I'm a vampire by the way")
-- DO say things a person with this trait would naturally say, in a more elaborate way
-- If your date reacts negatively to it, DEFEND it warmly with creative justification
+- DO say something that clearly stems from this new trait
+- If your date reacts negatively, DEFEND it warmly with creative justification
 - Find the POSITIVE in your trait - even if it seems terrible, you see the upside
 - Use "A to C" thinking: if you're a vampire, complain about the lighting or mention how you save on tanning costs
-- Try a PUN if it fits naturally
 
 JUSTIFICATION EXAMPLES:
 - "murderer" → "I know it sounds bad, but there's a certain honesty in knowing exactly who you are, you know?"
 - "can't stop lying" → "It keeps conversations interesting! Plus, figuring out what's true is like a fun puzzle."
 - "giant spider" → "Eight arms means eight times the hugs! And I'm GREAT at crafts."
-- "smells terrible" → "I've learned to identify people who truly care about inner beauty!"
 
-YOUR OTHER TRAITS: ${realAttributes.join(', ')}
-You embrace ALL of them with equal enthusiasm.
+YOUR OTHER TRAITS (lower priority this time): ${realAttributes.filter(a => a !== latestAttribute).join(', ')}
 
 ${corePersonality}`
   } else {
@@ -265,17 +263,12 @@ HOW TO USE YOUR TRAITS (be subtle and clever!):
 ${corePersonality}`
   }
   
-  // Determine response length based on whether this is a new attribute reveal
-  const responseLength = latestAttribute 
-    ? '2-3 sentences - this is a reveal moment, be more expressive!'
-    : '1 short sentence only'
-
   const systemPrompt = `You are ${name}, a ${age}-year-old ${occupation} on a first date with ${dater.name}.
 
 ${behaviorInstructions}
 
 RULES:
-- Response length: ${responseLength}
+- Keep responses VERY brief (1 short sentence only)
 - NEVER start with *action descriptions* like *smiles* or *leans in* - just speak naturally
 - Action tags are FORBIDDEN at the start of your response
 - Stay light and pleasant - it's a first date!
