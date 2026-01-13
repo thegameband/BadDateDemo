@@ -808,31 +808,6 @@ function DateScene() {
             </AnimatePresence>
           </motion.div>
           
-          {/* Discovered traits about the dater */}
-          {discoveredTraits.length > 0 && (
-            <div className="discovered-traits-date">
-              {discoveredTraits.map((trait, i) => (
-                <motion.span
-                  key={i}
-                  className={`discovered-trait-chip ${
-                    highlightedTrait?.trait === trait 
-                      ? highlightedTrait.type === 'positive' ? 'highlight-positive' : 'highlight-negative'
-                      : ''
-                  }`}
-                  animate={highlightedTrait?.trait === trait ? {
-                    scale: [1, 1.15, 1],
-                    boxShadow: highlightedTrait.type === 'positive'
-                      ? ['0 0 0px #06d6a0', '0 0 15px #06d6a0', '0 0 5px #06d6a0']
-                      : ['0 0 0px #ff4d6d', '0 0 15px #ff4d6d', '0 0 5px #ff4d6d']
-                  } : {}}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                >
-                  {trait}
-                </motion.span>
-              ))}
-            </div>
-          )}
-          
           {/* Debug Panel - Hidden, accessible by clicking compatibility */}
           <AnimatePresence>
             {showDebugPanel && (
@@ -964,6 +939,36 @@ function DateScene() {
             </div>
           </motion.div>
         </div>
+        
+        {/* Discovered Traits Module - What you learned about your date */}
+        {discoveredTraits.length > 0 && (
+          <div className="discovered-traits-module">
+            <div className="discovered-traits-label">
+              🔍 What you know about {selectedDater.name}:
+            </div>
+            <div className="discovered-traits-list">
+              {discoveredTraits.map((trait, i) => (
+                <motion.span
+                  key={i}
+                  className={`discovered-trait-chip ${
+                    highlightedTrait?.trait === trait 
+                      ? highlightedTrait.type === 'positive' ? 'highlight-positive' : 'highlight-negative'
+                      : ''
+                  }`}
+                  animate={highlightedTrait?.trait === trait ? {
+                    scale: [1, 1.15, 1],
+                    boxShadow: highlightedTrait.type === 'positive'
+                      ? ['0 0 0px #06d6a0', '0 0 15px #06d6a0', '0 0 5px #06d6a0']
+                      : ['0 0 0px #ff4d6d', '0 0 15px #ff4d6d', '0 0 5px #ff4d6d']
+                  } : {}}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                >
+                  {trait}
+                </motion.span>
+              ))}
+            </div>
+          </div>
+        )}
         
         {/* Conversation - ALWAYS VISIBLE */}
         <div className="conversation-area" ref={conversationRef}>

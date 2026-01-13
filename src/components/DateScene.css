@@ -1087,3 +1087,84 @@ body.force-mobile .discovered-traits-date,
     display: none;
   }
 }
+
+/* ============================================
+   Discovered Traits Module (between header and conversation)
+   ============================================ */
+.discovered-traits-module {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 0 0 12px 0;
+}
+
+.discovered-traits-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.discovered-traits-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discovered-trait-chip {
+  font-size: 0.75rem;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.discovered-trait-chip.highlight-positive {
+  background: rgba(6, 214, 160, 0.25);
+  border-color: #06d6a0;
+  color: #06d6a0;
+  font-weight: 600;
+}
+
+.discovered-trait-chip.highlight-negative {
+  background: rgba(255, 77, 109, 0.25);
+  border-color: #ff4d6d;
+  color: #ff4d6d;
+  font-weight: 600;
+}
+
+/* Mobile: compact module */
+@media (max-width: 768px) {
+  .discovered-traits-module {
+    padding: 8px 12px;
+    margin: 0 0 8px 0;
+  }
+  
+  .discovered-traits-label {
+    font-size: 0.7rem;
+    margin-bottom: 6px;
+  }
+  
+  .discovered-trait-chip {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+  }
+}
+
+body.force-mobile .discovered-traits-module {
+  padding: 8px 12px;
+  margin: 0 0 8px 0;
+}
+
+body.force-mobile .discovered-traits-label {
+  font-size: 0.7rem;
+  margin-bottom: 6px;
+}
+
+body.force-mobile .discovered-trait-chip {
+  font-size: 0.7rem;
+  padding: 4px 10px;
+}
