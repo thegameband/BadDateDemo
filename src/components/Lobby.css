@@ -118,6 +118,133 @@
   padding: 18px 48px;
 }
 
+/* Mode Selection */
+.mode-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 500px;
+  margin-bottom: 32px;
+}
+
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--bg-card);
+  border: 2px solid transparent;
+  border-radius: 20px;
+  padding: 24px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.solo-mode::before {
+  background: linear-gradient(135deg, rgba(255, 107, 157, 0.1), rgba(255, 154, 139, 0.1));
+}
+
+.live-mode::before {
+  background: linear-gradient(135deg, rgba(110, 142, 251, 0.1), rgba(167, 119, 227, 0.1));
+}
+
+.mode-card:hover::before {
+  opacity: 1;
+}
+
+.mode-card:hover {
+  border-color: var(--accent-pink);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+.solo-mode:hover {
+  border-color: #ff6b9d;
+}
+
+.live-mode:hover {
+  border-color: #6e8efb;
+}
+
+.mode-icon {
+  font-size: 3rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.mode-info {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.mode-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.solo-mode .mode-title {
+  background: var(--gradient-love);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.live-mode .mode-title {
+  background: linear-gradient(135deg, #6e8efb, #a777e3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.mode-description {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.mode-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mode-features span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.mode-arrow {
+  font-size: 1.8rem;
+  color: var(--text-muted);
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.mode-card:hover .mode-arrow {
+  transform: translateX(4px);
+  color: var(--text-primary);
+}
+
 .player-count {
   margin-top: 24px;
   color: var(--text-muted);
@@ -161,7 +288,7 @@
   .lobby-description {
     font-size: 1rem;
     line-height: 1.6;
-    margin-bottom: 28px;
+    margin-bottom: 20px;
   }
   
   .lobby-features {
@@ -191,6 +318,43 @@
     font-size: 0.85rem;
     margin-top: 20px;
   }
+  
+  /* Mode selection mobile */
+  .mode-selection {
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .mode-card {
+    padding: 18px 16px;
+    gap: 14px;
+  }
+  
+  .mode-icon {
+    font-size: 2.2rem;
+  }
+  
+  .mode-title {
+    font-size: 1.2rem;
+  }
+  
+  .mode-description {
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+  }
+  
+  .mode-features {
+    gap: 6px;
+  }
+  
+  .mode-features span {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+  }
+  
+  .mode-arrow {
+    font-size: 1.4rem;
+  }
 }
 
 /* Small phones */
@@ -219,6 +383,23 @@
   .feature {
     padding: 12px 14px;
     font-size: 0.85rem;
+  }
+  
+  .mode-card {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+  
+  .mode-icon {
+    font-size: 1.8rem;
+  }
+  
+  .mode-title {
+    font-size: 1.1rem;
+  }
+  
+  .mode-description {
+    font-size: 0.8rem;
   }
 }
 

@@ -1,8 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Caveat:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Caveat:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
   /* Warm, romantic color palette with playful accents */
   --bg-dark: #1a1216;
+  --bg-primary: #1a1216;
   --bg-card: #2d1f26;
   --bg-card-hover: #3d2a33;
   --accent-pink: #ff4d6d;

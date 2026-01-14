@@ -65,49 +65,57 @@ function Lobby() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
         >
-          <p>
-            Work together (or against each other) to craft the perfect 
-            <span className="highlight"> terrible </span> 
-            date. Swipe, chat, and shape your avatar's personality as you 
-            watch the chaos unfold in real-time.
-          </p>
+          <p>Choose your adventure:</p>
         </motion.div>
         
         <motion.div 
-          className="lobby-features"
+          className="mode-selection"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          <div className="feature">
-            <span className="feature-icon">💘</span>
-            <span>Swipe to pick your date</span>
-          </div>
-          <div className="feature">
-            <span className="feature-icon">💕</span>
-            <span>Chat to gather intel</span>
-          </div>
-          <div className="feature">
-            <span className="feature-icon">💗</span>
-            <span>Shape who you become</span>
-          </div>
-          <div className="feature">
-            <span className="feature-icon">💔</span>
-            <span>Watch it all go wrong</span>
-          </div>
+          <motion.button
+            className="mode-card solo-mode"
+            onClick={() => setPhase('matchmaking')}
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="mode-icon">🎭</div>
+            <div className="mode-info">
+              <h3 className="mode-title">Solo Mode</h3>
+              <p className="mode-description">
+                Swipe, chat, and shape your avatar's terrible date on your own.
+              </p>
+              <div className="mode-features">
+                <span>💘 Pick your date</span>
+                <span>💬 Chat for intel</span>
+                <span>🎨 Add attributes</span>
+              </div>
+            </div>
+            <div className="mode-arrow">→</div>
+          </motion.button>
+          
+          <motion.button
+            className="mode-card live-mode"
+            onClick={() => setPhase('live-lobby')}
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="mode-icon">📺</div>
+            <div className="mode-info">
+              <h3 className="mode-title">Live Mode</h3>
+              <p className="mode-description">
+                Play with up to 20 friends! Vote on attributes together in real-time.
+              </p>
+              <div className="mode-features">
+                <span>👥 2-20 players</span>
+                <span>🗳️ Vote on traits</span>
+                <span>⏱️ Timed phases</span>
+              </div>
+            </div>
+            <div className="mode-arrow">→</div>
+          </motion.button>
         </motion.div>
-        
-        <motion.button
-          className="btn btn-primary start-button"
-          onClick={() => setPhase('matchmaking')}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Start Swiping
-        </motion.button>
         
         <motion.p 
           className="player-count"
@@ -115,7 +123,7 @@ function Lobby() {
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
         >
-          💕 2-200 players • 💖 ~15 min sessions
+          💕 Solo or multiplayer • 💖 ~10-15 min sessions
         </motion.p>
       </motion.div>
     </div>

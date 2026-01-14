@@ -14,6 +14,30 @@ const initialAvatar = {
   personality: 'A pleasant person with enough baseline traits to hold a conversation, waiting to be shaped by the crowd.',
 }
 
+// Initial Live Mode state
+const initialLiveState = {
+  isLiveMode: false,
+  roomCode: null,
+  isHost: false,
+  username: '',
+  players: [], // { id, username, isHost }
+  livePhase: 'waiting', // 'waiting' | 'phase1' | 'phase2' | 'phase3' | 'ended'
+  phaseTimer: 0,
+  cycleCount: 0,
+  maxCycles: 5,
+  suggestedAttributes: [], // { id, text, suggestedBy, votes: [] }
+  numberedAttributes: [], // For phase 2 voting: { number, text, combinedFrom: [] }
+  playerChat: [], // { id, username, message, timestamp }
+  winningAttribute: null,
+  // Sentiment tracking for Live Mode
+  sentimentCategories: {
+    loves: [],
+    likes: [],
+    dislikes: [],
+    dealbreakers: [],
+  },
+}
+
 /**
  * Parse an attribute for time-based behavior
  * Returns { action, intervalMs } or null if not time-based
@@ -66,6 +90,7 @@ function parseTimedAttribute(attribute) {
 
 export const useGameStore = create((set, get) => ({
   // Game phase: 'lobby' | 'matchmaking' | 'chatting' | 'smalltalk' | 'voting' | 'applying' | 'hotseat' | 'results'
+  // Live Mode phases: 'live-lobby' | 'live-game-lobby' | 'live-date'
   phase: 'lobby',
   
   // Daters - now using rich character data
@@ -82,6 +107,9 @@ export const useGameStore = create((set, get) => ({
   dateConversation: [],
   dateTimer: 300, // 5 minutes in seconds
   conversationTurns: 0, // Track conversation progress for weight adjustment
+  
+  // Live Mode state
+  ...initialLiveState,
   
   // 5-factor compatibility system
   compatibilityFactors: {
@@ -517,6 +545,266 @@ export const useGameStore = create((set, get) => ({
       hotSeatAttribute: null,
       timedBehaviors: [],
       pendingTimedEvent: null,
+      // Reset Live Mode state
+      ...initialLiveState,
+    })
+  },
+  
+  // ============================================
+  // LIVE MODE ACTIONS
+  // ============================================
+  
+  setLiveMode: (isLive) => set({ isLiveMode: isLive }),
+  
+  setUsername: (username) => set({ username }),
+  
+  // Create a new live room (host)
+  createLiveRoom: (roomCode, username) => {
+    const { daters } = get()
+    // Randomly select a dater for this room
+    const randomDater = daters[Math.floor(Math.random() * daters.length)]
+    
+    set({
+      isLiveMode: true,
+      roomCode,
+      isHost: true,
+      username,
+      players: [{ id: 1, username, isHost: true }],
+      selectedDater: randomDater,
+      livePhase: 'waiting',
+      cycleCount: 0,
+      avatar: { ...initialAvatar },
+      suggestedAttributes: [],
+      numberedAttributes: [],
+      playerChat: [],
+      sentimentCategories: {
+        loves: [],
+        likes: [],
+        dislikes: [],
+        dealbreakers: [],
+      },
+    })
+  },
+  
+  // Join an existing live room
+  joinLiveRoom: (roomCode, username) => {
+    const { roomCode: currentRoomCode, players, selectedDater } = get()
+    
+    // For demo purposes, we'll simulate joining
+    // In a real app, this would connect to a server
+    if (!currentRoomCode && !selectedDater) {
+      // If no room exists, create one (for testing)
+      const { daters } = get()
+      const randomDater = daters[Math.floor(Math.random() * daters.length)]
+      
+      set({
+        isLiveMode: true,
+        roomCode,
+        isHost: false,
+        username,
+        players: [
+          { id: 1, username: 'Host', isHost: true },
+          { id: Date.now(), username, isHost: false }
+        ],
+        selectedDater: randomDater,
+        livePhase: 'waiting',
+      })
+      return true
+    }
+    
+    // Room exists, add player
+    const newPlayer = { id: Date.now(), username, isHost: false }
+    set({
+      isLiveMode: true,
+      username,
+      players: [...players, newPlayer],
+    })
+    return true
+  },
+  
+  // Add a player to the room (for multiplayer sync)
+  addPlayer: (player) => {
+    const { players } = get()
+    if (players.length < 20 && !players.find(p => p.username === player.username)) {
+      set({ players: [...players, player] })
+    }
+  },
+  
+  // Remove a player from the room
+  removePlayer: (playerId) => {
+    const { players } = get()
+    set({ players: players.filter(p => p.id !== playerId) })
+  },
+  
+  // Start the live date (host only)
+  startLiveDate: () => {
+    set({
+      phase: 'live-date',
+      livePhase: 'phase1',
+      phaseTimer: 15,
+      cycleCount: 0,
+      dateConversation: [],
+      suggestedAttributes: [],
+      numberedAttributes: [],
+      compatibility: 50,
+    })
+  },
+  
+  // Set the current live phase
+  setLivePhase: (livePhase) => set({ livePhase }),
+  
+  // Set the phase timer
+  setPhaseTimer: (seconds) => set({ phaseTimer: seconds }),
+  
+  // Tick the phase timer
+  tickPhaseTimer: () => {
+    const { phaseTimer } = get()
+    if (phaseTimer > 0) {
+      set({ phaseTimer: phaseTimer - 1 })
+    }
+  },
+  
+  // Submit an attribute suggestion (Phase 1)
+  submitAttributeSuggestion: (text, suggestedBy) => {
+    const { suggestedAttributes } = get()
+    const newSuggestion = {
+      id: Date.now(),
+      text: text.trim(),
+      suggestedBy,
+      votes: [],
+    }
+    set({ suggestedAttributes: [...suggestedAttributes, newSuggestion] })
+  },
+  
+  // Process and number attributes for voting (start of Phase 2)
+  processAttributesForVoting: () => {
+    const { suggestedAttributes } = get()
+    
+    // Simple processing: combine very similar attributes
+    // In production, you'd use NLP or LLM for better matching
+    const processed = []
+    const used = new Set()
+    
+    suggestedAttributes.forEach((attr, index) => {
+      if (used.has(index)) return
+      
+      const similar = []
+      const lowerText = attr.text.toLowerCase()
+      
+      suggestedAttributes.forEach((other, otherIndex) => {
+        if (index === otherIndex || used.has(otherIndex)) return
+        
+        const otherLower = other.text.toLowerCase()
+        // Simple similarity check - same words or one contains the other
+        if (lowerText === otherLower || 
+            lowerText.includes(otherLower) || 
+            otherLower.includes(lowerText)) {
+          similar.push(other)
+          used.add(otherIndex)
+        }
+      })
+      
+      processed.push({
+        number: processed.length + 1,
+        text: attr.text,
+        combinedFrom: [attr, ...similar],
+        votes: [],
+      })
+      used.add(index)
+    })
+    
+    set({ numberedAttributes: processed })
+  },
+  
+  // Vote for an attribute (Phase 2)
+  voteForNumberedAttribute: (number, voterId) => {
+    const { numberedAttributes } = get()
+    const updated = numberedAttributes.map(attr => {
+      if (attr.number === number) {
+        // Remove existing vote from this voter
+        const filteredVotes = attr.votes.filter(v => v !== voterId)
+        return { ...attr, votes: [...filteredVotes, voterId] }
+      }
+      // Remove vote from other attributes
+      return { ...attr, votes: attr.votes.filter(v => v !== voterId) }
+    })
+    set({ numberedAttributes: updated })
+  },
+  
+  // Get the winning attribute (most votes)
+  getWinningAttribute: () => {
+    const { numberedAttributes } = get()
+    if (numberedAttributes.length === 0) return null
+    
+    const sorted = [...numberedAttributes].sort((a, b) => b.votes.length - a.votes.length)
+    return sorted[0]
+  },
+  
+  // Apply the winning attribute (start of Phase 3)
+  applyWinningAttribute: () => {
+    const { avatar, appliedAttributes, numberedAttributes } = get()
+    
+    if (numberedAttributes.length === 0) return
+    
+    const sorted = [...numberedAttributes].sort((a, b) => b.votes.length - a.votes.length)
+    const winner = sorted[0]
+    
+    set({
+      winningAttribute: winner,
+      avatar: {
+        ...avatar,
+        attributes: [...avatar.attributes, winner.text],
+      },
+      appliedAttributes: [...appliedAttributes, winner.text],
+      latestAttribute: winner.text,
+      latestAttributeReactionsLeft: 2,
+      suggestedAttributes: [],
+      numberedAttributes: [],
+    })
+  },
+  
+  // Increment cycle count
+  incrementCycle: () => {
+    const { cycleCount } = get()
+    set({ cycleCount: cycleCount + 1 })
+  },
+  
+  // Add a player chat message
+  addPlayerChatMessage: (username, message) => {
+    const { playerChat } = get()
+    const newMessage = {
+      id: Date.now(),
+      username,
+      message,
+      timestamp: new Date(),
+    }
+    // Keep last 100 messages
+    const updated = [...playerChat, newMessage].slice(-100)
+    set({ playerChat: updated })
+  },
+  
+  // Add item to sentiment category
+  addSentimentItem: (category, item) => {
+    const { sentimentCategories } = get()
+    if (!sentimentCategories[category].includes(item)) {
+      set({
+        sentimentCategories: {
+          ...sentimentCategories,
+          [category]: [...sentimentCategories[category], item],
+        },
+      })
+    }
+  },
+  
+  // Clear sentiment categories
+  clearSentimentCategories: () => {
+    set({
+      sentimentCategories: {
+        loves: [],
+        likes: [],
+        dislikes: [],
+        dealbreakers: [],
+      },
     })
   },
 }))
