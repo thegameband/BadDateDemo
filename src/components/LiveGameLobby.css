@@ -1,23 +1,38 @@
+/* Match the live-date-scene frame size (9:16 portrait) */
 .live-game-lobby {
-  flex: 1;
   display: flex;
-  gap: 24px;
-  padding: 24px;
-  min-height: calc(100vh - 70px);
-  max-width: 1200px;
+  flex-direction: column;
+  width: 100%;
+  max-width: 450px;
   margin: 0 auto;
+  height: 100vh;
+  background: var(--bg-primary);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  gap: 16px;
+}
+
+/* Desktop card styling */
+@media (min-width: 769px) {
+  .live-game-lobby {
+    max-height: 100vh;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    margin: 20px auto;
+    height: calc(100vh - 40px);
+  }
 }
 
 .lobby-left {
-  flex: 1;
-  max-width: 400px;
+  width: 100%;
 }
 
 .lobby-right {
-  flex: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .room-info-card,
@@ -342,27 +357,22 @@
   color: #a777e3;
 }
 
-/* Mobile responsive */
+/* Mobile responsive - mostly handled by base styles now */
 @media (max-width: 768px) {
   .live-game-lobby {
-    flex-direction: column;
-    padding: 16px;
-    gap: 16px;
-  }
-  
-  .lobby-left {
-    max-width: 100%;
+    padding: 12px;
+    gap: 12px;
   }
   
   .room-info-card,
   .players-card,
   .game-rules {
-    padding: 20px 16px;
+    padding: 16px 14px;
   }
   
   .room-header {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     align-items: stretch;
   }
   
@@ -371,44 +381,60 @@
   }
   
   .code-text {
-    font-size: 1.6rem;
-    letter-spacing: 4px;
+    font-size: 1.4rem;
+    letter-spacing: 3px;
   }
   
   .dater-card-mini {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+    flex-direction: row;
+    gap: 12px;
   }
   
   .dater-card-mini .dater-photo {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
+  }
+  
+  .dater-card-mini .dater-name {
+    font-size: 1.1rem;
+  }
+  
+  .dater-card-mini .dater-tagline {
+    font-size: 0.8rem;
   }
   
   .players-list {
-    max-height: 200px;
+    max-height: 150px;
   }
   
   .player-item {
-    padding: 10px 14px;
+    padding: 10px 12px;
   }
   
   .player-avatar {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
+    font-size: 0.85rem;
+  }
+  
+  .player-name {
     font-size: 0.9rem;
   }
   
   .game-rules {
-    padding: 16px;
+    padding: 14px;
   }
   
   .rules-list {
-    gap: 10px;
+    gap: 8px;
   }
   
   .rule {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+  }
+  
+  .start-btn {
+    padding: 14px;
+    font-size: 1rem;
   }
 }

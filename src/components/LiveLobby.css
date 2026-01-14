@@ -1,10 +1,26 @@
+/* Match the live-date-scene frame size (9:16 portrait) */
 .live-lobby {
-  flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto;
+  height: 100vh;
+  background: var(--bg-primary);
+  overflow: hidden;
   padding: 24px;
-  min-height: calc(100vh - 70px);
+  justify-content: center;
+}
+
+/* Desktop card styling */
+@media (min-width: 769px) {
+  .live-lobby {
+    max-height: 100vh;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    margin: 20px auto;
+    height: calc(100vh - 40px);
+  }
 }
 
 .live-lobby-card {

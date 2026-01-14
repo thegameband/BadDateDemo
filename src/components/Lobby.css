@@ -1,11 +1,17 @@
+/* Match the 9:16 portrait frame for consistency */
 .lobby {
-  flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+  flex-direction: column;
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto;
+  height: 100vh;
+  background: var(--bg-primary);
   overflow: hidden;
-  padding: 40px 20px;
+  position: relative;
+  padding: 24px 16px;
+  justify-content: center;
+  align-items: center;
 }
 
 .lobby-background {
@@ -32,7 +38,8 @@
   align-items: center;
   text-align: center;
   z-index: 10;
-  max-width: 600px;
+  width: 100%;
+  max-width: 420px;
 }
 
 .title-container {
@@ -40,11 +47,11 @@
 }
 
 .game-title {
-  font-size: 5rem;
+  font-size: 3.2rem;
   font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   line-height: 1;
 }
 
@@ -56,7 +63,7 @@
 }
 
 .title-heart {
-  font-size: 4rem;
+  font-size: 2.5rem;
   animation: heartbeat 1.5s ease-in-out infinite;
 }
 
@@ -252,37 +259,54 @@
 }
 
 /* ============================================
+   DESKTOP - Add card styling to frame
+   ============================================ */
+@media (min-width: 769px) {
+  .lobby {
+    max-height: 100vh;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    margin: 20px auto;
+    height: calc(100vh - 40px);
+  }
+}
+
+/* ============================================
    MOBILE RESPONSIVE LOBBY
    ============================================ */
 @media (max-width: 768px) {
   .lobby {
-    padding: 24px 16px;
-    min-height: calc(100vh - 70px);
+    max-width: 100%;
+    border-radius: 0;
+    height: 100vh;
+    height: 100dvh;
+    padding: 20px 12px;
   }
   
   .lobby-content {
     max-width: 100%;
-    padding: 0 8px;
+    padding: 0;
   }
   
   .title-container {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
   
   .game-title {
-    font-size: 2.8rem;
-    gap: 12px;
+    font-size: 2.5rem;
+    gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
   }
   
   .title-heart {
-    font-size: 2.2rem;
+    font-size: 2rem;
   }
   
   .game-tagline {
-    font-size: 1.3rem;
-    margin-top: 8px;
+    font-size: 1.1rem;
+    margin-top: 6px;
   }
   
   .lobby-description {

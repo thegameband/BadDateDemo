@@ -11,7 +11,8 @@ function Results() {
     avatar, 
     appliedAttributes,
     dateConversation,
-    resetGame 
+    resetGame,
+    liveMode
   } = useGameStore()
   
   const shareCardRef = useRef(null)
@@ -99,7 +100,7 @@ function Results() {
   }
   
   return (
-    <div className={`results ${isWin ? 'win' : 'lose'}`}>
+    <div className={`results ${isWin ? 'win' : 'lose'} ${liveMode ? 'live-mode-results' : ''}`}>
       <div className="results-background">
         {isWin ? (
           [...Array(20)].map((_, i) => (
