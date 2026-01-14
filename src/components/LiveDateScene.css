@@ -178,6 +178,95 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-secondary);
+  transition: all 0.3s ease;
+}
+
+/* Glow effects for sentiment items */
+.sentiment-item.glowing {
+  animation: glow-pulse 0.5s ease-in-out 3;
+  transform: scale(1.1);
+}
+
+.sentiment-item.glowing-love {
+  background: rgba(255, 77, 109, 0.4);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 77, 109, 0.6);
+}
+
+.sentiment-item.glowing-like {
+  background: rgba(255, 193, 7, 0.4);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 193, 7, 0.6);
+}
+
+.sentiment-item.glowing-dislike {
+  background: rgba(255, 152, 0, 0.4);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 152, 0, 0.6);
+}
+
+.sentiment-item.glowing-dealbreaker {
+  background: rgba(244, 67, 54, 0.4);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(244, 67, 54, 0.6);
+}
+
+@keyframes glow-pulse {
+  0%, 100% { transform: scale(1.1); }
+  50% { transform: scale(1.2); }
+}
+
+/* Dater Values Debug Popup */
+.dater-values-popup {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 18, 22, 0.98);
+  border: 2px solid rgba(255, 77, 109, 0.4);
+  border-radius: 12px;
+  padding: 16px;
+  z-index: 100;
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.dater-values-popup h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  color: var(--accent-pink);
+  text-align: center;
+}
+
+.values-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.value-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.value-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.value-column.loves .value-header { color: #ff4d6d; }
+.value-column.likes .value-header { color: #ffc107; }
+.value-column.dislikes .value-header { color: #ff9800; }
+.value-column.dealbreakers .value-header { color: #f44336; }
+
+.value-column span:not(.value-header) {
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
 }
 
 /* Date Screen - Main conversation area */

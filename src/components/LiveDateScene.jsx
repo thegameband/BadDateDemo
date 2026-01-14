@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getAvatarDateResponse } from '../services/llmService'
+import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch } from '../services/llmService'
 import './LiveDateScene.css'
 
 function LiveDateScene() {
@@ -20,6 +20,8 @@ function LiveDateScene() {
   const winningAttribute = useGameStore((state) => state.winningAttribute)
   const dateConversation = useGameStore((state) => state.dateConversation)
   const latestAttribute = useGameStore((state) => state.latestAttribute)
+  const daterValues = useGameStore((state) => state.daterValues)
+  const glowingValues = useGameStore((state) => state.glowingValues)
   
   const setLivePhase = useGameStore((state) => state.setLivePhase)
   const setPhaseTimer = useGameStore((state) => state.setPhaseTimer)
@@ -33,11 +35,16 @@ function LiveDateScene() {
   const addDateMessage = useGameStore((state) => state.addDateMessage)
   const addSentimentItem = useGameStore((state) => state.addSentimentItem)
   const setPhase = useGameStore((state) => state.setPhase)
+  const setDaterValues = useGameStore((state) => state.setDaterValues)
+  const exposeValue = useGameStore((state) => state.exposeValue)
+  const triggerGlow = useGameStore((state) => state.triggerGlow)
+  const adjustCompatibility = useGameStore((state) => state.adjustCompatibility)
   
   const [chatInput, setChatInput] = useState('')
   const [currentBubble, setCurrentBubble] = useState({ speaker: null, text: '' })
   const [isGenerating, setIsGenerating] = useState(false)
   const [userVote, setUserVote] = useState(null)
+  const [showDaterValuesPopup, setShowDaterValuesPopup] = useState(false)
   
   const chatEndRef = useRef(null)
   const phaseTimerRef = useRef(null)
@@ -78,6 +85,19 @@ function LiveDateScene() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [playerChat])
+  
+  // Generate dater values when the game starts
+  useEffect(() => {
+    const initDaterValues = async () => {
+      if (selectedDater && (!daterValues.loves.length || daterValues.loves.length === 0)) {
+        console.log('Generating dater values for', selectedDater.name)
+        const values = await generateDaterValues(selectedDater)
+        setDaterValues(values)
+        console.log('Dater values set:', values)
+      }
+    }
+    initDaterValues()
+  }, [selectedDater])
   
   // Questions the Dater asks to prompt attribute suggestions
   const promptQuestions = [
@@ -201,6 +221,32 @@ function LiveDateScene() {
         setCurrentBubble({ speaker: 'avatar', text: avatarResponse })
         addDateMessage('avatar', avatarResponse)
         
+        // Check if attribute matches any dater values
+        const matchResult = await checkAttributeMatch(attrToUse, daterValues, selectedDater)
+        
+        if (matchResult.category) {
+          console.log('Attribute matched:', matchResult)
+          
+          // Check if already exposed
+          const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
+          
+          if (wasAlreadyExposed) {
+            // Trigger glow effect on the already-exposed value
+            triggerGlow(matchResult.shortLabel)
+          }
+          
+          // Update compatibility based on category
+          const compatibilityChanges = {
+            loves: 25,
+            likes: 10,
+            dislikes: -10,
+            dealbreakers: -25,
+          }
+          const change = compatibilityChanges[matchResult.category]
+          adjustCompatibility(change)
+          console.log(`Compatibility ${change > 0 ? '+' : ''}${change}% (${matchResult.category}: ${matchResult.shortLabel})`)
+        }
+        
         // Wait a moment, then dater reacts
         await new Promise(resolve => setTimeout(resolve, 2500))
         
@@ -215,20 +261,6 @@ function LiveDateScene() {
         if (daterResponseText) {
           setCurrentBubble({ speaker: 'dater', text: daterResponseText })
           addDateMessage('dater', daterResponseText)
-          
-          // Analyze sentiment from the response text (for sentiment categories)
-          const sentiment = analyzeSentiment(daterResponseText, selectedDater)
-          
-          // Add to sentiment categories based on sentiment
-          if (sentiment.score >= 8) {
-            addSentimentItem('loves', attrToUse)
-          } else if (sentiment.score > 0) {
-            addSentimentItem('likes', attrToUse)
-          } else if (sentiment.score > -8) {
-            addSentimentItem('dislikes', attrToUse)
-          } else {
-            addSentimentItem('dealbreakers', attrToUse)
-          }
         }
       }
       
@@ -237,52 +269,6 @@ function LiveDateScene() {
     }
     
     setIsGenerating(false)
-  }
-  
-  // Simple sentiment analysis based on response text
-  const analyzeSentiment = (text, dater) => {
-    const lowerText = text.toLowerCase()
-    
-    // Positive indicators
-    const positiveWords = ['love', 'amazing', 'wonderful', 'great', 'awesome', 'fantastic', 'interesting', 'cool', 'nice', 'like', 'cute', 'sweet', 'fun', 'exciting', 'fascinating']
-    const negativeWords = ['hate', 'awful', 'terrible', 'horrible', 'disgusting', 'gross', 'scary', 'horrifying', 'creepy', 'weird', 'strange', 'uncomfortable', 'concerned', 'worried', 'alarmed', 'disturbing', 'no', 'don\'t', 'can\'t', 'won\'t', 'never', 'ugh', 'yikes']
-    const dealbreakersFound = dater.dealbreakers?.some(db => lowerText.includes(db.toLowerCase()))
-    
-    let score = 0
-    
-    // Count positive words
-    positiveWords.forEach(word => {
-      if (lowerText.includes(word)) score += 3
-    })
-    
-    // Count negative words
-    negativeWords.forEach(word => {
-      if (lowerText.includes(word)) score -= 3
-    })
-    
-    // Check for dealbreakers
-    if (dealbreakersFound) {
-      score -= 10
-    }
-    
-    // Check for questions (curiosity = slightly positive)
-    if (text.includes('?')) score += 1
-    
-    // Clamp score
-    score = Math.max(-10, Math.min(10, score))
-    
-    // Determine factor
-    const factors = ['physical', 'interests', 'values', 'tastes', 'intelligence']
-    const factor = factors[Math.floor(Math.random() * factors.length)]
-    
-    // Generate reason
-    let reason = ''
-    if (score > 5) reason = `${dater.name} seems really into this!`
-    else if (score > 0) reason = `${dater.name} is intrigued.`
-    else if (score < -5) reason = `${dater.name} is NOT happy about this.`
-    else if (score < 0) reason = `${dater.name} seems a bit put off.`
-    
-    return { score, factor, reason }
   }
   
   const handleChatSubmit = (e) => {
@@ -342,11 +328,49 @@ function LiveDateScene() {
     <div className="live-date-scene">
       {/* Header Section */}
       <div className="live-header">
-        <div className="phase-timer">
+        <div 
+          className="phase-timer" 
+          onClick={() => setShowDaterValuesPopup(!showDaterValuesPopup)}
+          style={{ cursor: 'pointer' }}
+          title="Tap to see dater's hidden values"
+        >
           <span className="timer-label">{getPhaseTitle()}</span>
           <span className="timer-value">{formatTime(phaseTimer)}</span>
           <span className="cycle-count">Round {cycleCount + 1}/{maxCycles}</span>
         </div>
+        
+        {/* Dater Values Debug Popup */}
+        <AnimatePresence>
+          {showDaterValuesPopup && (
+            <motion.div 
+              className="dater-values-popup"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              onClick={() => setShowDaterValuesPopup(false)}
+            >
+              <h4>🕵️ {selectedDater?.name}'s Hidden Values</h4>
+              <div className="values-grid">
+                <div className="value-column loves">
+                  <span className="value-header">❤️ Loves</span>
+                  {daterValues.loves.map((v, i) => <span key={i}>{v}</span>)}
+                </div>
+                <div className="value-column likes">
+                  <span className="value-header">👍 Likes</span>
+                  {daterValues.likes.map((v, i) => <span key={i}>{v}</span>)}
+                </div>
+                <div className="value-column dislikes">
+                  <span className="value-header">👎 Dislikes</span>
+                  {daterValues.dislikes.map((v, i) => <span key={i}>{v}</span>)}
+                </div>
+                <div className="value-column dealbreakers">
+                  <span className="value-header">💀 Dealbreakers</span>
+                  {daterValues.dealbreakers.map((v, i) => <span key={i}>{v}</span>)}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         <div className="date-participants">
           <div className="participant avatar-side">
@@ -377,7 +401,12 @@ function LiveDateScene() {
           <span className="category-label">✨ Loves</span>
           <div className="category-items">
             {sentimentCategories.loves.map((item, i) => (
-              <span key={i} className="sentiment-item">{item}</span>
+              <span 
+                key={i} 
+                className={`sentiment-item ${glowingValues.includes(item) ? 'glowing glowing-love' : ''}`}
+              >
+                {item}
+              </span>
             ))}
           </div>
         </div>
@@ -385,7 +414,12 @@ function LiveDateScene() {
           <span className="category-label">💛 Likes</span>
           <div className="category-items">
             {sentimentCategories.likes.map((item, i) => (
-              <span key={i} className="sentiment-item">{item}</span>
+              <span 
+                key={i} 
+                className={`sentiment-item ${glowingValues.includes(item) ? 'glowing glowing-like' : ''}`}
+              >
+                {item}
+              </span>
             ))}
           </div>
         </div>
@@ -393,7 +427,12 @@ function LiveDateScene() {
           <span className="category-label">😬 Dislikes</span>
           <div className="category-items">
             {sentimentCategories.dislikes.map((item, i) => (
-              <span key={i} className="sentiment-item">{item}</span>
+              <span 
+                key={i} 
+                className={`sentiment-item ${glowingValues.includes(item) ? 'glowing glowing-dislike' : ''}`}
+              >
+                {item}
+              </span>
             ))}
           </div>
         </div>
@@ -401,7 +440,12 @@ function LiveDateScene() {
           <span className="category-label">💔 Nope</span>
           <div className="category-items">
             {sentimentCategories.dealbreakers.map((item, i) => (
-              <span key={i} className="sentiment-item">{item}</span>
+              <span 
+                key={i} 
+                className={`sentiment-item ${glowingValues.includes(item) ? 'glowing glowing-dealbreaker' : ''}`}
+              >
+                {item}
+              </span>
             ))}
           </div>
         </div>

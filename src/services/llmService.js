@@ -622,3 +622,220 @@ export function getFallbackDateDialogue(expectedSpeaker, avatar, dater) {
     return { speaker: 'avatar', message: getUnusedLine(avatarLines, usedAvatarLines) }
   }
 }
+
+/**
+ * Generate Dater Values (Loves, Likes, Dislikes, Dealbreakers) based on character sheet
+ * These are hidden from players and used for scoring
+ */
+export async function generateDaterValues(dater) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  
+  if (!apiKey) {
+    console.warn('No API key - using fallback dater values')
+    return getFallbackDaterValues(dater)
+  }
+  
+  const systemPrompt = `You are generating dating preferences for a character in a dating game.
+
+CHARACTER PROFILE:
+Name: ${dater.name}
+Age: ${dater.age}
+Archetype: ${dater.archetype}
+Description: ${dater.description}
+Backstory: ${dater.backstory}
+Values: ${dater.values}
+Beliefs: ${dater.beliefs}
+Ideal Partner: ${dater.idealPartner?.join(', ')}
+Known Dealbreakers: ${dater.dealbreakers?.join(', ')}
+Upbringing: ${dater.upbringing || 'Not specified'}
+Spirituality: ${dater.spirituality || 'Not specified'}
+
+Generate dating preferences that feel authentic to this character. 
+
+RULES:
+- Keep each preference to 1-3 words (like "being outdoorsy", "creative types", "staying home")
+- Make them BROAD categories, not specific (e.g., "relaxing" not "drinking wine")
+- Include a MIX of: hobbies, physical attributes, activities, personality types
+- A FEW can be specific things they love (like a celebrity, hobby, or vice)
+- These should feel natural for this character based on their personality
+
+Return ONLY valid JSON in this exact format:
+{
+  "loves": ["item1", "item2", "item3", "item4", "item5"],
+  "likes": ["item1", "item2", "item3", "item4", "item5", "item6", "item7", "item8", "item9", "item10"],
+  "dislikes": ["item1", "item2", "item3", "item4", "item5", "item6", "item7", "item8", "item9", "item10"],
+  "dealbreakers": ["item1", "item2", "item3", "item4", "item5"]
+}`
+
+  try {
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: 'Generate the dater values now.' }],
+      }),
+    })
+    
+    if (!response.ok) {
+      console.error('Error generating dater values')
+      return getFallbackDaterValues(dater)
+    }
+    
+    const data = await response.json()
+    const text = data.content[0].text
+    
+    // Parse JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      console.log('Generated dater values:', parsed)
+      return parsed
+    }
+    
+    return getFallbackDaterValues(dater)
+  } catch (error) {
+    console.error('Error generating dater values:', error)
+    return getFallbackDaterValues(dater)
+  }
+}
+
+/**
+ * Check if an attribute matches any dater value
+ * Returns { category: 'loves'|'likes'|'dislikes'|'dealbreakers'|null, matchedValue: string|null }
+ */
+export async function checkAttributeMatch(attribute, daterValues, dater) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  
+  if (!apiKey) {
+    return { category: null, matchedValue: null }
+  }
+  
+  const allValues = [
+    ...daterValues.loves.map(v => ({ value: v, category: 'loves' })),
+    ...daterValues.likes.map(v => ({ value: v, category: 'likes' })),
+    ...daterValues.dislikes.map(v => ({ value: v, category: 'dislikes' })),
+    ...daterValues.dealbreakers.map(v => ({ value: v, category: 'dealbreakers' })),
+  ]
+  
+  const systemPrompt = `You are checking if a dating attribute matches any preference in a list.
+
+DATER'S PREFERENCES:
+LOVES: ${daterValues.loves.join(', ')}
+LIKES: ${daterValues.likes.join(', ')}
+DISLIKES: ${daterValues.dislikes.join(', ')}
+DEALBREAKERS: ${daterValues.dealbreakers.join(', ')}
+
+ATTRIBUTE TO CHECK: "${attribute}"
+
+Does this attribute relate to ANY of the preferences above? Be generous with matching - if the attribute could reasonably relate to a preference, it's a match.
+
+Examples of matches:
+- "I'm a vampire" could match "being mysterious" or "nightlife"
+- "I collect stamps" could match "having hobbies" or "being detail-oriented"
+- "I have six arms" could match "being unique" or "physical differences"
+
+Return ONLY valid JSON:
+{
+  "matches": true/false,
+  "category": "loves" | "likes" | "dislikes" | "dealbreakers" | null,
+  "matchedValue": "the specific preference that matched" | null,
+  "shortLabel": "1-2 word label for display" | null
+}`
+
+  try {
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 150,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: 'Check for a match now.' }],
+      }),
+    })
+    
+    if (!response.ok) {
+      return { category: null, matchedValue: null, shortLabel: null }
+    }
+    
+    const data = await response.json()
+    const text = data.content[0].text
+    
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      if (parsed.matches) {
+        return {
+          category: parsed.category,
+          matchedValue: parsed.matchedValue,
+          shortLabel: parsed.shortLabel || parsed.matchedValue
+        }
+      }
+    }
+    
+    return { category: null, matchedValue: null, shortLabel: null }
+  } catch (error) {
+    console.error('Error checking attribute match:', error)
+    return { category: null, matchedValue: null, shortLabel: null }
+  }
+}
+
+/**
+ * Fallback dater values if API is unavailable
+ */
+function getFallbackDaterValues(dater) {
+  // Generic fallback based on common dating preferences
+  return {
+    loves: [
+      'being authentic',
+      'good conversation',
+      'sense of humor',
+      'being passionate',
+      'emotional depth'
+    ],
+    likes: [
+      'being adventurous',
+      'creativity',
+      'intelligence',
+      'confidence',
+      'being kind',
+      'having hobbies',
+      'being curious',
+      'good hygiene',
+      'being ambitious',
+      'self-awareness'
+    ],
+    dislikes: [
+      'being boring',
+      'negativity',
+      'being closed-minded',
+      'rudeness',
+      'laziness',
+      'dishonesty',
+      'being judgmental',
+      'arrogance',
+      'being clingy',
+      'poor communication'
+    ],
+    dealbreakers: [
+      'being cruel',
+      'dishonesty',
+      'disrespect',
+      'violence',
+      'bigotry'
+    ]
+  }
+}

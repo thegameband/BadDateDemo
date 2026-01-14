@@ -29,13 +29,24 @@ const initialLiveState = {
   numberedAttributes: [], // For phase 2 voting: { number, text, combinedFrom: [] }
   playerChat: [], // { id, username, message, timestamp }
   winningAttribute: null,
-  // Sentiment tracking for Live Mode
+  // Sentiment tracking for Live Mode (what players see)
   sentimentCategories: {
     loves: [],
     likes: [],
     dislikes: [],
     dealbreakers: [],
   },
+  // Hidden Dater Values (generated at game start, not shown to players)
+  daterValues: {
+    loves: [],
+    likes: [],
+    dislikes: [],
+    dealbreakers: [],
+  },
+  // Track which dater values have been revealed
+  exposedValues: [], // array of { category, value, shortLabel }
+  // Track which values are currently glowing
+  glowingValues: [], // array of shortLabels currently glowing
 }
 
 /**
@@ -637,7 +648,7 @@ export const useGameStore = create((set, get) => ({
   },
   
   // Start the live date (host only)
-  startLiveDate: () => {
+  startLiveDate: (daterValues = null) => {
     set({
       phase: 'live-date',
       livePhase: 'phase1',
@@ -647,7 +658,67 @@ export const useGameStore = create((set, get) => ({
       suggestedAttributes: [],
       numberedAttributes: [],
       compatibility: 50,
+      daterValues: daterValues || {
+        loves: [],
+        likes: [],
+        dislikes: [],
+        dealbreakers: [],
+      },
+      exposedValues: [],
+      glowingValues: [],
+      sentimentCategories: {
+        loves: [],
+        likes: [],
+        dislikes: [],
+        dealbreakers: [],
+      },
     })
+  },
+  
+  // Set dater values (called after LLM generates them)
+  setDaterValues: (values) => set({ daterValues: values }),
+  
+  // Expose a dater value (add to visible sentiment categories)
+  exposeValue: (category, value, shortLabel) => {
+    const { exposedValues, sentimentCategories } = get()
+    const label = shortLabel || value
+    
+    // Check if already exposed
+    const alreadyExposed = exposedValues.some(e => e.shortLabel === label)
+    
+    if (!alreadyExposed) {
+      // Add to exposed values
+      set({
+        exposedValues: [...exposedValues, { category, value, shortLabel: label }],
+        sentimentCategories: {
+          ...sentimentCategories,
+          [category]: [...sentimentCategories[category], label],
+        },
+      })
+    }
+    
+    return alreadyExposed
+  },
+  
+  // Trigger glow effect on a value
+  triggerGlow: (shortLabel) => {
+    const { glowingValues } = get()
+    if (!glowingValues.includes(shortLabel)) {
+      set({ glowingValues: [...glowingValues, shortLabel] })
+      // Auto-remove glow after 2 seconds
+      setTimeout(() => {
+        const current = get().glowingValues
+        set({ glowingValues: current.filter(v => v !== shortLabel) })
+      }, 2000)
+    }
+  },
+  
+  // Update compatibility with clamping (0-100)
+  adjustCompatibility: (amount) => {
+    const { compatibility } = get()
+    const newValue = Math.min(100, Math.max(0, compatibility + amount))
+    set({ compatibility: newValue })
+    return newValue
   },
   
   // Set the current live phase
