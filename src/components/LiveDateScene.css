@@ -232,6 +232,18 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
+.popup-round-info {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-bottom: 12px;
+  padding: 8px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
 .dater-values-popup h4 {
   margin: 0 0 12px 0;
   font-size: 0.9rem;

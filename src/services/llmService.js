@@ -206,8 +206,9 @@ As your date speaks, pay attention to hints, implications, and subtext. If they 
 
 /**
  * Get Avatar response during the date (for auto-conversation)
+ * @param mode - 'answer' (answering question with new attribute), 'continue' (continuing with all attributes)
  */
-export async function getAvatarDateResponse(avatar, dater, conversationHistory, latestAttribute = null) {
+export async function getAvatarDateResponse(avatar, dater, conversationHistory, latestAttribute = null, mode = 'answer') {
   const { name, age, occupation, attributes } = avatar
   
   // Filter out the generic starter attributes
@@ -223,93 +224,73 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
 - When asked about something, just ANSWER - don't be coy or mysterious
 - You're not trying to be dramatic or build suspense - just honest
 - If someone is shocked by your traits, you're genuinely confused why - this is normal to you
-- You can JUSTIFY your traits, but not because you think they need justifying - just explaining
 - Your tone is casual and unbothered, like you're stating obvious facts
-- "I murder people sometimes" with the same energy as "I like pizza"
 - You're PLEASANT and WARM, but also completely unselfconscious about who you are`
 
-  // Build behavior instructions based on whether we have real attributes
+  // Build behavior instructions based on mode and attributes
   let behaviorInstructions
   
   if (!hasRealAttributes) {
-    // No real attributes yet - be super generic but pleasant
     behaviorInstructions = `YOU HAVE NO DEFINED PERSONALITY YET.
 - Be extremely generic but warm and friendly
 - Say things like "That's nice!", "I agree!", "Oh, how interesting!"
 - Don't reveal anything specific about yourself
 - Be pleasant and agreeable
-- You're a blank slate waiting to become someone
 
 ${corePersonality}`
-  } else if (latestAttribute) {
-    // New attribute just added - this should be the PRIMARY FOCUS of this response
-    behaviorInstructions = `🚨 YOU JUST DISCOVERED SOMETHING NEW ABOUT YOURSELF: "${latestAttribute}"
+  } else if (mode === 'answer' && latestAttribute) {
+    // MODE: ANSWER - Answering the date's question using the new attribute as primary inspiration
+    behaviorInstructions = `🎯 YOU'RE ANSWERING A QUESTION - Use this attribute as inspiration: "${latestAttribute}"
 
-This is just a normal fact about you. You don't think it's weird or special.
+IMPORTANT: PARAPHRASE - Don't just repeat "${latestAttribute}" verbatim!
+- Make it INTERESTING and CONVERSATIONAL
+- Weave it into a natural response
+- You can elaborate, add details, make it funny
 
-⚠️ PRIORITY: Mention "${latestAttribute}" in your response - but CASUALLY, like it's obvious.
-Your other traits still exist but take a backseat THIS TIME.
+GOOD PARAPHRASING (creative, natural):
+- Player said "vampire" → "I don't get out much during the day. Sunlight and I... we have issues."
+- Player said "eats bugs" → "I'm pretty low maintenance food-wise. If it crawls, I'm happy."
+- Player said "has 6 arms" → "*gestures broadly* I'm really good at multitasking."
+- Player said "is on fire" → "*warmly* Yeah, personal space is important to me. People tend to... keep their distance."
 
-HOW TO RESPOND - BE STRAIGHTFORWARD:
-- Just STATE the trait plainly - no dramatic reveals or hints
-- Connect it naturally to the conversation
-- Treat it like you're mentioning any normal fact about yourself
-- If your date is surprised, be genuinely confused why
+BAD (too literal):
+- "I'm a vampire" ← Don't just state it!
+- "I eat bugs" ← Too direct, paraphrase!
 
-GOOD (straightforward, casual):
-- "vampire" → "Oh yeah, I'm a vampire. The wine here is fine but not really my thing."
-- "murderer" → "I've killed a few people. Anyway, what do you do for work?"
-- "on fire" → "Yeah I'm always on fire. You get used to it. So where are you from?"
-- "loves cheese" → "I'm obsessed with cheese. Like, unhealthily so. This place has good cheese?"
+🎭 PHYSICAL ATTRIBUTES - USE ACTION TEXT:
+If "${latestAttribute}" involves appearance/physicality, SHOW don't just tell:
+- "has tentacles" → "*tentacle waves* I give great hugs, actually."
+- "is a werewolf" → "*scratches behind ear* Sorry, full moon's tomorrow, I'm a little... itchy."
+- "is melting" → "*drips onto table* Oh, don't mind that. Where were we?"
 
-BAD (too dramatic, coy, or mysterious):
-- "I have a... dark secret" (just SAY it!)
-- "You might not believe this, but..." (why wouldn't they believe you?)
-- "I'm not like other people" (boring - be specific!)
-- Building suspense or being mysterious (just state facts!)
+You can use JUST action: "*is literally on fire, seemingly unbothered*"
+Or action + dialog: "*adjusts extra limbs* Anyway, what do you do?"
 
-🎭 PHYSICAL TRAITS: If this is a PHYSICAL trait:
-- Your date can SEE you - just acknowledge it matter-of-factly
-- Use *action descriptions* casually: "*adjusts third eye*", "*scratches scaly skin*"
-Examples:
-- "has three arms" → "*waves* Yeah, three arms. Comes in handy."
-- "is visibly rotting" → "*piece falls off* Oh, that happens. So what were you saying?"
-- "is on fire" → "Yeah I'm on fire. Always am. Anyway..."
-
-YOUR OTHER TRAITS: ${realAttributes.filter(a => a !== latestAttribute).join(', ')}
+YOUR OTHER TRAITS (can reference but focus on new one): ${realAttributes.filter(a => a !== latestAttribute).join(', ')}
 
 ${corePersonality}`
   } else {
-    // Has attributes, normal conversation - all traits weighted equally
-    behaviorInstructions = `YOUR TRAITS (these are just normal facts about you): ${realAttributes.join(', ')}
+    // MODE: CONTINUE - Continuing conversation using ALL attributes
+    behaviorInstructions = `🎯 CONTINUE THE CONVERSATION - Draw from ALL your traits:
 
-You don't think any of your traits are weird. They're just who you are.
+YOUR TRAITS: ${realAttributes.join(', ')}
 
-HOW TO TALK ABOUT YOUR TRAITS - BE STRAIGHTFORWARD:
-- Mention traits PLAINLY when relevant - no drama, no mystery
-- Just state things like normal facts: "Yeah, I'm a vampire. So anyway..."
-- Connect traits to conversation naturally, but don't force it
-- Combine traits when it makes sense: "Being a spider makes Harvard reunions awkward"
+HOW TO CONTINUE:
+- Pick 1-2 traits to mention or reference
+- Find CONNECTIONS between traits when possible:
+  - "Being a vampire AND a poet... midnight readings are very on-brand."
+  - "The six arms help with the knitting hobby, actually."
+- Combine traits creatively
+- Or just pick one that fits the moment
+- Build on what your date just said
 
-GOOD (straightforward, casual):
-- Date mentions food → "I don't really eat. Vampire thing. But this place looks nice!"
-- Date asks about hobbies → "I collect bones. And I read. Mostly about bones."
-- Date seems concerned → "Why are you looking at me like that? Is something wrong?"
+🎭 PHYSICAL TRAITS - USE ACTION TEXT FREELY:
+- *scratches scales* "So what do you do for fun?"
+- *third eye blinks* "That's interesting!"
+- *tentacle gestures* "Tell me more."
+- Can be action ONLY: "*visibly melts a little, seeming pleased*"
 
-BAD (too dramatic or mysterious):
-- "I have... certain needs" (just say what they are!)
-- "You might find this strange, but..." (you don't find it strange, why would they?)
-- Building suspense or being vague (just state facts plainly!)
-
-If your date seems concerned:
-- Be genuinely confused: "Wait, is that not normal?"
-- Explain plainly: "Oh the tentacles? Yeah, I've always had those."
-- You might think THEY'RE the weird one for being bothered
-
-🎭 PHYSICAL TRAITS: If you have physical traits:
-- They just exist - mention them casually when relevant
-- Use *action descriptions* matter-of-factly: "*adjusts third eye* So anyway..."
-- Physical stuff just happens: "*accidentally singes menu* Oops. What were you saying?"
+Keep the conversation FLOWING - ask questions, react to what they said, share something.
 
 ${corePersonality}`
   }

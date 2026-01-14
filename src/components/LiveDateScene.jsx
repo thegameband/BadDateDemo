@@ -151,44 +151,19 @@ function LiveDateScene() {
         break
         
       case 'phase2':
-        // Move to Phase 3 - apply winner and continue date
-        // Get the winning attribute BEFORE applying (so we have it for the conversation)
+        // Move to Phase 3 - apply winner and run full conversation
         const winningAttr = getWinningAttributeText()
         applyWinningAttribute()
         setLivePhase('phase3')
-        setPhaseTimer(30)
-        // Start the conversation with the winning attribute
+        setPhaseTimer(0) // No timer for phase 3 - conversation controls timing
+        // Start the full conversation flow
         if (winningAttr) {
           setTimeout(() => generateDateConversation(winningAttr), 500)
         }
         break
         
-      case 'phase3':
-        // Check if game should end
-        const newCycleCount = cycleCount + 1
-        incrementCycle()
-        
-        if (newCycleCount >= maxCycles) {
-          // Game over!
-          setLivePhase('ended')
-          setTimeout(() => setPhase('results'), 2000)
-        } else {
-          // Start new cycle
-          setLivePhase('phase1')
-          setPhaseTimer(15)
-          // Dater asks another question
-          const followUpLine = getFollowUpLine()
-          setDaterBubble(followUpLine)
-          setAvatarBubble('') // Clear avatar's previous response
-          addDateMessage('dater', followUpLine)
-        }
-        break
+      // Phase 3 ends are handled by handleRoundComplete() after conversation finishes
     }
-  }
-  
-  const getFollowUpLine = () => {
-    // Use the same question pool as opening, ensuring variety
-    return getOpeningLine()
   }
   
   // Get the winning attribute text (before applying it to the store)
@@ -198,11 +173,42 @@ function LiveDateScene() {
     return sorted[0]?.text || null
   }
   
-  // Generate conversation during Phase 3
+  // Apply scoring with multiplier
+  const applyScoring = async (avatarMessage, multiplier = 1) => {
+    const matchResult = await checkAttributeMatch(avatarMessage, daterValues, selectedDater)
+    
+    if (matchResult.category) {
+      console.log(`Attribute matched (${multiplier}x):`, matchResult)
+      
+      // Check if already exposed
+      const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
+      
+      if (wasAlreadyExposed) {
+        triggerGlow(matchResult.shortLabel)
+      }
+      
+      // Apply compatibility change with multiplier
+      const baseChanges = {
+        loves: 25,
+        likes: 10,
+        dislikes: -10,
+        dealbreakers: -25,
+      }
+      const change = Math.round(baseChanges[matchResult.category] * multiplier)
+      if (change !== 0) {
+        adjustCompatibility(change)
+        console.log(`Compatibility ${change > 0 ? '+' : ''}${change}% (${matchResult.category}: ${matchResult.shortLabel}, ${multiplier}x)`)
+      }
+    }
+  }
+  
+  // Generate the full Phase 3 conversation flow
+  // Exchange 1: Avatar answers question (1x scoring)
+  // Exchange 2: Avatar continues conversation (0.25x scoring)
+  // Exchange 3: Avatar continues again (0.10x scoring)
   const generateDateConversation = async (currentAttribute) => {
     if (isGenerating || !selectedDater) return
     
-    // Use passed attribute or fall back to store value
     const attrToUse = currentAttribute || latestAttribute
     if (!attrToUse) {
       console.log('No attribute to respond to')
@@ -212,68 +218,137 @@ function LiveDateScene() {
     setIsGenerating(true)
     
     try {
-      // Avatar responds to having the new attribute
-      const avatarResponse = await getAvatarDateResponse(
+      // ============ EXCHANGE 1: Avatar answers with new attribute (1x scoring) ============
+      console.log('--- Exchange 1: Avatar answers with new attribute ---')
+      
+      const avatarResponse1 = await getAvatarDateResponse(
         avatar,
         selectedDater,
         dateConversation.slice(-6),
-        attrToUse
+        attrToUse,
+        'answer' // Mode: answering a question with the new attribute
       )
       
-      if (avatarResponse) {
-        // Show avatar's response (keep dater's question visible)
-        setAvatarBubble(avatarResponse)
-        addDateMessage('avatar', avatarResponse)
+      if (avatarResponse1) {
+        setAvatarBubble(avatarResponse1)
+        addDateMessage('avatar', avatarResponse1)
         
-        // Check if attribute matches any dater values
-        const matchResult = await checkAttributeMatch(attrToUse, daterValues, selectedDater)
-        
-        if (matchResult.category) {
-          console.log('Attribute matched:', matchResult)
-          
-          // Check if already exposed
-          const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
-          
-          if (wasAlreadyExposed) {
-            // Trigger glow effect on the already-exposed value
-            triggerGlow(matchResult.shortLabel)
-          }
-          
-          // Update compatibility based on category
-          const compatibilityChanges = {
-            loves: 25,
-            likes: 10,
-            dislikes: -10,
-            dealbreakers: -25,
-          }
-          const change = compatibilityChanges[matchResult.category]
-          adjustCompatibility(change)
-          console.log(`Compatibility ${change > 0 ? '+' : ''}${change}% (${matchResult.category}: ${matchResult.shortLabel})`)
-        }
-        
-        // Wait a moment, then dater reacts
         await new Promise(resolve => setTimeout(resolve, 2500))
         
-        // Get dater's reaction (returns a string)
-        const daterResponseText = await getDaterDateResponse(
+        // Dater reacts - FULL SCORING (1x)
+        const daterReaction1 = await getDaterDateResponse(
           selectedDater,
           avatar,
-          [...dateConversation.slice(-6), { speaker: 'avatar', message: avatarResponse }],
+          [...dateConversation.slice(-6), { speaker: 'avatar', message: avatarResponse1 }],
           attrToUse
         )
         
-        if (daterResponseText) {
-          // Update dater's bubble (avatar stays visible)
-          setDaterBubble(daterResponseText)
-          addDateMessage('dater', daterResponseText)
+        if (daterReaction1) {
+          setDaterBubble(daterReaction1)
+          addDateMessage('dater', daterReaction1)
+          await applyScoring(avatarResponse1, 1) // Full scoring
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 3000))
+        
+        // ============ EXCHANGE 2: Avatar continues (0.25x scoring) ============
+        console.log('--- Exchange 2: Avatar continues conversation ---')
+        
+        const avatarResponse2 = await getAvatarDateResponse(
+          avatar,
+          selectedDater,
+          [...dateConversation.slice(-4), { speaker: 'avatar', message: avatarResponse1 }, { speaker: 'dater', message: daterReaction1 }],
+          null, // No new attribute
+          'continue' // Mode: continuing conversation using all attributes
+        )
+        
+        if (avatarResponse2) {
+          setAvatarBubble(avatarResponse2)
+          addDateMessage('avatar', avatarResponse2)
+          
+          await new Promise(resolve => setTimeout(resolve, 2500))
+          
+          // Dater reacts - REDUCED SCORING (0.25x)
+          const daterReaction2 = await getDaterDateResponse(
+            selectedDater,
+            avatar,
+            [...dateConversation.slice(-4), { speaker: 'avatar', message: avatarResponse2 }],
+            null
+          )
+          
+          if (daterReaction2) {
+            setDaterBubble(daterReaction2)
+            addDateMessage('dater', daterReaction2)
+            await applyScoring(avatarResponse2, 0.25) // 25% scoring
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 3000))
+          
+          // ============ EXCHANGE 3: Avatar continues again (0.10x scoring) ============
+          console.log('--- Exchange 3: Avatar continues again ---')
+          
+          const avatarResponse3 = await getAvatarDateResponse(
+            avatar,
+            selectedDater,
+            [...dateConversation.slice(-4), { speaker: 'avatar', message: avatarResponse2 }, { speaker: 'dater', message: daterReaction2 }],
+            null,
+            'continue'
+          )
+          
+          if (avatarResponse3) {
+            setAvatarBubble(avatarResponse3)
+            addDateMessage('avatar', avatarResponse3)
+            
+            await new Promise(resolve => setTimeout(resolve, 2500))
+            
+            // Dater reacts - MINIMAL SCORING (0.10x)
+            const daterReaction3 = await getDaterDateResponse(
+              selectedDater,
+              avatar,
+              [...dateConversation.slice(-4), { speaker: 'avatar', message: avatarResponse3 }],
+              null
+            )
+            
+            if (daterReaction3) {
+              setDaterBubble(daterReaction3)
+              addDateMessage('dater', daterReaction3)
+              await applyScoring(avatarResponse3, 0.10) // 10% scoring
+            }
+          }
         }
       }
+      
+      // After all 3 exchanges, check round count and transition
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      handleRoundComplete()
       
     } catch (error) {
       console.error('Error generating conversation:', error)
     }
     
     setIsGenerating(false)
+  }
+  
+  // Handle round completion - check if we continue or end
+  const handleRoundComplete = () => {
+    const newRoundCount = cycleCount + 1
+    incrementCycle()
+    
+    console.log(`Round ${newRoundCount}/${maxCycles} complete`)
+    
+    if (newRoundCount >= maxCycles) {
+      // Game over!
+      setLivePhase('ended')
+      setTimeout(() => setPhase('results'), 2000)
+    } else {
+      // Start new round - Dater asks another question
+      setLivePhase('phase1')
+      setPhaseTimer(15)
+      const nextQuestion = getOpeningLine()
+      setDaterBubble(nextQuestion)
+      setAvatarBubble('')
+      addDateMessage('dater', nextQuestion)
+    }
   }
   
   const handleChatSubmit = (e) => {
@@ -337,14 +412,14 @@ function LiveDateScene() {
           className="phase-timer" 
           onClick={() => setShowDaterValuesPopup(!showDaterValuesPopup)}
           style={{ cursor: 'pointer' }}
-          title="Tap to see dater's hidden values"
+          title="Tap to see hidden info"
         >
           <span className="timer-label">{getPhaseTitle()}</span>
-          <span className="timer-value">{formatTime(phaseTimer)}</span>
-          <span className="cycle-count">Round {cycleCount + 1}/{maxCycles}</span>
+          {phaseTimer > 0 && <span className="timer-value">{formatTime(phaseTimer)}</span>}
+          {livePhase === 'phase3' && <span className="timer-value">💬</span>}
         </div>
         
-        {/* Dater Values Debug Popup */}
+        {/* Hidden Info Popup (Round count + Dater Values) */}
         <AnimatePresence>
           {showDaterValuesPopup && (
             <motion.div 
@@ -354,6 +429,9 @@ function LiveDateScene() {
               exit={{ opacity: 0, y: -10 }}
               onClick={() => setShowDaterValuesPopup(false)}
             >
+              <div className="popup-round-info">
+                📊 Round {cycleCount + 1} of {maxCycles}
+              </div>
               <h4>🕵️ {selectedDater?.name}'s Hidden Values</h4>
               <div className="values-grid">
                 <div className="value-column loves">
