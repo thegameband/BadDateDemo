@@ -143,6 +143,12 @@ function LiveDateScene() {
     
     switch (livePhase) {
       case 'phase1':
+        // Check if anyone submitted an attribute
+        if (suggestedAttributes.length === 0) {
+          // No suggestions - keep timer at 0 and wait
+          console.log('Waiting for at least one attribute suggestion...')
+          return // Don't transition, stay in Phase 1
+        }
         // Move to Phase 2 - voting
         processAttributesForVoting()
         setLivePhase('phase2')
@@ -165,6 +171,14 @@ function LiveDateScene() {
       // Phase 3 ends are handled by handleRoundComplete() after conversation finishes
     }
   }
+  
+  // Watch for first suggestion in Phase 1 when timer is at 0
+  useEffect(() => {
+    if (livePhase === 'phase1' && phaseTimer <= 0 && suggestedAttributes.length > 0) {
+      // First suggestion came in while waiting - now we can proceed
+      handlePhaseEnd()
+    }
+  }, [suggestedAttributes.length])
   
   // Get the winning attribute text (before applying it to the store)
   const getWinningAttributeText = () => {
@@ -399,7 +413,11 @@ function LiveDateScene() {
   
   const getPhaseInstructions = () => {
     switch (livePhase) {
-      case 'phase1': return 'Type an attribute for the Avatar!'
+      case 'phase1': 
+        if (phaseTimer <= 0 && suggestedAttributes.length === 0) {
+          return '⏳ Waiting for someone to suggest an attribute...'
+        }
+        return 'Type an attribute for the Avatar!'
       case 'phase2': return 'Enter a number to vote!'
       case 'phase3': return 'Chat with other players'
       default: return ''
