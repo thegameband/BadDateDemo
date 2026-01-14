@@ -193,6 +193,18 @@ function LiveDateScene() {
   // Get the winning attribute text (before applying it to the store)
   const getWinningAttributeText = () => {
     if (numberedAttributes.length === 0) return null
+    
+    // Check if anyone voted
+    const totalVotes = numberedAttributes.reduce((sum, attr) => sum + attr.votes.length, 0)
+    
+    if (totalVotes === 0) {
+      // No votes - pick a random attribute
+      const randomIndex = Math.floor(Math.random() * numberedAttributes.length)
+      console.log('No votes cast - picking random attribute:', numberedAttributes[randomIndex]?.text)
+      return numberedAttributes[randomIndex]?.text || null
+    }
+    
+    // Sort by votes and return the winner
     const sorted = [...numberedAttributes].sort((a, b) => b.votes.length - a.votes.length)
     return sorted[0]?.text || null
   }
