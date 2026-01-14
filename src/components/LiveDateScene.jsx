@@ -7,7 +7,6 @@ import './LiveDateScene.css'
 function LiveDateScene() {
   const selectedDater = useGameStore((state) => state.selectedDater)
   const avatar = useGameStore((state) => state.avatar)
-  const compatibility = useGameStore((state) => state.compatibility)
   const livePhase = useGameStore((state) => state.livePhase)
   const phaseTimer = useGameStore((state) => state.phaseTimer)
   const cycleCount = useGameStore((state) => state.cycleCount)
@@ -33,7 +32,6 @@ function LiveDateScene() {
   const addDateMessage = useGameStore((state) => state.addDateMessage)
   const addSentimentItem = useGameStore((state) => state.addSentimentItem)
   const setPhase = useGameStore((state) => state.setPhase)
-  const updateCompatibilityFactor = useGameStore((state) => state.updateCompatibilityFactor)
   
   const [chatInput, setChatInput] = useState('')
   const [currentBubble, setCurrentBubble] = useState({ speaker: null, text: '' })
@@ -217,15 +215,10 @@ function LiveDateScene() {
           setCurrentBubble({ speaker: 'dater', text: daterResponseText })
           addDateMessage('dater', daterResponseText)
           
-          // Analyze sentiment from the response text
+          // Analyze sentiment from the response text (for sentiment categories)
           const sentiment = analyzeSentiment(daterResponseText, selectedDater)
           
-          // Update compatibility
-          if (sentiment.score !== 0) {
-            updateCompatibilityFactor(sentiment.factor, sentiment.score, sentiment.reason)
-          }
-          
-          // Add to sentiment categories
+          // Add to sentiment categories based on sentiment
           if (sentiment.score >= 8) {
             addSentimentItem('loves', attrToUse)
           } else if (sentiment.score > 0) {
@@ -358,16 +351,6 @@ function LiveDateScene() {
           <div className="participant avatar-side">
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=PlayerAvatar&backgroundColor=c0aede" alt="You" className="participant-photo" />
             <span className="participant-name">You</span>
-          </div>
-          
-          <div className="compatibility-display">
-            <div className="compat-meter">
-              <div 
-                className="compat-fill" 
-                style={{ width: `${compatibility}%` }}
-              />
-            </div>
-            <span className="compat-value">{compatibility}%</span>
           </div>
           
           <div className="participant dater-side">
