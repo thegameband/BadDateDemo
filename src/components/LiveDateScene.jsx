@@ -486,7 +486,7 @@ function LiveDateScene() {
                 style={{ width: `${compatibility}%` }}
               />
             </div>
-            <span className="compat-value">{compatibility}%</span>
+            <span className="compat-value">❤️ {compatibility}%</span>
           </div>
           
           {/* Right: Timer */}
