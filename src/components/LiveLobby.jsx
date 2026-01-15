@@ -25,9 +25,9 @@ function LiveLobby() {
   
   const handleCreate = () => {
     const roomCode = generateRoomCode()
-    const guestName = `Player${Math.floor(Math.random() * 1000)}`
-    setUsername(guestName)
-    createLiveRoom(roomCode, guestName)
+    const playerName = username.trim() || `Player${Math.floor(Math.random() * 1000)}`
+    setUsername(playerName)
+    createLiveRoom(roomCode, playerName)
     setPhase('live-game-lobby')
   }
   
@@ -67,6 +67,19 @@ function LiveLobby() {
             Live Mode
           </h2>
           <p className="live-lobby-subtitle">Play with friends in real-time!</p>
+        </div>
+        
+        {/* Username Input */}
+        <div className="username-section">
+          <label className="input-label">Your Name</label>
+          <input
+            type="text"
+            className="username-input"
+            placeholder="Enter your name..."
+            value={username}
+            onChange={(e) => setUsernameLocal(e.target.value)}
+            maxLength={15}
+          />
         </div>
         
         {/* Main Action Buttons */}
