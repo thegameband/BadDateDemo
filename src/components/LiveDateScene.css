@@ -183,45 +183,32 @@
 .category-items {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 54px; /* ~3 items worth of height */
+  gap: 3px;
+  max-height: 60px;
   overflow-y: auto;
   overflow-x: hidden;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-  
-  /* Subtle scrollbar styling */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .category-items::-webkit-scrollbar {
-  width: 3px;
-}
-
-.category-items::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.category-items::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-}
-
-.category-items::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  display: none;
 }
 
 .sentiment-item {
-  font-size: 0.55rem;
-  padding: 3px 5px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  font-size: 0.6rem;
+  padding: 2px 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   transition: all 0.3s ease;
+  max-width: 100%;
+  text-align: center;
 }
 
 /* Glow effects for sentiment items */
@@ -764,7 +751,8 @@
   }
   
   .sentiment-item {
-    font-size: 0.5rem;
+    font-size: 0.55rem;
+    padding: 2px 3px;
   }
   
   .conversation-bubbles {
