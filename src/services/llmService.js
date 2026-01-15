@@ -808,16 +808,21 @@ IF IN DOUBT, FIND A MATCH. The game is more fun when attributes trigger reaction
 Stretch for connections - most things can relate to SOME preference.
 
 ABOUT THE SHORT LABEL:
-- This is what gets displayed in the sentiment column (Loves/Likes/Dislikes/Dealbreakers)
-- It should be 1-2 words that capture the ESSENCE of what was revealed
-- You can REPHRASE the attribute to fit better - don't just copy it exactly
-- Make it match what the avatar actually said/showed
+- This explains WHY the dater likes/dislikes what was said
+- It should be the UNDERLYING VALUE or CATEGORY, not a literal copy
+- Think: what DEEPER PREFERENCE does this connect to?
+- Use abstract concepts, not specific things
+
+⚠️ DO NOT just describe what the avatar said!
+⚠️ DO explain the underlying reason for the reaction!
 
 Examples:
-- Avatar said "I kill people sometimes" → shortLabel: "murder" or "killing"
-- Avatar said "I'm always on fire" → shortLabel: "fire hazard" or "dangerous"
-- Avatar showed "*waves with six arms*" → shortLabel: "extra limbs" or "mutation"
-- Avatar said "I eat bugs for breakfast" → shortLabel: "bug eater" or "weird diet"
+- Avatar said "I'm a gargoyle" → shortLabel: "gothic vibes" or "architecture" (NOT "gargoyles")
+- Avatar said "I kill people" → shortLabel: "violence" or "danger" (NOT "killing")
+- Avatar said "I'm always on fire" → shortLabel: "danger" or "unpredictable" (NOT "fire")
+- Avatar showed "*waves with six arms*" → shortLabel: "unique bodies" or "mutations" (NOT "six arms")
+- Avatar said "I eat bugs" → shortLabel: "adventurous eater" or "weird food" (NOT "bugs")
+- Avatar said "I'm a vampire" → shortLabel: "mysterious" or "nocturnal" (NOT "vampires")
 
 Return ONLY valid JSON:
 {
