@@ -727,6 +727,9 @@ export const useGameStore = create((set, get) => ({
     return newValue
   },
   
+  // Set compatibility directly (for syncing from Firebase)
+  setCompatibility: (value) => set({ compatibility: Math.min(100, Math.max(0, value)) }),
+  
   // Set the current live phase
   setLivePhase: (livePhase) => set({ livePhase }),
   
@@ -740,6 +743,12 @@ export const useGameStore = create((set, get) => ({
       set({ phaseTimer: phaseTimer - 1 })
     }
   },
+  
+  // Set suggested attributes (for Firebase sync)
+  setSuggestedAttributes: (suggestions) => set({ suggestedAttributes: suggestions }),
+  
+  // Set player chat (for Firebase sync)
+  setPlayerChat: (chat) => set({ playerChat: chat }),
   
   // Submit an attribute suggestion (Phase 1)
   submitAttributeSuggestion: (text, suggestedBy) => {

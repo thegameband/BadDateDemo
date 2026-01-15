@@ -2,6 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
 import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch } from '../services/llmService'
+import { 
+  isFirebaseAvailable, 
+  subscribeToGameState, 
+  subscribeToChat,
+  submitAttribute as firebaseSubmitAttribute,
+  submitVote as firebaseSubmitVote,
+  sendChatMessage,
+  updateGameState,
+  clearSuggestions,
+  clearVotes
+} from '../services/firebase'
 import './LiveDateScene.css'
 
 function LiveDateScene() {
@@ -22,6 +33,9 @@ function LiveDateScene() {
   const latestAttribute = useGameStore((state) => state.latestAttribute)
   const daterValues = useGameStore((state) => state.daterValues)
   const glowingValues = useGameStore((state) => state.glowingValues)
+  const roomCode = useGameStore((state) => state.roomCode)
+  const playerId = useGameStore((state) => state.playerId)
+  const isHost = useGameStore((state) => state.isHost)
   
   const setLivePhase = useGameStore((state) => state.setLivePhase)
   const setPhaseTimer = useGameStore((state) => state.setPhaseTimer)
@@ -39,6 +53,9 @@ function LiveDateScene() {
   const exposeValue = useGameStore((state) => state.exposeValue)
   const triggerGlow = useGameStore((state) => state.triggerGlow)
   const adjustCompatibility = useGameStore((state) => state.adjustCompatibility)
+  const setSuggestedAttributes = useGameStore((state) => state.setSuggestedAttributes)
+  const setPlayerChat = useGameStore((state) => state.setPlayerChat)
+  const setCompatibility = useGameStore((state) => state.setCompatibility)
   
   const [chatInput, setChatInput] = useState('')
   const [avatarBubble, setAvatarBubble] = useState('')
@@ -61,6 +78,46 @@ function LiveDateScene() {
       console.warn('⚠️ No API key found - using fallback responses')
     }
   }, [])
+  
+  // Firebase state variable
+  const [firebaseReady] = useState(isFirebaseAvailable())
+  
+  // Subscribe to Firebase game state (for non-hosts to receive updates)
+  useEffect(() => {
+    if (!firebaseReady || !roomCode) return
+    
+    // Subscribe to game state changes
+    const unsubscribeGame = subscribeToGameState(roomCode, (gameState) => {
+      if (!gameState) return
+      
+      // Sync suggestions from Firebase
+      if (gameState.suggestedAttributes) {
+        const suggestionsArray = Object.values(gameState.suggestedAttributes)
+        setSuggestedAttributes(suggestionsArray)
+      }
+      
+      // Sync compatibility (so all players see the same score)
+      if (typeof gameState.compatibility === 'number') {
+        setCompatibility(gameState.compatibility)
+      }
+      
+      // Non-hosts should follow host's phase/timer
+      if (!isHost) {
+        if (gameState.livePhase) setLivePhase(gameState.livePhase)
+        if (typeof gameState.phaseTimer === 'number') setPhaseTimer(gameState.phaseTimer)
+      }
+    })
+    
+    // Subscribe to chat
+    const unsubscribeChat = subscribeToChat(roomCode, (chatMessages) => {
+      setPlayerChat(chatMessages)
+    })
+    
+    return () => {
+      unsubscribeGame()
+      unsubscribeChat()
+    }
+  }, [firebaseReady, roomCode, isHost, setSuggestedAttributes, setCompatibility, setLivePhase, setPhaseTimer, setPlayerChat])
   
   // Phase timer countdown
   useEffect(() => {
@@ -153,6 +210,9 @@ function LiveDateScene() {
       clearInterval(phaseTimerRef.current)
     }
     
+    // Only host controls phase transitions
+    if (!isHost && firebaseReady) return
+    
     switch (livePhase) {
       case 'phase1':
         // Check if anyone submitted an attribute
@@ -166,6 +226,11 @@ function LiveDateScene() {
         setLivePhase('phase2')
         setPhaseTimer(10)
         setUserVote(null)
+        
+        // Sync to Firebase
+        if (firebaseReady && roomCode) {
+          await updateGameState(roomCode, { livePhase: 'phase2', phaseTimer: 10 })
+        }
         break
         
       case 'phase2':
@@ -178,6 +243,13 @@ function LiveDateScene() {
           applyWinningAttribute()
           setLivePhase('phase3')
           setPhaseTimer(0)
+          
+          // Sync to Firebase
+          if (firebaseReady && roomCode) {
+            await updateGameState(roomCode, { livePhase: 'phase3', phaseTimer: 0, winningAttribute: winningAttr })
+            await clearSuggestions(roomCode)
+            await clearVotes(roomCode)
+          }
           
           // After 2.5 seconds, hide popup and start conversation
           setTimeout(() => {
@@ -261,8 +333,12 @@ function LiveDateScene() {
           const baseChanges = { loves: 25, likes: 10, dislikes: -10, dealbreakers: -25 }
           const change = Math.round(baseChanges[matchResult.category] * multiplier)
           if (change !== 0) {
-            adjustCompatibility(change)
+            const newCompat = adjustCompatibility(change)
             console.log(`Compatibility ${change > 0 ? '+' : ''}${change}% (${matchResult.category}: ${matchResult.shortLabel}, ${multiplier}x)`)
+            // Sync compatibility to Firebase
+            if (firebaseReady && roomCode) {
+              await updateGameState(roomCode, { compatibility: newCompat })
+            }
           }
         }
         return matchResult.category // Return the category so Dater can react appropriately
@@ -389,7 +465,7 @@ function LiveDateScene() {
   }
   
   // Handle round completion - check if we continue or end
-  const handleRoundComplete = () => {
+  const handleRoundComplete = async () => {
     const newRoundCount = cycleCount + 1
     incrementCycle()
     
@@ -398,6 +474,9 @@ function LiveDateScene() {
     if (newRoundCount >= maxCycles) {
       // Game over!
       setLivePhase('ended')
+      if (firebaseReady && roomCode) {
+        await updateGameState(roomCode, { livePhase: 'ended', compatibility })
+      }
       setTimeout(() => setPhase('results'), 2000)
     } else {
       // Start new round - Dater asks another question
@@ -407,37 +486,68 @@ function LiveDateScene() {
       setDaterBubble(nextQuestion)
       setAvatarBubble('')
       addDateMessage('dater', nextQuestion)
+      
+      // Sync to Firebase
+      if (firebaseReady && roomCode) {
+        await updateGameState(roomCode, { livePhase: 'phase1', phaseTimer: 15, compatibility })
+      }
     }
   }
   
-  const handleChatSubmit = (e) => {
+  const handleChatSubmit = async (e) => {
     e.preventDefault()
     if (!chatInput.trim()) return
     
     const message = chatInput.trim()
     
-    // In Phase 1, treat messages as attribute suggestions
     // Helper to truncate long messages
     const truncate = (text, max = 40) => text.length > max ? text.slice(0, max) + '...' : text
     
+    // In Phase 1, treat messages as attribute suggestions
     if (livePhase === 'phase1') {
-      submitAttributeSuggestion(message, username)
-      addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
+      const suggestion = {
+        id: Date.now(),
+        text: message,
+        username: username
+      }
+      
+      // Submit to Firebase if available, otherwise local only
+      if (firebaseReady && roomCode) {
+        await firebaseSubmitAttribute(roomCode, suggestion)
+        await sendChatMessage(roomCode, { username, message: `💡 ${truncate(message, 35)}` })
+      } else {
+        submitAttributeSuggestion(message, username)
+        addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
+      }
     } 
     // In Phase 2, check if it's a vote
     else if (livePhase === 'phase2') {
       const num = parseInt(message)
       if (!isNaN(num) && num >= 1 && num <= numberedAttributes.length) {
-        voteForNumberedAttribute(num, username)
+        // Submit vote to Firebase if available
+        if (firebaseReady && roomCode && playerId) {
+          await firebaseSubmitVote(roomCode, playerId, num)
+          await sendChatMessage(roomCode, { username, message: `Vote: #${num}` })
+        } else {
+          voteForNumberedAttribute(num, username)
+          addPlayerChatMessage(username, `Vote: #${num}`)
+        }
         setUserVote(num)
-        addPlayerChatMessage(username, `Vote: #${num}`)
       } else {
-        addPlayerChatMessage(username, truncate(message))
+        if (firebaseReady && roomCode) {
+          await sendChatMessage(roomCode, { username, message: truncate(message) })
+        } else {
+          addPlayerChatMessage(username, truncate(message))
+        }
       }
     }
     // Phase 3 - just regular chat
     else {
-      addPlayerChatMessage(username, truncate(message))
+      if (firebaseReady && roomCode) {
+        await sendChatMessage(roomCode, { username, message: truncate(message) })
+      } else {
+        addPlayerChatMessage(username, truncate(message))
+      }
     }
     
     setChatInput('')
@@ -623,10 +733,15 @@ function LiveDateScene() {
                   <motion.div 
                     key={attr.number}
                     className={`vote-option ${userVote === attr.number ? 'voted' : ''}`}
-                    onClick={() => {
-                      voteForNumberedAttribute(attr.number, username)
+                    onClick={async () => {
+                      if (firebaseReady && roomCode && playerId) {
+                        await firebaseSubmitVote(roomCode, playerId, attr.number)
+                        await sendChatMessage(roomCode, { username, message: `Vote: #${attr.number}` })
+                      } else {
+                        voteForNumberedAttribute(attr.number, username)
+                        addPlayerChatMessage(username, `Vote: #${attr.number}`)
+                      }
                       setUserVote(attr.number)
-                      addPlayerChatMessage(username, `Vote: #${attr.number}`)
                     }}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
