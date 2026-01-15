@@ -47,6 +47,8 @@ function LiveDateScene() {
   const [userVote, setUserVote] = useState(null)
   const [showDaterValuesPopup, setShowDaterValuesPopup] = useState(false)
   const [usingFallback, setUsingFallback] = useState(false)
+  const [showWinnerPopup, setShowWinnerPopup] = useState(false)
+  const [winnerText, setWinnerText] = useState('')
   
   const chatEndRef = useRef(null)
   const phaseTimerRef = useRef(null)
@@ -167,14 +169,21 @@ function LiveDateScene() {
         break
         
       case 'phase2':
-        // Move to Phase 3 - apply winner and run full conversation
+        // Move to Phase 3 - show winner popup first, then run conversation
         const winningAttr = getWinningAttributeText()
-        applyWinningAttribute()
-        setLivePhase('phase3')
-        setPhaseTimer(0) // No timer for phase 3 - conversation controls timing
-        // Start the full conversation flow
         if (winningAttr) {
-          setTimeout(() => generateDateConversation(winningAttr), 500)
+          // Show the winner popup
+          setWinnerText(winningAttr)
+          setShowWinnerPopup(true)
+          applyWinningAttribute()
+          setLivePhase('phase3')
+          setPhaseTimer(0)
+          
+          // After 2.5 seconds, hide popup and start conversation
+          setTimeout(() => {
+            setShowWinnerPopup(false)
+            setTimeout(() => generateDateConversation(winningAttr), 300)
+          }, 2500)
         }
         break
         
@@ -632,17 +641,26 @@ function LiveDateScene() {
           )}
         </AnimatePresence>
         
-        {/* Winning Attribute Announcement */}
+        {/* Winner Popup - Centered Modal */}
         <AnimatePresence>
-          {livePhase === 'phase3' && winningAttribute && !isGenerating && !avatarBubble && !daterBubble && (
+          {showWinnerPopup && (
             <motion.div 
-              className="winner-announcement"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
+              className="winner-popup-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              <span className="winner-label">🎉 Winner!</span>
-              <span className="winner-text">{winningAttribute.text}</span>
+              <motion.div 
+                className="winner-popup"
+                initial={{ scale: 0.5, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ type: "spring", damping: 15 }}
+              >
+                <span className="winner-emoji">🎉</span>
+                <span className="winner-label">Winner!</span>
+                <span className="winner-text">{winnerText}</span>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
