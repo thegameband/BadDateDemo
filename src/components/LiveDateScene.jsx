@@ -470,17 +470,36 @@ function LiveDateScene() {
         </div>
       )}
       
-      {/* Header Section */}
+      {/* Header Section - Compact horizontal layout */}
       <div className="live-header">
-        <div 
-          className="phase-timer" 
-          onClick={() => setShowDaterValuesPopup(!showDaterValuesPopup)}
-          style={{ cursor: 'pointer' }}
-          title="Tap to see hidden info"
-        >
-          <span className="timer-label">{getPhaseTitle()}</span>
-          {phaseTimer > 0 && <span className="timer-value">{formatTime(phaseTimer)}</span>}
-          {livePhase === 'phase3' && <span className="timer-value">💬</span>}
+        <div className="header-row">
+          {/* Left: Call to Action */}
+          <div className="header-cta">
+            <span className="cta-label">{getPhaseTitle()}</span>
+          </div>
+          
+          {/* Center: Compatibility Meter */}
+          <div className="compatibility-display">
+            <div className="compat-meter">
+              <div 
+                className="compat-fill" 
+                style={{ width: `${compatibility}%` }}
+              />
+            </div>
+            <span className="compat-value">{compatibility}%</span>
+          </div>
+          
+          {/* Right: Timer */}
+          <div 
+            className="header-timer"
+            onClick={() => setShowDaterValuesPopup(!showDaterValuesPopup)}
+            style={{ cursor: 'pointer' }}
+            title="Tap to see hidden info"
+          >
+            {phaseTimer > 0 && <span className="timer-value">{formatTime(phaseTimer)}</span>}
+            {livePhase === 'phase3' && <span className="timer-value">💬</span>}
+            {phaseTimer <= 0 && livePhase !== 'phase3' && <span className="timer-value">⏳</span>}
+          </div>
         </div>
         
         {/* Hidden Info Popup (Round count + Dater Values) */}
@@ -518,28 +537,6 @@ function LiveDateScene() {
             </motion.div>
           )}
         </AnimatePresence>
-        
-        <div className="date-participants">
-          <div className="participant avatar-side">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=PlayerAvatar&backgroundColor=c0aede" alt="You" className="participant-photo" />
-            <span className="participant-name">You</span>
-          </div>
-          
-          <div className="compatibility-display">
-            <div className="compat-meter">
-              <div 
-                className="compat-fill" 
-                style={{ width: `${compatibility}%` }}
-              />
-            </div>
-            <span className="compat-value">{compatibility}%</span>
-          </div>
-          
-          <div className="participant dater-side">
-            <img src={selectedDater?.photo} alt={selectedDater?.name} className="participant-photo" />
-            <span className="participant-name">{selectedDater?.name}</span>
-          </div>
-        </div>
       </div>
       
       {/* Sentiment Categories */}
