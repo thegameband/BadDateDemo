@@ -248,6 +248,12 @@ function LiveDateScene() {
       if (gameState.livePhase) {
         console.log('🔥 Syncing phase:', gameState.livePhase)
         setLivePhase(gameState.livePhase)
+        
+        // If game ended, transition all players (including non-hosts) to results
+        if (gameState.livePhase === 'ended' && !isHost) {
+          console.log('🏁 Game ended - transitioning non-host to results')
+          setTimeout(() => setPhase('results'), 2000)
+        }
       }
       // Timer sync logic:
       // - Host NEVER accepts timer from Firebase (host is source of truth)
