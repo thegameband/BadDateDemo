@@ -167,15 +167,22 @@ function LiveDateScene() {
       }
       
       // Sync numbered attributes for voting (for all players)
-      if (gameState.numberedAttributes && Array.isArray(gameState.numberedAttributes)) {
-        console.log('🔥 Syncing numbered attributes:', gameState.numberedAttributes)
+      // Firebase may convert arrays to objects, so handle both formats
+      if (gameState.numberedAttributes) {
+        // Convert to array if Firebase stored it as an object
+        let numberedArray = gameState.numberedAttributes
+        if (!Array.isArray(numberedArray)) {
+          numberedArray = Object.values(gameState.numberedAttributes)
+        }
+        
+        console.log('🔥 Syncing numbered attributes:', numberedArray)
         
         // Convert attributeVotes map to votes arrays on each numbered attribute
         // attributeVotes format: { odId1: voteNumber, odId2: voteNumber, ... }
         const votesMap = gameState.attributeVotes || {}
         const totalVotes = Object.keys(votesMap).length
         
-        const numberedWithVotes = gameState.numberedAttributes.filter(attr => attr).map(attr => {
+        const numberedWithVotes = numberedArray.filter(attr => attr).map(attr => {
           // Find all players who voted for this attribute number
           const votersForThis = Object.entries(votesMap)
             .filter(([_, voteNum]) => voteNum === attr.number)
