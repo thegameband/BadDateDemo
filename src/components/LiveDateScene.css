@@ -66,8 +66,9 @@
 }
 
 .phase-title {
-  font-family: 'Fredoka One', 'Bubblegum Sans', cursive;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 2.5rem;
+  font-weight: 700;
   color: #ff4d6d;
   margin: 0 0 4px 0;
   text-shadow: 0 0 20px rgba(255, 77, 109, 0.6);
@@ -75,8 +76,9 @@
 }
 
 .phase-subtitle {
-  font-family: 'Fredoka One', 'Bubblegum Sans', cursive;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 1.5rem;
+  font-weight: 600;
   color: #fff;
   margin: 0 0 12px 0;
   text-transform: uppercase;
@@ -84,10 +86,11 @@
 }
 
 .phase-description {
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 1rem;
+  font-weight: 400;
   color: rgba(255, 255, 255, 0.8);
   margin: 0;
-  font-style: italic;
 }
 
 /* Header Section - Absolute positioning layout */
