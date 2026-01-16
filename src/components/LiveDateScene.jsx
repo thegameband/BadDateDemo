@@ -216,11 +216,11 @@ function LiveDateScene() {
                 await clearVotes(roomCode)
               }
               
-              // After 2.5 seconds, hide popup and start conversation
+              // After 5 seconds, hide popup and start conversation
               setTimeout(() => {
                 setShowWinnerPopup(false)
                 setTimeout(() => generateDateConversation(winningAttr), 300)
-              }, 2500)
+              }, 5000)
             }, 500)
           }
         }
@@ -583,11 +583,11 @@ function LiveDateScene() {
             await clearVotes(roomCode)
           }
           
-          // After 2.5 seconds, hide popup and start conversation
+          // After 5 seconds, hide popup and start conversation
           setTimeout(() => {
             setShowWinnerPopup(false)
             setTimeout(() => generateDateConversation(winningAttr), 300)
-          }, 2500)
+          }, 5000)
         }
         break
         
