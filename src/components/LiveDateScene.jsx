@@ -72,6 +72,7 @@ function LiveDateScene() {
   const [usingFallback, setUsingFallback] = useState(false)
   const [showWinnerPopup, setShowWinnerPopup] = useState(false)
   const [winnerText, setWinnerText] = useState('')
+  const [timerStarted, setTimerStarted] = useState(false) // Timer only runs after first submission
   const [showPhaseAnnouncement, setShowPhaseAnnouncement] = useState(false)
   const [announcementPhase, setAnnouncementPhase] = useState('')
   
@@ -95,12 +96,14 @@ function LiveDateScene() {
       setShowTutorial(false)
       setTutorialStep(0)
       setLivePhase('phase1')
+      setTimerStarted(false) // Timer waits for first submission
       // Sync to Firebase
       if (firebaseReady && roomCode) {
         await updateGameState(roomCode, { 
           showTutorial: false, 
           tutorialStep: 0, 
-          livePhase: 'phase1' 
+          livePhase: 'phase1',
+          timerStarted: false
         })
       }
     }
@@ -172,6 +175,11 @@ function LiveDateScene() {
       if (typeof gameState.tutorialStep === 'number') {
         setTutorialStep(gameState.tutorialStep)
       }
+      
+      // Sync timer started state (so timer begins for all when first submission happens)
+      if (typeof gameState.timerStarted === 'boolean') {
+        setTimerStarted(gameState.timerStarted)
+      }
     })
     
     // Subscribe to chat
@@ -192,11 +200,18 @@ function LiveDateScene() {
   }, [phaseTimer])
   
   // Phase timer countdown - only host runs the timer, others sync from Firebase
+  // Timer only starts after first submission in Phase 1/2
   useEffect(() => {
     // Only the host should run the timer
     if (!isHost && firebaseReady) return
     
-    if (livePhase === 'phase1' || livePhase === 'phase2' || livePhase === 'phase3') {
+    // For Phase 1 and Phase 2, wait until timer is started (first submission)
+    // For Phase 3, always run
+    const shouldRunTimer = 
+      (livePhase === 'phase3') || 
+      ((livePhase === 'phase1' || livePhase === 'phase2') && timerStarted)
+    
+    if (shouldRunTimer) {
       phaseTimerRef.current = setInterval(async () => {
         const currentTime = phaseTimerValueRef.current
         const newTime = currentTime - 1
@@ -215,7 +230,7 @@ function LiveDateScene() {
         }
       }
     }
-  }, [livePhase, isHost, firebaseReady, roomCode, setPhaseTimer])
+  }, [livePhase, isHost, firebaseReady, roomCode, setPhaseTimer, timerStarted])
   
   // Handle phase transitions when timer hits 0
   useEffect(() => {
@@ -389,13 +404,15 @@ function LiveDateScene() {
         setLivePhase('phase2')
         setPhaseTimer(30)
         setUserVote(null)
+        setTimerStarted(false) // Reset timer - wait for first vote
         
         // Sync to Firebase - include numbered attributes
         if (firebaseReady && roomCode) {
           await updateGameState(roomCode, { 
             livePhase: 'phase2', 
             phaseTimer: 30,
-            numberedAttributes: numbered
+            numberedAttributes: numbered,
+            timerStarted: false
           })
         }
         break
@@ -649,6 +666,7 @@ function LiveDateScene() {
       // Start new round - Dater asks another question
       setLivePhase('phase1')
       setPhaseTimer(30)
+      setTimerStarted(false) // Reset timer - wait for first suggestion
       const nextQuestion = getOpeningLine()
       setDaterBubble(nextQuestion)
       setAvatarBubble('')
@@ -656,7 +674,12 @@ function LiveDateScene() {
       
       // Sync to Firebase
       if (firebaseReady && roomCode) {
-        await updateGameState(roomCode, { livePhase: 'phase1', phaseTimer: 30, compatibility })
+        await updateGameState(roomCode, { 
+          livePhase: 'phase1', 
+          phaseTimer: 30, 
+          compatibility,
+          timerStarted: false
+        })
       }
     }
   }
@@ -678,6 +701,14 @@ function LiveDateScene() {
         username: username
       }
       
+      // Start the timer on first submission
+      if (!timerStarted) {
+        setTimerStarted(true)
+        if (firebaseReady && roomCode) {
+          await updateGameState(roomCode, { timerStarted: true })
+        }
+      }
+      
       // Submit to Firebase if available, otherwise local only
       if (firebaseReady && roomCode) {
         await firebaseSubmitAttribute(roomCode, suggestion)
@@ -691,6 +722,14 @@ function LiveDateScene() {
     else if (livePhase === 'phase2') {
       const num = parseInt(message)
       if (!isNaN(num) && num >= 1 && num <= numberedAttributes.length) {
+        // Start the timer on first vote
+        if (!timerStarted) {
+          setTimerStarted(true)
+          if (firebaseReady && roomCode) {
+            await updateGameState(roomCode, { timerStarted: true })
+          }
+        }
+        
         // Submit vote to Firebase if available
         if (firebaseReady && roomCode && playerId) {
           await firebaseSubmitVote(roomCode, playerId, num)

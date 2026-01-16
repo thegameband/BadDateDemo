@@ -29,6 +29,8 @@ const initialLiveState = {
   // Tutorial state
   showTutorial: false,
   tutorialStep: 0, // 0 = not started, 1-3 = tutorial steps
+  // Timer doesn't start until first submission in Phase 1/2
+  timerStarted: false,
   suggestedAttributes: [], // { id, text, suggestedBy, votes: [] }
   numberedAttributes: [], // For phase 2 voting: { number, text, combinedFrom: [] }
   playerChat: [], // { id, username, message, timestamp }
@@ -574,13 +576,14 @@ export const useGameStore = create((set, get) => ({
   // Tutorial actions
   setShowTutorial: (show) => set({ showTutorial: show }),
   setTutorialStep: (step) => set({ tutorialStep: step }),
+  setTimerStarted: (started) => set({ timerStarted: started }),
   advanceTutorial: () => {
     const { tutorialStep } = get()
     if (tutorialStep < 3) {
       set({ tutorialStep: tutorialStep + 1 })
     } else {
       // Tutorial complete - start the game
-      set({ showTutorial: false, tutorialStep: 0, livePhase: 'phase1' })
+      set({ showTutorial: false, tutorialStep: 0, livePhase: 'phase1', timerStarted: false })
     }
   },
   
