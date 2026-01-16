@@ -765,9 +765,9 @@ function LiveDateScene() {
   
   const getPhaseTitle = () => {
     switch (livePhase) {
-      case 'phase1': return { line1: 'PHASE 1', line2: 'Suggest', line3: 'Traits' }
-      case 'phase2': return { line1: 'PHASE 2', line2: 'Vote', line3: 'Now' }
-      case 'phase3': return { line1: 'PHASE 3', line2: 'Watch', line3: 'Date' }
+      case 'phase1': return { line1: 'PHASE 1', line2: 'Submit', line3: 'Answers' }
+      case 'phase2': return { line1: 'PHASE 2', line2: 'Vote', line3: '' }
+      case 'phase3': return { line1: 'PHASE 3', line2: 'Watch', line3: 'the Date' }
       case 'ended': return { line1: 'DONE', line2: 'Date', line3: 'Over' }
       default: return { line1: '', line2: '', line3: '' }
     }
