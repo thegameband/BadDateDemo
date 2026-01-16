@@ -289,34 +289,41 @@ ${corePersonality}`
     // Get the last question from conversation history
     const lastDaterMessage = [...conversationHistory].reverse().find(msg => msg.speaker === 'dater')?.message || ''
     
+    // Get previous attributes (excluding the new one)
+    const previousAttributes = realAttributes.filter(a => a !== latestAttribute)
+    const hasPreviousTraits = previousAttributes.length > 0
+    
     behaviorInstructions = `🔴🔴🔴 MANDATORY: ANSWER THE QUESTION USING "${latestAttribute}" 🔴🔴🔴
 
 YOUR DATE JUST ASKED: "${lastDaterMessage}"
 
 The players have decided YOUR ANSWER involves: "${latestAttribute}"
-Your response should ANSWER THE QUESTION while revealing this trait about yourself.
+Your response should ANSWER THE QUESTION while revealing this NEW trait about yourself.
 
+${hasPreviousTraits ? `📝 YOUR ESTABLISHED TRAITS (from earlier in the date):
+${previousAttributes.map(t => `- ${t}`).join('\n')}
+
+You already told your date about these! You can reference them naturally if relevant, but FOCUS on the NEW trait.
+` : ''}
 ✅ WHAT YOU MUST DO:
 - READ THE QUESTION AGAIN: "${lastDaterMessage}"
-- ANSWER IT using "${latestAttribute}" as your response
-- Connect the trait to the question naturally
+- ANSWER IT using "${latestAttribute}" as your PRIMARY response
 - State "${latestAttribute}" plainly and directly
 - Treat it as a normal fact about yourself
+${hasPreviousTraits ? '- You may briefly connect it to your previous traits if it fits naturally' : ''}
 
-✅ GOOD EXAMPLES (answering questions with traits):
-- Question: "What do you do for fun?" + Trait: "murder" → "Oh, I murder people mostly. It's relaxing."
-- Question: "Tell me about yourself" + Trait: "dragon" → "Well, I'm a dragon. *small flame puff* It's pretty great."
-- Question: "Any hobbies?" + Trait: "eating bugs" → "I'm really into eating bugs! Want to try one?"
-- Question: "What's your deal?" + Trait: "six arms" → "*gestures with all six arms* I've got a lot going on, as you can see."
+✅ GOOD EXAMPLES:
+- Question: "What do you do for fun?" + New trait: "murder" → "Oh, I murder people mostly. It's relaxing."
+${hasPreviousTraits ? '- If you previously said you\'re a vampire: "Well, being a vampire, murder just comes naturally."' : ''}
 
 ❌ BAD RESPONSES (DO NOT DO THIS):
 - Ignoring the question and just stating the trait ❌
-- Talking about jobs/careers instead of "${latestAttribute}" ❌
+- Acting like this is your first interaction (you've been chatting!) ❌
 - Being vague: "I have... unconventional habits" ❌
 - Copying your DATE's traits ❌
 
 🔴 THE QUESTION: "${lastDaterMessage}"
-🔴 YOUR ANSWER INVOLVES: "${latestAttribute}"
+🔴 YOUR NEW TRAIT TO REVEAL: "${latestAttribute}"
 
 ${corePersonality}`
   } else {
