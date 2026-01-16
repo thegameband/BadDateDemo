@@ -392,11 +392,11 @@ function LiveDateScene() {
           addDateMessage('dater', openingLine)
           
           // Sync question and state to Firebase for other players
+          // NOTE: Don't reset compatibility here - it's already set in startLiveDate
           if (firebaseReady && roomCode) {
             await updateGameState(roomCode, { 
               livePhase: 'phase1', 
               phaseTimer: 30,
-              compatibility: 50,
               currentQuestion: openingLine,
               daterBubble: openingLine, // Sync dater bubble to match question
               avatarBubble: '' // Clear avatar bubble
