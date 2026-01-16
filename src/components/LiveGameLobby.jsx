@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { QRCodeSVG } from 'qrcode.react'
 import { useGameStore } from '../store/gameStore'
 import { 
   isFirebaseAvailable, 
@@ -89,6 +90,20 @@ function LiveGameLobby() {
                 <span className="copy-icon">{copied ? '✓' : '📋'}</span>
               </div>
               {copied && <span className="copied-toast">Copied!</span>}
+            </div>
+          </div>
+          
+          {/* QR Code to join this room */}
+          <div className="qr-section">
+            <p className="qr-label">Scan to join</p>
+            <div className="qr-code-container">
+              <QRCodeSVG 
+                value={`https://bad-date-demo.vercel.app?room=${roomCode}`}
+                size={100}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="M"
+              />
             </div>
           </div>
           
