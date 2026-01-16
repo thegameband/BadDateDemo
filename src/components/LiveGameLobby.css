@@ -384,6 +384,58 @@
     font-size: 1.4rem;
     letter-spacing: 3px;
   }
+}
+
+/* Tutorial Checkbox */
+.tutorial-checkbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.tutorial-checkbox:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tutorial-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.checkbox-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.checkbox-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+/* Mobile adjustments for tutorial checkbox */
+@media (max-width: 768px) {
+  .tutorial-checkbox {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .checkbox-hint {
+    width: 100%;
+    text-align: center;
+  }
   
   .dater-card-mini {
     flex-direction: row;

@@ -26,6 +26,9 @@ const initialLiveState = {
   phaseTimer: 0,
   cycleCount: 0,
   maxCycles: 5,
+  // Tutorial state
+  showTutorial: false,
+  tutorialStep: 0, // 0 = not started, 1-3 = tutorial steps
   suggestedAttributes: [], // { id, text, suggestedBy, votes: [] }
   numberedAttributes: [], // For phase 2 voting: { number, text, combinedFrom: [] }
   playerChat: [], // { id, username, message, timestamp }
@@ -568,6 +571,19 @@ export const useGameStore = create((set, get) => ({
   
   setLiveMode: (isLive) => set({ isLiveMode: isLive }),
   
+  // Tutorial actions
+  setShowTutorial: (show) => set({ showTutorial: show }),
+  setTutorialStep: (step) => set({ tutorialStep: step }),
+  advanceTutorial: () => {
+    const { tutorialStep } = get()
+    if (tutorialStep < 3) {
+      set({ tutorialStep: tutorialStep + 1 })
+    } else {
+      // Tutorial complete - start the game
+      set({ showTutorial: false, tutorialStep: 0, livePhase: 'phase1' })
+    }
+  },
+  
   setUsername: (username) => set({ username }),
   setPlayerId: (playerId) => set({ playerId }),
   setPlayers: (players) => set({ players }),
@@ -654,10 +670,12 @@ export const useGameStore = create((set, get) => ({
   },
   
   // Start the live date (host only)
-  startLiveDate: (daterValues = null) => {
+  startLiveDate: (daterValues = null, withTutorial = false) => {
     set({
       phase: 'live-date',
-      livePhase: 'phase1',
+      livePhase: withTutorial ? 'tutorial' : 'phase1', // Start with tutorial if enabled
+      showTutorial: withTutorial,
+      tutorialStep: withTutorial ? 1 : 0,
       phaseTimer: 30,
       cycleCount: 0,
       dateConversation: [],

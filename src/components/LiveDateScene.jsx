@@ -58,6 +58,10 @@ function LiveDateScene() {
   const setPlayerChat = useGameStore((state) => state.setPlayerChat)
   const setCompatibility = useGameStore((state) => state.setCompatibility)
   const setNumberedAttributes = useGameStore((state) => state.setNumberedAttributes)
+  const showTutorial = useGameStore((state) => state.showTutorial)
+  const tutorialStep = useGameStore((state) => state.tutorialStep)
+  const setShowTutorial = useGameStore((state) => state.setShowTutorial)
+  const setTutorialStep = useGameStore((state) => state.setTutorialStep)
   
   const [chatInput, setChatInput] = useState('')
   const [avatarBubble, setAvatarBubble] = useState('')
@@ -74,6 +78,33 @@ function LiveDateScene() {
   const chatEndRef = useRef(null)
   const phaseTimerRef = useRef(null)
   const lastPhaseRef = useRef('')
+  
+  // Handle tutorial advancement (host only, syncs to Firebase)
+  const handleAdvanceTutorial = async () => {
+    if (!isHost) return
+    
+    if (tutorialStep < 3) {
+      const newStep = tutorialStep + 1
+      setTutorialStep(newStep)
+      // Sync to Firebase
+      if (firebaseReady && roomCode) {
+        await updateGameState(roomCode, { tutorialStep: newStep })
+      }
+    } else {
+      // Tutorial complete - start the game
+      setShowTutorial(false)
+      setTutorialStep(0)
+      setLivePhase('phase1')
+      // Sync to Firebase
+      if (firebaseReady && roomCode) {
+        await updateGameState(roomCode, { 
+          showTutorial: false, 
+          tutorialStep: 0, 
+          livePhase: 'phase1' 
+        })
+      }
+    }
+  }
   
   // Check if API key is available
   useEffect(() => {
@@ -133,6 +164,14 @@ function LiveDateScene() {
       if (typeof gameState.phaseTimer === 'number') {
         setPhaseTimer(gameState.phaseTimer)
       }
+      
+      // Sync tutorial state (so all players see the same tutorial step)
+      if (typeof gameState.showTutorial === 'boolean') {
+        setShowTutorial(gameState.showTutorial)
+      }
+      if (typeof gameState.tutorialStep === 'number') {
+        setTutorialStep(gameState.tutorialStep)
+      }
     })
     
     // Subscribe to chat
@@ -144,7 +183,7 @@ function LiveDateScene() {
       unsubscribeGame()
       unsubscribeChat()
     }
-  }, [firebaseReady, roomCode, isHost, setSuggestedAttributes, setCompatibility, setLivePhase, setPhaseTimer, setPlayerChat, setNumberedAttributes])
+  }, [firebaseReady, roomCode, isHost, setSuggestedAttributes, setCompatibility, setLivePhase, setPhaseTimer, setPlayerChat, setNumberedAttributes, setShowTutorial, setTutorialStep])
   
   // Track timer value in a ref for the interval to access
   const phaseTimerValueRef = useRef(phaseTimer)
@@ -242,6 +281,32 @@ function LiveDateScene() {
         return { title: 'PHASE 3', subtitle: 'Watch the Date', icon: '👀', description: 'See how they react!' }
       default:
         return { title: '', subtitle: '', icon: '', description: '' }
+    }
+  }
+  
+  // Tutorial content
+  const getTutorialContent = () => {
+    switch (tutorialStep) {
+      case 1:
+        return {
+          title: 'Welcome to Bad Date!',
+          text: "Your goal is simple: get the highest compatibility score with your date. Watch the meter at the top — that's your target!",
+          highlight: 'compatibility'
+        }
+      case 2:
+        return {
+          title: 'How to Play',
+          text: "When your date asks a question, type in any answer you think will impress them. After 30 seconds, everyone votes for their favorite answer. The winning answer becomes a permanent fact about your avatar!",
+          highlight: null
+        }
+      case 3:
+        return {
+          title: "Let's Go!",
+          text: "After 5 questions have been answered, the date ends and you'll see your final compatibility score. Good luck — try not to say anything too weird!",
+          highlight: null
+        }
+      default:
+        return { title: '', text: '', highlight: null }
     }
   }
   
@@ -710,6 +775,48 @@ function LiveDateScene() {
         )}
       </AnimatePresence>
       
+      {/* Tutorial Overlay */}
+      <AnimatePresence>
+        {showTutorial && tutorialStep > 0 && (
+          <motion.div 
+            className={`tutorial-overlay ${getTutorialContent().highlight === 'compatibility' ? 'highlight-compat' : ''}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div 
+              className="tutorial-card"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: -20 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
+              <span className="tutorial-step-indicator">
+                {tutorialStep} / 3
+              </span>
+              <h2 className="tutorial-title">{getTutorialContent().title}</h2>
+              <p className="tutorial-text">{getTutorialContent().text}</p>
+              {isHost && (
+                <motion.button
+                  className="tutorial-continue-btn"
+                  onClick={handleAdvanceTutorial}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {tutorialStep < 3 ? 'Continue →' : "Let's Start! 🎬"}
+                </motion.button>
+              )}
+              {!isHost && (
+                <p className="tutorial-wait-text">
+                  Waiting for host to continue...
+                </p>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       {/* Fallback Mode Warning */}
       {usingFallback && (
         <div className="fallback-warning">
@@ -718,7 +825,7 @@ function LiveDateScene() {
       )}
       
       {/* Header Section - Compact horizontal layout */}
-      <div className="live-header">
+      <div className={`live-header ${showTutorial && getTutorialContent().highlight === 'compatibility' ? 'tutorial-highlight' : ''}`}>
         <div className="header-row">
           {/* Left: Call to Action */}
           <div className="header-cta">

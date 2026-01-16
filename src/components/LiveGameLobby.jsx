@@ -24,6 +24,7 @@ function LiveGameLobby() {
   
   const [copied, setCopied] = useState(false)
   const [firebaseReady] = useState(isFirebaseAvailable())
+  const [showTutorial, setShowTutorial] = useState(false)
   
   // Subscribe to real-time player updates
   useEffect(() => {
@@ -61,9 +62,9 @@ function LiveGameLobby() {
   const handleStart = async () => {
     if (firebaseReady) {
       // Update Firebase to signal game start to all players
-      await updateGameState(roomCode, { phase: 'live-date' })
+      await updateGameState(roomCode, { phase: 'live-date', showTutorial })
     }
-    startLiveDate()
+    startLiveDate(null, showTutorial)
   }
   
   const handleBack = async () => {
@@ -161,15 +162,26 @@ function LiveGameLobby() {
           </div>
           
           {isHost ? (
-            <motion.button
-              className="btn btn-primary start-btn"
-              onClick={handleStart}
-              disabled={players.length < 1}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              Start Date 🎬
-            </motion.button>
+            <>
+              <label className="tutorial-checkbox">
+                <input 
+                  type="checkbox" 
+                  checked={showTutorial}
+                  onChange={(e) => setShowTutorial(e.target.checked)}
+                />
+                <span className="checkbox-label">Show Tutorial</span>
+                <span className="checkbox-hint">Recommended for new players</span>
+              </label>
+              <motion.button
+                className="btn btn-primary start-btn"
+                onClick={handleStart}
+                disabled={players.length < 1}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Start Date 🎬
+              </motion.button>
+            </>
           ) : (
             <div className="waiting-for-host">
               <span className="pulse-dot"></span>
