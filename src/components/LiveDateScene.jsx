@@ -190,6 +190,15 @@ function LiveDateScene() {
       if (typeof gameState.timerStarted === 'boolean') {
         setTimerStarted(gameState.timerStarted)
       }
+      
+      // Sync current question (so all players see the same question)
+      if (gameState.currentQuestion && !isHost) {
+        setDaterBubble(gameState.currentQuestion)
+        // Only add to conversation if it's not already there
+        if (dateConversation.length === 0 || dateConversation[dateConversation.length - 1]?.text !== gameState.currentQuestion) {
+          addDateMessage('dater', gameState.currentQuestion)
+        }
+      }
     })
     
     // Subscribe to chat
@@ -252,23 +261,28 @@ function LiveDateScene() {
   }, [phaseTimer, livePhase])
   
   // Start Phase 1 - Dater asks Avatar about themselves
+  // Only HOST generates questions; non-hosts receive via Firebase
   useEffect(() => {
     const initPhase1 = async () => {
       if (livePhase === 'phase1' && dateConversation.length === 0) {
-        // Dater's opening question
-        const openingLine = getOpeningLine()
-        setDaterBubble(openingLine)
-        setAvatarBubble('') // Clear avatar bubble
-        addDateMessage('dater', openingLine)
-        
-        // Host syncs initial state to Firebase
-        if (isHost && firebaseReady && roomCode) {
-          await updateGameState(roomCode, { 
-            livePhase: 'phase1', 
-            phaseTimer: 30,
-            compatibility: 50 
-          })
+        // Only host generates the question
+        if (isHost) {
+          const openingLine = getOpeningLine()
+          setDaterBubble(openingLine)
+          setAvatarBubble('') // Clear avatar bubble
+          addDateMessage('dater', openingLine)
+          
+          // Sync question and state to Firebase for other players
+          if (firebaseReady && roomCode) {
+            await updateGameState(roomCode, { 
+              livePhase: 'phase1', 
+              phaseTimer: 30,
+              compatibility: 50,
+              currentQuestion: openingLine
+            })
+          }
         }
+        // Non-hosts will receive the question via Firebase subscription
       }
     }
     initPhase1()
@@ -673,24 +687,30 @@ function LiveDateScene() {
       }
       setTimeout(() => setPhase('results'), 2000)
     } else {
-      // Start new round - Dater asks another question
+      // Start new round - Dater asks another question (host only generates)
       setLivePhase('phase1')
       setPhaseTimer(30)
       setTimerStarted(false) // Reset timer - wait for first suggestion
-      const nextQuestion = getOpeningLine()
-      setDaterBubble(nextQuestion)
-      setAvatarBubble('')
-      addDateMessage('dater', nextQuestion)
       
-      // Sync to Firebase
-      if (firebaseReady && roomCode) {
-        await updateGameState(roomCode, { 
-          livePhase: 'phase1', 
-          phaseTimer: 30, 
-          compatibility,
-          timerStarted: false
-        })
+      // Only host generates the next question
+      if (isHost) {
+        const nextQuestion = getOpeningLine()
+        setDaterBubble(nextQuestion)
+        setAvatarBubble('')
+        addDateMessage('dater', nextQuestion)
+        
+        // Sync to Firebase including the question
+        if (firebaseReady && roomCode) {
+          await updateGameState(roomCode, { 
+            livePhase: 'phase1', 
+            phaseTimer: 30, 
+            compatibility,
+            timerStarted: false,
+            currentQuestion: nextQuestion
+          })
+        }
       }
+      // Non-hosts will receive the question via Firebase subscription
     }
   }
   
