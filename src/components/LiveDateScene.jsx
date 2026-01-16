@@ -146,7 +146,12 @@ function LiveDateScene() {
       // Sync numbered attributes for voting (for all players)
       if (gameState.numberedAttributes) {
         console.log('🔥 Syncing numbered attributes:', gameState.numberedAttributes)
-        setNumberedAttributes(gameState.numberedAttributes)
+        // Ensure each attribute has a votes array (Firebase might strip empty arrays)
+        const numberedWithVotes = gameState.numberedAttributes.map(attr => ({
+          ...attr,
+          votes: attr.votes || []
+        }))
+        setNumberedAttributes(numberedWithVotes)
       }
       
       // Sync compatibility (so all players see the same score)
@@ -164,8 +169,13 @@ function LiveDateScene() {
         console.log('🔥 Syncing phase:', gameState.livePhase)
         setLivePhase(gameState.livePhase)
       }
+      // Only sync timer if it's a phase change OR if local timer hasn't started yet
+      // This prevents the timer from jumping back when Firebase syncs every 5 seconds
       if (typeof gameState.phaseTimer === 'number') {
-        setPhaseTimer(gameState.phaseTimer)
+        // Always accept timer updates when timer hasn't started (waiting for first submission)
+        if (!timerStarted || gameState.phaseTimer === 30) {
+          setPhaseTimer(gameState.phaseTimer)
+        }
       }
       
       // Sync tutorial state (so all players see the same tutorial step)
@@ -1001,13 +1011,21 @@ function LiveDateScene() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <h3>Vote for an Attribute!</h3>
+              <h3>Vote for an Answer!</h3>
               <div className="voting-options">
                 {numberedAttributes.map((attr) => (
                   <motion.div 
                     key={attr.number}
                     className={`vote-option ${userVote === attr.number ? 'voted' : ''}`}
                     onClick={async () => {
+                      // Start the timer on first vote
+                      if (!timerStarted) {
+                        setTimerStarted(true)
+                        if (firebaseReady && roomCode) {
+                          await updateGameState(roomCode, { timerStarted: true })
+                        }
+                      }
+                      
                       if (firebaseReady && roomCode && playerId) {
                         await firebaseSubmitVote(roomCode, playerId, attr.number)
                         await sendChatMessage(roomCode, { username, message: `Vote: #${attr.number}` })
@@ -1022,7 +1040,7 @@ function LiveDateScene() {
                   >
                     <span className="vote-number">{attr.number}</span>
                     <span className="vote-text">{attr.text}</span>
-                    <span className="vote-count">{attr.votes.length} votes</span>
+                    <span className="vote-count">{attr.votes?.length || 0} votes</span>
                   </motion.div>
                 ))}
               </div>
