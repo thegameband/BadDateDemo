@@ -169,12 +169,14 @@ function LiveDateScene() {
         console.log('🔥 Syncing phase:', gameState.livePhase)
         setLivePhase(gameState.livePhase)
       }
-      // Only sync timer if it's a phase change OR if local timer hasn't started yet
-      // This prevents the timer from jumping back when Firebase syncs every 5 seconds
-      if (typeof gameState.phaseTimer === 'number') {
-        // Always accept timer updates when timer hasn't started (waiting for first submission)
-        if (!timerStarted || gameState.phaseTimer === 30) {
-          setPhaseTimer(gameState.phaseTimer)
+      // Timer sync logic:
+      // - Host NEVER accepts timer from Firebase (host is source of truth)
+      // - Non-hosts only accept timer on phase changes (when timer resets to 30)
+      if (typeof gameState.phaseTimer === 'number' && !isHost) {
+        // Only accept timer of 30 (fresh phase) when timer hasn't started
+        // This prevents mid-countdown resets while still allowing phase transitions
+        if (!timerStarted && gameState.phaseTimer === 30) {
+          setPhaseTimer(30)
         }
       }
       
