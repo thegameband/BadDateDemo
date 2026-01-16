@@ -56,6 +56,7 @@ function LiveDateScene() {
   const triggerGlow = useGameStore((state) => state.triggerGlow)
   const adjustCompatibility = useGameStore((state) => state.adjustCompatibility)
   const setSuggestedAttributes = useGameStore((state) => state.setSuggestedAttributes)
+  const setSentimentCategories = useGameStore((state) => state.setSentimentCategories)
   const setPlayerChat = useGameStore((state) => state.setPlayerChat)
   const setCompatibility = useGameStore((state) => state.setCompatibility)
   const setNumberedAttributes = useGameStore((state) => state.setNumberedAttributes)
@@ -81,6 +82,22 @@ function LiveDateScene() {
   const phaseTimerRef = useRef(null)
   const lastPhaseRef = useRef('')
   const allVotedTriggeredRef = useRef(false) // Prevent multiple auto-advance triggers
+  
+  // Helper to sync conversation state to Firebase (host only)
+  const syncConversationToFirebase = async (avatarText, daterText, syncSentiments = false) => {
+    if (!isHost || !firebaseReady || !roomCode) return
+    const update = {}
+    if (avatarText !== undefined) update.avatarBubble = avatarText
+    if (daterText !== undefined) update.daterBubble = daterText
+    // Get current sentiment categories from store
+    if (syncSentiments) {
+      const currentSentiments = useGameStore.getState().sentimentCategories
+      update.sentimentCategories = currentSentiments
+    }
+    if (Object.keys(update).length > 0) {
+      await updateGameState(roomCode, update)
+    }
+  }
   
   // Handle tutorial advancement (host only, syncs to Firebase)
   const handleAdvanceTutorial = async () => {
@@ -224,6 +241,20 @@ function LiveDateScene() {
         // Only add to conversation if it's not already there
         if (dateConversation.length === 0 || dateConversation[dateConversation.length - 1]?.text !== gameState.currentQuestion) {
           addDateMessage('dater', gameState.currentQuestion)
+        }
+      }
+      
+      // Sync conversation bubbles (so non-hosts see the date conversation)
+      if (!isHost) {
+        if (gameState.avatarBubble !== undefined) {
+          setAvatarBubble(gameState.avatarBubble)
+        }
+        if (gameState.daterBubble !== undefined) {
+          setDaterBubble(gameState.daterBubble)
+        }
+        // Sync sentiment categories
+        if (gameState.sentimentCategories) {
+          setSentimentCategories(gameState.sentimentCategories)
         }
       }
     })
@@ -594,11 +625,14 @@ function LiveDateScene() {
       if (avatarResponse1) {
         setAvatarBubble(avatarResponse1)
         addDateMessage('avatar', avatarResponse1)
+        await syncConversationToFirebase(avatarResponse1, undefined, undefined)
         
         await new Promise(resolve => setTimeout(resolve, 2500))
         
         // Check match FIRST to know how Dater should react
         const sentimentHit1 = await checkAndScore(avatarResponse1, 1) // Full scoring
+        // Sync sentiment categories after scoring
+        await syncConversationToFirebase(undefined, undefined, true)
         
         // Dater reacts - informed by what sentiment was hit
         const daterReaction1 = await getDaterDateResponse(
@@ -612,6 +646,7 @@ function LiveDateScene() {
         if (daterReaction1) {
           setDaterBubble(daterReaction1)
           addDateMessage('dater', daterReaction1)
+          await syncConversationToFirebase(undefined, daterReaction1, undefined)
         }
         
         await new Promise(resolve => setTimeout(resolve, 3000))
@@ -630,11 +665,13 @@ function LiveDateScene() {
         if (avatarResponse2) {
           setAvatarBubble(avatarResponse2)
           addDateMessage('avatar', avatarResponse2)
+          await syncConversationToFirebase(avatarResponse2, undefined, undefined)
           
           await new Promise(resolve => setTimeout(resolve, 2500))
           
           // Check match FIRST
           const sentimentHit2 = await checkAndScore(avatarResponse2, 0.25) // 25% scoring
+          await syncConversationToFirebase(undefined, undefined, true)
           
           // Dater reacts - informed by sentiment
           const daterReaction2 = await getDaterDateResponse(
@@ -648,6 +685,7 @@ function LiveDateScene() {
           if (daterReaction2) {
             setDaterBubble(daterReaction2)
             addDateMessage('dater', daterReaction2)
+            await syncConversationToFirebase(undefined, daterReaction2, undefined)
           }
           
           await new Promise(resolve => setTimeout(resolve, 3000))
@@ -666,11 +704,13 @@ function LiveDateScene() {
           if (avatarResponse3) {
             setAvatarBubble(avatarResponse3)
             addDateMessage('avatar', avatarResponse3)
+            await syncConversationToFirebase(avatarResponse3, undefined, undefined)
             
             await new Promise(resolve => setTimeout(resolve, 2500))
             
             // Check match FIRST
             const sentimentHit3 = await checkAndScore(avatarResponse3, 0.10) // 10% scoring
+            await syncConversationToFirebase(undefined, undefined, true)
             
             // Dater reacts - informed by sentiment
             const daterReaction3 = await getDaterDateResponse(
@@ -684,6 +724,7 @@ function LiveDateScene() {
             if (daterReaction3) {
               setDaterBubble(daterReaction3)
               addDateMessage('dater', daterReaction3)
+              await syncConversationToFirebase(undefined, daterReaction3, undefined)
             }
           }
         }

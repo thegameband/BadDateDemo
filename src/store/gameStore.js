@@ -705,6 +705,9 @@ export const useGameStore = create((set, get) => ({
   // Set dater values (called after LLM generates them)
   setDaterValues: (values) => set({ daterValues: values }),
   
+  // Set sentiment categories (for Firebase sync)
+  setSentimentCategories: (categories) => set({ sentimentCategories: categories }),
+  
   // Expose a dater value (add to visible sentiment categories)
   exposeValue: (category, value, shortLabel) => {
     const { exposedValues, sentimentCategories } = get()
