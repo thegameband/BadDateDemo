@@ -943,35 +943,52 @@ Return ONLY valid JSON in this exact format:
 export async function checkAttributeMatch(attribute, daterValues, dater, daterReaction = null) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   
-  // Fallback function that always returns a match based on reaction sentiment
+  // Fallback function that always returns a match based on reaction AND attribute sentiment
   const getFallbackMatch = (reaction) => {
-    // Analyze reaction text for sentiment
+    // Analyze BOTH the reaction text AND the attribute itself for sentiment
     const lowerReaction = (reaction || '').toLowerCase()
-    const positiveWords = ['love', 'amazing', 'great', 'wonderful', 'exciting', 'cool', 'awesome', 'interesting', 'wow', 'nice', 'like', 'sweet', 'cute', 'fun', 'happy', 'glad', 'impressed']
-    const negativeWords = ['scary', 'terrifying', 'horrible', 'awful', 'disgusting', 'gross', 'weird', 'strange', 'concerning', 'worried', 'afraid', 'uncomfortable', 'yikes', 'oh no', 'what', 'um', 'uh', 'nervous', 'alarmed']
-    const strongNegativeWords = ['murder', 'kill', 'death', 'horror', 'nightmare', 'run', 'leave', 'escape', 'dangerous', 'threat', 'scared', 'terrified']
+    const lowerAttribute = (attribute || '').toLowerCase()
+    const textToAnalyze = lowerReaction + ' ' + lowerAttribute
     
-    const hasPositive = positiveWords.some(w => lowerReaction.includes(w))
-    const hasNegative = negativeWords.some(w => lowerReaction.includes(w))
-    const hasStrongNegative = strongNegativeWords.some(w => lowerReaction.includes(w))
+    // Positive indicators (things people generally like)
+    const positiveWords = ['love', 'amazing', 'great', 'wonderful', 'exciting', 'cool', 'awesome', 'interesting', 'wow', 'nice', 'like', 'sweet', 'cute', 'fun', 'happy', 'glad', 'impressed', 'beautiful', 'kind', 'gentle', 'creative', 'artistic', 'music', 'cooking', 'travel', 'adventure', 'smart', 'clever', 'funny', 'humor', 'passionate']
+    // Negative indicators (things people generally dislike)
+    const negativeWords = ['scary', 'terrifying', 'horrible', 'awful', 'disgusting', 'gross', 'weird', 'strange', 'concerning', 'worried', 'afraid', 'uncomfortable', 'yikes', 'nervous', 'alarmed', 'monster', 'demon', 'spider', 'snake', 'creepy', 'stalker', 'annoying', 'lazy', 'mean', 'rude', 'arrogant', 'boring', 'selfish']
+    // Strong negative indicators (dealbreakers)
+    const strongNegativeWords = ['murder', 'kill', 'killing', 'death', 'dead', 'horror', 'nightmare', 'run', 'escape', 'dangerous', 'threat', 'terrified', 'blood', 'corpse', 'grave', 'crime', 'criminal', 'violent', 'violence', 'evil', 'hurt', 'harm', 'weapon', 'poison', 'victim', 'predator', 'stalk']
+    // Strong positive indicators (loves)
+    const strongPositiveWords = ['adore', 'obsessed', 'soulmate', 'perfect', 'incredible', 'delightful', 'charming', 'romantic', 'dreamy', 'swoon']
     
-    // Determine category based on reaction
+    const hasPositive = positiveWords.some(w => textToAnalyze.includes(w))
+    const hasNegative = negativeWords.some(w => textToAnalyze.includes(w))
+    const hasStrongNegative = strongNegativeWords.some(w => textToAnalyze.includes(w))
+    const hasStrongPositive = strongPositiveWords.some(w => textToAnalyze.includes(w))
+    
+    // Determine category based on strongest signal found
     let category
+    let shortLabel
+    
     if (hasStrongNegative) {
       category = 'dealbreakers'
+      shortLabel = 'danger'
+    } else if (hasStrongPositive) {
+      category = 'loves'
+      shortLabel = 'charm'
     } else if (hasNegative && !hasPositive) {
       category = 'dislikes'
+      shortLabel = 'red flag'
     } else if (hasPositive && !hasNegative) {
       category = Math.random() > 0.3 ? 'likes' : 'loves'
-    } else {
-      // Mixed or neutral - lean slightly negative for comedy
+      shortLabel = 'good vibes'
+    } else if (hasNegative && hasPositive) {
+      // Mixed signals - coin flip
       category = Math.random() > 0.5 ? 'likes' : 'dislikes'
+      shortLabel = 'mixed vibes'
+    } else {
+      // No clear signals - default to mild positive for engagement
+      category = 'likes'
+      shortLabel = 'curiosity'
     }
-    
-    // Generate a generic short label
-    const shortLabel = category === 'loves' || category === 'likes' 
-      ? 'interesting vibe'
-      : 'concerning trait'
     
     return {
       category,

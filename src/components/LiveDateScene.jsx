@@ -237,9 +237,21 @@ function LiveDateScene() {
         setCompatibility(gameState.compatibility)
       }
       
-      // Sync winning attribute
+      // Sync winning attribute AND show popup for ALL players (not just host)
       if (gameState.winningAttribute) {
+        const previousWinnerText = winnerText
         setWinnerText(gameState.winningAttribute)
+        
+        // Show winner popup for non-hosts when they receive a NEW winning attribute
+        // AND the phase is transitioning to phase3
+        if (!isHost && gameState.winningAttribute !== previousWinnerText && gameState.livePhase === 'phase3') {
+          console.log('🏆 Non-host showing winner popup:', gameState.winningAttribute)
+          setShowWinnerPopup(true)
+          // Hide after 5 seconds (matching host timing)
+          setTimeout(() => {
+            setShowWinnerPopup(false)
+          }, 5000)
+        }
       }
       
       // All players should follow phase/timer from Firebase

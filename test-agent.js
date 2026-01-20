@@ -270,14 +270,14 @@ async function runHostAgent() {
       log.success(agentName, 'Submitted suggestion')
 
       // Give the game time to sync all players' suggestions
-      await setTimeout(2000)
+      await setTimeout(5000) // Increased to 5 seconds
 
       // PHASE 2: Wait for voting phase to start (detect when voting UI appears)
       log.action(agentName, 'Phase 2: Waiting for voting to start...')
 
       let votingStarted = false
       let attempts = 0
-      const maxAttempts = 40 // 20 seconds max wait
+      const maxAttempts = 120 // 60 seconds max wait (voting is required!)
 
       // Poll for voting UI to appear
       while (!votingStarted && attempts < maxAttempts) {
@@ -354,18 +354,48 @@ async function runHostAgent() {
       log.action(agentName, 'Phase 3: Watching conversation...')
 
       // Wait for the conversation to complete and next round to start
-      // (detect when the suggestion input appears again, or results screen for final round)
       if (round < 5) {
         // Not the last round - wait for next round's input to appear
         log.action(agentName, 'Waiting for next round to start...')
 
+        // First, wait for input to disappear (conversation phase)
+        let inputDisappeared = false
+        let disappearAttempts = 0
+        const maxDisappearAttempts = 20 // 10 seconds
+
+        while (!inputDisappeared && disappearAttempts < maxDisappearAttempts) {
+          inputDisappeared = await page.evaluate(() => {
+            const inputs = Array.from(document.querySelectorAll('input'))
+            const suggestionInput = inputs.find(input =>
+              input.type === 'text' &&
+              input.offsetParent !== null &&
+              !input.disabled &&
+              (input.placeholder?.toLowerCase().includes('answer') ||
+               input.placeholder?.toLowerCase().includes('suggest') ||
+               input.placeholder?.toLowerCase().includes('type'))
+            )
+            // Input should either be gone or hidden
+            return !suggestionInput
+          })
+
+          if (!inputDisappeared) {
+            await setTimeout(500)
+            disappearAttempts++
+          }
+        }
+
+        if (inputDisappeared) {
+          log.action(agentName, 'Conversation phase detected')
+        }
+
+        // Now wait for a fresh input to appear (next round starts)
         let nextRoundStarted = false
         let waitAttempts = 0
         const maxWaitAttempts = 40 // 20 seconds max
 
         while (!nextRoundStarted && waitAttempts < maxWaitAttempts) {
           nextRoundStarted = await page.evaluate(() => {
-            // Look for the suggestion input field (indicates Phase 1 of next round)
+            // Look for the suggestion input field that's cleared and ready
             const inputs = Array.from(document.querySelectorAll('input'))
             const suggestionInput = inputs.find(input =>
               input.type === 'text' &&
@@ -375,7 +405,8 @@ async function runHostAgent() {
                input.placeholder?.toLowerCase().includes('suggest') ||
                input.placeholder?.toLowerCase().includes('type'))
             )
-            return !!suggestionInput
+            // Input should be present AND empty (cleared for new round)
+            return suggestionInput && suggestionInput.value === ''
           })
 
           if (!nextRoundStarted) {
@@ -553,14 +584,14 @@ async function runClientAgent(clientNumber) {
       log.success(agentName, 'Submitted suggestion')
 
       // Give the game time to sync all players' suggestions
-      await setTimeout(2000)
+      await setTimeout(5000) // Increased to 5 seconds
 
       // PHASE 2: Wait for voting phase to start (detect when voting UI appears)
       log.action(agentName, 'Phase 2: Waiting for voting to start...')
 
       let votingStarted = false
       let attempts = 0
-      const maxAttempts = 40 // 20 seconds max wait
+      const maxAttempts = 120 // 60 seconds max wait (voting is required!)
 
       // Poll for voting UI to appear
       while (!votingStarted && attempts < maxAttempts) {
@@ -637,18 +668,48 @@ async function runClientAgent(clientNumber) {
       log.action(agentName, 'Phase 3: Watching conversation...')
 
       // Wait for the conversation to complete and next round to start
-      // (detect when the suggestion input appears again, or results screen for final round)
       if (round < 5) {
         // Not the last round - wait for next round's input to appear
         log.action(agentName, 'Waiting for next round to start...')
 
+        // First, wait for input to disappear (conversation phase)
+        let inputDisappeared = false
+        let disappearAttempts = 0
+        const maxDisappearAttempts = 20 // 10 seconds
+
+        while (!inputDisappeared && disappearAttempts < maxDisappearAttempts) {
+          inputDisappeared = await page.evaluate(() => {
+            const inputs = Array.from(document.querySelectorAll('input'))
+            const suggestionInput = inputs.find(input =>
+              input.type === 'text' &&
+              input.offsetParent !== null &&
+              !input.disabled &&
+              (input.placeholder?.toLowerCase().includes('answer') ||
+               input.placeholder?.toLowerCase().includes('suggest') ||
+               input.placeholder?.toLowerCase().includes('type'))
+            )
+            // Input should either be gone or hidden
+            return !suggestionInput
+          })
+
+          if (!inputDisappeared) {
+            await setTimeout(500)
+            disappearAttempts++
+          }
+        }
+
+        if (inputDisappeared) {
+          log.action(agentName, 'Conversation phase detected')
+        }
+
+        // Now wait for a fresh input to appear (next round starts)
         let nextRoundStarted = false
         let waitAttempts = 0
         const maxWaitAttempts = 40 // 20 seconds max
 
         while (!nextRoundStarted && waitAttempts < maxWaitAttempts) {
           nextRoundStarted = await page.evaluate(() => {
-            // Look for the suggestion input field (indicates Phase 1 of next round)
+            // Look for the suggestion input field that's cleared and ready
             const inputs = Array.from(document.querySelectorAll('input'))
             const suggestionInput = inputs.find(input =>
               input.type === 'text' &&
@@ -658,7 +719,8 @@ async function runClientAgent(clientNumber) {
                input.placeholder?.toLowerCase().includes('suggest') ||
                input.placeholder?.toLowerCase().includes('type'))
             )
-            return !!suggestionInput
+            // Input should be present AND empty (cleared for new round)
+            return suggestionInput && suggestionInput.value === ''
           })
 
           if (!nextRoundStarted) {
