@@ -1,0 +1,149 @@
+================================================================================
+BAD DATE DEMO - AI AGENT PLAY GUIDE
+================================================================================
+
+This guide teaches AI agents how to play Bad Date Demo as players.
+One agent must be the HOST, all other agents JOIN the host's room.
+
+================================================================================
+GAME URL
+================================================================================
+
+https://bad-date-demo.vercel.app/
+
+================================================================================
+STEP 1: MAIN MENU
+================================================================================
+
+When you load the URL, you'll see two buttons:
+- "🎭 Solo Mode" - Single player (ignore this)
+- "📺 Live Mode" - Multiplayer (click this)
+
+ACTION: Click "📺 Live Mode"
+
+================================================================================
+STEP 2: LIVE MODE LOBBY
+================================================================================
+
+You'll see:
+- A text input for "Your Name"
+- "✨ Create Date" button (HOST only)
+- "🔗 Join Date" button (JOINERS only)
+
+--------------------------------------------------------------------------------
+IF YOU ARE THE HOST:
+--------------------------------------------------------------------------------
+1. Enter your name in the text field
+2. Click "✨ Create Date"
+3. You'll enter a waiting room with:
+   - A QR code (for phone players)
+   - A room code (4-6 characters, displayed somewhere on screen)
+   - Player count showing "1/20"
+4. SHARE THE ROOM CODE with other agents
+5. Wait for other players to join
+6. When ready, click "Start Date 🎬"
+
+--------------------------------------------------------------------------------
+IF YOU ARE JOINING:
+--------------------------------------------------------------------------------
+1. Enter your name in the text field
+2. Click "🔗 Join Date"
+3. Enter the room code shared by the HOST
+4. Click join/confirm
+5. Wait in the lobby for the host to start
+
+================================================================================
+STEP 3: THE DATE (GAMEPLAY)
+================================================================================
+
+The game has 5 ROUNDS. Each round has 3 PHASES:
+
+--------------------------------------------------------------------------------
+PHASE 1: SUGGEST ATTRIBUTES (30 seconds)
+--------------------------------------------------------------------------------
+- The DATER (NPC) asks a question in a speech bubble
+- Your AVATAR needs to answer
+- TYPE an attribute/trait in the input box (e.g., "is a vampire", "loves murder", "has 3 eyes")
+- Press the ✨ button or Enter to submit
+- Your suggestion appears for everyone to see
+- Other players can also suggest attributes
+- The timer starts when the first suggestion is made
+
+WHAT TO SUGGEST:
+- Wild, absurd, funny traits work best
+- Physical traits: "is 100 feet tall", "has tentacles", "is on fire"
+- Personality traits: "is a serial killer", "obsessed with cheese"
+- Be creative and chaotic!
+
+--------------------------------------------------------------------------------
+PHASE 2: VOTE (15 seconds)
+--------------------------------------------------------------------------------
+- All suggested attributes appear as numbered options
+- Vote for your favorite by clicking/tapping the number
+- The attribute with the most votes wins
+- If tied, one is chosen randomly
+
+--------------------------------------------------------------------------------
+PHASE 3: WATCH THE CONVERSATION (automatic)
+--------------------------------------------------------------------------------
+- The winning attribute is applied to the AVATAR
+- The AVATAR responds using that trait
+- The DATER reacts (positively or negatively)
+- The compatibility meter updates based on the dater's reaction
+- After the exchange, a new round begins
+
+================================================================================
+STEP 4: RESULTS (AFTER 5 ROUNDS)
+================================================================================
+
+After 5 rounds, the date ends and you see:
+- Final compatibility percentage
+- What the Dater loved/liked/disliked about your Avatar
+- The complete Avatar with all 5 attributes
+- Option to play again
+
+================================================================================
+SUMMARY FOR MULTI-AGENT SETUP
+================================================================================
+
+AGENT 1 (HOST):
+1. Go to URL
+2. Click Live Mode
+3. Enter name
+4. Click "Create Date"
+5. Note the room code
+6. Wait for others
+7. Click "Start Date"
+8. Play through 5 rounds (suggest + vote each round)
+
+AGENT 2, 3, etc. (JOINERS):
+1. Go to URL
+2. Click Live Mode
+3. Enter name
+4. Click "Join Date"
+5. Enter room code from HOST
+6. Wait for host to start
+7. Play through 5 rounds (suggest + vote each round)
+
+================================================================================
+UI ELEMENTS TO LOOK FOR
+================================================================================
+
+- Input field: "Type your answer..." - for suggesting attributes
+- ✨ button: Submit your suggestion
+- Numbered buttons (1, 2, 3...): Vote for attributes
+- Timer: Shows seconds remaining in current phase
+- Speech bubbles: Show Dater questions and Avatar responses
+- Compatibility meter: Shows how well the date is going (0-100%)
+
+================================================================================
+TIPS FOR AI AGENTS
+================================================================================
+
+1. SUGGEST EARLY: Get your suggestion in quickly to start the timer
+2. BE CREATIVE: Weird/absurd suggestions make the game funnier
+3. VOTE STRATEGICALLY: Pick traits that will get strong reactions
+4. WATCH THE DATER: Their reactions affect the final score
+5. COORDINATE: Multiple agents can work together or compete
+
+================================================================================
