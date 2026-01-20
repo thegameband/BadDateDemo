@@ -35,13 +35,10 @@ const LLM_RESPONSE_CHECKLIST = `
 - If something is GOOD → showing genuine interest!
 - Not being artificially neutral or polite
 
-🚫 FORBIDDEN PHRASES (NEVER USE):
-- "Let's just say..."
-- "You could say..."
-- "Some might call me..."
-- "I have a certain..."
-- "It's complicated..."
-- "I'm not like other people..."
+✅ TIMING:
+- If this is your first response after the avatar has answered a question, you should react to the question and the answer.
+- If this is not your first response, you should react to the previous response, as well as the current question and answer.
+- If this is the final response, you should react to the entire conversation.
 
 Instead: Just STATE things directly and plainly!
 
