@@ -937,30 +937,70 @@ Return ONLY valid JSON in this exact format:
  * @param daterValues - The dater's hidden preferences
  * @param dater - The dater character
  * @param daterReaction - Optional: The dater's reaction text (helps determine if positive/negative match)
- * Returns { category: 'loves'|'likes'|'dislikes'|'dealbreakers'|null, matchedValue: string|null }
+ * Returns { category: 'loves'|'likes'|'dislikes'|'dealbreakers', matchedValue: string, shortLabel: string }
+ * NOTE: This function ALWAYS returns a match - every attribute affects the score!
  */
 export async function checkAttributeMatch(attribute, daterValues, dater, daterReaction = null) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   
+  // Fallback function that always returns a match based on reaction sentiment
+  const getFallbackMatch = (reaction) => {
+    // Analyze reaction text for sentiment
+    const lowerReaction = (reaction || '').toLowerCase()
+    const positiveWords = ['love', 'amazing', 'great', 'wonderful', 'exciting', 'cool', 'awesome', 'interesting', 'wow', 'nice', 'like', 'sweet', 'cute', 'fun', 'happy', 'glad', 'impressed']
+    const negativeWords = ['scary', 'terrifying', 'horrible', 'awful', 'disgusting', 'gross', 'weird', 'strange', 'concerning', 'worried', 'afraid', 'uncomfortable', 'yikes', 'oh no', 'what', 'um', 'uh', 'nervous', 'alarmed']
+    const strongNegativeWords = ['murder', 'kill', 'death', 'horror', 'nightmare', 'run', 'leave', 'escape', 'dangerous', 'threat', 'scared', 'terrified']
+    
+    const hasPositive = positiveWords.some(w => lowerReaction.includes(w))
+    const hasNegative = negativeWords.some(w => lowerReaction.includes(w))
+    const hasStrongNegative = strongNegativeWords.some(w => lowerReaction.includes(w))
+    
+    // Determine category based on reaction
+    let category
+    if (hasStrongNegative) {
+      category = 'dealbreakers'
+    } else if (hasNegative && !hasPositive) {
+      category = 'dislikes'
+    } else if (hasPositive && !hasNegative) {
+      category = Math.random() > 0.3 ? 'likes' : 'loves'
+    } else {
+      // Mixed or neutral - lean slightly negative for comedy
+      category = Math.random() > 0.5 ? 'likes' : 'dislikes'
+    }
+    
+    // Generate a generic short label
+    const shortLabel = category === 'loves' || category === 'likes' 
+      ? 'interesting vibe'
+      : 'concerning trait'
+    
+    return {
+      category,
+      matchedValue: 'general impression',
+      shortLabel
+    }
+  }
+  
   if (!apiKey) {
-    return { category: null, matchedValue: null }
+    return getFallbackMatch(daterReaction)
   }
   
   // Analyze the dater's reaction to determine if it was positive or negative
   const reactionContext = daterReaction ? `
 THE DATER'S REACTION TO THIS WAS: "${daterReaction}"
 
-IMPORTANT: Use the reaction to guide your matching!
-- If the dater seemed POSITIVE (happy, interested, attracted, amused) → Look for LOVES or LIKES that match
-- If the dater seemed NEGATIVE (scared, disgusted, concerned, uncomfortable) → Look for DISLIKES or DEALBREAKERS that match
+CRITICAL: Use the reaction to determine the category!
+- If the dater seemed POSITIVE (happy, interested, attracted, amused) → MUST return LOVES or LIKES
+- If the dater seemed NEGATIVE (scared, disgusted, concerned, uncomfortable) → MUST return DISLIKES or DEALBREAKERS
+- If the dater seemed HORRIFIED or TERRIFIED → MUST return DEALBREAKERS
 - Match the SENTIMENT of the reaction to the CATEGORY
 
 The dater has baseline human morality (murder = bad, monsters = scary, danger = concerning).
 Their reaction tells you how THEY felt about this attribute.` : ''
 
-  const systemPrompt = `You are checking if a dating attribute matches any preference in a list.
+  const systemPrompt = `You are checking how a dating attribute affects the dater's opinion.
 
-YOUR GOAL: TRY VERY HARD TO FIND A MATCH. Almost every attribute should connect to SOMETHING.
+🚨 CRITICAL: YOU MUST ALWAYS FIND A MATCH! Every attribute MUST trigger a score change.
+There is NO scenario where matches = false. ALWAYS return matches = true.
 
 DATER'S PREFERENCES:
 LOVES: ${daterValues.loves.join(', ')}
@@ -971,47 +1011,30 @@ DEALBREAKERS: ${daterValues.dealbreakers.join(', ')}
 ATTRIBUTE/STATEMENT TO CHECK: "${attribute}"
 ${reactionContext}
 
-BE EXTREMELY GENEROUS with matching! Use creative interpretation. Think about:
-- What personality trait does this imply?
-- What lifestyle does this suggest?
-- What values might this person have?
-- Is there ANY tangential connection to ANY preference?
-- Consider BASELINE HUMAN MORALITY: murder, violence, danger, monsters are generally BAD
-  (unless the dater has a specific trait that says otherwise)
+MATCHING RULES (in order of priority):
+1. If the dater's reaction was POSITIVE → find a LOVES or LIKES match
+2. If the dater's reaction was NEGATIVE → find a DISLIKES or DEALBREAKERS match
+3. Use creative interpretation - what does this attribute IMPLY about the person?
+4. Consider BASELINE HUMAN MORALITY: murder, violence, danger, monsters = generally bad
+5. If nothing obvious matches, use the CLOSEST thematic connection
 
-MATCHING STRATEGY:
-1. First, consider if this is something most humans would find good or bad
-2. Look for a preference that relates to the ESSENCE of the attribute
-3. If the dater reacted positively → prioritize LOVES/LIKES matches
-4. If the dater reacted negatively → prioritize DISLIKES/DEALBREAKERS matches
-5. Be creative! "I murder people" could match "violence" (dealbreaker) or "danger" (dislike)
-
-IF IN DOUBT, FIND A MATCH. The game is more fun when attributes trigger reactions.
-Stretch for connections - most things can relate to SOME preference.
+ALWAYS FIND A MATCH. Be creative! Examples:
+- "I'm a gargoyle" → could match "uniqueness" (like) or "scary things" (dislike)
+- "I kill people" → MUST match "violence" or "danger" (dealbreaker/dislike)
+- "I love puppies" → could match "kindness" or "warmth" (like/love)
+- "I'm always late" → could match "unreliable" (dislike) or "spontaneous" (like)
 
 ABOUT THE SHORT LABEL:
-- This explains WHY the dater likes/dislikes what was said
-- It should be the UNDERLYING VALUE or CATEGORY, not a literal copy
-- Think: what DEEPER PREFERENCE does this connect to?
-- Use abstract concepts, not specific things
+- Explains WHY the dater likes/dislikes what was said
+- Should be the UNDERLYING VALUE, not a literal description
+- Use abstract concepts: "danger", "creativity", "warmth", "chaos", etc.
 
-⚠️ DO NOT just describe what the avatar said!
-⚠️ DO explain the underlying reason for the reaction!
-
-Examples:
-- Avatar said "I'm a gargoyle" → shortLabel: "gothic vibes" or "architecture" (NOT "gargoyles")
-- Avatar said "I kill people" → shortLabel: "violence" or "danger" (NOT "killing")
-- Avatar said "I'm always on fire" → shortLabel: "danger" or "unpredictable" (NOT "fire")
-- Avatar showed "*waves with six arms*" → shortLabel: "unique bodies" or "mutations" (NOT "six arms")
-- Avatar said "I eat bugs" → shortLabel: "adventurous eater" or "weird food" (NOT "bugs")
-- Avatar said "I'm a vampire" → shortLabel: "mysterious" or "nocturnal" (NOT "vampires")
-
-Return ONLY valid JSON:
+Return ONLY valid JSON (matches MUST be true):
 {
-  "matches": true/false,
-  "category": "loves" | "likes" | "dislikes" | "dealbreakers" | null,
-  "matchedValue": "the specific preference that matched" | null,
-  "shortLabel": "1-2 word REPHRASED label that fits the column and matches what was said" | null
+  "matches": true,
+  "category": "loves" | "likes" | "dislikes" | "dealbreakers",
+  "matchedValue": "the preference that best relates to this",
+  "shortLabel": "1-2 word label explaining the reaction"
 }`
 
   try {
@@ -1027,12 +1050,13 @@ Return ONLY valid JSON:
         model: 'claude-sonnet-4-20250514',
         max_tokens: 150,
         system: systemPrompt,
-        messages: [{ role: 'user', content: 'Check for a match now.' }],
+        messages: [{ role: 'user', content: 'Find a match for this attribute. Remember: matches MUST be true!' }],
       }),
     })
     
     if (!response.ok) {
-      return { category: null, matchedValue: null, shortLabel: null }
+      console.warn('API error, using fallback match')
+      return getFallbackMatch(daterReaction)
     }
     
     const data = await response.json()
@@ -1041,19 +1065,22 @@ Return ONLY valid JSON:
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
-      if (parsed.matches) {
+      // Always return a match - if LLM said no match, use fallback
+      if (parsed.category && parsed.shortLabel) {
         return {
           category: parsed.category,
-          matchedValue: parsed.matchedValue,
-          shortLabel: parsed.shortLabel || parsed.matchedValue
+          matchedValue: parsed.matchedValue || 'general impression',
+          shortLabel: parsed.shortLabel
         }
       }
     }
     
-    return { category: null, matchedValue: null, shortLabel: null }
+    // Fallback if parsing failed or no match returned
+    console.warn('LLM did not return valid match, using fallback')
+    return getFallbackMatch(daterReaction)
   } catch (error) {
     console.error('Error checking attribute match:', error)
-    return { category: null, matchedValue: null, shortLabel: null }
+    return getFallbackMatch(daterReaction)
   }
 }
 
