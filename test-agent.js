@@ -20,7 +20,7 @@ const HEADLESS = false // Set to true to hide browser windows
 
 // Issue tracking
 const issues = []
-let sharedRoomCode = null
+let hostUsername = 'TestHost' // Track host name for room browser
 
 const log = {
   info: (agent, msg) => console.log(`ℹ️  [${agent}] ${msg}`),
@@ -183,20 +183,37 @@ async function runHostAgent() {
       return { success: false, reason: 'Name input field not found' }
     }
 
-    await page.type('input[type="text"], input[placeholder*="name" i]', 'TestHost')
-    log.success(agentName, 'Entered name: TestHost')
+    await page.type('input[type="text"], input[placeholder*="name" i]', hostUsername)
+    log.success(agentName, `Entered name: ${hostUsername}`)
     await setTimeout(500)
 
-    // Step 4: Create Date
-    log.action(agentName, 'Creating game room...')
+    // Step 4: Click "Host a Date"
+    log.action(agentName, 'Clicking Host a Date...')
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button'))
+      const hostButton = buttons.find(btn =>
+        btn.textContent.includes('Host') || btn.textContent.includes('✨')
+      )
+      if (hostButton) hostButton.click()
+    })
+    log.success(agentName, 'Clicked Host a Date')
+    await setTimeout(1500)
+
+    // Step 5: Click "Create Room"
+    log.action(agentName, 'Creating room...')
+    const createRoomFound = await waitForElement(page, 'button', agentName, 5000)
+    if (!createRoomFound) {
+      return { success: false, reason: 'Create Room button not found' }
+    }
+
     await page.evaluate(() => {
       const buttons = Array.from(document.querySelectorAll('button'))
       const createButton = buttons.find(btn =>
-        btn.textContent.includes('Create') || btn.textContent.includes('✨')
+        btn.textContent.includes('Create Room') || btn.textContent.includes('🎬')
       )
       if (createButton) createButton.click()
     })
-    log.success(agentName, 'Clicked Create Date')
+    log.success(agentName, 'Clicked Create Room')
     await setTimeout(2000)
 
     // Check for blank screen in lobby
@@ -204,38 +221,7 @@ async function runHostAgent() {
       return { success: false, reason: 'Blank screen in game lobby' }
     }
 
-    // Step 5: Extract room code
-    log.action(agentName, 'Extracting room code...')
-    const roomCode = await page.evaluate(() => {
-      // Check page text for patterns like "Room: XXXX" or "Code: XXXX" or just "XXXXXX"
-      const bodyText = document.body.innerText
-
-      // Try to find "ROOM CODE" followed by the actual code
-      const match1 = bodyText.match(/ROOM CODE\s+([A-Z0-9]{4,8})/i)
-      if (match1) return match1[1]
-
-      // Fallback: look for "Room:" or "Code:" pattern
-      const match2 = bodyText.match(/(?:Room|Code):\s*([A-Z0-9]{4,8})/i)
-      if (match2) return match2[1]
-
-      // Last resort: find any 4-8 character alphanumeric code (uppercase)
-      const match3 = bodyText.match(/\b([A-Z0-9]{4,8})\b/)
-      if (match3) return match3[1]
-
-      return null
-    })
-
-    if (!roomCode) {
-      log.warning(agentName, 'Could not find room code automatically')
-      // Capture screenshot for manual inspection
-      await page.screenshot({ path: './debug-room-code.png', fullPage: true })
-      log.info(agentName, 'Screenshot saved: debug-room-code.png')
-    } else {
-      sharedRoomCode = roomCode
-      log.success(agentName, `Room code: ${roomCode}`)
-    }
-
-    // Step 6: Wait for clients to join
+    // Step 6: Wait for clients to join (room is now visible in browser)
     log.info(agentName, 'Waiting for clients to join...')
     await setTimeout(20000) // Give clients time to join (increased to 20 seconds)
 
@@ -282,23 +268,83 @@ async function runHostAgent() {
       // Submit suggestion
       await page.keyboard.press('Enter')
       log.success(agentName, 'Submitted suggestion')
-      await setTimeout(1000)
 
-      // PHASE 2: Vote
-      log.action(agentName, 'Phase 2: Waiting to vote...')
-      await setTimeout(16000) // Wait for voting phase (15s + buffer)
+      // PHASE 2: Wait for voting phase to start (detect when voting UI appears)
+      log.action(agentName, 'Phase 2: Waiting for voting to start...')
 
-      const voteButtonFound = await waitForElement(page, 'button[class*="vote" i], button', agentName, 10000)
-      if (voteButtonFound) {
-        // Click first numbered button
-        await page.evaluate(() => {
+      let votingStarted = false
+      let attempts = 0
+      const maxAttempts = 40 // 20 seconds max wait
+
+      // Poll for voting UI to appear
+      while (!votingStarted && attempts < maxAttempts) {
+        votingStarted = await page.evaluate(() => {
+          // Check if voting UI is present
+          const buttons = Array.from(document.querySelectorAll('button'))
+          const hasVoteButtons = buttons.some(btn => /^[1-9]$/.test(btn.textContent.trim()))
+
+          if (hasVoteButtons) return true
+
+          // Or check for vote input field
+          const inputs = Array.from(document.querySelectorAll('input'))
+          const hasVoteInput = inputs.some(input =>
+            input.type === 'text' &&
+            input.offsetParent !== null &&
+            !input.disabled &&
+            input.placeholder?.toLowerCase().includes('vote')
+          )
+
+          return hasVoteInput
+        })
+
+        if (!votingStarted) {
+          await setTimeout(500)
+          attempts++
+        }
+      }
+
+      if (!votingStarted) {
+        log.warning(agentName, 'Voting UI never appeared')
+      } else {
+        log.success(agentName, 'Voting phase started!')
+
+        // Now cast the vote
+        const voteSuccess = await page.evaluate(() => {
+          // Option 1: Look for numbered buttons to click
           const buttons = Array.from(document.querySelectorAll('button'))
           const numberButton = buttons.find(btn => /^[1-9]$/.test(btn.textContent.trim()))
-          if (numberButton) numberButton.click()
+          if (numberButton) {
+            numberButton.click()
+            console.log('Clicked vote button:', numberButton.textContent)
+            return true
+          }
+
+          // Option 2: Look for an input field to type a vote number
+          const inputs = Array.from(document.querySelectorAll('input'))
+          const voteInput = inputs.find(input =>
+            input.type === 'text' &&
+            input.offsetParent !== null && // visible
+            !input.disabled
+          )
+          if (voteInput) {
+            voteInput.focus()
+            voteInput.value = '1' // Vote for option 1
+            voteInput.dispatchEvent(new Event('input', { bubbles: true }))
+            voteInput.dispatchEvent(new Event('change', { bubbles: true }))
+            // Press Enter to submit
+            voteInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }))
+            console.log('Entered vote number in input field')
+            return true
+          }
+
+          return false
         })
-        log.success(agentName, 'Cast vote')
-      } else {
-        log.warning(agentName, 'Could not find vote buttons')
+
+        if (voteSuccess) {
+          log.success(agentName, 'Cast vote')
+        } else {
+          log.warning(agentName, 'Could not cast vote')
+        }
       }
 
       // PHASE 3: Watch conversation
@@ -334,7 +380,7 @@ async function runHostAgent() {
       log.success(agentName, 'Results screen reached!')
     }
 
-    return { success: true, roomCode: sharedRoomCode }
+    return { success: true }
 
   } catch (error) {
     log.error(agentName, `Fatal error: ${error.message}`)
@@ -349,7 +395,7 @@ async function runHostAgent() {
 /**
  * CLIENT Agent: Joins the host's game
  */
-async function runClientAgent(clientNumber, roomCode) {
+async function runClientAgent(clientNumber) {
   const agentName = `CLIENT${clientNumber}`
   let browser, page
 
@@ -393,8 +439,8 @@ async function runClientAgent(clientNumber, roomCode) {
     log.success(agentName, `Entered name: TestClient${clientNumber}`)
     await setTimeout(500)
 
-    // Step 4: Click Join Date
-    log.action(agentName, 'Joining game...')
+    // Step 4: Click "Join a Date"
+    log.action(agentName, 'Opening room browser...')
     await page.evaluate(() => {
       const buttons = Array.from(document.querySelectorAll('button'))
       const joinButton = buttons.find(btn =>
@@ -402,130 +448,45 @@ async function runClientAgent(clientNumber, roomCode) {
       )
       if (joinButton) joinButton.click()
     })
-    log.success(agentName, 'Clicked Join Date')
-    await setTimeout(1000)
+    log.success(agentName, 'Clicked Join a Date')
+    await setTimeout(2000)
 
-    // Step 5: Enter room code
-    if (roomCode) {
-      log.action(agentName, `Entering room code: ${roomCode}`)
-      await waitForElement(page, 'input', agentName)
+    // Step 5: Find and click host's room from browser
+    log.action(agentName, 'Looking for room in browser...')
 
-      // Find and fill the room code input field more reliably
-      await page.evaluate((code) => {
-        // Find the input field (should be the visible one after clicking Join)
-        const inputs = Array.from(document.querySelectorAll('input'))
-        const codeInput = inputs.find(input =>
-          input.type === 'text' &&
-          input.offsetParent !== null && // visible
-          !input.value // empty
-        )
-        if (codeInput) {
-          codeInput.focus()
-          codeInput.value = code
-          // Trigger input event so React picks up the change
-          codeInput.dispatchEvent(new Event('input', { bubbles: true }))
-          codeInput.dispatchEvent(new Event('change', { bubbles: true }))
-          console.log('Set room code:', code, 'in input:', codeInput)
-        } else {
-          console.error('Could not find room code input field')
-        }
-      }, roomCode)
+    // Wait for room browser to load
+    await setTimeout(2000) // Give rooms time to populate
 
-      log.success(agentName, `Entered room code: ${roomCode}`)
-      await setTimeout(1500) // Wait longer for React to process the change
+    // Click on the topmost Room button
+    const roomClicked = await page.evaluate(() => {
+      // Find all buttons on the page
+      const buttons = Array.from(document.querySelectorAll('button'))
 
-      // MUST click the Join button - wait for it to be enabled first
-      log.action(agentName, 'Waiting for JOIN button to be enabled...')
+      // Look for buttons that contain "Room" text (case insensitive)
+      const roomButtons = buttons.filter(btn =>
+        btn.textContent.toLowerCase().includes('room') &&
+        btn.offsetParent !== null // visible
+      )
 
-      // Wait up to 10 seconds for the button to be enabled
-      let joinButtonReady = false
-      for (let i = 0; i < 20; i++) {
-        const isReady = await page.evaluate(() => {
-          const buttons = Array.from(document.querySelectorAll('button'))
-          const joinButton = buttons.find(btn => {
-            const text = btn.textContent.toLowerCase()
-            return text.includes('join') && !text.includes('create')
-          })
-          if (joinButton) {
-            console.log('JOIN button state:', {
-              text: joinButton.textContent,
-              disabled: joinButton.disabled,
-              className: joinButton.className
-            })
-            return !joinButton.disabled
-          }
-          return false
-        })
-
-        if (isReady) {
-          joinButtonReady = true
-          break
-        }
-        await setTimeout(500)
+      if (roomButtons.length > 0) {
+        // Click the first (topmost) room button
+        roomButtons[0].click()
+        console.log('Clicked room button:', roomButtons[0].textContent)
+        return true
       }
 
-      if (!joinButtonReady) {
-        log.error(agentName, 'JOIN button never became enabled!')
-        // Take screenshot for debugging
-        await page.screenshot({ path: `./debug-join-button-${agentName}.png`, fullPage: true })
-      }
+      console.log('No room buttons found. All buttons:', buttons.map(b => b.textContent))
+      return false
+    })
 
-      // Now click the button
-      const buttonClicked = await page.evaluate(() => {
-        const buttons = Array.from(document.querySelectorAll('button'))
-        const joinButton = buttons.find(btn => {
-          const text = btn.textContent.toLowerCase()
-          return text.includes('join') && !text.includes('create')
-        })
-        if (joinButton && !joinButton.disabled) {
-          console.log('Clicking JOIN button:', joinButton.textContent)
-          joinButton.click()
-          return true
-        }
-        console.log('JOIN button not clickable. Buttons:', buttons.map(b => ({
-          text: b.textContent,
-          disabled: b.disabled
-        })))
-        return false
-      })
-
-      if (buttonClicked) {
-        log.success(agentName, 'Clicked JOIN button to enter room')
-
-        // Wait for the join to process and screen to change
-        await setTimeout(3000)
-
-        // Check what happened after clicking JOIN
-        const joinStatus = await page.evaluate(() => {
-          const bodyText = document.body.innerText
-          return {
-            url: window.location.href,
-            bodyText: bodyText.substring(0, 500), // First 500 chars
-            hasRoomCode: bodyText.includes('ROOM CODE'),
-            hasWaiting: bodyText.toLowerCase().includes('waiting'),
-            hasPlayers: bodyText.includes('/20') || bodyText.includes('Players'),
-          }
-        })
-
-        log.info(agentName, `After JOIN - URL: ${joinStatus.url}`)
-        log.info(agentName, `After JOIN - Has room code: ${joinStatus.hasRoomCode}, Waiting: ${joinStatus.hasWaiting}, Players: ${joinStatus.hasPlayers}`)
-
-        // Take screenshot after joining
-        await page.screenshot({ path: `./after-join-${agentName}.png`, fullPage: true })
-        log.info(agentName, `Screenshot saved: after-join-${agentName}.png`)
-
-        // If still showing room code entry, the join failed
-        if (joinStatus.hasRoomCode) {
-          log.bug(agentName, 'JOIN_FAILED', 'Still on room code entry screen after clicking JOIN')
-        }
-      } else {
-        log.error(agentName, 'Failed to click JOIN button - it may be disabled')
-      }
-    } else {
-      log.warning(agentName, 'No room code provided, waiting...')
+    if (!roomClicked) {
+      log.error(agentName, 'Could not find any room buttons in browser')
+      await page.screenshot({ path: `./debug-no-room-${agentName}.png`, fullPage: true })
+      return { success: false, reason: 'No room buttons found in browser' }
     }
 
-    await setTimeout(2000)
+    log.success(agentName, 'Clicked on room')
+    await setTimeout(3000)
 
     // Check for blank screen in lobby
     if (await detectBlankScreen(page, agentName)) {
@@ -556,22 +517,83 @@ async function runClientAgent(clientNumber, roomCode) {
 
       await page.keyboard.press('Enter')
       log.success(agentName, 'Submitted suggestion')
-      await setTimeout(1000)
 
-      // PHASE 2: Vote
-      log.action(agentName, 'Phase 2: Waiting to vote...')
-      await setTimeout(16000)
+      // PHASE 2: Wait for voting phase to start (detect when voting UI appears)
+      log.action(agentName, 'Phase 2: Waiting for voting to start...')
 
-      const voteButtonFound = await waitForElement(page, 'button', agentName, 10000)
-      if (voteButtonFound) {
-        await page.evaluate(() => {
+      let votingStarted = false
+      let attempts = 0
+      const maxAttempts = 40 // 20 seconds max wait
+
+      // Poll for voting UI to appear
+      while (!votingStarted && attempts < maxAttempts) {
+        votingStarted = await page.evaluate(() => {
+          // Check if voting UI is present
+          const buttons = Array.from(document.querySelectorAll('button'))
+          const hasVoteButtons = buttons.some(btn => /^[1-9]$/.test(btn.textContent.trim()))
+
+          if (hasVoteButtons) return true
+
+          // Or check for vote input field
+          const inputs = Array.from(document.querySelectorAll('input'))
+          const hasVoteInput = inputs.some(input =>
+            input.type === 'text' &&
+            input.offsetParent !== null &&
+            !input.disabled &&
+            input.placeholder?.toLowerCase().includes('vote')
+          )
+
+          return hasVoteInput
+        })
+
+        if (!votingStarted) {
+          await setTimeout(500)
+          attempts++
+        }
+      }
+
+      if (!votingStarted) {
+        log.warning(agentName, 'Voting UI never appeared')
+      } else {
+        log.success(agentName, 'Voting phase started!')
+
+        // Now cast the vote
+        const voteSuccess = await page.evaluate(() => {
+          // Option 1: Look for numbered buttons to click
           const buttons = Array.from(document.querySelectorAll('button'))
           const numberButton = buttons.find(btn => /^[1-9]$/.test(btn.textContent.trim()))
-          if (numberButton) numberButton.click()
+          if (numberButton) {
+            numberButton.click()
+            console.log('Clicked vote button:', numberButton.textContent)
+            return true
+          }
+
+          // Option 2: Look for an input field to type a vote number
+          const inputs = Array.from(document.querySelectorAll('input'))
+          const voteInput = inputs.find(input =>
+            input.type === 'text' &&
+            input.offsetParent !== null && // visible
+            !input.disabled
+          )
+          if (voteInput) {
+            voteInput.focus()
+            voteInput.value = '1' // Vote for option 1
+            voteInput.dispatchEvent(new Event('input', { bubbles: true }))
+            voteInput.dispatchEvent(new Event('change', { bubbles: true }))
+            // Press Enter to submit
+            voteInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }))
+            console.log('Entered vote number in input field')
+            return true
+          }
+
+          return false
         })
-        log.success(agentName, 'Cast vote')
-      } else {
-        log.warning(agentName, 'Could not find vote buttons')
+
+        if (voteSuccess) {
+          log.success(agentName, 'Cast vote')
+        } else {
+          log.warning(agentName, 'Could not cast vote')
+        }
       }
 
       // PHASE 3: Watch conversation
@@ -617,24 +639,14 @@ async function main() {
   // Start host first
   const hostPromise = runHostAgent()
 
-  // Wait for host to create room and extract room code
-  log.info('SYSTEM', 'Waiting for host to create room and extract room code...')
-  let attempts = 0
-  while (!sharedRoomCode && attempts < 30) {
-    await setTimeout(1000)
-    attempts++
-  }
+  // Wait for host to create room (so it appears in the browser)
+  log.info('SYSTEM', 'Waiting for host to create room...')
+  await setTimeout(5000) // Give host time to create the room
 
-  if (!sharedRoomCode) {
-    log.error('SYSTEM', 'Failed to get room code from host after 30 seconds')
-  } else {
-    log.success('SYSTEM', `Got room code: ${sharedRoomCode}`)
-  }
-
-  // Start clients (they'll join the host's room)
-  const client1Promise = runClientAgent(1, sharedRoomCode)
+  // Start clients (they'll find the host's room in the browser)
+  const client1Promise = runClientAgent(1)
   await setTimeout(2000)
-  const client2Promise = runClientAgent(2, sharedRoomCode)
+  const client2Promise = runClientAgent(2)
 
   // Wait for all agents to complete
   log.info('SYSTEM', '\nWaiting for all agents to finish...')
@@ -651,7 +663,6 @@ async function main() {
 
   console.log(`\n✅ Host Result: ${hostResult.success ? 'SUCCESS' : 'FAILED'}`)
   if (!hostResult.success) console.log(`   Reason: ${hostResult.reason}`)
-  if (hostResult.roomCode) console.log(`   Room Code: ${hostResult.roomCode}`)
 
   console.log(`\n✅ Client 1 Result: ${client1Result.success ? 'SUCCESS' : 'FAILED'}`)
   if (!client1Result.success) console.log(`   Reason: ${client1Result.reason}`)

@@ -505,13 +505,20 @@ function LiveDateScene() {
     initDaterValues()
   }, [selectedDater, isHost, firebaseReady, roomCode])
   
-  // Questions the Dater asks to prompt attribute suggestions
-  const promptQuestions = [
+  // Questions for the FIRST round only (simple, open-ended icebreakers)
+  const firstRoundQuestions = [
+    "Tell me something about yourself that would surprise me.",
+    "What do you like to do for fun?",
+    "What are you looking for in a partner?",
+  ]
+  
+  // ALL questions available for rounds 2-5
+  const laterRoundQuestions = [
     "Tell me something about yourself that would surprise me.",
     "What's the most spontaneous thing you've ever done?",
-    "I'm curious - what are you looking for in a partner?",
+    "What are you looking for in a partner?",
     "What do you think makes a good connection?",
-    "So what do you like to do for fun?",
+    "What do you like to do for fun?",
     "What's your favorite way to spend a weekend?",
     "If you could travel anywhere tomorrow, where would you go?",
     "What's something you're really passionate about?",
@@ -522,22 +529,25 @@ function LiveDateScene() {
   const usedQuestionsRef = useRef(new Set())
   
   const getOpeningLine = () => {
-    // Get unused questions
-    const unusedQuestions = promptQuestions.filter((_, i) => !usedQuestionsRef.current.has(i))
+    // Use first round questions for round 1, all questions for later rounds
+    const isFirstRound = cycleCount === 0
+    const questionPool = isFirstRound ? firstRoundQuestions : laterRoundQuestions
     
-    // If all used, reset
+    // Get unused questions from the appropriate pool
+    const unusedQuestions = questionPool.filter(q => !usedQuestionsRef.current.has(q))
+    
+    // If all used, reset and pick from pool
     if (unusedQuestions.length === 0) {
       usedQuestionsRef.current.clear()
-      const idx = Math.floor(Math.random() * promptQuestions.length)
-      usedQuestionsRef.current.add(idx)
-      return promptQuestions[idx]
+      const randomQuestion = questionPool[Math.floor(Math.random() * questionPool.length)]
+      usedQuestionsRef.current.add(randomQuestion)
+      return randomQuestion
     }
     
     // Pick a random unused question
-    const randomUnused = unusedQuestions[Math.floor(Math.random() * unusedQuestions.length)]
-    const idx = promptQuestions.indexOf(randomUnused)
-    usedQuestionsRef.current.add(idx)
-    return randomUnused
+    const randomQuestion = unusedQuestions[Math.floor(Math.random() * unusedQuestions.length)]
+    usedQuestionsRef.current.add(randomQuestion)
+    return randomQuestion
   }
   
   const handlePhaseEnd = async () => {
