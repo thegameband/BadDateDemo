@@ -318,7 +318,17 @@ As your date speaks, pay attention to hints, implications, and subtext. If they 
   
   // Claude requires at least one message - add a prompt if empty
   if (messages.length === 0) {
-    messages = [{ role: 'user', content: 'The date just started. Say something to break the ice!' }]
+    // FIRST MEETING - react to seeing your date for the first time
+    if (visibleAttributes.length > 0) {
+      // They have visible traits! React to seeing them walk in
+      messages = [{ 
+        role: 'user', 
+        content: `[Your date just walked in. You see them for the first time. React to their appearance - what you notice: ${visibleAttributes.join(', ')}. This is your FIRST IMPRESSION! Greet them and react to what you see. Be a good opening - warm greeting first, then react to what you notice. NOT a question - just an opening!]` 
+      }]
+    } else {
+      // Normal first meeting
+      messages = [{ role: 'user', content: '[Your date just arrived. Say hello and greet them warmly. This is the start of the date - be friendly and make them feel welcome. NOT a question yet - just a warm opening!]' }]
+    }
   }
   
   // Ensure conversation ends with user message (Avatar's turn just happened)
