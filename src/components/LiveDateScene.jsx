@@ -2,19 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
 import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain } from '../services/llmService'
-import { 
-  isFirebaseAvailable, 
-  subscribeToGameState, 
-  subscribeToChat,
-  subscribeToPlayers,
-  submitAttribute as firebaseSubmitAttribute,
-  submitVote as firebaseSubmitVote,
-  sendChatMessage,
-  updateGameState,
-  clearSuggestions,
-  clearVotes
-} from '../services/firebase'
 import './LiveDateScene.css'
+
+// PartyKit replaces Firebase for real-time state sync
+// All state is managed by the PartyKit server - clients send actions, receive state
 
 // Phase timers: 30 seconds for Phase 1 and Phase 2
 function LiveDateScene() {
@@ -107,22 +98,21 @@ function LiveDateScene() {
     { type: 'name', question: "What should we name your date?" },
   ]
   
-  // Helper to sync conversation state to Firebase (host only)
+  // Helper to sync conversation state via PartyKit (host only)
   const syncConversationToFirebase = async (avatarText, daterText, syncSentiments = false) => {
-    if (!isHost || !firebaseReady || !roomCode) return
-    const update = {}
-    if (avatarText !== undefined) update.avatarBubble = avatarText
-    if (daterText !== undefined) update.daterBubble = daterText
-    // Get current sentiment categories from store
-    if (syncSentiments) {
-      const currentSentiments = useGameStore.getState().sentimentCategories
-      update.sentimentCategories = currentSentiments
+    if (!isHost || !partyClient) return
+    
+    // Sync bubbles
+    if (avatarText !== undefined || daterText !== undefined) {
+      partyClient.setBubbles(daterText, avatarText)
     }
-    // Also sync the full conversation history
-    const currentConversation = useGameStore.getState().dateConversation
-    update.dateConversation = currentConversation.slice(-20) // Keep last 20 messages
-    if (Object.keys(update).length > 0) {
-      await updateGameState(roomCode, update)
+    
+    // Sync messages to conversation
+    if (avatarText) {
+      partyClient.addMessage('avatar', avatarText)
+    }
+    if (daterText) {
+      partyClient.addMessage('dater', daterText)
     }
   }
   
@@ -133,18 +123,18 @@ function LiveDateScene() {
     if (tutorialStep < 3) {
       const newStep = tutorialStep + 1
       setTutorialStep(newStep)
-      // Sync to Firebase
-      if (firebaseReady && roomCode) {
-        await updateGameState(roomCode, { tutorialStep: newStep })
+      // Sync to PartyKit
+      if (partyClient) {
+        partyClient.syncState( { tutorialStep: newStep })
       }
     } else {
       // Tutorial complete - start the game
       setShowTutorial(false)
       setTutorialStep(0)
       setLivePhase('phase1')
-      // Sync to Firebase
-      if (firebaseReady && roomCode) {
-        await updateGameState(roomCode, { 
+      // Sync to PartyKit
+      if (partyClient) {
+        partyClient.syncState( { 
           showTutorial: false, 
           tutorialStep: 0, 
           livePhase: 'phase1'
@@ -162,8 +152,8 @@ function LiveDateScene() {
     }
   }, [])
   
-  // Firebase state variable
-  const [firebaseReady] = useState(isFirebaseAvailable())
+  // PartyKit client from store
+  const partyClient = useGameStore((state) => state.partyClient)
   
   // Log initial mount state for debugging
   useEffect(() => {
@@ -174,7 +164,7 @@ function LiveDateScene() {
       playersCount: players?.length,
       players: players?.map(p => ({ id: p.id, name: p.username })),
       roomCode,
-      firebaseReady,
+      hasPartyClient: !!partyClient,
       startingStats: {
         questionAssignments: startingStats.questionAssignments?.length,
         activePlayerId: startingStats.activePlayerId
@@ -182,47 +172,33 @@ function LiveDateScene() {
     })
   }, []) // Empty dependency - only logs on mount
   
-  // Subscribe to Firebase game state (for all players to receive updates)
+  // Subscribe to PartyKit game state (for all players to receive updates)
   useEffect(() => {
-    if (!firebaseReady || !roomCode) return
+    if (!partyClient || !roomCode) return
     
-    console.log('🔥 Setting up Firebase subscriptions for room:', roomCode, 'isHost:', isHost)
+    console.log('🎉 Setting up PartyKit state subscription for room:', roomCode, 'isHost:', isHost)
     
-    // Subscribe to game state changes
-    const unsubscribeGame = subscribeToGameState(roomCode, (gameState) => {
+    const unsubscribe = partyClient.onStateChange((state) => {
       try {
-        if (!gameState) return
+        if (!state) return
         
-        console.log('🔥 Game state update:', gameState)
+        console.log('🎉 PartyKit state update:', state)
       
-      // Sync suggestions from Firebase (for all players)
-      if (gameState.suggestedAttributes) {
-        const suggestionsArray = Object.values(gameState.suggestedAttributes)
-        console.log('🔥 Syncing suggestions:', suggestionsArray)
-        setSuggestedAttributes(suggestionsArray)
+      // Sync suggestions
+      if (state.suggestedAttributes) {
+        console.log('🎉 Syncing suggestions:', state.suggestedAttributes)
+        setSuggestedAttributes(state.suggestedAttributes)
       } else {
-        // Clear suggestions if none exist
         setSuggestedAttributes([])
       }
       
-      // Sync numbered attributes for voting (for all players)
-      // Firebase may convert arrays to objects, so handle both formats
-      if (gameState.numberedAttributes) {
-        // Convert to array if Firebase stored it as an object
-        let numberedArray = gameState.numberedAttributes
-        if (!Array.isArray(numberedArray)) {
-          numberedArray = Object.values(gameState.numberedAttributes)
-        }
-        
-        console.log('🔥 Syncing numbered attributes:', numberedArray)
-        
-        // Convert attributeVotes map to votes arrays on each numbered attribute
-        // attributeVotes format: { odId1: voteNumber, odId2: voteNumber, ... }
-        const votesMap = gameState.attributeVotes || {}
+      // Sync numbered attributes for voting
+      if (state.numberedAttributes) {
+        const numberedArray = state.numberedAttributes
+        const votesMap = state.votes || {}
         const totalVotes = Object.keys(votesMap).length
         
         const numberedWithVotes = numberedArray.filter(attr => attr).map(attr => {
-          // Find all players who voted for this attribute number
           const votersForThis = Object.entries(votesMap)
             .filter(([_, voteNum]) => voteNum === attr.number)
             .map(([odId, _]) => odId)
@@ -235,43 +211,34 @@ function LiveDateScene() {
         
         setNumberedAttributes(numberedWithVotes)
         
-        // Auto-advance to Phase 3 if all players have voted (host only triggers this)
-        if (isHost && gameState.livePhase === 'phase2' && players.length > 0 && totalVotes >= players.length && !allVotedTriggeredRef.current) {
+        // Auto-advance to Phase 3 if all players have voted (host only)
+        if (isHost && state.phase === 'phase2' && players.length > 0 && totalVotes >= players.length && !allVotedTriggeredRef.current) {
           console.log('🎯 All players have voted! Auto-advancing to Phase 3')
-          allVotedTriggeredRef.current = true // Prevent multiple triggers
+          allVotedTriggeredRef.current = true
           
-          // Get winning attribute directly from the numberedWithVotes we just computed
           const sortedByVotes = [...numberedWithVotes].sort((a, b) => b.votes.length - a.votes.length)
           const winningAttr = sortedByVotes[0]?.text || null
           
           if (winningAttr) {
             console.log('🏆 Winner:', winningAttr)
-            // Use setTimeout to avoid state update during render
             setTimeout(async () => {
-              // IMPORTANT: Get current compatibility to preserve it
               const currentCompatibility = useGameStore.getState().compatibility
-              console.log('💯 Auto-advance - preserving compatibility:', currentCompatibility)
               
-              // Set winner popup
               setWinnerText(winningAttr)
               setShowWinnerPopup(true)
               applyWinningAttribute()
               setLivePhase('phase3')
               setPhaseTimer(0)
               
-              // Sync to Firebase - include compatibility
-              if (firebaseReady && roomCode) {
-                await updateGameState(roomCode, { 
-                  livePhase: 'phase3', 
-                  phaseTimer: 0, 
-                  winningAttribute: winningAttr,
-                  compatibility: currentCompatibility // PRESERVE!
-                })
-                await clearSuggestions(roomCode)
-                await clearVotes(roomCode)
+              // Sync via PartyKit
+              if (partyClient) {
+                partyClient.setPhase('phase3', 0)
+                partyClient.setWinningAttribute(winningAttr)
+                partyClient.setCompatibility(currentCompatibility)
+                partyClient.clearSuggestions()
+                partyClient.clearVotes()
               }
               
-              // After 5 seconds, hide popup and start conversation
               setTimeout(() => {
                 setShowWinnerPopup(false)
                 setTimeout(() => generateDateConversation(winningAttr), 300)
@@ -281,66 +248,57 @@ function LiveDateScene() {
         }
       }
       
-      // Sync compatibility (so all players see the same score)
-      if (typeof gameState.compatibility === 'number') {
-        setCompatibility(gameState.compatibility)
+      // Sync compatibility
+      if (typeof state.compatibility === 'number') {
+        setCompatibility(state.compatibility)
       }
       
-      // Sync winning attribute AND show popup for ALL players (not just host)
-      if (gameState.winningAttribute) {
+      // Sync winning attribute and show popup
+      if (state.winningAttribute) {
         const previousWinnerText = winnerText
-        setWinnerText(gameState.winningAttribute)
+        setWinnerText(state.winningAttribute)
         
-        // Show winner popup for non-hosts when they receive a NEW winning attribute
-        // AND the phase is transitioning to phase3
-        if (!isHost && gameState.winningAttribute !== previousWinnerText && gameState.livePhase === 'phase3') {
-          console.log('🏆 Non-host showing winner popup:', gameState.winningAttribute)
+        if (!isHost && state.winningAttribute !== previousWinnerText && state.phase === 'phase3') {
+          console.log('🏆 Non-host showing winner popup:', state.winningAttribute)
           setShowWinnerPopup(true)
-          // Hide after 5 seconds (matching host timing)
-          setTimeout(() => {
-            setShowWinnerPopup(false)
-          }, 5000)
+          setTimeout(() => setShowWinnerPopup(false), 5000)
         }
       }
       
-      // All players should follow phase/timer from Firebase
-      if (gameState.livePhase) {
-        console.log('🔥 Syncing phase:', gameState.livePhase)
-        setLivePhase(gameState.livePhase)
+      // Sync phase
+      if (state.phase) {
+        console.log('🎉 Syncing phase:', state.phase)
+        setLivePhase(state.phase)
         
-        // If game ended, transition all players (including non-hosts) to results
-        if (gameState.livePhase === 'ended' && !isHost) {
+        if (state.phase === 'ended' && !isHost) {
           console.log('🏁 Game ended - transitioning non-host to results')
           setTimeout(() => setPhase('results'), 2000)
         }
       }
-      // Timer sync logic:
-      // - Host NEVER accepts timer from Firebase (host is source of truth)
-      // - Non-hosts ALWAYS accept timer from Firebase to stay in sync
-      if (typeof gameState.phaseTimer === 'number' && !isHost) {
-        setPhaseTimer(gameState.phaseTimer)
+      
+      // Timer sync (non-hosts only)
+      if (typeof state.phaseTimer === 'number' && !isHost) {
+        setPhaseTimer(state.phaseTimer)
       }
       
-      // Sync tutorial state (so all players see the same tutorial step)
-      if (typeof gameState.showTutorial === 'boolean') {
-        setShowTutorial(gameState.showTutorial)
+      // Sync tutorial state
+      if (typeof state.showTutorial === 'boolean') {
+        setShowTutorial(state.showTutorial)
       }
-      if (typeof gameState.tutorialStep === 'number') {
-        setTutorialStep(gameState.tutorialStep)
+      if (typeof state.tutorialStep === 'number') {
+        setTutorialStep(state.tutorialStep)
       }
       
-      // Timer starts immediately - no need to sync timerStarted state
-      
-      // Sync current question (so all players see the same question)
-      if (gameState.currentQuestion && !isHost) {
-        setDaterBubble(gameState.currentQuestion)
-        // Only add to conversation if it's not already there
+      // Sync current question (non-hosts)
+      if (state.daterBubble && !isHost) {
+        setDaterBubble(state.daterBubble)
         const lastMessage = dateConversation[dateConversation.length - 1]
-        if (dateConversation.length === 0 || lastMessage?.message !== gameState.currentQuestion) {
-          addDateMessage('dater', gameState.currentQuestion)
+        if (dateConversation.length === 0 || lastMessage?.message !== state.daterBubble) {
+          if (state.phase === 'phase1') {
+            addDateMessage('dater', state.daterBubble)
+          }
         }
-        // Clear avatar bubble when new question arrives (new round started)
-        if (gameState.livePhase === 'phase1') {
+        if (state.phase === 'phase1') {
           setAvatarBubble('')
           setSuggestedAttributes([])
           setNumberedAttributes([])
@@ -348,53 +306,38 @@ function LiveDateScene() {
         }
       }
       
-      // Sync cycle count
-      if (typeof gameState.cycleCount === 'number' && !isHost) {
-        // Update local cycle count to match host
-        // (We can't directly set cycleCount, but we track it via Firebase)
-      }
-      
-      // Sync conversation bubbles (so non-hosts see the date conversation)
+      // Sync conversation bubbles (non-hosts)
       if (!isHost) {
-        if (gameState.avatarBubble !== undefined) {
-          setAvatarBubble(gameState.avatarBubble)
+        if (state.avatarBubble !== undefined) {
+          setAvatarBubble(state.avatarBubble)
         }
-        // For daterBubble: In phase1, prioritize currentQuestion over daterBubble
-        // This prevents old reactions from overwriting the new question
-        if (gameState.livePhase === 'phase1' && gameState.currentQuestion) {
-          setDaterBubble(gameState.currentQuestion)
-        } else if (gameState.daterBubble !== undefined) {
-          setDaterBubble(gameState.daterBubble)
-        }
-        // Sync sentiment categories
-        if (gameState.sentimentCategories) {
-          setSentimentCategories(gameState.sentimentCategories)
-        }
-        // Sync full conversation history
-        if (gameState.dateConversation && Array.isArray(gameState.dateConversation)) {
-          // Filter out any undefined/null entries and ensure valid format
-          const validConversation = gameState.dateConversation.filter(msg => 
+        if (state.conversation && Array.isArray(state.conversation)) {
+          const validConversation = state.conversation.filter(msg => 
             msg && typeof msg === 'object' && msg.message !== undefined
           )
           if (validConversation.length > 0) {
             useGameStore.getState().setDateConversation(validConversation)
           }
         }
-        // Sync dater values (so non-hosts can see the scoring categories)
-        if (gameState.daterValues) {
-          setDaterValues(gameState.daterValues)
-        }
       }
       
-      // Sync starting stats state (for all players)
-      if (gameState.startingStats) {
-        setStartingStats(gameState.startingStats)
-        // Update local timer for non-hosts
-        if (!isHost && typeof gameState.startingStats.timer === 'number') {
-          setStartingStatsTimer(gameState.startingStats.timer)
+      // Sync players
+      if (state.players && state.players.length > 0) {
+        setPlayers(state.players.map(p => ({
+          id: p.odId,
+          odId: p.odId,
+          username: p.username,
+          isHost: p.isHost
+        })))
+      }
+      
+      // Sync starting stats state
+      if (state.startingStats) {
+        setStartingStats(state.startingStats)
+        if (!isHost && typeof state.startingStats.timer === 'number') {
+          setStartingStatsTimer(state.startingStats.timer)
         }
-        // Show answer popup when a new answer comes in
-        const answers = gameState.startingStats.answers || []
+        const answers = state.startingStats.answers || []
         if (answers.length > 0) {
           const latestAnswer = answers[answers.length - 1]
           if (latestAnswer && latestAnswer.answer) {
@@ -403,39 +346,19 @@ function LiveDateScene() {
               answer: latestAnswer.answer,
               questionType: latestAnswer.questionType
             })
-            // Hide after 3 seconds
             setTimeout(() => setShowStartingStatsAnswer(null), 3000)
           }
         }
       }
       } catch (error) {
-        console.error('🔥 Error processing game state update:', error)
-      }
-    })
-    
-    // Subscribe to chat
-    const unsubscribeChat = subscribeToChat(roomCode, (chatMessages) => {
-      setPlayerChat(chatMessages)
-    })
-    
-    // Subscribe to players (needed for Starting Stats to know who's playing)
-    const unsubscribePlayers = subscribeToPlayers(roomCode, (playersList) => {
-      console.log('🔥 Players updated from Firebase:', playersList?.length, 'players')
-      // Only update if we actually have players - don't overwrite with empty array
-      // This prevents a race condition where Firebase returns empty before data loads
-      if (playersList && playersList.length > 0) {
-        setPlayers(playersList)
-      } else {
-        console.log('🔥 Ignoring empty players list from Firebase - keeping existing players')
+        console.error('🎉 Error processing PartyKit state update:', error)
       }
     })
     
     return () => {
-      unsubscribeGame()
-      unsubscribeChat()
-      unsubscribePlayers()
+      unsubscribe()
     }
-  }, [firebaseReady, roomCode, isHost, setSuggestedAttributes, setCompatibility, setLivePhase, setPhaseTimer, setPlayerChat, setNumberedAttributes, setShowTutorial, setTutorialStep, setPlayers])
+  }, [partyClient, roomCode, isHost, setSuggestedAttributes, setCompatibility, setLivePhase, setPhaseTimer, setPlayerChat, setNumberedAttributes, setShowTutorial, setTutorialStep, setPlayers])
   
   // Track timer value in a ref for the interval to access
   const phaseTimerValueRef = useRef(phaseTimer)
@@ -443,11 +366,11 @@ function LiveDateScene() {
     phaseTimerValueRef.current = phaseTimer
   }, [phaseTimer])
   
-  // Phase timer countdown - only host runs the timer, others sync from Firebase
+  // Phase timer countdown - only host runs the timer, others sync from PartyKit
   // Timer starts immediately when phase begins
   useEffect(() => {
     // Only the host should run the timer
-    if (!isHost && firebaseReady) return
+    if (!isHost && partyClient) return
     
     // Run timer during Phase 1, Phase 2, and Phase 3
     const shouldRunTimer = livePhase === 'phase1' || livePhase === 'phase2' || livePhase === 'phase3'
@@ -459,8 +382,8 @@ function LiveDateScene() {
         if (newTime >= 0) {
           setPhaseTimer(newTime)
           // Sync timer to Firebase for other players every second
-          if (firebaseReady && roomCode && isHost) {
-            await updateGameState(roomCode, { phaseTimer: newTime })
+          if (partyClient && isHost) {
+            partyClient.setTimer(newTime)
           }
         }
       }, 1000)
@@ -471,7 +394,7 @@ function LiveDateScene() {
         }
       }
     }
-  }, [livePhase, isHost, firebaseReady, roomCode, setPhaseTimer])
+  }, [livePhase, isHost, partyClient, roomCode, setPhaseTimer])
   
   // Handle phase transitions when timer hits 0
   useEffect(() => {
@@ -489,7 +412,7 @@ function LiveDateScene() {
     console.log('🎲 Starting Stats useEffect check:', {
       livePhase,
       isHost,
-      firebaseReady,
+      partyClient,
       roomCode,
       playersLength: players?.length,
       players: players?.map(p => p.username),
@@ -509,7 +432,7 @@ function LiveDateScene() {
       return
     }
     
-    if (!firebaseReady || !roomCode) {
+    if (!partyClient || !roomCode) {
       console.log('🎲 Firebase not ready or no room code')
       return
     }
@@ -575,8 +498,8 @@ function LiveDateScene() {
       // Fallback: skip to phase1
       setLivePhase('phase1')
       setPhaseTimer(30)
-      if (firebaseReady && roomCode) {
-        updateGameState(roomCode, { livePhase: 'phase1', phaseTimer: 30 })
+      if (partyClient) {
+        partyClient.syncState( { livePhase: 'phase1', phaseTimer: 30 })
       }
       return
     }
@@ -598,13 +521,13 @@ function LiveDateScene() {
     setStartingStats(newStartingStats)
     setStartingStatsTimer(15)
     
-    // Sync to Firebase
-    updateGameState(roomCode, { 
+    // Sync to PartyKit
+    partyClient.syncState( { 
       startingStats: newStartingStats,
       livePhase: 'starting-stats' // Ensure phase is synced
     })
     console.log('🎲 Starting Stats initialized:', newStartingStats)
-  }, [livePhase, isHost, firebaseReady, roomCode, players.length, startingStats.questionAssignments?.length])
+  }, [livePhase, isHost, partyClient, roomCode, players.length, startingStats.questionAssignments?.length])
   
   // Starting Stats timer (host only)
   useEffect(() => {
@@ -620,9 +543,9 @@ function LiveDateScene() {
         const newTime = prev - 1
         
         // Sync timer to Firebase
-        if (firebaseReady && roomCode) {
+        if (partyClient) {
           const currentStats = useGameStore.getState().startingStats
-          updateGameState(roomCode, { 
+          partyClient.syncState( { 
             startingStats: { ...currentStats, timer: newTime }
           })
         }
@@ -642,7 +565,7 @@ function LiveDateScene() {
         clearInterval(startingStatsTimerRef.current)
       }
     }
-  }, [livePhase, isHost, firebaseReady, roomCode])
+  }, [livePhase, isHost, partyClient, roomCode])
   
   // Move to next Starting Stats question
   const moveToNextStartingStatsQuestion = async () => {
@@ -678,9 +601,9 @@ function LiveDateScene() {
     setStartingStatsTimer(15)
     setHasSubmittedStartingStat(false)
     
-    // Sync to Firebase
-    if (firebaseReady && roomCode) {
-      await updateGameState(roomCode, { startingStats: newStats })
+    // Sync to PartyKit
+    if (partyClient) {
+      partyClient.syncState( { startingStats: newStats })
     }
     
     console.log('➡️ Moving to next Starting Stats question:', nextAssignment)
@@ -712,9 +635,9 @@ function LiveDateScene() {
     setStartingStats(newStats)
     setStartingStatsInput('')
     
-    // Sync to Firebase
-    if (firebaseReady && roomCode) {
-      await updateGameState(roomCode, { startingStats: newStats })
+    // Sync to PartyKit
+    if (partyClient) {
+      partyClient.syncState( { startingStats: newStats })
       await sendChatMessage(roomCode, { 
         username, 
         message: `📝 Submitted: "${answer.trim().substring(0, 30)}${answer.length > 30 ? '...' : ''}"` 
@@ -770,9 +693,9 @@ function LiveDateScene() {
     setLivePhase('reaction')
     setPhaseTimer(0) // No timer for reaction round - it's driven by conversation
     
-    // Sync to Firebase
-    if (firebaseReady && roomCode) {
-      await updateGameState(roomCode, {
+    // Sync to PartyKit
+    if (partyClient) {
+      partyClient.syncState( {
         livePhase: 'reaction',
         phaseTimer: 0,
         avatar: updatedAvatar,
@@ -847,8 +770,8 @@ function LiveDateScene() {
           if (change !== 0) {
             const newCompat = adjustCompatibility(change)
             console.log(`Physical impression: ${change > 0 ? '+' : ''}${change}% (${matchResult.shortLabel})`)
-            if (firebaseReady && roomCode) {
-              await updateGameState(roomCode, { compatibility: newCompat })
+            if (partyClient) {
+              partyClient.syncState( { compatibility: newCompat })
             }
           }
         }
@@ -886,8 +809,8 @@ function LiveDateScene() {
           if (change !== 0) {
             const newCompat = adjustCompatibility(change)
             console.log(`Emotional impression: ${change > 0 ? '+' : ''}${change}% (${matchResult.shortLabel})`)
-            if (firebaseReady && roomCode) {
-              await updateGameState(roomCode, { compatibility: newCompat })
+            if (partyClient) {
+              partyClient.syncState( { compatibility: newCompat })
             }
           }
         }
@@ -946,8 +869,8 @@ function LiveDateScene() {
     setAvatarBubble('') // Clear avatar bubble
     addDateMessage('dater', openingLine)
     
-    if (firebaseReady && roomCode) {
-      await updateGameState(roomCode, {
+    if (partyClient) {
+      partyClient.syncState( {
         livePhase: 'phase1',
         phaseTimer: 30,
         reactionRoundComplete: true,
@@ -975,7 +898,7 @@ function LiveDateScene() {
   }, [livePhase, isHost])
   
   // Start Phase 1 - Dater asks Avatar about themselves
-  // Only HOST generates questions; non-hosts receive via Firebase
+  // Only HOST generates questions; non-hosts receive via PartyKit
   useEffect(() => {
     const initPhase1 = async () => {
       if (livePhase === 'phase1' && dateConversation.length === 0) {
@@ -988,8 +911,8 @@ function LiveDateScene() {
           
           // Sync question and state to Firebase for other players
           // NOTE: Don't reset compatibility here - it's already set in startLiveDate
-          if (firebaseReady && roomCode) {
-            await updateGameState(roomCode, { 
+          if (partyClient) {
+            partyClient.syncState( { 
               livePhase: 'phase1', 
               phaseTimer: 30,
               currentQuestion: openingLine,
@@ -998,11 +921,11 @@ function LiveDateScene() {
             })
           }
         }
-        // Non-hosts will receive the question via Firebase subscription
+        // Non-hosts will receive the question via PartyKit subscription
       }
     }
     initPhase1()
-  }, [livePhase, isHost, firebaseReady, roomCode])
+  }, [livePhase, isHost, partyClient, roomCode])
   
   // Auto-scroll chat
   useEffect(() => {
@@ -1072,7 +995,7 @@ function LiveDateScene() {
   // Generate dater values when the game starts (HOST ONLY)
   useEffect(() => {
     const initDaterValues = async () => {
-      // Only host generates dater values - non-hosts receive via Firebase
+      // Only host generates dater values - non-hosts receive via PartyKit
       if (!isHost) return
       
       if (selectedDater && (!daterValues.loves.length || daterValues.loves.length === 0)) {
@@ -1081,14 +1004,14 @@ function LiveDateScene() {
         setDaterValues(values)
         console.log('Dater values set:', values)
         
-        // Sync to Firebase for non-hosts
-        if (firebaseReady && roomCode) {
-          await updateGameState(roomCode, { daterValues: values })
+        // Sync to PartyKit for non-hosts
+        if (partyClient) {
+          partyClient.syncState( { daterValues: values })
         }
       }
     }
     initDaterValues()
-  }, [selectedDater, isHost, firebaseReady, roomCode])
+  }, [selectedDater, isHost, partyClient, roomCode])
   
   // Questions for the FIRST round only (simple, open-ended icebreakers)
   const firstRoundQuestions = [
@@ -1141,7 +1064,7 @@ function LiveDateScene() {
     }
     
     // Only host controls phase transitions
-    if (!isHost && firebaseReady) return
+    if (!isHost && partyClient) return
     
     // IMPORTANT: Get current compatibility to preserve it during phase transitions
     const currentCompatibility = useGameStore.getState().compatibility
@@ -1172,9 +1095,9 @@ function LiveDateScene() {
         setUserVote(null)
         allVotedTriggeredRef.current = false // Reset for new voting round
         
-        // Sync to Firebase - include numbered attributes AND compatibility
-        if (firebaseReady && roomCode) {
-          await updateGameState(roomCode, { 
+        // Sync to PartyKit - include numbered attributes AND compatibility
+        if (partyClient) {
+          partyClient.syncState( { 
             livePhase: 'phase2', 
             phaseTimer: 30,
             numberedAttributes: numbered,
@@ -1194,9 +1117,9 @@ function LiveDateScene() {
           setLivePhase('phase3')
           setPhaseTimer(0)
           
-          // Sync to Firebase - include compatibility
-          if (firebaseReady && roomCode) {
-            await updateGameState(roomCode, { 
+          // Sync to PartyKit - include compatibility
+          if (partyClient) {
+            partyClient.syncState( { 
               livePhase: 'phase3', 
               phaseTimer: 0, 
               winningAttribute: winningAttr,
@@ -1249,7 +1172,7 @@ function LiveDateScene() {
   // Exchange 1: Avatar answers question (1x scoring)
   // Exchange 2: Avatar continues conversation (0.25x scoring)
   // Exchange 3: Avatar continues again (0.10x scoring)
-  // ONLY HOST should run this - non-hosts receive updates via Firebase
+  // ONLY HOST should run this - non-hosts receive updates via PartyKit
   const generateDateConversation = async (currentAttribute) => {
     if (!isHost) {
       console.log('Non-host skipping generateDateConversation')
@@ -1303,8 +1226,8 @@ function LiveDateScene() {
             const newCompat = adjustCompatibility(change)
             console.log(`Compatibility ${change > 0 ? '+' : ''}${change}% (${matchResult.category}: ${matchResult.shortLabel}, ${multiplier}x)`)
             // Sync compatibility to Firebase
-            if (firebaseReady && roomCode) {
-              await updateGameState(roomCode, { compatibility: newCompat })
+            if (partyClient) {
+              partyClient.syncState( { compatibility: newCompat })
             }
           }
           
@@ -1465,7 +1388,7 @@ function LiveDateScene() {
   }
   
   // Handle round completion - check if we continue or end
-  // ONLY HOST should run this - non-hosts receive state via Firebase
+  // ONLY HOST should run this - non-hosts receive state via PartyKit
   const handleRoundComplete = async () => {
     if (!isHost) {
       console.log('Non-host skipping handleRoundComplete')
@@ -1479,8 +1402,8 @@ function LiveDateScene() {
     if (newRoundCount >= maxCycles) {
       // Game over!
       setLivePhase('ended')
-      if (firebaseReady && roomCode) {
-        await updateGameState(roomCode, { livePhase: 'ended', compatibility })
+      if (partyClient) {
+        partyClient.syncState( { livePhase: 'ended', compatibility })
       }
       setTimeout(() => setPhase('results'), 2000)
     } else {
@@ -1499,9 +1422,9 @@ function LiveDateScene() {
         setSuggestedAttributes([])
         setNumberedAttributes([])
         
-        // Sync to Firebase including the question and cleared state
-        if (firebaseReady && roomCode) {
-          await updateGameState(roomCode, { 
+        // Sync to PartyKit including the question and cleared state
+        if (partyClient) {
+          partyClient.syncState( { 
             livePhase: 'phase1', 
             phaseTimer: 30, 
             compatibility,
@@ -1516,7 +1439,7 @@ function LiveDateScene() {
           await clearVotes(roomCode)
         }
       }
-      // Non-hosts will receive the question via Firebase subscription
+      // Non-hosts will receive the question via PartyKit subscription
     }
   }
   
@@ -1537,10 +1460,9 @@ function LiveDateScene() {
         username: username
       }
       
-      // Submit to Firebase if available, otherwise local only
-      if (firebaseReady && roomCode) {
-        await firebaseSubmitAttribute(roomCode, suggestion)
-        await sendChatMessage(roomCode, { username, message: `💡 ${truncate(message, 35)}` })
+      // Submit via PartyKit if available, otherwise local only
+      if (partyClient) {
+        partyClient.submitAttribute(message, username, playerId)
       } else {
         submitAttributeSuggestion(message, username)
         addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
@@ -1550,17 +1472,16 @@ function LiveDateScene() {
     else if (livePhase === 'phase2') {
       const num = parseInt(message)
       if (!isNaN(num) && num >= 1 && num <= numberedAttributes.length) {
-        // Submit vote to Firebase if available
-        if (firebaseReady && roomCode && playerId) {
-          await firebaseSubmitVote(roomCode, playerId, num)
-          await sendChatMessage(roomCode, { username, message: `Vote: #${num}` })
+        // Submit vote via PartyKit if available
+        if (partyClient && playerId) {
+          partyClient.vote(playerId, num)
         } else {
           voteForNumberedAttribute(num, username)
           addPlayerChatMessage(username, `Vote: #${num}`)
         }
         setUserVote(num)
       } else {
-        if (firebaseReady && roomCode) {
+        if (partyClient) {
           await sendChatMessage(roomCode, { username, message: truncate(message) })
         } else {
           addPlayerChatMessage(username, truncate(message))
@@ -1569,7 +1490,7 @@ function LiveDateScene() {
     }
     // Phase 3 - just regular chat
     else {
-      if (firebaseReady && roomCode) {
+      if (partyClient) {
         await sendChatMessage(roomCode, { username, message: truncate(message) })
       } else {
         addPlayerChatMessage(username, truncate(message))
@@ -1984,9 +1905,8 @@ function LiveDateScene() {
                     key={attr.number}
                     className={`vote-option ${userVote === attr.number ? 'voted' : ''}`}
                     onClick={async () => {
-                      if (firebaseReady && roomCode && playerId) {
-                        await firebaseSubmitVote(roomCode, playerId, attr.number)
-                        await sendChatMessage(roomCode, { username, message: `Vote: #${attr.number}` })
+                      if (partyClient && playerId) {
+                        partyClient.vote(playerId, attr.number)
                       } else {
                         voteForNumberedAttribute(attr.number, username)
                         addPlayerChatMessage(username, `Vote: #${attr.number}`)
