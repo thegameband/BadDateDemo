@@ -6,6 +6,7 @@ import {
   isFirebaseAvailable, 
   subscribeToGameState, 
   subscribeToChat,
+  subscribeToPlayers,
   submitAttribute as firebaseSubmitAttribute,
   submitVote as firebaseSubmitVote,
   sendChatMessage,
@@ -68,6 +69,7 @@ function LiveDateScene() {
   const startingStats = useGameStore((state) => state.startingStats)
   const setStartingStats = useGameStore((state) => state.setStartingStats)
   const setAvatarName = useGameStore((state) => state.setAvatarName)
+  const setPlayers = useGameStore((state) => state.setPlayers)
   
   const [chatInput, setChatInput] = useState('')
   const [avatarBubble, setAvatarBubble] = useState('')
@@ -399,11 +401,18 @@ function LiveDateScene() {
       setPlayerChat(chatMessages)
     })
     
+    // Subscribe to players (needed for Starting Stats to know who's playing)
+    const unsubscribePlayers = subscribeToPlayers(roomCode, (playersList) => {
+      console.log('🔥 Players updated:', playersList?.length, 'players')
+      setPlayers(playersList)
+    })
+    
     return () => {
       unsubscribeGame()
       unsubscribeChat()
+      unsubscribePlayers()
     }
-  }, [firebaseReady, roomCode, isHost, setSuggestedAttributes, setCompatibility, setLivePhase, setPhaseTimer, setPlayerChat, setNumberedAttributes, setShowTutorial, setTutorialStep])
+  }, [firebaseReady, roomCode, isHost, setSuggestedAttributes, setCompatibility, setLivePhase, setPhaseTimer, setPlayerChat, setNumberedAttributes, setShowTutorial, setTutorialStep, setPlayers])
   
   // Track timer value in a ref for the interval to access
   const phaseTimerValueRef = useRef(phaseTimer)
@@ -454,10 +463,25 @@ function LiveDateScene() {
   
   // Initialize Starting Stats phase (host only)
   useEffect(() => {
-    if (livePhase !== 'starting-stats' || !isHost || !firebaseReady || !roomCode) return
+    console.log('🎲 Starting Stats useEffect running:', {
+      livePhase,
+      isHost,
+      firebaseReady,
+      roomCode,
+      playersLength: players?.length,
+      questionAssignmentsLength: startingStats.questionAssignments?.length
+    })
+    
+    if (livePhase !== 'starting-stats' || !isHost || !firebaseReady || !roomCode) {
+      console.log('🎲 Skipping - conditions not met')
+      return
+    }
     
     // Only initialize if no question assignments yet
-    if (startingStats.questionAssignments?.length > 0) return
+    if (startingStats.questionAssignments?.length > 0) {
+      console.log('🎲 Skipping - already have question assignments')
+      return
+    }
     
     // Wait for players to be loaded
     if (!players || players.length === 0) {

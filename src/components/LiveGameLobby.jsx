@@ -80,6 +80,7 @@ function LiveGameLobby() {
         livePhase: startPhase, // IMPORTANT: Set the live phase
         phaseTimer: startTimer,
         showTutorial,
+        tutorialStep: showTutorial ? 1 : 0, // IMPORTANT: Sync tutorial step for clients!
         startingStatsMode,
         compatibility: 50, // Reset compatibility
         cycleCount: 0, // Reset round count
