@@ -538,22 +538,43 @@ function LiveDateScene() {
       clearInterval(startingStatsTimerRef.current)
     }
     
-    startingStatsTimerRef.current = setInterval(async () => {
+    startingStatsTimerRef.current = setInterval(() => {
+      // Check phase is still starting-stats before doing anything
+      const currentPhase = useGameStore.getState().livePhase
+      if (currentPhase !== 'starting-stats') {
+        if (startingStatsTimerRef.current) {
+          clearInterval(startingStatsTimerRef.current)
+        }
+        return
+      }
+      
       setStartingStatsTimer(prev => {
         const newTime = prev - 1
         
-        // Sync timer to Firebase
+        // Sync timer to PartyKit
         if (partyClient) {
           const currentStats = useGameStore.getState().startingStats
-          partyClient.syncState( { 
-            startingStats: { ...currentStats, timer: newTime }
-          })
+          if (currentStats) {
+            partyClient.syncState({ 
+              startingStats: { ...currentStats, timer: newTime }
+            })
+          }
         }
         
         // When timer hits 0, move to next question
         if (newTime <= 0) {
-          moveToNextStartingStatsQuestion()
-          return 15 // Reset timer
+          // Clear timer before moving to prevent race conditions
+          if (startingStatsTimerRef.current) {
+            clearInterval(startingStatsTimerRef.current)
+          }
+          // Use setTimeout to move out of the setState callback
+          setTimeout(() => {
+            const phase = useGameStore.getState().livePhase
+            if (phase === 'starting-stats') {
+              moveToNextStartingStatsQuestion()
+            }
+          }, 0)
+          return 15 // Reset timer (will be overwritten by next question setup)
         }
         
         return newTime
@@ -572,6 +593,8 @@ function LiveDateScene() {
     if (!isHost) return
     
     const currentStats = useGameStore.getState().startingStats
+    if (!currentStats) return
+    
     const assignments = currentStats.questionAssignments || []
     const currentIndex = assignments.findIndex(
       a => a.playerId === currentStats.activePlayerId && 
@@ -601,9 +624,49 @@ function LiveDateScene() {
     setStartingStatsTimer(15)
     setHasSubmittedStartingStat(false)
     
+    // Restart the timer for the next question
+    if (startingStatsTimerRef.current) {
+      clearInterval(startingStatsTimerRef.current)
+    }
+    startingStatsTimerRef.current = setInterval(() => {
+      const currentPhase = useGameStore.getState().livePhase
+      if (currentPhase !== 'starting-stats') {
+        if (startingStatsTimerRef.current) {
+          clearInterval(startingStatsTimerRef.current)
+        }
+        return
+      }
+      
+      setStartingStatsTimer(prev => {
+        const newTime = prev - 1
+        
+        if (partyClient) {
+          const stats = useGameStore.getState().startingStats
+          if (stats) {
+            partyClient.syncState({ startingStats: { ...stats, timer: newTime } })
+          }
+        }
+        
+        if (newTime <= 0) {
+          if (startingStatsTimerRef.current) {
+            clearInterval(startingStatsTimerRef.current)
+          }
+          setTimeout(() => {
+            const phase = useGameStore.getState().livePhase
+            if (phase === 'starting-stats') {
+              moveToNextStartingStatsQuestion()
+            }
+          }, 0)
+          return 15
+        }
+        
+        return newTime
+      })
+    }, 1000)
+    
     // Sync to PartyKit
     if (partyClient) {
-      partyClient.syncState( { startingStats: newStats })
+      partyClient.syncState({ startingStats: newStats })
     }
     
     console.log('➡️ Moving to next Starting Stats question:', nextAssignment)
@@ -614,6 +677,12 @@ function LiveDateScene() {
     if (!answer.trim() || hasSubmittedStartingStat) return
     
     setHasSubmittedStartingStat(true)
+    
+    // Clear the timer immediately on submission
+    if (startingStatsTimerRef.current) {
+      clearInterval(startingStatsTimerRef.current)
+      startingStatsTimerRef.current = null
+    }
     
     const currentStats = useGameStore.getState().startingStats
     const newAnswer = {
@@ -637,16 +706,19 @@ function LiveDateScene() {
     
     // Sync to PartyKit
     if (partyClient) {
-      partyClient.syncState( { startingStats: newStats })
-      await sendChatMessage(roomCode, { 
-        username, 
-        message: `📝 Submitted: "${answer.trim().substring(0, 30)}${answer.length > 30 ? '...' : ''}"` 
-      })
+      partyClient.syncState({ startingStats: newStats })
     }
     
-    // If host, immediately move to next question after a brief delay
+    console.log('📝 Starting Stats answer submitted:', newAnswer)
+    
+    // If host, move to next question after a brief delay to show the answer
     if (isHost) {
-      setTimeout(() => moveToNextStartingStatsQuestion(), 2000)
+      setTimeout(() => {
+        const phase = useGameStore.getState().livePhase
+        if (phase === 'starting-stats') {
+          moveToNextStartingStatsQuestion()
+        }
+      }, 1500)
     }
   }
   
