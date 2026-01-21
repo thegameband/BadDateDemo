@@ -88,8 +88,8 @@ function LiveGameLobby() {
     if (isHost && roomCode && players.length > 0) {
       const registry = new PartySocket({
         host: PARTYKIT_HOST,
-        room: 'room-registry',
-        party: 'room-registry'
+        room: 'roomregistry',
+        party: 'roomregistry'
       })
       
       registry.addEventListener('open', () => {
@@ -123,8 +123,8 @@ function LiveGameLobby() {
     // Remove room from registry (game has started)
     const registry = new PartySocket({
       host: PARTYKIT_HOST,
-      room: 'room-registry',
-      party: 'room-registry'
+      room: 'roomregistry',
+      party: 'roomregistry'
     })
     
     registry.addEventListener('open', () => {
@@ -149,8 +149,8 @@ function LiveGameLobby() {
     if (isHost) {
       const registry = new PartySocket({
         host: PARTYKIT_HOST,
-        room: 'room-registry',
-        party: 'room-registry'
+        room: 'roomregistry',
+        party: 'roomregistry'
       })
       
       registry.addEventListener('open', () => {

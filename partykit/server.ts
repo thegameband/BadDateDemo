@@ -5,6 +5,7 @@ interface GameState {
   phase: 'lobby' | 'starting-stats' | 'reaction' | 'phase1' | 'phase2' | 'phase3' | 'ended';
   players: Player[];
   host: string | null;
+  hostConnectionId: string | null; // Track host's WebSocket connection ID
   dater: any | null;
   avatar: {
     name: string;
@@ -40,6 +41,7 @@ interface Player {
   username: string;
   isHost: boolean;
   joinedAt: number;
+  connectionId?: string; // Track WebSocket connection ID
 }
 
 interface Suggestion {
@@ -117,6 +119,7 @@ function createInitialState(): GameState {
     phase: 'lobby',
     players: [],
     host: null,
+    hostConnectionId: null,
     dater: null,
     avatar: {
       name: '',
@@ -189,7 +192,12 @@ export default class GameRoom implements Party.Server {
         // Check if player already exists
         const existingPlayer = this.state.players.find(p => p.odId === action.odId);
         if (existingPlayer) {
-          console.log(`Player ${action.username} already in room`);
+          // Update their connection ID in case they reconnected
+          existingPlayer.connectionId = senderId;
+          if (existingPlayer.isHost) {
+            this.state.hostConnectionId = senderId;
+          }
+          console.log(`Player ${action.username} reconnected`);
           return;
         }
         
@@ -200,11 +208,13 @@ export default class GameRoom implements Party.Server {
           odId: action.odId,
           username: action.username,
           isHost,
-          joinedAt: Date.now()
+          joinedAt: Date.now(),
+          connectionId: senderId
         });
         
         if (isHost) {
           this.state.host = action.odId;
+          this.state.hostConnectionId = senderId;
         }
         
         console.log(`Player ${action.username} joined. Total: ${this.state.players.length}`);
@@ -223,8 +233,13 @@ export default class GameRoom implements Party.Server {
       }
       
       case 'START_GAME': {
-        // Only host can start
-        if (senderId !== this.state.host) return;
+        // Only host can start (check connection ID)
+        if (senderId !== this.state.hostConnectionId) {
+          console.log(`START_GAME rejected: senderId=${senderId} hostConnectionId=${this.state.hostConnectionId}`);
+          return;
+        }
+        
+        console.log(`START_GAME accepted: tutorial=${action.showTutorial} startingStats=${action.startingStatsMode}`);
         
         this.state.showTutorial = action.showTutorial;
         this.state.startingStatsMode = action.startingStatsMode;
@@ -244,6 +259,8 @@ export default class GameRoom implements Party.Server {
           this.state.phase = 'phase1';
           this.state.phaseTimer = 30;
         }
+        
+        console.log(`Game started! Phase: ${this.state.phase}`);
         break;
       }
       

@@ -4,6 +4,6 @@
   "main": "server.ts",
   "compatibilityDate": "2024-01-01",
   "parties": {
-    "room-registry": "registry.ts"
+    "roomregistry": "registry.ts"
   }
 }

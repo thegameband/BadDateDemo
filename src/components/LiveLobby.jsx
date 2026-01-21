@@ -40,7 +40,7 @@ function LiveLobby() {
       
       const registry = new PartySocket({
         host: PARTYKIT_HOST,
-        room: 'room-registry',
+        room: 'roomregistry',
       })
       
       registry.addEventListener('message', (event) => {
@@ -101,7 +101,7 @@ function LiveLobby() {
       // Register room with the registry
       const registry = new PartySocket({
         host: PARTYKIT_HOST,
-        room: 'room-registry',
+        room: 'roomregistry',
       })
       
       registry.addEventListener('open', () => {
@@ -194,7 +194,7 @@ function LiveLobby() {
     try {
       const registry = new PartySocket({
         host: PARTYKIT_HOST,
-        room: 'room-registry',
+        room: 'roomregistry',
       })
       
       await new Promise((resolve) => {
