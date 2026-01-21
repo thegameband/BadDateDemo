@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch } from '../services/llmService'
+import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain } from '../services/llmService'
 import { 
   isFirebaseAvailable, 
   subscribeToGameState, 
@@ -1324,15 +1324,24 @@ function LiveDateScene() {
       const getConversation = () => useGameStore.getState().dateConversation
       
       // ============ EXCHANGE 1: Avatar answers with new attribute (1x scoring) ============
-      console.log('--- Exchange 1: Avatar answers with new attribute ---')
+      // Using the new PROMPT CHAIN SYSTEM for modular, cleaner prompts
+      console.log('--- Exchange 1: Avatar answers with new attribute (PROMPT CHAIN) ---')
       
-      const avatarResponse1 = await getAvatarDateResponse(
-        avatarWithNewAttr,  // Use avatar with guaranteed new attribute
+      // Get the last thing the dater said for context
+      const lastDaterMessage = getConversation()
+        .slice(-10)
+        .reverse()
+        .find(msg => msg.speaker === 'dater')?.message || ''
+      
+      // Run the full prompt chain: Avatar responds, then Dater reacts
+      const { avatarResponse: avatarResponse1, daterResponse: daterReaction1, visibility } = await runAttributePromptChain(
+        avatarWithNewAttr,
         selectedDater,
-        getConversation().slice(-10), // Use fresh state, more history
         attrToUse,
-        'answer' // Mode: answering a question with the new attribute
+        getConversation().slice(-10)
       )
+      
+      console.log('🔗 Prompt chain result:', { avatarResponse1, daterReaction1, visibility })
       
       if (avatarResponse1) {
         setAvatarBubble(avatarResponse1)
@@ -1346,17 +1355,7 @@ function LiveDateScene() {
         // Sync sentiment categories after scoring
         await syncConversationToFirebase(undefined, undefined, true)
         
-        // Dater reacts - informed by what sentiment was hit and current streak
-        const daterReaction1 = await getDaterDateResponse(
-          selectedDater,
-          avatarWithNewAttr,
-          [...getConversation().slice(-10), { speaker: 'avatar', message: avatarResponse1 }],
-          attrToUse,
-          sentimentHit1, // Pass the category so Dater reacts appropriately
-          currentStreak, // Pass streak for escalating reactions
-          isFinalRound // Pass if this is the last round for finality
-        )
-        
+        // Use the dater reaction from the prompt chain
         if (daterReaction1) {
           setDaterBubble(daterReaction1)
           addDateMessage('dater', daterReaction1)

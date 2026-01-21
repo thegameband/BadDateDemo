@@ -1,5 +1,10 @@
 // LLM Service for Claude API integration
 import { buildDaterAgentPrompt } from '../data/daters'
+import { 
+  classifyAttribute, 
+  buildAvatarPromptChain, 
+  buildDaterPromptChain 
+} from './promptChain'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
@@ -620,6 +625,185 @@ ${behaviorInstructions}
   
   const response = await getChatResponse(messages, fullSystemPrompt)
   return response
+}
+
+// =============================================================================
+// PROMPT CHAIN SYSTEM - New modular approach
+// =============================================================================
+
+/**
+ * Generate Avatar response using the modular prompt chain system
+ * Used at: Beginning of Phase 3 (when player's answer is selected)
+ * 
+ * @param avatar - The avatar object with name and attributes
+ * @param attribute - The new attribute being added
+ * @param daterLastMessage - What the dater just said
+ * @param conversationHistory - The conversation so far
+ */
+export async function getAvatarResponseWithPromptChain(avatar, attribute, daterLastMessage, conversationHistory = []) {
+  console.log('🔗 PROMPT CHAIN: Building Avatar response for attribute:', attribute)
+  
+  // Step 1: Classify the attribute
+  const visibility = classifyAttribute(attribute)
+  console.log('🔗 PROMPT CHAIN: Attribute classified as:', visibility)
+  
+  // Step 2-7: Build the prompt chain
+  const promptChain = buildAvatarPromptChain({
+    attribute,
+    daterLastMessage,
+    avatarName: avatar.name || 'Your Date',
+    allAttributes: avatar.attributes || [],
+    isVisible: visibility === 'VISIBLE'
+  })
+  
+  console.log('🔗 PROMPT CHAIN: Full Avatar prompt built (' + promptChain.length + ' chars)')
+  
+  // Build the system prompt
+  const systemPrompt = `You are ${avatar.name || 'someone'} on a first date.
+
+${promptChain}`
+  
+  // Convert conversation history
+  let messages = conversationHistory.map(msg => ({
+    role: msg.speaker === 'avatar' ? 'assistant' : 'user',
+    content: msg.message,
+  }))
+  
+  // Ensure we have at least one message
+  if (messages.length === 0) {
+    messages = [{ role: 'user', content: daterLastMessage || 'Your date is waiting for you to respond.' }]
+  }
+  
+  // Ensure conversation ends with user message
+  if (messages[messages.length - 1]?.role === 'assistant') {
+    messages.push({ role: 'user', content: daterLastMessage || '...' })
+  }
+  
+  const response = await getChatResponse(messages, systemPrompt)
+  console.log('🔗 PROMPT CHAIN: Avatar response:', response?.substring(0, 100) + '...')
+  return response
+}
+
+/**
+ * Generate Dater response using the modular prompt chain system
+ * Used at: After Avatar responds in Phase 3
+ * 
+ * @param dater - The dater object with personality info
+ * @param avatar - The avatar object with attributes
+ * @param attribute - The new attribute just revealed
+ * @param avatarLastMessage - What the avatar just said
+ * @param conversationHistory - The conversation so far
+ */
+export async function getDaterResponseWithPromptChain(dater, avatar, attribute, avatarLastMessage, conversationHistory = []) {
+  console.log('🔗 PROMPT CHAIN: Building Dater response to attribute:', attribute)
+  
+  // Step 1: Classify the attribute
+  const visibility = classifyAttribute(attribute)
+  console.log('🔗 PROMPT CHAIN: Attribute classified as:', visibility)
+  
+  // Get all visible attributes for context
+  const allVisibleAttributes = (avatar.attributes || []).filter(attr => 
+    classifyAttribute(attr) === 'VISIBLE'
+  )
+  
+  // Build the dater-specific prompt chain
+  const promptChain = buildDaterPromptChain({
+    attribute,
+    avatarLastMessage,
+    allVisibleAttributes,
+    isVisible: visibility === 'VISIBLE'
+  })
+  
+  console.log('🔗 PROMPT CHAIN: Full Dater prompt built (' + promptChain.length + ' chars)')
+  
+  // Get the dater's base personality prompt
+  const basePrompt = buildDaterAgentPrompt(dater, 'date')
+  
+  // Combine base personality with prompt chain
+  const systemPrompt = `${basePrompt}
+
+${promptChain}`
+  
+  // Convert conversation history - from Dater's perspective, Avatar messages are "user"
+  let messages = conversationHistory.map(msg => ({
+    role: msg.speaker === 'dater' ? 'assistant' : 'user',
+    content: msg.message,
+  }))
+  
+  // Ensure we have at least one message
+  if (messages.length === 0) {
+    messages = [{ role: 'user', content: avatarLastMessage || 'Your date said something.' }]
+  }
+  
+  // Ensure conversation ends with user message (Avatar's turn just happened)
+  if (messages[messages.length - 1]?.role === 'assistant') {
+    messages.push({ role: 'user', content: avatarLastMessage || '...' })
+  }
+  
+  const response = await getChatResponse(messages, systemPrompt)
+  console.log('🔗 PROMPT CHAIN: Dater response:', response?.substring(0, 100) + '...')
+  return response
+}
+
+/**
+ * Run the full prompt chain sequence for a new attribute
+ * This is the main entry point for Phase 3 conversations
+ * 
+ * Returns: { avatarResponse, daterResponse, visibility }
+ */
+export async function runAttributePromptChain(avatar, dater, newAttribute, conversationHistory = []) {
+  console.log('🔗 ========== RUNNING FULL PROMPT CHAIN ==========')
+  console.log('🔗 New attribute:', newAttribute)
+  console.log('🔗 Avatar:', avatar.name, 'with', avatar.attributes?.length || 0, 'existing attributes')
+  
+  // Step 1: Classify the attribute
+  const visibility = classifyAttribute(newAttribute)
+  console.log('🔗 Step 1 - Classification:', visibility)
+  
+  // Get the last thing the dater said
+  const lastDaterMessage = [...conversationHistory]
+    .reverse()
+    .find(msg => msg.speaker === 'dater')?.message || ''
+  
+  // Step 2-7: Get Avatar response with full prompt chain
+  console.log('🔗 Steps 2-7 - Building Avatar response...')
+  const avatarResponse = await getAvatarResponseWithPromptChain(
+    avatar,
+    newAttribute,
+    lastDaterMessage,
+    conversationHistory
+  )
+  
+  if (!avatarResponse) {
+    console.error('🔗 PROMPT CHAIN: Failed to get Avatar response')
+    return { avatarResponse: null, daterResponse: null, visibility }
+  }
+  
+  // Add Avatar's response to conversation for Dater's context
+  const updatedConversation = [
+    ...conversationHistory,
+    { speaker: 'avatar', message: avatarResponse }
+  ]
+  
+  // Get Dater response with full prompt chain
+  console.log('🔗 Building Dater response...')
+  const daterResponse = await getDaterResponseWithPromptChain(
+    dater,
+    { ...avatar, attributes: [...(avatar.attributes || []), newAttribute] },
+    newAttribute,
+    avatarResponse,
+    updatedConversation
+  )
+  
+  console.log('🔗 ========== PROMPT CHAIN COMPLETE ==========')
+  console.log('🔗 Avatar said:', avatarResponse?.substring(0, 50) + '...')
+  console.log('🔗 Dater said:', daterResponse?.substring(0, 50) + '...')
+  
+  return {
+    avatarResponse,
+    daterResponse,
+    visibility
+  }
 }
 
 /**
