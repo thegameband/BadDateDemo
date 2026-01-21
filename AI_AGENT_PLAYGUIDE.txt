@@ -12,36 +12,26 @@ GAME URL
 https://bad-date-demo.vercel.app/
 
 ================================================================================
-STEP 1: MAIN MENU
+STEP 1: MAIN MENU (Bad Date)
 ================================================================================
 
-When you load the URL, you'll see two buttons:
-- "🎭 Solo Mode" - Single player (ignore this)
-- "📺 Live Mode" - Multiplayer (click this)
-
-ACTION: Click "📺 Live Mode"
-
-================================================================================
-STEP 2: LIVE MODE LOBBY
-================================================================================
-
-You'll see:
+When you load the URL, you'll see the "Bad Date" main menu with:
 - A text input for "Your Name"
-- "✨ Host a Date" button (for creating rooms)
-- "🔗 Join a Date" button (for browsing rooms)
+- "✨ Create a Date" button (creates a room and hosts)
+- "🔗 Join a Date" button (browse available rooms)
 
 --------------------------------------------------------------------------------
 IF YOU ARE THE HOST:
 --------------------------------------------------------------------------------
 1. Enter your name in the text field
-2. Click "✨ Host a Date"
-3. Click "🎬 Create Room"
-4. You'll enter a waiting room with:
+2. Click "✨ Create a Date"
+3. You'll immediately enter your lobby with:
    - A QR code (for phone players)
    - Player count showing "1/20"
-5. Your room is now visible to all players in the "Join a Date" browser
-6. Wait for other players to join
-7. When ready, click "Start Date 🎬"
+   - Options for "Show Tutorial" and "Starting Stats" checkboxes
+4. Your room is now visible to all players in the "Join a Date" browser
+5. Wait for other players to join
+6. When ready, click "Start Date 🎬"
 
 --------------------------------------------------------------------------------
 IF YOU ARE JOINING:
@@ -61,6 +51,35 @@ NOTE: Rooms automatically disappear from the browser when:
 - The game ends
 
 ================================================================================
+STEP 2: STARTING STATS (Optional - Default ON)
+================================================================================
+
+If "Starting Stats" mode is enabled, before the date begins:
+
+1. PHYSICAL ATTRIBUTES (3 questions)
+   - 3 random players are asked: "What physical attribute would you like your date to have?"
+   - Each player has 15 seconds to type an answer
+   - All players see who is answering and what they submit
+   - Examples: "has 8 arms", "is made of cheese", "glows in the dark"
+
+2. EMOTIONAL STATE (2 questions)
+   - 2 random players are asked: "What emotional state is your date in?"
+   - Same 15-second timer per player
+   - Examples: "anxious and sweaty", "overconfident", "secretly terrified"
+
+3. NAMING THE DATE (1 question)
+   - 1 random player is asked: "What should we name your date?"
+   - Example: "Bartholomew", "Xena the Destroyer", "Greg"
+
+After all questions:
+- The Avatar gets all the submitted attributes
+- The Dater sees the Avatar for the first time and REACTS
+- The Avatar responds, influenced by their emotional state
+- Then Round 1 begins
+
+NOTE: If there are fewer than 6 players, the same players may answer multiple questions (but never the same question TYPE twice).
+
+================================================================================
 STEP 3: THE DATE (GAMEPLAY)
 ================================================================================
 
@@ -75,7 +94,7 @@ PHASE 1: SUGGEST ATTRIBUTES (30 seconds)
 - Press the ✨ button or Enter to submit
 - Your suggestion appears for everyone to see
 - Other players can also suggest attributes
-- The timer starts when the first suggestion is made
+- Timer starts immediately when the phase begins
 
 WHAT TO SUGGEST:
 - Wild, absurd, funny traits work best
@@ -107,7 +126,7 @@ STEP 4: RESULTS (AFTER 5 ROUNDS)
 After 5 rounds, the date ends and you see:
 - Final compatibility percentage
 - What the Dater loved/liked/disliked about your Avatar
-- The complete Avatar with all 5 attributes
+- The complete Avatar with all attributes
 - Option to play again
 
 ================================================================================
@@ -116,32 +135,51 @@ SUMMARY FOR MULTI-AGENT SETUP
 
 AGENT 1 (HOST):
 1. Go to URL
-2. Click Live Mode
-3. Enter name
-4. Click "Host a Date"
-5. Click "Create Room"
-6. Wait for others to join from the room browser
-7. Click "Start Date"
-8. Play through 5 rounds (suggest + vote each round)
+2. Enter name
+3. Click "Create a Date" (immediately creates room & enters lobby)
+4. Wait for others to join from the room browser
+5. Click "Start Date"
+6. (If Starting Stats ON) Answer when it's your turn
+7. Play through 5 rounds (suggest + vote each round)
 
 AGENT 2, 3, etc. (JOINERS):
 1. Go to URL
-2. Click Live Mode
-3. Enter name
-4. Click "Join a Date"
-5. See the room browser with available rooms
-6. Click on the HOST's room to join
-7. Wait for host to start
+2. Enter name
+3. Click "Join a Date"
+4. See the room browser with available rooms
+5. Click on the HOST's room to join
+6. Wait for host to start
+7. (If Starting Stats ON) Answer when it's your turn
 8. Play through 5 rounds (suggest + vote each round)
 
 ================================================================================
 UI ELEMENTS TO LOOK FOR
 ================================================================================
 
+MAIN MENU:
+- "Your Name" input field
+- "✨ Create a Date" button
+- "🔗 Join a Date" button
+
+LOBBY:
+- QR code
+- Player list
+- "Start Date 🎬" button (host only)
+- "Show Tutorial" checkbox
+- "Starting Stats" checkbox
+
+DURING STARTING STATS:
+- Current question displayed large
+- "Waiting for [PlayerName]..." indicator
+- 15-second timer
+- Text input when it's your turn
+
+DURING DATE PHASES:
 - Input field: "Type your answer..." - for suggesting attributes
 - ✨ button: Submit your suggestion
 - Numbered buttons (1, 2, 3...): Vote for attributes
 - Timer: Shows seconds remaining in current phase
+- Round indicator: Shows current round (e.g., "Round 2")
 - Speech bubbles: Show Dater questions and Avatar responses
 - Compatibility meter: Shows how well the date is going (0-100%)
 
@@ -149,10 +187,11 @@ UI ELEMENTS TO LOOK FOR
 TIPS FOR AI AGENTS
 ================================================================================
 
-1. SUGGEST EARLY: Get your suggestion in quickly to start the timer
+1. SUGGEST EARLY: Timer starts immediately - get your suggestion in!
 2. BE CREATIVE: Weird/absurd suggestions make the game funnier
 3. VOTE STRATEGICALLY: Pick traits that will get strong reactions
 4. WATCH THE DATER: Their reactions affect the final score
 5. COORDINATE: Multiple agents can work together or compete
+6. STARTING STATS MATTER: Initial attributes set the tone for the whole date
 
 ================================================================================
