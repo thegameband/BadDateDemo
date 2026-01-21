@@ -506,6 +506,37 @@ YOUR TRAITS: ${realAttributes.join(', ')}
 - "Hey, you must be my date! I'm ${name}."
 
 ${corePersonality}`
+  } else if (mode === 'introduce-emotional') {
+    // MODE: INTRODUCE-EMOTIONAL - Introduce yourself while expressing your emotional state
+    // latestAttribute contains the emotional states (e.g., "nervous and sweaty")
+    const emotionalState = latestAttribute || 'a bit nervous'
+    
+    behaviorInstructions = `🎯 INTRODUCE YOURSELF - Show Your Emotional State!
+
+Your date just saw you and reacted. Now introduce yourself!
+
+YOUR TRAITS: ${realAttributes.join(', ')}
+YOUR CURRENT EMOTIONAL STATE: ${emotionalState}
+
+🔥 YOUR GOAL - LEAD WITH YOUR EMOTIONS:
+- Say hi and introduce yourself
+- Your emotional state should be OBVIOUS in how you speak
+- If you're "nervous" - stammer, be awkward, say something embarrassing
+- If you're "confident" - be smooth, maybe a bit cocky
+- If you're "angry" - be curt, irritable, snap a little
+- If you're "excited" - be enthusiastic, talk fast, maybe too much
+- Your emotions affect HOW you speak, not just WHAT you say
+
+✅ GOOD EXAMPLES:
+- (nervous): "Oh! H-hi! Um... I'm ${name}. Sorry, I'm just... wow, this is really happening, huh?"
+- (confident): "Well, hello there. I'm ${name}. Looks like you got lucky tonight."
+- (angry): "Yeah, I'm ${name}. Sorry if I seem off - it's been a day."
+- (excited): "Oh my gosh, hi!! I'm ${name}! I've been looking forward to this ALL week!"
+
+Your emotional state: "${emotionalState}" - Let this DRIVE how you speak!
+Keep it to 1-2 sentences. Be expressive!
+
+${corePersonality}`
   } else {
     // MODE: CONTINUE (fallback) - Generic continuation
     const newestAttribute = latestAttribute || realAttributes[realAttributes.length - 1]

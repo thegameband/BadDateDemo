@@ -715,7 +715,7 @@ function LiveDateScene() {
     console.log('🎭 Starting reaction round with attributes:', allAttributes)
   }
   
-  // Run the reaction round - dater reacts to all starting stats attributes
+  // Run the reaction round - dater reacts to physical attributes, avatar reveals emotional state
   const runReactionRound = async () => {
     if (!isHost || isGenerating) return
     
@@ -725,32 +725,39 @@ function LiveDateScene() {
     const currentAvatar = useGameStore.getState().avatar
     const avatarName = currentAvatar.name || 'the date'
     const attributes = currentAvatar.attributes || []
+    const currentStartingStats = useGameStore.getState().startingStats
+    const answers = currentStartingStats?.answers || []
     
-    if (attributes.length === 0) {
+    // Separate physical and emotional attributes from starting stats
+    const physicalAttrs = answers
+      .filter(a => a.questionType === 'physical')
+      .map(a => a.answer)
+    const emotionalAttrs = answers
+      .filter(a => a.questionType === 'emotional')
+      .map(a => a.answer)
+    
+    // If no starting stats, fall back to all attributes
+    const physicalList = physicalAttrs.length > 0 ? physicalAttrs.join(', ') : attributes.slice(0, 3).join(', ')
+    const emotionalList = emotionalAttrs.length > 0 ? emotionalAttrs.join(' and ') : 'seems nervous'
+    
+    if (attributes.length === 0 && physicalAttrs.length === 0) {
       console.log('No attributes to react to, skipping reaction round')
       await finishReactionRound()
       return
     }
     
-    // Build a description of the avatar for the dater to react to
-    const attributeList = attributes.join(', ')
-    
     try {
-      // First: Dater sees the avatar and reacts
-      const firstImpressionPrompt = `You are ${selectedDater.name}, meeting your blind date for the first time. 
+      // === STEP 1: Dater reacts to PHYSICAL attributes they can SEE ===
+      console.log('👀 Dater reacting to physical attributes:', physicalList)
       
-Your date's name is ${avatarName}. When they walk in, you immediately notice: ${attributeList}.
-
-React naturally to seeing them for the first time. This is your FIRST IMPRESSION - be genuine, whether positive, negative, or mixed. Keep it to 1-2 sentences of dialogue only (no actions or narration).`
-
       const daterReaction1 = await getDaterDateResponse(
         selectedDater,
         currentAvatar,
         [], // Empty conversation - this is the first message
-        attributeList,
-        null, // No sentiment category yet
-        { positive: 0, negative: 0 }, // Fresh streak
-        false // Not final round
+        physicalList, // Only physical attributes
+        null,
+        { positive: 0, negative: 0 },
+        false
       )
       
       if (daterReaction1) {
@@ -759,43 +766,37 @@ React naturally to seeing them for the first time. This is your FIRST IMPRESSION
         await syncConversationToFirebase(undefined, daterReaction1, false)
       }
       
-      await new Promise(resolve => setTimeout(resolve, 3000))
-      
-      // Check how dater feels about the attributes (score each one)
-      for (const attr of attributes) {
+      // Score physical attributes
+      for (const attr of physicalAttrs) {
         const matchResult = await checkAttributeMatch(attr, daterValues, selectedDater, daterReaction1)
         if (matchResult.category) {
           const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
-          if (wasAlreadyExposed) {
-            triggerGlow(matchResult.shortLabel)
-          }
+          if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
           const baseChanges = { loves: 25, likes: 10, dislikes: -10, dealbreakers: -25 }
-          // Reduced multiplier for initial impressions (0.5x)
           const change = Math.round(baseChanges[matchResult.category] * 0.5)
           if (change !== 0) {
             const newCompat = adjustCompatibility(change)
-            console.log(`First impression: ${change > 0 ? '+' : ''}${change}% (${matchResult.category}: ${matchResult.shortLabel})`)
+            console.log(`Physical impression: ${change > 0 ? '+' : ''}${change}% (${matchResult.shortLabel})`)
             if (firebaseReady && roomCode) {
               await updateGameState(roomCode, { compatibility: newCompat })
             }
           }
         }
-        // Small delay between scoring each attribute
-        await new Promise(resolve => setTimeout(resolve, 500))
       }
-      
-      // Sync sentiment categories
       await syncConversationToFirebase(undefined, undefined, true)
       
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // SHORTER DELAY - quick back and forth
+      await new Promise(resolve => setTimeout(resolve, 1500))
       
-      // Second: Avatar introduces themselves
+      // === STEP 2: Avatar responds, EMPHASIZING their EMOTIONAL state ===
+      console.log('💭 Avatar responding with emotional state:', emotionalList)
+      
       const avatarIntro = await getAvatarDateResponse(
         currentAvatar,
         selectedDater,
         [{ speaker: 'dater', message: daterReaction1 }],
-        attributeList,
-        'introduce' // Special mode for introduction
+        emotionalList, // Pass emotional attributes as the focus
+        'introduce-emotional' // Special mode emphasizing emotional state
       )
       
       if (avatarIntro) {
@@ -804,9 +805,30 @@ React naturally to seeing them for the first time. This is your FIRST IMPRESSION
         await syncConversationToFirebase(avatarIntro, undefined, false)
       }
       
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      // Score emotional attributes
+      for (const attr of emotionalAttrs) {
+        const matchResult = await checkAttributeMatch(`emotionally ${attr}`, daterValues, selectedDater, avatarIntro)
+        if (matchResult.category) {
+          const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
+          if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
+          const baseChanges = { loves: 25, likes: 10, dislikes: -10, dealbreakers: -25 }
+          const change = Math.round(baseChanges[matchResult.category] * 0.5)
+          if (change !== 0) {
+            const newCompat = adjustCompatibility(change)
+            console.log(`Emotional impression: ${change > 0 ? '+' : ''}${change}% (${matchResult.shortLabel})`)
+            if (firebaseReady && roomCode) {
+              await updateGameState(roomCode, { compatibility: newCompat })
+            }
+          }
+        }
+      }
+      await syncConversationToFirebase(undefined, undefined, true)
       
-      // Third: Dater's follow-up reaction
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // === STEP 3: Dater responds to what the Avatar said ===
+      console.log('💬 Dater responding to avatar')
+      
       const daterReaction2 = await getDaterDateResponse(
         selectedDater,
         currentAvatar,
@@ -826,7 +848,8 @@ React naturally to seeing them for the first time. This is your FIRST IMPRESSION
         await syncConversationToFirebase(undefined, daterReaction2, false)
       }
       
-      await new Promise(resolve => setTimeout(resolve, 4000))
+      // Brief pause before Phase 1
+      await new Promise(resolve => setTimeout(resolve, 3000))
       
     } catch (error) {
       console.error('Error in reaction round:', error)
