@@ -62,19 +62,38 @@ function LiveGameLobby() {
   }
   
   const handleStart = async () => {
+    // Determine starting phase
+    let startPhase = 'phase1'
+    let startTimer = 30
+    if (showTutorial) {
+      startPhase = 'tutorial'
+      startTimer = 0
+    } else if (startingStatsMode) {
+      startPhase = 'starting-stats'
+      startTimer = 15
+    }
+    
     if (firebaseReady) {
       // Update Firebase to signal game start to all players
       await updateGameState(roomCode, { 
         phase: 'live-date', 
+        livePhase: startPhase, // IMPORTANT: Set the live phase
+        phaseTimer: startTimer,
         showTutorial,
         startingStatsMode,
-        // Initialize starting stats state
+        compatibility: 50, // Reset compatibility
+        cycleCount: 0, // Reset round count
+        // Initialize starting stats state (will be populated by host in LiveDateScene)
         startingStats: startingStatsMode ? {
           currentQuestionIndex: 0,
           activePlayerId: null,
-          questions: [],
+          activePlayerName: '',
+          currentQuestion: '',
+          currentQuestionType: '',
+          timer: 15,
           answers: [],
-          timer: 15
+          questionAssignments: [], // Host will populate this
+          avatarName: ''
         } : null
       })
     }

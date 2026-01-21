@@ -108,6 +108,32 @@
   padding: 20px;
 }
 
+/* Loading state while initializing */
+.starting-stats-loading {
+  text-align: center;
+  color: #fff;
+}
+
+.starting-stats-loading .loading-spinner {
+  font-size: 4rem;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.starting-stats-loading h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: #ff4d6d;
+}
+
+.starting-stats-loading p {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
 .starting-stats-container {
   width: 100%;
   max-width: 500px;

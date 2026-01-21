@@ -445,12 +445,18 @@ function LiveDateScene() {
   
   // Initialize Starting Stats phase (host only)
   useEffect(() => {
-    if (livePhase !== 'starting-stats' || !isHost || !firebaseReady) return
+    if (livePhase !== 'starting-stats' || !isHost || !firebaseReady || !roomCode) return
     
     // Only initialize if no question assignments yet
     if (startingStats.questionAssignments?.length > 0) return
     
-    console.log('🎲 Initializing Starting Stats phase...')
+    // Wait for players to be loaded
+    if (!players || players.length === 0) {
+      console.log('🎲 Waiting for players to load before initializing Starting Stats...')
+      return
+    }
+    
+    console.log('🎲 Initializing Starting Stats phase with', players.length, 'players')
     
     // Build question assignments based on available players
     const availablePlayers = [...players]
@@ -493,29 +499,42 @@ function LiveDateScene() {
       }
     }
     
+    // Make sure we have at least one assignment
+    if (assignments.length === 0) {
+      console.error('🎲 No question assignments created! Players:', players)
+      // Fallback: skip to phase1
+      setLivePhase('phase1')
+      setPhaseTimer(30)
+      if (firebaseReady && roomCode) {
+        updateGameState(roomCode, { livePhase: 'phase1', phaseTimer: 30 })
+      }
+      return
+    }
+    
     // Set up the first question
     const firstAssignment = assignments[0]
-    if (firstAssignment) {
-      const newStartingStats = {
-        ...startingStats,
-        questionAssignments: assignments,
-        currentQuestionIndex: 0,
-        activePlayerId: firstAssignment.playerId,
-        activePlayerName: firstAssignment.playerName,
-        currentQuestion: firstAssignment.question,
-        currentQuestionType: firstAssignment.questionType,
-        timer: 15,
-        answers: [],
-      }
-      
-      setStartingStats(newStartingStats)
-      setStartingStatsTimer(15)
-      
-      // Sync to Firebase
-      updateGameState(roomCode, { startingStats: newStartingStats })
-      console.log('🎲 Starting Stats initialized:', newStartingStats)
+    const newStartingStats = {
+      ...startingStats,
+      questionAssignments: assignments,
+      currentQuestionIndex: 0,
+      activePlayerId: firstAssignment.playerId,
+      activePlayerName: firstAssignment.playerName,
+      currentQuestion: firstAssignment.question,
+      currentQuestionType: firstAssignment.questionType,
+      timer: 15,
+      answers: [],
     }
-  }, [livePhase, isHost, firebaseReady, players, startingStats.questionAssignments?.length])
+    
+    setStartingStats(newStartingStats)
+    setStartingStatsTimer(15)
+    
+    // Sync to Firebase
+    updateGameState(roomCode, { 
+      startingStats: newStartingStats,
+      livePhase: 'starting-stats' // Ensure phase is synced
+    })
+    console.log('🎲 Starting Stats initialized:', newStartingStats)
+  }, [livePhase, isHost, firebaseReady, roomCode, players.length, startingStats.questionAssignments?.length])
   
   // Starting Stats timer (host only)
   useEffect(() => {
@@ -1550,104 +1569,119 @@ React naturally to seeing them for the first time. This is your FIRST IMPRESSION
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="starting-stats-container">
-              <div className="starting-stats-header">
-                <h1 className="starting-stats-title">🎲 Create Your Date</h1>
-                <div className="starting-stats-progress">
-                  Question {(startingStats.questionAssignments?.findIndex(
-                    a => a.playerId === startingStats.activePlayerId && 
-                         a.questionType === startingStats.currentQuestionType
-                  ) || 0) + 1} of {startingStats.questionAssignments?.length || 6}
-                </div>
+            {/* Loading state while waiting for initialization */}
+            {(!startingStats.questionAssignments || startingStats.questionAssignments.length === 0) ? (
+              <div className="starting-stats-loading">
+                <motion.div 
+                  className="loading-spinner"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                >
+                  🎲
+                </motion.div>
+                <h2>Setting up the game...</h2>
+                <p>Preparing questions for {players.length} player{players.length !== 1 ? 's' : ''}</p>
               </div>
-              
-              <div className="starting-stats-timer-bar">
-                <div 
-                  className="starting-stats-timer-fill"
-                  style={{ width: `${(startingStatsTimer / 15) * 100}%` }}
-                />
-                <span className="starting-stats-timer-text">{startingStatsTimer}s</span>
-              </div>
-              
-              {/* Show who's answering and the question */}
-              <div className="starting-stats-question-area">
-                <div className="question-type-badge">
-                  {startingStats.currentQuestionType === 'physical' && '👤 Physical Attribute'}
-                  {startingStats.currentQuestionType === 'emotional' && '💭 Emotional State'}
-                  {startingStats.currentQuestionType === 'name' && '📛 Name Your Date'}
-                </div>
-                
-                <div className="active-player-indicator">
-                  {startingStats.activePlayerId === playerId ? (
-                    <span className="your-turn">✨ Your Turn!</span>
-                  ) : (
-                    <span className="waiting-for">{startingStats.activePlayerName} is answering...</span>
-                  )}
-                </div>
-                
-                <h2 className="starting-stats-question">
-                  {startingStats.currentQuestion}
-                </h2>
-              </div>
-              
-              {/* Input area - only for active player */}
-              {startingStats.activePlayerId === playerId ? (
-                <div className="starting-stats-input-area">
-                  <form onSubmit={(e) => {
-                    e.preventDefault()
-                    submitStartingStatsAnswer(startingStatsInput)
-                  }}>
-                    <input
-                      type="text"
-                      className="starting-stats-input"
-                      value={startingStatsInput}
-                      onChange={(e) => setStartingStatsInput(e.target.value)}
-                      placeholder={
-                        startingStats.currentQuestionType === 'physical' 
-                          ? "e.g., 'has glowing red eyes'" 
-                          : startingStats.currentQuestionType === 'emotional'
-                          ? "e.g., 'nervous and sweaty'"
-                          : "e.g., 'Gerald'"
-                      }
-                      disabled={hasSubmittedStartingStat}
-                      autoFocus
-                    />
-                    <button 
-                      type="submit" 
-                      className="starting-stats-submit-btn"
-                      disabled={!startingStatsInput.trim() || hasSubmittedStartingStat}
-                    >
-                      {hasSubmittedStartingStat ? '✓ Submitted!' : 'Submit'}
-                    </button>
-                  </form>
-                </div>
-              ) : (
-                <div className="starting-stats-spectator">
-                  <span className="spectator-icon">👀</span>
-                  <span>Watching {startingStats.activePlayerName}...</span>
-                </div>
-              )}
-              
-              {/* Show submitted answers */}
-              {startingStats.answers && startingStats.answers.length > 0 && (
-                <div className="starting-stats-answers">
-                  <h3 className="answers-title">Avatar So Far:</h3>
-                  <div className="answers-list">
-                    {startingStats.answers.map((answer, i) => (
-                      <div key={i} className={`answer-item answer-${answer.questionType}`}>
-                        <span className="answer-type">
-                          {answer.questionType === 'physical' && '👤'}
-                          {answer.questionType === 'emotional' && '💭'}
-                          {answer.questionType === 'name' && '📛'}
-                        </span>
-                        <span className="answer-text">{answer.answer}</span>
-                        <span className="answer-by">- {answer.playerName}</span>
-                      </div>
-                    ))}
+            ) : (
+              <div className="starting-stats-container">
+                <div className="starting-stats-header">
+                  <h1 className="starting-stats-title">🎲 Create Your Date</h1>
+                  <div className="starting-stats-progress">
+                    Question {(startingStats.questionAssignments?.findIndex(
+                      a => a.playerId === startingStats.activePlayerId && 
+                           a.questionType === startingStats.currentQuestionType
+                    ) || 0) + 1} of {startingStats.questionAssignments?.length || 6}
                   </div>
                 </div>
-              )}
-            </div>
+                
+                <div className="starting-stats-timer-bar">
+                  <div 
+                    className="starting-stats-timer-fill"
+                    style={{ width: `${(startingStatsTimer / 15) * 100}%` }}
+                  />
+                  <span className="starting-stats-timer-text">{startingStatsTimer}s</span>
+                </div>
+                
+                {/* Show who's answering and the question */}
+                <div className="starting-stats-question-area">
+                  <div className="question-type-badge">
+                    {startingStats.currentQuestionType === 'physical' && '👤 Physical Attribute'}
+                    {startingStats.currentQuestionType === 'emotional' && '💭 Emotional State'}
+                    {startingStats.currentQuestionType === 'name' && '📛 Name Your Date'}
+                  </div>
+                  
+                  <div className="active-player-indicator">
+                    {startingStats.activePlayerId === playerId ? (
+                      <span className="your-turn">✨ Your Turn!</span>
+                    ) : (
+                      <span className="waiting-for">{startingStats.activePlayerName || 'Someone'} is answering...</span>
+                    )}
+                  </div>
+                  
+                  <h2 className="starting-stats-question">
+                    {startingStats.currentQuestion || 'Loading question...'}
+                  </h2>
+                </div>
+                
+                {/* Input area - only for active player */}
+                {startingStats.activePlayerId === playerId ? (
+                  <div className="starting-stats-input-area">
+                    <form onSubmit={(e) => {
+                      e.preventDefault()
+                      submitStartingStatsAnswer(startingStatsInput)
+                    }}>
+                      <input
+                        type="text"
+                        className="starting-stats-input"
+                        value={startingStatsInput}
+                        onChange={(e) => setStartingStatsInput(e.target.value)}
+                        placeholder={
+                          startingStats.currentQuestionType === 'physical' 
+                            ? "e.g., 'has glowing red eyes'" 
+                            : startingStats.currentQuestionType === 'emotional'
+                            ? "e.g., 'nervous and sweaty'"
+                            : "e.g., 'Gerald'"
+                        }
+                        disabled={hasSubmittedStartingStat}
+                        autoFocus
+                      />
+                      <button 
+                        type="submit" 
+                        className="starting-stats-submit-btn"
+                        disabled={!startingStatsInput.trim() || hasSubmittedStartingStat}
+                      >
+                        {hasSubmittedStartingStat ? '✓ Submitted!' : 'Submit'}
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="starting-stats-spectator">
+                    <span className="spectator-icon">👀</span>
+                    <span>Watching {startingStats.activePlayerName || 'player'}...</span>
+                  </div>
+                )}
+                
+                {/* Show submitted answers */}
+                {startingStats.answers && startingStats.answers.length > 0 && (
+                  <div className="starting-stats-answers">
+                    <h3 className="answers-title">Avatar So Far:</h3>
+                    <div className="answers-list">
+                      {startingStats.answers.map((answer, i) => (
+                        <div key={i} className={`answer-item answer-${answer.questionType}`}>
+                          <span className="answer-type">
+                            {answer.questionType === 'physical' && '👤'}
+                            {answer.questionType === 'emotional' && '💭'}
+                            {answer.questionType === 'name' && '📛'}
+                          </span>
+                          <span className="answer-text">{answer.answer}</span>
+                          <span className="answer-by">- {answer.playerName}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Answer popup overlay */}
             <AnimatePresence>

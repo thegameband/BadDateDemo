@@ -143,6 +143,9 @@ async function runHostAgent() {
     page = await browser.newPage()
     await page.setViewport({ width: 1280, height: 800 })
 
+    // Disable cache to avoid stale JavaScript bundle issues
+    await page.setCacheEnabled(false)
+
     // Step 1: Load game
     log.action(agentName, 'Loading game URL...')
     await page.goto(GAME_URL, { waitUntil: 'networkidle2' })
@@ -478,6 +481,9 @@ async function runClientAgent(clientNumber) {
     })
     page = await browser.newPage()
     await page.setViewport({ width: 1280, height: 800 })
+
+    // Disable cache to avoid stale JavaScript bundle issues
+    await page.setCacheEnabled(false)
 
     // Step 1: Load game
     log.action(agentName, 'Loading game URL...')
