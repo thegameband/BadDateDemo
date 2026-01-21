@@ -45,6 +45,17 @@ function LiveGameLobby() {
       
       // Check if game has started (for non-hosts)
       if (roomData?.gameState?.phase === 'live-date') {
+        // Sync tutorial state BEFORE transitioning (so it's set when LiveDateScene loads)
+        if (typeof roomData.gameState.showTutorial === 'boolean') {
+          useGameStore.getState().setShowTutorial(roomData.gameState.showTutorial)
+        }
+        if (typeof roomData.gameState.tutorialStep === 'number') {
+          useGameStore.getState().setTutorialStep(roomData.gameState.tutorialStep)
+        }
+        // Also sync livePhase so it's ready
+        if (roomData.gameState.livePhase) {
+          useGameStore.getState().setLivePhase(roomData.gameState.livePhase)
+        }
         setPhase('live-date')
       }
     })
