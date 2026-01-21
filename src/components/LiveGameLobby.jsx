@@ -45,17 +45,27 @@ function LiveGameLobby() {
       
       // Check if game has started (for non-hosts)
       if (roomData?.gameState?.phase === 'live-date') {
-        // Sync tutorial state BEFORE transitioning (so it's set when LiveDateScene loads)
+        console.log('🎮 Non-host detected game start, syncing state:', roomData.gameState)
+        
+        // Sync ALL relevant state BEFORE transitioning (so it's set when LiveDateScene loads)
         if (typeof roomData.gameState.showTutorial === 'boolean') {
           useGameStore.getState().setShowTutorial(roomData.gameState.showTutorial)
         }
         if (typeof roomData.gameState.tutorialStep === 'number') {
           useGameStore.getState().setTutorialStep(roomData.gameState.tutorialStep)
         }
-        // Also sync livePhase so it's ready
         if (roomData.gameState.livePhase) {
           useGameStore.getState().setLivePhase(roomData.gameState.livePhase)
         }
+        // Sync Starting Stats mode!
+        if (typeof roomData.gameState.startingStatsMode === 'boolean') {
+          useGameStore.setState({ startingStatsMode: roomData.gameState.startingStatsMode })
+        }
+        // Sync starting stats data if available
+        if (roomData.gameState.startingStats) {
+          useGameStore.getState().setStartingStats(roomData.gameState.startingStats)
+        }
+        
         setPhase('live-date')
       }
     })

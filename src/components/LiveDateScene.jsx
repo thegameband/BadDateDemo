@@ -165,6 +165,23 @@ function LiveDateScene() {
   // Firebase state variable
   const [firebaseReady] = useState(isFirebaseAvailable())
   
+  // Log initial mount state for debugging
+  useEffect(() => {
+    console.log('🚀 LiveDateScene MOUNTED with initial state:', {
+      livePhase,
+      isHost,
+      startingStatsMode,
+      playersCount: players?.length,
+      players: players?.map(p => ({ id: p.id, name: p.username })),
+      roomCode,
+      firebaseReady,
+      startingStats: {
+        questionAssignments: startingStats.questionAssignments?.length,
+        activePlayerId: startingStats.activePlayerId
+      }
+    })
+  }, []) // Empty dependency - only logs on mount
+  
   // Subscribe to Firebase game state (for all players to receive updates)
   useEffect(() => {
     if (!firebaseReady || !roomCode) return
@@ -403,8 +420,14 @@ function LiveDateScene() {
     
     // Subscribe to players (needed for Starting Stats to know who's playing)
     const unsubscribePlayers = subscribeToPlayers(roomCode, (playersList) => {
-      console.log('🔥 Players updated:', playersList?.length, 'players')
-      setPlayers(playersList)
+      console.log('🔥 Players updated from Firebase:', playersList?.length, 'players')
+      // Only update if we actually have players - don't overwrite with empty array
+      // This prevents a race condition where Firebase returns empty before data loads
+      if (playersList && playersList.length > 0) {
+        setPlayers(playersList)
+      } else {
+        console.log('🔥 Ignoring empty players list from Firebase - keeping existing players')
+      }
     })
     
     return () => {
@@ -463,29 +486,43 @@ function LiveDateScene() {
   
   // Initialize Starting Stats phase (host only)
   useEffect(() => {
-    console.log('🎲 Starting Stats useEffect running:', {
+    console.log('🎲 Starting Stats useEffect check:', {
       livePhase,
       isHost,
       firebaseReady,
       roomCode,
       playersLength: players?.length,
-      questionAssignmentsLength: startingStats.questionAssignments?.length
+      players: players?.map(p => p.username),
+      questionAssignmentsLength: startingStats.questionAssignments?.length,
+      startingStatsMode
     })
     
-    if (livePhase !== 'starting-stats' || !isHost || !firebaseReady || !roomCode) {
-      console.log('🎲 Skipping - conditions not met')
+    // Must be in starting-stats phase
+    if (livePhase !== 'starting-stats') {
+      console.log('🎲 Not in starting-stats phase, current phase:', livePhase)
+      return
+    }
+    
+    // Must be host to initialize
+    if (!isHost) {
+      console.log('🎲 Not host, waiting for host to initialize')
+      return
+    }
+    
+    if (!firebaseReady || !roomCode) {
+      console.log('🎲 Firebase not ready or no room code')
       return
     }
     
     // Only initialize if no question assignments yet
     if (startingStats.questionAssignments?.length > 0) {
-      console.log('🎲 Skipping - already have question assignments')
+      console.log('🎲 Already initialized with', startingStats.questionAssignments.length, 'assignments')
       return
     }
     
-    // Wait for players to be loaded
+    // Wait for players to be loaded - use a longer timeout as fallback
     if (!players || players.length === 0) {
-      console.log('🎲 Waiting for players to load before initializing Starting Stats...')
+      console.log('🎲 No players yet, waiting... (will retry when players load)')
       return
     }
     
