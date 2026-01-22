@@ -530,7 +530,7 @@ function LiveDateScene() {
       setLivePhase('phase1')
       setPhaseTimer(30)
       if (partyClient) {
-        partyClient.syncState( { livePhase: 'phase1', phaseTimer: 30 })
+        partyClient.syncState( { phase: 'phase1', phaseTimer: 30 })
       }
       return
     }
@@ -559,7 +559,7 @@ function LiveDateScene() {
     // Sync to PartyKit
     partyClient.syncState( { 
       startingStats: newStartingStats,
-      livePhase: 'starting-stats' // Ensure phase is synced
+      phase: 'starting-stats' // Ensure phase is synced
     })
     console.log('🎲 Starting Stats initialized:', newStartingStats)
   }, [livePhase, isHost, partyClient, roomCode, players.length, startingStats.questionAssignments?.length])
@@ -852,7 +852,7 @@ function LiveDateScene() {
     // Sync to PartyKit
     if (partyClient) {
       partyClient.syncState( {
-        livePhase: 'reaction',
+        phase: 'reaction',
         phaseTimer: 0,
         avatar: updatedAvatar,
         startingStatsComplete: true,
@@ -1027,7 +1027,7 @@ function LiveDateScene() {
     
     if (partyClient) {
       partyClient.syncState( {
-        livePhase: 'phase1',
+        phase: 'phase1',
         phaseTimer: 30,
         reactionRoundComplete: true,
         currentQuestion: openingLine,
@@ -1069,7 +1069,7 @@ function LiveDateScene() {
           // NOTE: Don't reset compatibility here - it's already set in startLiveDate
           if (partyClient) {
             partyClient.syncState( { 
-              livePhase: 'phase1', 
+              phase: 'phase1', 
               phaseTimer: 30,
               currentQuestion: openingLine,
               daterBubble: openingLine, // Sync dater bubble to match question
@@ -1254,7 +1254,7 @@ function LiveDateScene() {
         // Sync to PartyKit - include numbered attributes AND compatibility
         if (partyClient) {
           partyClient.syncState( { 
-            livePhase: 'phase2', 
+            phase: 'phase2', 
             phaseTimer: 30,
             numberedAttributes: numbered,
             compatibility: currentCompatibility // PRESERVE!
@@ -1276,7 +1276,7 @@ function LiveDateScene() {
           // Sync to PartyKit - include compatibility
           if (partyClient) {
             partyClient.syncState( { 
-              livePhase: 'phase3', 
+              phase: 'phase3', 
               phaseTimer: 0, 
               winningAttribute: winningAttr,
               compatibility: currentCompatibility // PRESERVE!
@@ -1559,7 +1559,7 @@ function LiveDateScene() {
       // Game over!
       setLivePhase('ended')
       if (partyClient) {
-        partyClient.syncState( { livePhase: 'ended', compatibility })
+        partyClient.syncState( { phase: 'ended', compatibility })
       }
       setTimeout(() => setPhase('results'), 2000)
     } else {
@@ -1581,7 +1581,7 @@ function LiveDateScene() {
         // Sync to PartyKit including the question and cleared state
         if (partyClient) {
           partyClient.syncState( { 
-            livePhase: 'phase1', 
+            phase: 'phase1', 
             phaseTimer: 30, 
             compatibility,
             currentQuestion: nextQuestion,
