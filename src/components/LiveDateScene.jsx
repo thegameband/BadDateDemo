@@ -152,11 +152,13 @@ function LiveDateScene() {
       // Sync to PartyKit
       if (partyClient) {
         const currentCompatibility = useGameStore.getState().compatibility
+        const currentCycleCount = useGameStore.getState().cycleCount
         partyClient.syncState( { 
           showTutorial: false, 
           tutorialStep: 0, 
           phase: 'phase1', // Use 'phase' not 'livePhase' to match server
-          compatibility: currentCompatibility // PRESERVE!
+          compatibility: currentCompatibility, // PRESERVE!
+          cycleCount: currentCycleCount // PRESERVE!
         })
       }
     }
@@ -581,7 +583,8 @@ function LiveDateScene() {
       setPhaseTimer(30)
       if (partyClient) {
         const currentCompatibility = useGameStore.getState().compatibility
-        partyClient.syncState( { phase: 'phase1', phaseTimer: 30, compatibility: currentCompatibility })
+        const currentCycleCount = useGameStore.getState().cycleCount
+        partyClient.syncState( { phase: 'phase1', phaseTimer: 30, compatibility: currentCompatibility, cycleCount: currentCycleCount })
       }
       return
     }
@@ -607,10 +610,12 @@ function LiveDateScene() {
     lastActivePlayerRef.current = firstAssignment.playerId
     lastAnswerCountRef.current = 0
     
-    // Sync to PartyKit
+    // Sync to PartyKit - always include cycleCount for consistency
+    const currentCycleCount = useGameStore.getState().cycleCount
     partyClient.syncState( { 
       startingStats: newStartingStats,
-      phase: 'starting-stats' // Ensure phase is synced
+      phase: 'starting-stats', // Ensure phase is synced
+      cycleCount: currentCycleCount
     })
     console.log('🎲 Starting Stats initialized:', newStartingStats)
   }, [livePhase, isHost, partyClient, roomCode, players.length, startingStats.questionAssignments?.length])
@@ -900,9 +905,10 @@ function LiveDateScene() {
     setLivePhase('reaction')
     setPhaseTimer(0) // No timer for reaction round - it's driven by conversation
     
-    // Sync to PartyKit - always include compatibility!
+    // Sync to PartyKit - always include compatibility and cycleCount!
     if (partyClient) {
       const currentCompatibility = useGameStore.getState().compatibility
+      const currentCycleCount = useGameStore.getState().cycleCount
       partyClient.syncState( {
         phase: 'reaction',
         phaseTimer: 0,
@@ -910,6 +916,7 @@ function LiveDateScene() {
         startingStatsComplete: true,
         initialStartingStatsAttributes: allAttributes,
         compatibility: currentCompatibility, // PRESERVE!
+        cycleCount: currentCycleCount, // PRESERVE!
       })
     }
     
@@ -1079,6 +1086,7 @@ function LiveDateScene() {
     addDateMessage('dater', openingLine)
     
     if (partyClient) {
+      const currentCycleCount = useGameStore.getState().cycleCount
       partyClient.syncState( {
         phase: 'phase1',
         phaseTimer: 30,
@@ -1087,6 +1095,7 @@ function LiveDateScene() {
         daterBubble: openingLine,
         avatarBubble: '',
         compatibility: currentCompatibility, // IMPORTANT: Preserve compatibility!
+        cycleCount: currentCycleCount, // IMPORTANT: Sync round number!
       })
     }
     
@@ -1119,16 +1128,18 @@ function LiveDateScene() {
           addDateMessage('dater', openingLine)
           
           // Sync question and state to PartyKit for other players
-          // IMPORTANT: Include compatibility to preserve it!
+          // IMPORTANT: Include compatibility and cycleCount to preserve them!
           if (partyClient) {
             const currentCompatibility = useGameStore.getState().compatibility
+            const currentCycleCount = useGameStore.getState().cycleCount
             partyClient.syncState( { 
               phase: 'phase1', 
               phaseTimer: 30,
               currentQuestion: openingLine,
               daterBubble: openingLine, // Sync dater bubble to match question
               avatarBubble: '', // Clear avatar bubble
-              compatibility: currentCompatibility // PRESERVE!
+              compatibility: currentCompatibility, // PRESERVE!
+              cycleCount: currentCycleCount // PRESERVE!
             })
           }
         }
@@ -1306,13 +1317,15 @@ function LiveDateScene() {
         setUserVote(null)
         allVotedTriggeredRef.current = false // Reset for new voting round
         
-        // Sync to PartyKit - include numbered attributes AND compatibility
+        // Sync to PartyKit - include numbered attributes, compatibility AND cycleCount
         if (partyClient) {
+          const currentCycleCount = useGameStore.getState().cycleCount
           partyClient.syncState( { 
             phase: 'phase2', 
             phaseTimer: 30,
             numberedAttributes: numbered,
-            compatibility: currentCompatibility // PRESERVE!
+            compatibility: currentCompatibility, // PRESERVE!
+            cycleCount: currentCycleCount // PRESERVE!
           })
         }
         break
@@ -1328,14 +1341,16 @@ function LiveDateScene() {
           setLivePhase('phase3')
           setPhaseTimer(0)
           
-          // Sync to PartyKit - include compatibility AND showWinnerPopup
+          // Sync to PartyKit - include compatibility, cycleCount AND showWinnerPopup
           if (partyClient) {
+            const currentCycleCount = useGameStore.getState().cycleCount
             partyClient.syncState( { 
               phase: 'phase3', 
               phaseTimer: 0, 
               winningAttribute: winningAttr,
               showWinnerPopup: true,
-              compatibility: currentCompatibility // PRESERVE!
+              compatibility: currentCompatibility, // PRESERVE!
+              cycleCount: currentCycleCount // PRESERVE!
             })
             partyClient.clearSuggestions()
             partyClient.clearVotes()
@@ -1623,7 +1638,7 @@ function LiveDateScene() {
       // Game over!
       setLivePhase('ended')
       if (partyClient) {
-        partyClient.syncState( { phase: 'ended', compatibility })
+        partyClient.syncState( { phase: 'ended', compatibility, cycleCount: newRoundCount })
       }
       setTimeout(() => setPhase('results'), 2000)
     } else {
