@@ -20,7 +20,7 @@ const initialLiveState = {
   roomCode: null,
   isHost: false,
   username: '',
-  playerId: null, // Unique ID for this player in Firebase
+  playerId: null, // Unique ID for this player in PartyKit
   players: [], // { id, username, isHost }
   livePhase: 'waiting', // 'waiting' | 'starting-stats' | 'phase1' | 'phase2' | 'phase3' | 'ended'
   phaseTimer: 0,
@@ -277,7 +277,7 @@ export const useGameStore = create((set, get) => ({
     })
   },
   
-  // Set full conversation (for Firebase sync)
+  // Set full conversation (for PartyKit sync)
   setDateConversation: (conversation) => {
     set({ dateConversation: conversation })
   },
@@ -753,7 +753,7 @@ export const useGameStore = create((set, get) => ({
   // Set dater values (called after LLM generates them)
   setDaterValues: (values) => set({ daterValues: values }),
   
-  // Set sentiment categories (for Firebase sync)
+  // Set sentiment categories (for PartyKit sync)
   setSentimentCategories: (categories) => set({ sentimentCategories: categories }),
   
   // Expose a dater value (add to visible sentiment categories)
@@ -799,7 +799,7 @@ export const useGameStore = create((set, get) => ({
     return newValue
   },
   
-  // Set compatibility directly (for syncing from Firebase)
+  // Set compatibility directly (for syncing from PartyKit)
   setCompatibility: (value) => set({ compatibility: Math.min(100, Math.max(0, value)) }),
   
   // Set the current live phase
@@ -816,13 +816,13 @@ export const useGameStore = create((set, get) => ({
     }
   },
   
-  // Set suggested attributes (for Firebase sync)
+  // Set suggested attributes (for PartyKit sync)
   setSuggestedAttributes: (suggestions) => set({ suggestedAttributes: suggestions }),
   
-  // Set numbered attributes for voting (for Firebase sync)
+  // Set numbered attributes for voting (for PartyKit sync)
   setNumberedAttributes: (numbered) => set({ numberedAttributes: numbered }),
   
-  // Set player chat (for Firebase sync)
+  // Set player chat (for PartyKit sync)
   setPlayerChat: (chat) => set({ playerChat: chat }),
   
   // Submit an attribute suggestion (Phase 1)

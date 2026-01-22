@@ -79,7 +79,7 @@ When you run the agent, you'll see:
 | `BLANK_SCREEN` | The page loaded but has no visible content | Check for JavaScript errors, broken builds, or missing assets |
 | `ELEMENT_MISSING` | Expected UI element not found | Check if the component is rendering, CSS might be hiding it, or wrong selector |
 | `NO_CONTENT` | Page has very little text | Component might have crashed or data isn't loading |
-| `STUCK` | Game stopped progressing | Check Firebase sync, timer logic, or phase transitions |
+| `STUCK` | Game stopped progressing | Check PartyKit sync, timer logic, or phase transitions |
 | `INPUT_MISSING` | Can't find the suggestion input | Phase 1 UI might not be rendering correctly |
 | `NO_RESULTS` | Results screen didn't appear | Game might have crashed before completion |
 
@@ -93,13 +93,13 @@ When you run the agent, you'll see:
 
 ### If clients can't join:
 1. Look for the host's room code in the logs
-2. Check if Firebase is configured correctly in `.env`
+2. Check if PartyKit is configured correctly (VITE_PARTYKIT_HOST in `.env`)
 3. Verify the room code extraction logic works with your UI
-4. Check Firebase console for connection errors
+4. Check browser console for PartyKit connection errors
 
 ### If the game gets stuck:
 1. Check which phase it stuck on (suggestion, voting, or conversation)
-2. Look at Firebase console to see if data is syncing
+2. Check browser console for PartyKit state sync logs
 3. Check browser console for errors
 4. Verify timers are advancing correctly
 
@@ -186,7 +186,7 @@ done
 - Check that specific UI state in your game code
 
 **Only one client gets stuck?**
-- Could be a race condition or Firebase sync issue
+- Could be a race condition or PartyKit sync issue
 - Check event ordering and debouncing
 
 **Works locally but fails on Vercel?**
