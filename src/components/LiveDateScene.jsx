@@ -273,6 +273,11 @@ function LiveDateScene() {
         setCompatibility(state.compatibility)
       }
       
+      // Sync cycle count (round number)
+      if (typeof state.cycleCount === 'number') {
+        useGameStore.setState({ cycleCount: state.cycleCount })
+      }
+      
       // Sync winning attribute
       if (state.winningAttribute) {
         setWinnerText(state.winningAttribute)
