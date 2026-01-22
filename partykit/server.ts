@@ -30,6 +30,9 @@ interface GameState {
   avatarBubble: string;
   conversation: Message[];
   
+  // Player chat
+  playerChat: ChatMessage[];
+  
   // Settings
   showTutorial: boolean;
   tutorialStep: number;
@@ -58,6 +61,13 @@ interface NumberedAttribute {
 
 interface Message {
   speaker: 'dater' | 'avatar';
+  message: string;
+  timestamp: number;
+}
+
+interface ChatMessage {
+  id: string;
+  username: string;
   message: string;
   timestamp: number;
 }
@@ -111,7 +121,8 @@ type GameAction =
   | { type: 'NEXT_ROUND' }
   | { type: 'END_GAME' }
   | { type: 'SET_TUTORIAL_STEP'; step: number }
-  | { type: 'SYNC_STATE'; state: Partial<GameState> }; // For host to sync complex state
+  | { type: 'SYNC_STATE'; state: Partial<GameState> } // For host to sync complex state
+  | { type: 'SEND_CHAT'; username: string; message: string };
 
 // Initial state factory
 function createInitialState(): GameState {
@@ -137,6 +148,7 @@ function createInitialState(): GameState {
     daterBubble: '',
     avatarBubble: '',
     conversation: [],
+    playerChat: [],
     showTutorial: false,
     tutorialStep: 0,
     startingStatsMode: true,
@@ -276,6 +288,16 @@ export default class GameRoom implements Party.Server {
           username: action.username,
           odId: action.odId
         });
+        
+        // Also add to chat so everyone sees the suggestion
+        const truncatedText = action.text.length > 35 ? action.text.substring(0, 35) + '...' : action.text;
+        const chatMsg: ChatMessage = {
+          id: `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          username: action.username,
+          message: `💡 ${truncatedText}`,
+          timestamp: Date.now(),
+        };
+        this.state.playerChat = [...this.state.playerChat.slice(-50), chatMsg];
         break;
       }
       
@@ -427,6 +449,18 @@ export default class GameRoom implements Party.Server {
       case 'SYNC_STATE': {
         // Allow host to sync complex state updates
         Object.assign(this.state, action.state);
+        break;
+      }
+      
+      case 'SEND_CHAT': {
+        // Add chat message from any player
+        const chatMsg: ChatMessage = {
+          id: `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          username: action.username,
+          message: action.message,
+          timestamp: Date.now(),
+        };
+        this.state.playerChat = [...this.state.playerChat.slice(-50), chatMsg]; // Keep last 50 messages
         break;
       }
     }

@@ -370,6 +370,11 @@ function LiveDateScene() {
         useGameStore.setState({ glowingValues: state.glowingValues })
       }
       
+      // Sync player chat
+      if (state.playerChat && Array.isArray(state.playerChat)) {
+        setPlayerChat(state.playerChat)
+      }
+      
       // Sync starting stats state
       if (state.startingStats) {
         setStartingStats(state.startingStats)
@@ -1658,26 +1663,26 @@ function LiveDateScene() {
         // Submit vote via PartyKit if available
         if (partyClient && playerId) {
           partyClient.vote(playerId, num)
+          partyClient.sendChatMessage(username, `Vote: #${num}`)
         } else {
           voteForNumberedAttribute(num, username)
-          addPlayerChatMessage(username, `Vote: #${num}`)
         }
+        addPlayerChatMessage(username, `Vote: #${num}`)
         setUserVote(num)
       } else {
+        // Regular chat message (not a vote)
         if (partyClient) {
-          await sendChatMessage(roomCode, { username, message: truncate(message) })
-        } else {
-          addPlayerChatMessage(username, truncate(message))
+          partyClient.sendChatMessage(username, truncate(message))
         }
+        addPlayerChatMessage(username, truncate(message))
       }
     }
     // Phase 3 - just regular chat
     else {
       if (partyClient) {
-        await sendChatMessage(roomCode, { username, message: truncate(message) })
-      } else {
-        addPlayerChatMessage(username, truncate(message))
+        partyClient.sendChatMessage(username, truncate(message))
       }
+      addPlayerChatMessage(username, truncate(message))
     }
     
     setChatInput('')
@@ -2071,9 +2076,9 @@ function LiveDateScene() {
                     onClick={async () => {
                       if (partyClient && playerId) {
                         partyClient.vote(playerId, attr.number)
+                        partyClient.sendChatMessage(username, `Vote: #${attr.number}`)
                       } else {
                         voteForNumberedAttribute(attr.number, username)
-                        addPlayerChatMessage(username, `Vote: #${attr.number}`)
                       }
                       setUserVote(attr.number)
                     }}

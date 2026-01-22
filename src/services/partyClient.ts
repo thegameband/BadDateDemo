@@ -11,6 +11,13 @@ import PartySocket from "partysocket";
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || "localhost:1999";
 
 // Types matching the server
+export interface ChatMessage {
+  id: string;
+  username: string;
+  message: string;
+  timestamp: number;
+}
+
 export interface GameState {
   phase: 'lobby' | 'starting-stats' | 'reaction' | 'phase1' | 'phase2' | 'phase3' | 'ended';
   players: Player[];
@@ -32,6 +39,7 @@ export interface GameState {
   daterBubble: string;
   avatarBubble: string;
   conversation: Message[];
+  playerChat: ChatMessage[];
   showTutorial: boolean;
   tutorialStep: number;
   startingStatsMode: boolean;
@@ -111,7 +119,8 @@ type GameAction =
   | { type: 'NEXT_ROUND' }
   | { type: 'END_GAME' }
   | { type: 'SET_TUTORIAL_STEP'; step: number }
-  | { type: 'SYNC_STATE'; state: Partial<GameState> };
+  | { type: 'SYNC_STATE'; state: Partial<GameState> }
+  | { type: 'SEND_CHAT'; username: string; message: string };
 
 // Callback type for state updates
 type StateCallback = (state: GameState) => void;
@@ -289,6 +298,10 @@ export class PartyGameClient {
 
   advanceStartingStats() {
     this.send({ type: 'ADVANCE_STARTING_STATS' });
+  }
+
+  sendChatMessage(username: string, message: string) {
+    this.send({ type: 'SEND_CHAT', username, message });
   }
 
   // ============ Connection Management ============
