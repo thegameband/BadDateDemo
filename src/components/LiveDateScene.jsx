@@ -115,6 +115,18 @@ function LiveDateScene() {
     if (daterText) {
       partyClient.addMessage('dater', daterText)
     }
+    
+    // Sync sentiment categories if requested
+    if (syncSentiments) {
+      const currentSentiments = useGameStore.getState().sentimentCategories
+      const currentExposed = useGameStore.getState().exposedValues
+      const currentGlowing = useGameStore.getState().glowingValues
+      partyClient.syncState({
+        sentimentCategories: currentSentiments,
+        exposedValues: currentExposed,
+        glowingValues: currentGlowing,
+      })
+    }
   }
   
   // Handle tutorial advancement (host only, syncs to Firebase)
@@ -341,6 +353,21 @@ function LiveDateScene() {
           username: p.username,
           isHost: p.isHost
         })))
+      }
+      
+      // Sync sentiment categories (loves, likes, dislikes, dealbreakers)
+      if (state.sentimentCategories) {
+        setSentimentCategories(state.sentimentCategories)
+      }
+      
+      // Sync exposed values (for showing which attributes have been revealed)
+      if (state.exposedValues && Array.isArray(state.exposedValues)) {
+        useGameStore.setState({ exposedValues: state.exposedValues })
+      }
+      
+      // Sync glowing values (for highlight effects)
+      if (state.glowingValues && Array.isArray(state.glowingValues)) {
+        useGameStore.setState({ glowingValues: state.glowingValues })
       }
       
       // Sync starting stats state
