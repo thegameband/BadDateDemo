@@ -3,7 +3,11 @@ import { buildDaterAgentPrompt } from '../data/daters'
 import { 
   classifyAttribute, 
   buildAvatarPromptChain, 
-  buildDaterPromptChain 
+  buildDaterPromptChain,
+  PROMPT_06_AVATAR_CORE,
+  PROMPT_07_RULES,
+  PROMPT_04_DATER_VISIBLE,
+  PROMPT_05_DATER_INFER
 } from './promptChain'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
@@ -184,6 +188,7 @@ function isVisibleAttribute(attr) {
 }
 
 export async function getDaterDateResponse(dater, avatar, conversationHistory, latestAttribute = null, sentimentHit = null, reactionStreak = { positive: 0, negative: 0 }, isFinalRound = false) {
+  console.log('🔗 Using MODULAR PROMPT CHAIN for dater response')
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   
   // Filter attributes to only include VISIBLE ones the Dater can actually see
@@ -294,7 +299,7 @@ A normal person + scary thing = scared reaction (even if they try to be polite a
   // Get the question that was asked (look for earlier dater message)
   const lastDaterQuestion = [...conversationHistory].reverse().find(msg => msg.speaker === 'dater')?.message || ''
   
-  // Special instruction if a new attribute was just added
+  // Special instruction if a new attribute was just added - USING MODULAR PROMPT CHAIN
   let latestAttrContext = ''
   if (latestAttribute) {
     const isVisible = isVisibleAttribute(latestAttribute)
@@ -310,54 +315,31 @@ THEIR FULL RESPONSE: "${lastAvatarMessage}"
 This is their ANSWER to YOUR question. React to what they revealed about themselves!`
     
     if (isVisible) {
-      // Dater can SEE this - react immediately!
-      latestAttrContext = `\n\n${questionContext}
-
-🚨 AND YOU CAN PHYSICALLY SEE "${latestAttribute}" - IT'S REAL!
-
-⚠️ THIS IS LITERAL, NOT A METAPHOR! Whatever "${latestAttribute}" means, it is PHYSICALLY REAL:
-- If they're "on fire" - they are ACTUALLY ON FIRE. Real flames.
-- If they "have tentacles" - REAL TENTACLES are right there.
-- If they're "melting" - their body is LITERALLY MELTING.
-- If they're "a giant spider" - they are AN ACTUAL SPIDER.
-
-REACT TO BOTH: Their answer AND what you can see!
-
-REACT HONESTLY - NOT EVERYTHING IS OKAY:
-- If this is HORRIFYING → Be horrified! "Oh my god!"
-- If this is DANGEROUS → Be concerned!
-- If this is GROSS → Be grossed out!
-- If this is SCARY → Be scared!
-- If this is WEIRD → Be weirded out!
-- If this is ATTRACTIVE → You can be into it!
-
-Your reaction should be HONEST and INTENSE.
-You're allowed to be negative! Some things are just bad!
-Keep it to 1-2 sentences.`
+      // USE MODULAR PROMPT 04: Dater reacts to VISIBLE attribute
+      const modularVisiblePrompt = PROMPT_04_DATER_VISIBLE
+        .replace(/\{\{attribute\}\}/g, latestAttribute)
+        .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
+        .replace(/\{\{allVisibleAttributes\}\}/g, visibleAttributes.map(a => `- ${a}`).join('\n'))
+      
+      latestAttrContext = `\n\n${questionContext}\n\n${modularVisiblePrompt}`
     } else {
-      // NOT visible - Dater must react to what they SAID
-      latestAttrContext = `\n\n${questionContext}
-
-🔍 REACT TO THEIR ANSWER:
-
-They just answered your question. What they said: "${lastAvatarMessage}"
-The key thing they revealed: "${latestAttribute}"
-
-React to this answer! Consider:
-- Is this a surprising answer to your question?
-- Does this answer concern you, intrigue you, excite you, or disturb you?
-- How does someone like YOU react to this kind of answer?
-
-React HONESTLY based on what they revealed about themselves.
-Keep it to 1-2 sentences.`
+      // USE MODULAR PROMPT 05: Dater INFERS from NON-VISIBLE attribute  
+      const modularInferPrompt = PROMPT_05_DATER_INFER
+        .replace(/\{\{attribute\}\}/g, latestAttribute)
+        .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
+      
+      latestAttrContext = `\n\n${questionContext}\n\n${modularInferPrompt}`
     }
   } else {
-    // No new attribute, but still pay attention to conversation
-    latestAttrContext = `\n\n🔍 ACTIVE LISTENING:
-As your date speaks, pay attention to hints, implications, and subtext. If they say something that seems to reveal something about themselves - react to YOUR INTERPRETATION of what they might mean.`
+    // No new attribute - use inference prompt for active listening
+    const activeListeningPrompt = PROMPT_05_DATER_INFER
+      .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage || 'Your date is talking...')
+    
+    latestAttrContext = `\n\n${activeListeningPrompt}`
   }
   
-  const fullPrompt = systemPrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + LLM_RESPONSE_CHECKLIST
+  // Add MODULAR PROMPT_07_RULES for formatting
+  const fullPrompt = systemPrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   
   // Convert conversation history to Claude format
   let messages = conversationHistory.map(msg => ({
@@ -391,6 +373,7 @@ As your date speaks, pay attention to hints, implications, and subtext. If they 
 
 /**
  * Get Avatar response during the date (for auto-conversation)
+ * NOW USES MODULAR 7-STEP PROMPT CHAIN
  * @param mode - 'answer' (answering question with new attribute), 'continue' (continuing with all attributes)
  */
 export async function getAvatarDateResponse(avatar, dater, conversationHistory, latestAttribute = null, mode = 'answer') {
@@ -401,22 +384,13 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
   const realAttributes = attributes.filter(attr => !genericStarters.includes(attr))
   const hasRealAttributes = realAttributes.length > 0
   
-  // Core personality: straightforward, matter-of-fact, doesn't think they're weird
-  const corePersonality = `CORE PERSONALITY - BE DIRECT, NEVER COY:
-- NEVER be mysterious, coy, vague, or evasive
-- NEVER say "let's just say..." or "you could say..." or "some might call me..."
-- JUST STATE THINGS PLAINLY: "I'm a murderer" not "I have a dark side"
-- You DON'T think your traits are weird - they're just normal facts about you
-- Your tone is casual and unbothered, like you're discussing the weather
-- If someone is shocked, you're genuinely confused - "What? Is that not normal?"
-- You're PLEASANT and WARM, but completely blunt about who you are
-
-⚠️ CRITICAL - DO NOT INVENT:
-- ONLY talk about YOUR ACTUAL TRAITS listed above
-- Do NOT invent a job or occupation (no architect, doctor, etc.)
-- Do NOT copy your date's profession or interests
-- If no traits are listed, be vague: "That's nice!" "Oh interesting!"
-- You are a BLANK SLATE until players give you traits`
+  // Fill in template variables for modular prompts
+  const fillModularPrompt = (prompt) => {
+    return prompt
+      .replace(/\{\{avatarName\}\}/g, name || 'Your Date')
+      .replace(/\{\{allAttributes\}\}/g, realAttributes.join(', ') || 'none yet')
+      .replace(/\{\{attribute\}\}/g, latestAttribute || '')
+  }
 
   // Build behavior instructions based on mode and attributes
   let behaviorInstructions
@@ -426,51 +400,22 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
 - Be extremely generic but warm and friendly
 - Say things like "That's nice!", "I agree!", "Oh, how interesting!"
 - Don't reveal anything specific about yourself
-- Be pleasant and agreeable
-
-${corePersonality}`
+- Be pleasant and agreeable`
   } else if (mode === 'answer' && latestAttribute) {
-    // MODE: ANSWER - Answering the date's question using the new attribute
-    // Get the last question from conversation history
+    // MODE: ANSWER - USE THE MODULAR 7-STEP PROMPT CHAIN
     const lastDaterMessage = [...conversationHistory].reverse().find(msg => msg.speaker === 'dater')?.message || ''
+    const visibility = classifyAttribute(latestAttribute)
     
-    // Get previous attributes (excluding the new one)
-    const previousAttributes = realAttributes.filter(a => a !== latestAttribute)
-    const hasPreviousTraits = previousAttributes.length > 0
+    // Use the full modular prompt chain for new attribute answers
+    behaviorInstructions = buildAvatarPromptChain({
+      attribute: latestAttribute,
+      daterLastMessage: lastDaterMessage,
+      avatarName: name || 'Your Date',
+      allAttributes: realAttributes,
+      isVisible: visibility === 'VISIBLE'
+    })
     
-    behaviorInstructions = `🔴🔴🔴 MANDATORY: ANSWER THE QUESTION USING "${latestAttribute}" 🔴🔴🔴
-
-YOUR DATE JUST ASKED: "${lastDaterMessage}"
-
-The players have decided YOUR ANSWER involves: "${latestAttribute}"
-Your response should ANSWER THE QUESTION while revealing this NEW trait about yourself.
-
-${hasPreviousTraits ? `📝 YOUR ESTABLISHED TRAITS (from earlier in the date):
-${previousAttributes.map(t => `- ${t}`).join('\n')}
-
-You already told your date about these! You can reference them naturally if relevant, but FOCUS on the NEW trait.
-` : ''}
-✅ WHAT YOU MUST DO:
-- READ THE QUESTION AGAIN: "${lastDaterMessage}"
-- ANSWER IT using "${latestAttribute}" as your PRIMARY response
-- State "${latestAttribute}" plainly and directly
-- Treat it as a normal fact about yourself
-${hasPreviousTraits ? '- You may briefly connect it to your previous traits if it fits naturally' : ''}
-
-✅ GOOD EXAMPLES:
-- Question: "What do you do for fun?" + New trait: "murder" → "Oh, I murder people mostly. It's relaxing."
-${hasPreviousTraits ? '- If you previously said you\'re a vampire: "Well, being a vampire, murder just comes naturally."' : ''}
-
-❌ BAD RESPONSES (DO NOT DO THIS):
-- Ignoring the question and just stating the trait ❌
-- Acting like this is your first interaction (you've been chatting!) ❌
-- Being vague: "I have... unconventional habits" ❌
-- Copying your DATE's traits ❌
-
-🔴 THE QUESTION: "${lastDaterMessage}"
-🔴 YOUR NEW TRAIT TO REVEAL: "${latestAttribute}"
-
-${corePersonality}`
+    console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: answer)')
   } else if (mode === 'react') {
     // MODE: REACT - Respond to what the Dater just said
     const lastDaterMessage = [...conversationHistory].reverse().find(msg => msg.speaker === 'dater')?.message || ''
@@ -500,11 +445,9 @@ YOUR NEWEST TRAIT: "${newestAttribute}"
 ❌ BAD RESPONSES:
 - Ignoring what they said
 - Changing the subject completely
-- Being mysterious about your traits
-
-Keep it to 1-2 sentences. Respond naturally to their reaction!
-
-${corePersonality}`
+- Being mysterious about your traits`
+    
+    console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: react)')
   } else if (mode === 'connect') {
     // MODE: CONNECT - Draw connections between ALL previous attributes
     behaviorInstructions = `🎯 CONNECT ALL YOUR TRAITS - Find the bigger picture:
@@ -529,10 +472,9 @@ ALL YOUR TRAITS SO FAR: ${realAttributes.join(', ')}
 - Or share how one trait affects living with another
 - Even "these things seem random but they're all me" works!
 
-Make the conversation feel like it's building toward understanding WHO YOU ARE.
-Keep it to 1-2 sentences. Be matter-of-fact and casual!
-
-${corePersonality}`
+Make the conversation feel like it's building toward understanding WHO YOU ARE.`
+    
+    console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: connect)')
   } else if (mode === 'introduce') {
     // MODE: INTRODUCE - First meeting introduction after Starting Stats
     behaviorInstructions = `🎯 INTRODUCE YOURSELF - First Meeting!
@@ -552,9 +494,9 @@ YOUR TRAITS: ${realAttributes.join(', ')}
 ✅ GOOD EXAMPLES:
 - "Hey! I'm ${name}. Nice to finally meet you!"
 - "Hi there! So... yeah, I'm the one with ${realAttributes[0] || 'all the charm'}. Nice to meet you!"
-- "Hey, you must be my date! I'm ${name}."
-
-${corePersonality}`
+- "Hey, you must be my date! I'm ${name}."`
+    
+    console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: introduce)')
   } else if (mode === 'introduce-emotional') {
     // MODE: INTRODUCE-EMOTIONAL - Introduce yourself while expressing your emotional state
     // latestAttribute contains the emotional states (e.g., "nervous and sweaty")
@@ -582,10 +524,9 @@ YOUR CURRENT EMOTIONAL STATE: ${emotionalState}
 - (angry): "Yeah, I'm ${name}. Sorry if I seem off - it's been a day."
 - (excited): "Oh my gosh, hi!! I'm ${name}! I've been looking forward to this ALL week!"
 
-Your emotional state: "${emotionalState}" - Let this DRIVE how you speak!
-Keep it to 1-2 sentences. Be expressive!
-
-${corePersonality}`
+Your emotional state: "${emotionalState}" - Let this DRIVE how you speak!`
+    
+    console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: introduce-emotional)')
   } else {
     // MODE: CONTINUE (fallback) - Generic continuation
     const newestAttribute = latestAttribute || realAttributes[realAttributes.length - 1]
@@ -595,35 +536,27 @@ ${corePersonality}`
 YOUR TRAITS: ${realAttributes.join(', ')}
 YOUR NEWEST TRAIT: "${newestAttribute}"
 
-Just keep the conversation going naturally. React to what your date said.
-Stay casual and matter-of-fact about your traits.
-
-${corePersonality}`
+Just keep the conversation going naturally. React to what your date said.`
+    
+    console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: continue)')
   }
   
   // Don't use generic "Professional" occupation - makes LLM invent things
   const occupationText = occupation === 'Professional' ? '' : `, a ${occupation},`
   
+  // Build system prompt with MODULAR PROMPT CHAIN components
+  // PROMPT_06_AVATAR_CORE = Core personality rules
+  // PROMPT_07_RULES = Response formatting rules
+  const corePersonalityPrompt = fillModularPrompt(PROMPT_06_AVATAR_CORE)
+  const rulesPrompt = fillModularPrompt(PROMPT_07_RULES)
+  
   const systemPrompt = `You are ${name}${occupationText} on a first date.
 
 ${behaviorInstructions}
 
-⚠️ CRITICAL RULES:
-- Keep responses VERY brief (1-2 sentences max)
-- 🗣️ JUST SPEAK - use DIALOGUE, not actions!
-  - ❌ WRONG: *stands up revealing height* "I'm tall"
-  - ✅ RIGHT: "Yeah, I'm about 100 feet tall actually"
-  - ❌ WRONG: *shows fangs* "I'm a vampire"
-  - ✅ RIGHT: "I'm a vampire, so I don't really do daytime stuff"
-- 🎭 ONLY use *action* for traits that are PURELY PHYSICAL and CANNOT be spoken:
-  - ✅ OK: *spreads wings* (if you literally have wings and are showing them)
-  - ✅ OK: *tail wags* (involuntary physical reaction)
-  - ❌ NOT OK: *smiles*, *laughs*, *leans in* - these are unnecessary
-- 🚫 FORBIDDEN PHRASES: "let's just say", "you could say", "some might call me", "I have a certain...", "it's complicated"
-- ✅ JUST SAY IT: "I'm a murderer", "I have tentacles", "I eat people" - plain and simple
-- Be BLUNT - no hints, no mystery, no building suspense
-- If your date reacts badly, be confused: "Wait, is that weird?"
-- You're stating boring facts about yourself, not making dramatic reveals
+${corePersonalityPrompt}
+
+${rulesPrompt}
 
 🚫🚫🚫 DO NOT INVENT TRAITS! 🚫🚫🚫
 - ONLY mention traits that are EXPLICITLY listed in YOUR TRAITS above
