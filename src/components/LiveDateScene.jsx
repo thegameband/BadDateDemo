@@ -261,8 +261,8 @@ function LiveDateScene() {
                 if (partyClient) {
                   partyClient.syncState({ showWinnerPopup: false })
                 }
-                setTimeout(() => generateDateConversation(winningAttr), 300)
-              }, 5000)
+                setTimeout(() => generateDateConversation(winningAttr), 100)
+              }, 3000)
             }, 500)
           }
         }
@@ -1328,14 +1328,14 @@ function LiveDateScene() {
             partyClient.clearVotes()
           }
           
-          // After 5 seconds, hide popup and start conversation
+          // After 3 seconds, hide popup and start conversation
           setTimeout(() => {
             setShowWinnerPopup(false)
             if (partyClient) {
               partyClient.syncState({ showWinnerPopup: false })
             }
-            setTimeout(() => generateDateConversation(winningAttr), 300)
-          }, 5000)
+            setTimeout(() => generateDateConversation(winningAttr), 100)
+          }, 3000)
         }
         break
         
