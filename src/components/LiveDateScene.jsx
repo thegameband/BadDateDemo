@@ -81,6 +81,7 @@ function LiveDateScene() {
   const [startingStatsTimer, setStartingStatsTimer] = useState(15)
   const [hasSubmittedStartingStat, setHasSubmittedStartingStat] = useState(false)
   const startingStatsTimerRef = useRef(null)
+  const lastActivePlayerRef = useRef(null)
   
   const chatEndRef = useRef(null)
   const phaseTimerRef = useRef(null)
@@ -336,7 +337,16 @@ function LiveDateScene() {
         if (!isHost && typeof state.startingStats.timer === 'number') {
           setStartingStatsTimer(state.startingStats.timer)
         }
-        // Note: Removed popup display - answers are shown in the "Avatar So Far" list
+        
+        // Reset submission state when active player changes
+        const newActivePlayer = state.startingStats.activePlayerId
+        if (newActivePlayer && newActivePlayer !== lastActivePlayerRef.current) {
+          console.log('🔄 Active player changed:', lastActivePlayerRef.current, '->', newActivePlayer)
+          lastActivePlayerRef.current = newActivePlayer
+          // Reset submission state for everyone when question changes
+          setHasSubmittedStartingStat(false)
+          setStartingStatsInput('')
+        }
       }
       } catch (error) {
         console.error('🎉 Error processing PartyKit state update:', error)
@@ -508,6 +518,9 @@ function LiveDateScene() {
     
     setStartingStats(newStartingStats)
     setStartingStatsTimer(15)
+    setHasSubmittedStartingStat(false)
+    setStartingStatsInput('')
+    lastActivePlayerRef.current = firstAssignment.playerId
     
     // Sync to PartyKit
     partyClient.syncState( { 
