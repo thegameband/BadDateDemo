@@ -1436,9 +1436,11 @@ function LiveDateScene() {
     
     setIsGenerating(true)
     
-    // Check if this is the final round (cycleCount is 0-indexed, so last round is maxCycles - 1)
-    const isFinalRound = cycleCount >= maxCycles - 1
-    console.log(`🏁 Round ${cycleCount + 1}/${maxCycles} - Final round: ${isFinalRound}`)
+    // Check if this is the final round - get FRESH values from store (not closures!)
+    const currentCycleForCheck = useGameStore.getState().cycleCount
+    const maxCyclesForCheck = useGameStore.getState().maxCycles
+    const isFinalRound = currentCycleForCheck >= maxCyclesForCheck - 1
+    console.log(`🏁 Round ${currentCycleForCheck + 1}/${maxCyclesForCheck} - Final round: ${isFinalRound}`)
     
     // IMPORTANT: Create avatar with the new attribute included
     // (React state might not have updated yet due to async nature)
@@ -1648,16 +1650,17 @@ function LiveDateScene() {
       return
     }
     
-    // IMPORTANT: Get CURRENT values from store (not closure values!)
+    // IMPORTANT: Get ALL current values from store (not closure values!)
     const currentCycleCount = useGameStore.getState().cycleCount
+    const currentMaxCycles = useGameStore.getState().maxCycles
     const newRoundCount = currentCycleCount + 1
     incrementCycle()
     
     // IMPORTANT: Get CURRENT compatibility from store (not closure value!)
     const currentCompatibility = useGameStore.getState().compatibility
-    console.log(`Round ${newRoundCount}/${maxCycles} complete, compatibility: ${currentCompatibility}, cycleCount: ${currentCycleCount} -> ${newRoundCount}`)
+    console.log(`Round ${newRoundCount}/${currentMaxCycles} complete, compatibility: ${currentCompatibility}, cycleCount: ${currentCycleCount} -> ${newRoundCount}`)
     
-    if (newRoundCount >= maxCycles) {
+    if (newRoundCount >= currentMaxCycles) {
       // Game over!
       setLivePhase('ended')
       if (partyClient) {
