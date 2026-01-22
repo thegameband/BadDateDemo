@@ -53,6 +53,7 @@ export interface Player {
 }
 
 export interface Suggestion {
+  id: string;
   text: string;
   username: string;
   odId: string;

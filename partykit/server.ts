@@ -48,6 +48,7 @@ interface Player {
 }
 
 interface Suggestion {
+  id: string;
   text: string;
   username: string;
   odId: string;
@@ -284,6 +285,7 @@ export default class GameRoom implements Party.Server {
         if (alreadySubmitted) return;
         
         this.state.suggestedAttributes.push({
+          id: `suggestion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           text: action.text,
           username: action.username,
           odId: action.odId
