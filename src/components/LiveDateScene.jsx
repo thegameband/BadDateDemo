@@ -209,12 +209,13 @@ function LiveDateScene() {
         setSuggestedAttributes([])
       }
       
-      // Sync numbered attributes for voting
-      if (state.numberedAttributes) {
+      // Sync numbered attributes for voting - ALWAYS sync even if empty
+      if (Array.isArray(state.numberedAttributes)) {
         const numberedArray = state.numberedAttributes
         const votesMap = state.votes || {}
         const totalVotes = Object.keys(votesMap).length
         
+        // Build numbered attributes with votes
         const numberedWithVotes = numberedArray.filter(attr => attr).map(attr => {
           const votersForThis = Object.entries(votesMap)
             .filter(([_, voteNum]) => voteNum === attr.number)
@@ -226,6 +227,7 @@ function LiveDateScene() {
           }
         })
         
+        console.log('🗳️ Syncing numbered attributes:', numberedWithVotes.length, 'items')
         setNumberedAttributes(numberedWithVotes)
         
         // Auto-advance to Phase 3 if all players have voted (host only)
