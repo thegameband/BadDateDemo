@@ -7,7 +7,8 @@ import {
   PROMPT_06_AVATAR_CORE,
   PROMPT_07_RULES,
   PROMPT_04_DATER_VISIBLE,
-  PROMPT_05_DATER_INFER
+  PROMPT_05_DATER_INFER,
+  PROMPT_05B_DATER_REACTION_STYLE
 } from './promptChain'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
@@ -338,8 +339,8 @@ This is their ANSWER to YOUR question. React to what they revealed about themsel
     latestAttrContext = `\n\n${activeListeningPrompt}`
   }
   
-  // Add MODULAR PROMPT_07_RULES for formatting
-  const fullPrompt = systemPrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  // Add MODULAR PROMPTS: Reaction style (exaggerated & honest) + formatting rules
+  const fullPrompt = systemPrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   
   // Convert conversation history to Claude format
   let messages = conversationHistory.map(msg => ({
