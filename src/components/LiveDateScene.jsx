@@ -743,15 +743,25 @@ function LiveDateScene() {
     setStartingStats(newStats)
     setStartingStatsInput('')
     
-    // Update answer count ref to prevent double-advance
+    // Update answer count ref to prevent double-advance from state sync
     lastAnswerCountRef.current = newAnswers.length
     
-    // Sync to PartyKit - this will trigger the host to advance via the state sync listener
+    // Sync to PartyKit
     if (partyClient) {
       partyClient.syncState({ startingStats: newStats })
     }
     
     console.log('📝 Starting Stats answer submitted:', newAnswer, 'Total answers:', newAnswers.length)
+    
+    // If host, directly advance to next question (don't wait for state sync)
+    if (isHost) {
+      setTimeout(() => {
+        const phase = useGameStore.getState().livePhase
+        if (phase === 'starting-stats') {
+          moveToNextStartingStatsQuestion()
+        }
+      }, 100)
+    }
   }
   
   // Complete Starting Stats phase and transition to reaction round
