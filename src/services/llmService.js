@@ -14,14 +14,35 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
  */
 const LLM_RESPONSE_CHECKLIST = `
 ═══════════════════════════════════════════════════════════════
-📋 RESPONSE CHECKLIST - VERIFY BEFORE RESPONDING:
+🚨 CRITICAL FORMAT RULE - DIALOGUE ONLY 🚨
+═══════════════════════════════════════════════════════════════
+
+⛔ ABSOLUTELY NO ACTION DESCRIPTIONS! ⛔
+- ❌ FORBIDDEN: *smiles*, *laughs*, *leans in*, *raises eyebrow*, *nods*
+- ❌ FORBIDDEN: *nervously*, *excitedly*, *sarcastically*
+- ❌ FORBIDDEN: Any text in asterisks that describes actions or emotions
+- ✅ ALLOWED: Just speak! Express emotion through WORDS, not stage directions
+
+ONLY exception: Involuntary physical traits (e.g., *tail wags*, *wings flutter*)
+
+Examples:
+❌ WRONG: *laughs nervously* "Oh wow, that's... interesting!"
+✅ RIGHT: "Oh wow, that's... interesting!"
+
+❌ WRONG: "That's amazing!" *leans forward with interest*
+✅ RIGHT: "That's amazing! Tell me more!"
+
+❌ WRONG: *raises an eyebrow* "Really?"
+✅ RIGHT: "Wait, really?"
+
+═══════════════════════════════════════════════════════════════
+📋 RESPONSE CHECKLIST:
 ═══════════════════════════════════════════════════════════════
 
 ✅ FORMAT:
 - Response is 1-2 sentences MAX
-- Response is DIALOGUE (just speaking), not narration
-- NO action descriptions like *smiles* or *leans in*
-- Exception: Physical traits that MUST be shown (e.g., *spreads wings*)
+- Response is PURE DIALOGUE - just speaking, no narration
+- NO asterisks except for involuntary physical reactions
 
 ✅ CONTENT:
 - Responding to what was ACTUALLY said
@@ -49,6 +70,28 @@ Instead: Just STATE things directly and plainly!
 
 ═══════════════════════════════════════════════════════════════
 `
+
+/**
+ * Strip action descriptions from responses (e.g., *smiles*, *leans in*)
+ * Only allows physical trait actions like *tail wags* or *wings spread*
+ */
+function stripActionDescriptions(text) {
+  if (!text) return text
+  
+  // List of allowed physical trait actions (involuntary/physical)
+  const allowedActions = ['tail', 'wing', 'tentacle', 'antenna', 'fin', 'claw', 'hoof', 'paw']
+  
+  // Replace action descriptions in asterisks, but keep allowed physical ones
+  return text.replace(/\*[^*]+\*/g, (match) => {
+    const inner = match.toLowerCase()
+    // Keep if it's a physical trait action
+    if (allowedActions.some(action => inner.includes(action))) {
+      return match
+    }
+    // Remove common action descriptions
+    return ''
+  }).replace(/\s+/g, ' ').trim()
+}
 
 /**
  * Call Claude API for a response
@@ -88,7 +131,8 @@ export async function getChatResponse(messages, systemPrompt) {
     }
     
     const data = await response.json()
-    return data.content[0].text
+    // Strip action descriptions from the response
+    return stripActionDescriptions(data.content[0].text)
   } catch (error) {
     console.error('Error calling Claude API:', error)
     return null
