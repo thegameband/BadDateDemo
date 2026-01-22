@@ -151,10 +151,12 @@ function LiveDateScene() {
       setLivePhase('phase1')
       // Sync to PartyKit
       if (partyClient) {
+        const currentCompatibility = useGameStore.getState().compatibility
         partyClient.syncState( { 
           showTutorial: false, 
           tutorialStep: 0, 
-          livePhase: 'phase1'
+          phase: 'phase1', // Use 'phase' not 'livePhase' to match server
+          compatibility: currentCompatibility // PRESERVE!
         })
       }
     }
@@ -578,7 +580,8 @@ function LiveDateScene() {
       setLivePhase('phase1')
       setPhaseTimer(30)
       if (partyClient) {
-        partyClient.syncState( { phase: 'phase1', phaseTimer: 30 })
+        const currentCompatibility = useGameStore.getState().compatibility
+        partyClient.syncState( { phase: 'phase1', phaseTimer: 30, compatibility: currentCompatibility })
       }
       return
     }
@@ -897,14 +900,16 @@ function LiveDateScene() {
     setLivePhase('reaction')
     setPhaseTimer(0) // No timer for reaction round - it's driven by conversation
     
-    // Sync to PartyKit
+    // Sync to PartyKit - always include compatibility!
     if (partyClient) {
+      const currentCompatibility = useGameStore.getState().compatibility
       partyClient.syncState( {
         phase: 'reaction',
         phaseTimer: 0,
         avatar: updatedAvatar,
         startingStatsComplete: true,
         initialStartingStatsAttributes: allAttributes,
+        compatibility: currentCompatibility, // PRESERVE!
       })
     }
     
@@ -1114,14 +1119,16 @@ function LiveDateScene() {
           addDateMessage('dater', openingLine)
           
           // Sync question and state to PartyKit for other players
-          // NOTE: Don't reset compatibility here - it's already set in startLiveDate
+          // IMPORTANT: Include compatibility to preserve it!
           if (partyClient) {
+            const currentCompatibility = useGameStore.getState().compatibility
             partyClient.syncState( { 
               phase: 'phase1', 
               phaseTimer: 30,
               currentQuestion: openingLine,
               daterBubble: openingLine, // Sync dater bubble to match question
-              avatarBubble: '' // Clear avatar bubble
+              avatarBubble: '', // Clear avatar bubble
+              compatibility: currentCompatibility // PRESERVE!
             })
           }
         }
