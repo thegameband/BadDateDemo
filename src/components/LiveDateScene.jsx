@@ -102,6 +102,7 @@ function LiveDateScene() {
   const phaseTimerRef = useRef(null)
   const lastPhaseRef = useRef('')
   const allVotedTriggeredRef = useRef(false) // Prevent multiple auto-advance triggers
+  const allPlotTwistAnsweredRef = useRef(false) // Prevent multiple plot twist auto-advance triggers
   
   // Starting Stats question definitions - Players build the Avatar (the dater going on the date)
   const STARTING_STATS_QUESTIONS = [
@@ -452,7 +453,23 @@ function LiveDateScene() {
           if (currentPlotTwist.subPhase !== 'input') {
             setHasSubmittedPlotTwist(false)
             setPlotTwistInput('')
+            allPlotTwistAnsweredRef.current = false // Reset auto-advance flag
           }
+        }
+        
+        // Auto-advance to reveal if all players have answered (host only)
+        const plotTwistAnswers = state.plotTwist.answers || []
+        if (isHost && 
+            state.plotTwist.subPhase === 'input' && 
+            players.length > 0 && 
+            plotTwistAnswers.length >= players.length && 
+            !allPlotTwistAnsweredRef.current) {
+          console.log('🎭 All players have answered the plot twist! Auto-advancing to reveal')
+          allPlotTwistAnsweredRef.current = true
+          // Small delay to ensure state is synced, then advance
+          setTimeout(() => {
+            advancePlotTwistToReveal()
+          }, 500)
         }
       }
       
@@ -1765,6 +1782,7 @@ function LiveDateScene() {
     setPlotTwist(initialPlotTwist)
     setHasSubmittedPlotTwist(false)
     setPlotTwistInput('')
+    allPlotTwistAnsweredRef.current = false // Reset auto-advance flag
     
     // Set the phase
     setLivePhase('plot-twist')
