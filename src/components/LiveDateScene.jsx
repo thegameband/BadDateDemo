@@ -215,13 +215,10 @@ function LiveDateScene() {
         
         console.log('🎉 PartyKit state update:', state)
       
-      // Sync suggestions
-      if (state.suggestedAttributes) {
-        console.log('🎉 Syncing suggestions:', state.suggestedAttributes)
-        setSuggestedAttributes(state.suggestedAttributes)
-      } else {
-        setSuggestedAttributes([])
-      }
+      // Sync suggestions - ALWAYS sync to ensure clients see them
+      const serverSuggestions = state.suggestedAttributes || []
+      console.log('🎉 Syncing suggestions to client:', serverSuggestions.length, 'items', JSON.stringify(serverSuggestions))
+      setSuggestedAttributes(serverSuggestions)
       
       // Sync numbered attributes for voting - ALWAYS sync even if empty
       if (state.numberedAttributes !== undefined) {
@@ -487,6 +484,12 @@ function LiveDateScene() {
       console.log('🔍 DEBUG Phase2: Voting overlay should show?', numberedAttributes.length > 0, numberedAttributes)
     }
   }, [livePhase, numberedAttributes, isHost])
+  
+  // Debug: Log when suggestedAttributes changes
+  useEffect(() => {
+    console.log('💡 DEBUG suggestedAttributes changed:', suggestedAttributes?.length, 'items', suggestedAttributes)
+    console.log('💡 Should display suggestions?', livePhase === 'phase1' && (suggestedAttributes?.length || 0) > 0)
+  }, [suggestedAttributes, livePhase])
   
   // Phase timer countdown - only host runs the timer, others sync from PartyKit
   // Timer starts immediately when phase begins
@@ -2868,14 +2871,20 @@ This is a dramatic moment - react to what the avatar did!`
           <div className="suggestions-display">
             {(suggestedAttributes || []).slice(-5).map((attr, i) => (
               <motion.span 
-                key={attr.id} 
+                key={attr.id || `suggestion-${i}-${attr.text}`} 
                 className="suggestion-chip"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                {attr.text}
+                {attr.text || attr}
               </motion.span>
             ))}
+          </div>
+        )}
+        {/* Debug: Show suggestion count during phase1 */}
+        {livePhase === 'phase1' && (
+          <div style={{ position: 'absolute', bottom: '5px', left: '5px', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
+            Suggestions: {suggestedAttributes?.length || 0}
           </div>
         )}
       </div>
