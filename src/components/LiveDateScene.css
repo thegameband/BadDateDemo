@@ -1493,6 +1493,17 @@
   animation: pulse 1s ease-in-out infinite;
 }
 
+.grouping-spinner {
+  font-size: 48px;
+  animation: spin 2s linear infinite;
+  margin: 20px 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .answer-selection-content h2.spinning-text {
   animation: pulse 0.3s ease-in-out infinite;
 }

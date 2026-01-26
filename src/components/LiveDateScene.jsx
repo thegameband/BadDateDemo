@@ -469,7 +469,7 @@ function LiveDateScene() {
   useEffect(() => {
     console.log('🔍 DEBUG: livePhase =', livePhase, ', isHost =', isHost)
     if (livePhase === 'answer-selection') {
-      console.log('🔍 DEBUG Answer Selection: answers =', answerSelection.answers.length, ', subPhase =', answerSelection.subPhase)
+      console.log('🔍 DEBUG Answer Selection: slices =', answerSelection.slices?.length || 0, ', subPhase =', answerSelection.subPhase)
     }
   }, [livePhase, answerSelection, isHost])
   
@@ -2115,38 +2115,71 @@ This is a dramatic moment - react to what the avatar did!`
     // Get the current question (dater's last message)
     const question = daterBubble || "What's something interesting about you?"
     
-    // Group similar answers using LLM
-    console.log('🤖 Grouping similar answers...')
-    const groupedSlices = await groupSimilarAnswers(question, answers)
-    
-    // Calculate angles for the wheel
-    const slicesWithAngles = calculateSliceAngles(groupedSlices)
-    
-    console.log('🎡 Created wheel with', slicesWithAngles.length, 'slices:', slicesWithAngles)
-    
-    // Show the wheel
-    setAnswerSelection({
-      subPhase: 'showing',
-      slices: slicesWithAngles,
-      spinAngle: 0,
-      winningSlice: null
-    })
-    
-    if (partyClient) {
-      partyClient.syncState({
-        answerSelection: {
-          subPhase: 'showing',
-          slices: slicesWithAngles,
-          spinAngle: 0,
-          winningSlice: null
-        }
+    try {
+      // Group similar answers using LLM
+      console.log('🤖 Grouping similar answers...')
+      const groupedSlices = await groupSimilarAnswers(question, answers)
+      
+      // Calculate angles for the wheel
+      const slicesWithAngles = calculateSliceAngles(groupedSlices)
+      
+      console.log('🎡 Created wheel with', slicesWithAngles.length, 'slices:', slicesWithAngles)
+      
+      // Show the wheel
+      setAnswerSelection({
+        subPhase: 'showing',
+        slices: slicesWithAngles,
+        spinAngle: 0,
+        winningSlice: null
       })
+      
+      if (partyClient) {
+        partyClient.syncState({
+          answerSelection: {
+            subPhase: 'showing',
+            slices: slicesWithAngles,
+            spinAngle: 0,
+            winningSlice: null
+          }
+        })
+      }
+      
+      // Show wheel for 2 seconds, then start spinning
+      setTimeout(() => {
+        startWheelSpin(slicesWithAngles)
+      }, 2000)
+    } catch (error) {
+      console.error('❌ Error grouping answers:', error)
+      // Fallback: create slices without grouping
+      const fallbackSlices = calculateSliceAngles(answers.map(a => ({
+        id: a.id,
+        label: a.text,
+        weight: 1,
+        originalAnswers: [a]
+      })))
+      
+      setAnswerSelection({
+        subPhase: 'showing',
+        slices: fallbackSlices,
+        spinAngle: 0,
+        winningSlice: null
+      })
+      
+      if (partyClient) {
+        partyClient.syncState({
+          answerSelection: {
+            subPhase: 'showing',
+            slices: fallbackSlices,
+            spinAngle: 0,
+            winningSlice: null
+          }
+        })
+      }
+      
+      setTimeout(() => {
+        startWheelSpin(fallbackSlices)
+      }, 2000)
     }
-    
-    // Show wheel for 2 seconds, then start spinning
-    setTimeout(() => {
-      startWheelSpin(slicesWithAngles)
-    }, 2000)
   }
   
   // Start the wheel spinning animation
@@ -2960,7 +2993,10 @@ This is a dramatic moment - react to what the avatar did!`
                 <div className="answer-selection-badge">🎡 SPIN THE WHEEL</div>
                 
                 {answerSelection.subPhase === 'grouping' && (
-                  <h2 className="grouping-text">Grouping similar answers...</h2>
+                  <>
+                    <h2 className="grouping-text">Grouping similar answers...</h2>
+                    <div className="grouping-spinner">🎲</div>
+                  </>
                 )}
                 
                 {answerSelection.subPhase === 'showing' && (
@@ -2976,7 +3012,7 @@ This is a dramatic moment - react to what the avatar did!`
                 )}
                 
                 {/* The Wheel */}
-                {answerSelection.slices.length > 0 && (
+                {answerSelection.slices && answerSelection.slices.length > 0 && (
                   <div className="wheel-container">
                     <div className="wheel-arrow">▼</div>
                     <svg 
