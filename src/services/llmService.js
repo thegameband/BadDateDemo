@@ -285,10 +285,41 @@ A normal person + scary thing = scared reaction (even if they try to be polite a
   // Special instruction if a new attribute was just added - USING MODULAR PROMPT CHAIN
   let latestAttrContext = ''
   if (latestAttribute) {
-    const isVisible = isVisibleAttribute(latestAttribute)
+    // Check if this is a PLOT TWIST scenario (special handling)
+    const isPlotTwist = latestAttribute.includes('PLOT TWIST SCENARIO')
     
-    // Context about the question-answer dynamic
-    const questionContext = `
+    if (isPlotTwist) {
+      // PLOT TWIST: Strong, focused reaction to this single dramatic event
+      latestAttrContext = `\n\n🚨🚨🚨 PLOT TWIST - DRAMATIC MOMENT! 🚨🚨🚨
+
+${latestAttribute}
+
+⚠️ CRITICAL INSTRUCTIONS FOR YOUR REACTION:
+1. REACT STRONGLY AND DRAMATICALLY to what just happened
+2. Focus ONLY on this single event - ignore everything else from the date
+3. This is the ONLY thing you should talk about right now
+4. Show clear, intense emotion:
+   - If they defended you → Be touched, grateful, swooning, impressed
+   - If they did something romantic → Be flattered, excited, flustered
+   - If they did something weird → Be confused, alarmed, weirded out
+   - If they ignored you/were passive → Be disappointed, annoyed, hurt
+   - If they joined in flirting with the other person → Be FURIOUS, betrayed, hurt
+   - If they were aggressive/violent → Be shocked, scared, maybe impressed or horrified
+5. Your reaction should be SHORT but INTENSE (1-2 sentences max)
+6. Do NOT ask questions or change the subject
+7. Do NOT reference anything else from the date - ONLY react to THIS moment
+
+Examples of good reactions:
+- "Oh my GOD, you just punched that guy for me?!"
+- "Wait... did you seriously just give them YOUR number instead of defending me?!"
+- "That was... actually really sweet. No one's ever stood up for me like that."
+- "I can't believe you just stood there and did NOTHING!"
+`
+    } else {
+      const isVisible = isVisibleAttribute(latestAttribute)
+      
+      // Context about the question-answer dynamic
+      const questionContext = `
 🎯 CONTEXT: YOU ASKED A QUESTION, THEY GAVE AN ANSWER
 
 YOUR QUESTION WAS: "${lastDaterQuestion}"
@@ -296,22 +327,23 @@ THEIR ANSWER REVEALED: "${latestAttribute}"
 THEIR FULL RESPONSE: "${lastAvatarMessage}"
 
 This is their ANSWER to YOUR question. React to what they revealed about themselves!`
-    
-    if (isVisible) {
-      // USE MODULAR PROMPT 04: Dater reacts to VISIBLE attribute
-      const modularVisiblePrompt = PROMPT_04_DATER_VISIBLE
-        .replace(/\{\{attribute\}\}/g, latestAttribute)
-        .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
-        .replace(/\{\{allVisibleAttributes\}\}/g, visibleAttributes.map(a => `- ${a}`).join('\n'))
       
-      latestAttrContext = `\n\n${questionContext}\n\n${modularVisiblePrompt}`
-    } else {
-      // USE MODULAR PROMPT 05: Dater INFERS from NON-VISIBLE attribute  
-      const modularInferPrompt = PROMPT_05_DATER_INFER
-        .replace(/\{\{attribute\}\}/g, latestAttribute)
-        .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
-      
-      latestAttrContext = `\n\n${questionContext}\n\n${modularInferPrompt}`
+      if (isVisible) {
+        // USE MODULAR PROMPT 04: Dater reacts to VISIBLE attribute
+        const modularVisiblePrompt = PROMPT_04_DATER_VISIBLE
+          .replace(/\{\{attribute\}\}/g, latestAttribute)
+          .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
+          .replace(/\{\{allVisibleAttributes\}\}/g, visibleAttributes.map(a => `- ${a}`).join('\n'))
+        
+        latestAttrContext = `\n\n${questionContext}\n\n${modularVisiblePrompt}`
+      } else {
+        // USE MODULAR PROMPT 05: Dater INFERS from NON-VISIBLE attribute  
+        const modularInferPrompt = PROMPT_05_DATER_INFER
+          .replace(/\{\{attribute\}\}/g, latestAttribute)
+          .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
+        
+        latestAttrContext = `\n\n${questionContext}\n\n${modularInferPrompt}`
+      }
     }
   } else {
     // No new attribute - use inference prompt for active listening
