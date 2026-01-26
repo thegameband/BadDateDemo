@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain } from '../services/llmService'
+import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain, groupSimilarAnswers } from '../services/llmService'
 import './LiveDateScene.css'
 
 // PartyKit replaces Firebase for real-time state sync
@@ -90,14 +90,15 @@ function LiveDateScene() {
   const plotTwistTimerRef = useRef(null)
   const plotTwistAnimationRef = useRef(null)
   
-  // Answer Selection state (replaces voting)
+  // Answer Selection state (replaces voting) - now uses wheel with slices
   const [answerSelection, setAnswerSelection] = useState({
-    subPhase: 'idle', // 'idle' | 'showing' | 'animation' | 'winner'
-    answers: [],
-    animationIndex: -1,
-    winningAnswer: null
+    subPhase: 'idle', // 'idle' | 'grouping' | 'showing' | 'spinning' | 'winner'
+    slices: [], // {id, label, weight, originalAnswers, color, startAngle, endAngle}
+    spinAngle: 0, // Current rotation angle of the wheel/arrow
+    winningSlice: null
   })
   const answerSelectionAnimationRef = useRef(null)
+  const wheelSpinRef = useRef(null)
   
   // Starting Stats Mode state
   const [startingStatsInput, setStartingStatsInput] = useState('')
@@ -2034,11 +2035,43 @@ This is a dramatic moment - react to what the avatar did!`
   // ============================================
   
   // ============================================
-  // ANSWER SELECTION FUNCTIONS (replaces voting)
+  // ANSWER SELECTION FUNCTIONS (Wheel with weighted slices)
   // ============================================
   
+  // Wheel colors (like the reference image)
+  const WHEEL_COLORS = [
+    '#E53935', // Red
+    '#1E88E5', // Blue
+    '#FDD835', // Yellow
+    '#43A047', // Green
+    '#E53935', // Red
+    '#1E88E5', // Blue
+    '#FDD835', // Yellow
+    '#43A047', // Green
+  ]
+  
+  // Calculate slice angles based on weights
+  const calculateSliceAngles = (slices) => {
+    const totalWeight = slices.reduce((sum, s) => sum + s.weight, 0)
+    let currentAngle = 0
+    
+    return slices.map((slice, index) => {
+      const sliceAngle = (slice.weight / totalWeight) * 360
+      const startAngle = currentAngle
+      const endAngle = currentAngle + sliceAngle
+      currentAngle = endAngle
+      
+      return {
+        ...slice,
+        startAngle,
+        endAngle,
+        color: WHEEL_COLORS[index % WHEEL_COLORS.length]
+      }
+    })
+  }
+  
   // Start the answer selection sequence
-  const startAnswerSelection = (answers) => {
+  const startAnswerSelection = async (answers) => {
     if (!isHost) return
     
     console.log('🎰 Starting answer selection with', answers.length, 'answers')
@@ -2049,19 +2082,18 @@ This is a dramatic moment - react to what the avatar did!`
     // If no answers, skip to generating a default
     if (answers.length === 0) {
       console.log('⚠️ No answers submitted, using fallback')
-      const fallbackAnswer = 'mysterious'
-      completeAnswerSelection(fallbackAnswer)
+      completeAnswerSelection('mysterious')
       return
     }
     
-    // Set the phase and show the interstitial
+    // Set phase to grouping while LLM processes
     setLivePhase('answer-selection')
     setPhaseTimer(0)
     setAnswerSelection({
-      subPhase: 'showing',
-      answers: answers,
-      animationIndex: -1,
-      winningAnswer: null
+      subPhase: 'grouping',
+      slices: [],
+      spinAngle: 0,
+      winningSlice: null
     })
     
     // Sync to PartyKit
@@ -2070,110 +2102,143 @@ This is a dramatic moment - react to what the avatar did!`
         phase: 'answer-selection',
         phaseTimer: 0,
         answerSelection: {
-          subPhase: 'showing',
-          answers: answers,
-          animationIndex: -1,
-          winningAnswer: null
+          subPhase: 'grouping',
+          slices: [],
+          spinAngle: 0,
+          winningSlice: null
         },
         compatibility: currentCompatibility,
         cycleCount: currentCycleCount
       })
     }
     
-    // Show all answers for 2 seconds, then start animation
+    // Get the current question (dater's last message)
+    const question = daterBubble || "What's something interesting about you?"
+    
+    // Group similar answers using LLM
+    console.log('🤖 Grouping similar answers...')
+    const groupedSlices = await groupSimilarAnswers(question, answers)
+    
+    // Calculate angles for the wheel
+    const slicesWithAngles = calculateSliceAngles(groupedSlices)
+    
+    console.log('🎡 Created wheel with', slicesWithAngles.length, 'slices:', slicesWithAngles)
+    
+    // Show the wheel
+    setAnswerSelection({
+      subPhase: 'showing',
+      slices: slicesWithAngles,
+      spinAngle: 0,
+      winningSlice: null
+    })
+    
+    if (partyClient) {
+      partyClient.syncState({
+        answerSelection: {
+          subPhase: 'showing',
+          slices: slicesWithAngles,
+          spinAngle: 0,
+          winningSlice: null
+        }
+      })
+    }
+    
+    // Show wheel for 2 seconds, then start spinning
     setTimeout(() => {
-      startAnswerSelectionAnimation()
+      startWheelSpin(slicesWithAngles)
     }, 2000)
   }
   
-  // Start the cycling animation
-  const startAnswerSelectionAnimation = () => {
+  // Start the wheel spinning animation
+  const startWheelSpin = (slices) => {
     if (!isHost) return
     
-    const currentAnswers = answerSelection.answers
-    if (currentAnswers.length === 0) {
+    if (slices.length === 0) {
       completeAnswerSelection('mysterious')
       return
     }
     
-    // If only one answer, just pick it immediately
-    if (currentAnswers.length === 1) {
-      declareAnswerSelectionWinner(currentAnswers[0], 0)
+    // If only one slice, just pick it immediately
+    if (slices.length === 1) {
+      declareWheelWinner(slices[0])
       return
     }
     
-    setAnswerSelection(prev => ({ ...prev, subPhase: 'animation' }))
+    setAnswerSelection(prev => ({ ...prev, subPhase: 'spinning' }))
     
     if (partyClient) {
       partyClient.syncState({
-        answerSelection: { ...answerSelection, subPhase: 'animation' }
+        answerSelection: { ...answerSelection, subPhase: 'spinning' }
       })
     }
     
-    // Animation: highlight each answer in sequence, speeding up
-    const animationCycles = [
-      { count: currentAnswers.length * 2, delay: 400 },   // Slow pass
-      { count: currentAnswers.length * 2, delay: 200 },   // Medium pass
-      { count: currentAnswers.length * 3, delay: 100 },   // Fast pass
-      { count: currentAnswers.length * 4, delay: 50 },    // Faster pass
-    ]
+    // Calculate where to stop (weighted random)
+    const totalWeight = slices.reduce((sum, s) => sum + s.weight, 0)
+    let randomValue = Math.random() * totalWeight
+    let winningSlice = slices[0]
     
-    let currentIndex = 0
-    let cycleIndex = 0
-    let stepCount = 0
-    
-    const animate = () => {
-      const answers = answerSelection.answers
-      
-      if (answers.length === 0) {
-        completeAnswerSelection('mysterious')
-        return
+    for (const slice of slices) {
+      randomValue -= slice.weight
+      if (randomValue <= 0) {
+        winningSlice = slice
+        break
       }
+    }
+    
+    // Calculate the angle to stop at (middle of winning slice)
+    const winningMidAngle = (winningSlice.startAngle + winningSlice.endAngle) / 2
+    // Arrow points up (0 degrees), so we need to rotate to put winning slice at top
+    // Add multiple full rotations for dramatic effect
+    const fullRotations = 5 + Math.floor(Math.random() * 3) // 5-7 full spins
+    const finalAngle = (fullRotations * 360) + (360 - winningMidAngle)
+    
+    console.log('🎡 Spinning wheel to', finalAngle, 'degrees, winner:', winningSlice.label)
+    
+    // Animate the spin
+    let startTime = Date.now()
+    const duration = 4000 // 4 seconds
+    const startAngle = 0
+    
+    const animateSpin = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
       
-      const cycle = animationCycles[cycleIndex]
-      currentIndex = (currentIndex + 1) % answers.length
-      stepCount++
+      // Easing function: slow down near the end (ease-out cubic)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const currentAngle = startAngle + (finalAngle * eased)
       
-      // Update the highlighted index
-      setAnswerSelection(prev => ({ ...prev, animationIndex: currentIndex }))
+      setAnswerSelection(prev => ({ ...prev, spinAngle: currentAngle }))
       
-      if (partyClient) {
+      // Sync periodically (every 100ms) to reduce traffic
+      if (partyClient && elapsed % 100 < 20) {
         partyClient.syncState({
-          answerSelection: { ...answerSelection, animationIndex: currentIndex }
+          answerSelection: { ...answerSelection, spinAngle: currentAngle }
         })
       }
       
-      // Check if we should move to next speed cycle
-      if (stepCount >= cycle.count) {
-        cycleIndex++
-        stepCount = 0
-        
-        if (cycleIndex >= animationCycles.length) {
-          // Animation complete - pick random winner
-          const winnerIndex = Math.floor(Math.random() * answers.length)
-          declareAnswerSelectionWinner(answers[winnerIndex], winnerIndex)
-          return
-        }
+      if (progress < 1) {
+        wheelSpinRef.current = requestAnimationFrame(animateSpin)
+      } else {
+        // Spin complete - declare winner
+        setTimeout(() => {
+          declareWheelWinner(winningSlice)
+        }, 500)
       }
-      
-      answerSelectionAnimationRef.current = setTimeout(animate, cycle.delay)
     }
     
-    // Start animation
-    animate()
+    wheelSpinRef.current = requestAnimationFrame(animateSpin)
   }
   
-  // Declare the winning answer
-  const declareAnswerSelectionWinner = (winner, winnerIndex) => {
+  // Declare the winning slice
+  const declareWheelWinner = (winningSlice) => {
     if (!isHost) return
     
-    console.log('🏆 Answer selection winner:', winner.text)
+    console.log('🏆 Wheel winner:', winningSlice.label)
     
     setAnswerSelection(prev => ({
       ...prev,
       subPhase: 'winner',
-      animationIndex: winnerIndex,
-      winningAnswer: winner
+      winningSlice: winningSlice
     }))
     
     if (partyClient) {
@@ -2181,15 +2246,14 @@ This is a dramatic moment - react to what the avatar did!`
         answerSelection: {
           ...answerSelection,
           subPhase: 'winner',
-          animationIndex: winnerIndex,
-          winningAnswer: winner
+          winningSlice: winningSlice
         }
       })
     }
     
     // Show winner for 2 seconds, then proceed to Phase 3
     setTimeout(() => {
-      completeAnswerSelection(winner.text)
+      completeAnswerSelection(winningSlice.label)
     }, 2000)
   }
   
@@ -2200,9 +2264,12 @@ This is a dramatic moment - react to what the avatar did!`
     const currentCompatibility = useGameStore.getState().compatibility
     const currentCycleCount = useGameStore.getState().cycleCount
     
-    // Clear animation ref
+    // Clear animation refs
     if (answerSelectionAnimationRef.current) {
       clearTimeout(answerSelectionAnimationRef.current)
+    }
+    if (wheelSpinRef.current) {
+      cancelAnimationFrame(wheelSpinRef.current)
     }
     
     // Show winner popup and apply the attribute
@@ -2215,9 +2282,9 @@ This is a dramatic moment - react to what the avatar did!`
     // Reset answer selection state
     setAnswerSelection({
       subPhase: 'idle',
-      answers: [],
-      animationIndex: -1,
-      winningAnswer: null
+      slices: [],
+      spinAngle: 0,
+      winningSlice: null
     })
     
     // Sync to PartyKit
@@ -2231,9 +2298,9 @@ This is a dramatic moment - react to what the avatar did!`
         cycleCount: currentCycleCount,
         answerSelection: {
           subPhase: 'idle',
-          answers: [],
-          animationIndex: -1,
-          winningAnswer: null
+          slices: [],
+          spinAngle: 0,
+          winningSlice: null
         }
       })
       partyClient.clearSuggestions()
@@ -2880,9 +2947,9 @@ This is a dramatic moment - react to what the avatar did!`
       
       {/* Date Screen - Characters with Speech Bubbles */}
       <div className="date-screen">
-        {/* Answer Selection Overlay - Replaces Voting */}
+        {/* Answer Selection Overlay - Spinning Wheel */}
         <AnimatePresence>
-          {livePhase === 'answer-selection' && answerSelection.answers.length > 0 && (
+          {livePhase === 'answer-selection' && (
             <motion.div 
               className="answer-selection-overlay"
               initial={{ opacity: 0 }}
@@ -2890,39 +2957,107 @@ This is a dramatic moment - react to what the avatar did!`
               exit={{ opacity: 0 }}
             >
               <div className="answer-selection-content">
-                <div className="answer-selection-badge">🎲 SELECTING ANSWER</div>
+                <div className="answer-selection-badge">🎡 SPIN THE WHEEL</div>
+                
+                {answerSelection.subPhase === 'grouping' && (
+                  <h2 className="grouping-text">Grouping similar answers...</h2>
+                )}
                 
                 {answerSelection.subPhase === 'showing' && (
-                  <h2>All Answers Submitted!</h2>
+                  <h2>Ready to spin!</h2>
                 )}
                 
-                {answerSelection.subPhase === 'animation' && (
-                  <h2 className="selecting-text">Selecting...</h2>
+                {answerSelection.subPhase === 'spinning' && (
+                  <h2 className="spinning-text">Spinning...</h2>
                 )}
                 
-                {answerSelection.subPhase === 'winner' && (
-                  <h2 className="winner-text">Winner!</h2>
+                {answerSelection.subPhase === 'winner' && answerSelection.winningSlice && (
+                  <h2 className="winner-text">🎉 {answerSelection.winningSlice.label}!</h2>
                 )}
                 
-                <div className="answer-selection-grid">
-                  {answerSelection.answers.map((answer, index) => (
-                    <motion.div 
-                      key={answer.id}
-                      className={`answer-selection-card ${answerSelection.animationIndex === index ? 'highlighted' : ''} ${answerSelection.subPhase === 'winner' && answerSelection.winningAnswer?.id === answer.id ? 'winner' : ''}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ 
-                        opacity: 1, 
-                        y: 0,
-                        scale: answerSelection.animationIndex === index ? 1.1 : 1,
-                        boxShadow: answerSelection.animationIndex === index ? '0 0 20px rgba(255, 215, 0, 0.8)' : 'none'
-                      }}
-                      transition={{ delay: index * 0.1, duration: 0.1 }}
+                {/* The Wheel */}
+                {answerSelection.slices.length > 0 && (
+                  <div className="wheel-container">
+                    <div className="wheel-arrow">▼</div>
+                    <svg 
+                      className="answer-wheel" 
+                      viewBox="0 0 200 200"
+                      style={{ transform: `rotate(${answerSelection.spinAngle}deg)` }}
                     >
-                      <span className="answer-text">{answer.text}</span>
-                      <span className="answer-author">— {answer.submittedBy}</span>
-                    </motion.div>
-                  ))}
-                </div>
+                      {answerSelection.slices.map((slice, index) => {
+                        const startAngle = slice.startAngle * (Math.PI / 180)
+                        const endAngle = slice.endAngle * (Math.PI / 180)
+                        const largeArc = (slice.endAngle - slice.startAngle) > 180 ? 1 : 0
+                        
+                        // Calculate path for pie slice
+                        const x1 = 100 + 90 * Math.cos(startAngle - Math.PI/2)
+                        const y1 = 100 + 90 * Math.sin(startAngle - Math.PI/2)
+                        const x2 = 100 + 90 * Math.cos(endAngle - Math.PI/2)
+                        const y2 = 100 + 90 * Math.sin(endAngle - Math.PI/2)
+                        
+                        // Calculate label position (middle of slice, 60% from center)
+                        const midAngle = ((slice.startAngle + slice.endAngle) / 2) * (Math.PI / 180) - Math.PI/2
+                        const labelX = 100 + 55 * Math.cos(midAngle)
+                        const labelY = 100 + 55 * Math.sin(midAngle)
+                        
+                        const isWinner = answerSelection.subPhase === 'winner' && answerSelection.winningSlice?.id === slice.id
+                        
+                        return (
+                          <g key={slice.id}>
+                            <path
+                              d={`M 100 100 L ${x1} ${y1} A 90 90 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                              fill={slice.color}
+                              stroke="#1a1225"
+                              strokeWidth="2"
+                              className={isWinner ? 'winning-slice' : ''}
+                            />
+                            <text
+                              x={labelX}
+                              y={labelY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              fill="#fff"
+                              fontSize={slice.label.length > 12 ? '6' : '8'}
+                              fontWeight="bold"
+                              style={{ 
+                                textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              {slice.label.length > 15 ? slice.label.slice(0, 15) + '...' : slice.label}
+                            </text>
+                            {/* Weight indicator */}
+                            {slice.weight > 1 && (
+                              <text
+                                x={labelX}
+                                y={labelY + 10}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill="rgba(255,255,255,0.8)"
+                                fontSize="5"
+                                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+                              >
+                                ({slice.weight}x)
+                              </text>
+                            )}
+                          </g>
+                        )
+                      })}
+                      {/* Center circle */}
+                      <circle cx="100" cy="100" r="15" fill="#1a1225" stroke="#333" strokeWidth="2" />
+                      <circle cx="100" cy="100" r="8" fill="#444" />
+                    </svg>
+                  </div>
+                )}
+                
+                {/* Legend showing grouped answers */}
+                {answerSelection.subPhase === 'winner' && answerSelection.winningSlice && (
+                  <div className="wheel-winner-details">
+                    <p className="winner-contributors">
+                      Submitted by: {answerSelection.winningSlice.originalAnswers.map(a => a.submittedBy).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

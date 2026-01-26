@@ -1374,3 +1374,125 @@ function getFallbackDaterValues(dater) {
     ]
   }
 }
+
+/**
+ * Group similar answers together and create a label for each group
+ * Used for the answer selection wheel
+ * @param {string} question - The question that was asked
+ * @param {Array} answers - Array of {id, text, submittedBy} objects
+ * @returns {Array} - Array of grouped slices: {id, label, weight, originalAnswers: [{id, text, submittedBy}]}
+ */
+export async function groupSimilarAnswers(question, answers) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  
+  // If only 1 or no answers, no grouping needed
+  if (answers.length <= 1) {
+    return answers.map(a => ({
+      id: a.id,
+      label: a.text,
+      weight: 1,
+      originalAnswers: [a]
+    }))
+  }
+  
+  if (!apiKey) {
+    // Fallback: no grouping, each answer is its own slice
+    console.log('⚠️ No API key - skipping answer grouping')
+    return answers.map(a => ({
+      id: a.id,
+      label: a.text,
+      weight: 1,
+      originalAnswers: [a]
+    }))
+  }
+  
+  const answerList = answers.map((a, i) => `${i + 1}. "${a.text}" (by ${a.submittedBy})`).join('\n')
+  
+  const prompt = `You are grouping player answers in a party game.
+
+QUESTION BEING ANSWERED: "${question}"
+
+PLAYER ANSWERS:
+${answerList}
+
+TASK: Group similar answers together based on their THEME or MEANING (not exact wording).
+
+RULES:
+- Answers that express the SAME IDEA should be grouped together
+- Be generous with grouping - if answers are related, group them
+- Create a SHORT label (1-3 words) that captures the theme
+- Answers that are truly unique should stay as their own group
+
+EXAMPLES OF SIMILAR ANSWERS (should be grouped):
+- "Looks", "Someone hot", "A total babe", "Attractive" → "Good Looking"
+- "Funny", "Makes me laugh", "Good sense of humor" → "Funny"
+- "Has money", "Rich", "Financially stable" → "Wealthy"
+- "Kind", "Nice", "Sweet person" → "Kind"
+
+RESPOND WITH ONLY A JSON ARRAY like this:
+[
+  {"label": "Short Theme Label", "answerIndices": [1, 3, 5]},
+  {"label": "Another Theme", "answerIndices": [2]},
+  {"label": "Third Theme", "answerIndices": [4, 6]}
+]
+
+RULES FOR JSON:
+- answerIndices are 1-based (matching the numbered list above)
+- Every answer must appear in exactly ONE group
+- Labels should be 1-3 words, catchy and clear
+- Output ONLY valid JSON, no explanation`
+
+  try {
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    const text = data.content[0].text
+    
+    // Parse JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (jsonMatch) {
+      const groups = JSON.parse(jsonMatch[0])
+      
+      // Convert groups to wheel slices
+      const slices = groups.map((group, groupIndex) => {
+        const groupedAnswers = group.answerIndices.map(idx => answers[idx - 1]).filter(Boolean)
+        return {
+          id: `group-${groupIndex}`,
+          label: group.label,
+          weight: groupedAnswers.length,
+          originalAnswers: groupedAnswers
+        }
+      }).filter(slice => slice.originalAnswers.length > 0)
+      
+      console.log('🎯 Grouped answers into', slices.length, 'slices:', slices)
+      return slices
+    }
+    
+    throw new Error('Could not parse JSON from response')
+  } catch (error) {
+    console.error('Error grouping answers:', error)
+    // Fallback: each answer is its own slice
+    return answers.map(a => ({
+      id: a.id,
+      label: a.text,
+      weight: 1,
+      originalAnswers: [a]
+    }))
+  }
+}
