@@ -2072,6 +2072,7 @@ This is a dramatic moment - react to what the avatar did!`
   
   // Start the answer selection sequence
   const startAnswerSelection = async (answers) => {
+    console.log('🎰 startAnswerSelection called, isHost:', isHost)
     if (!isHost) return
     
     console.log('🎰 Starting answer selection with', answers.length, 'answers')
@@ -2087,6 +2088,7 @@ This is a dramatic moment - react to what the avatar did!`
     }
     
     // Set phase to grouping while LLM processes
+    console.log('🎰 Setting phase to answer-selection')
     setLivePhase('answer-selection')
     setPhaseTimer(0)
     setAnswerSelection({
@@ -2095,6 +2097,7 @@ This is a dramatic moment - react to what the avatar did!`
       spinAngle: 0,
       winningSlice: null
     })
+    console.log('🎰 answerSelection subPhase set to: grouping')
     
     // Sync to PartyKit
     if (partyClient) {
@@ -2117,8 +2120,9 @@ This is a dramatic moment - react to what the avatar did!`
     
     try {
       // Group similar answers using LLM
-      console.log('🤖 Grouping similar answers...')
+      console.log('🤖 Grouping similar answers... question:', question, 'answers:', answers)
       const groupedSlices = await groupSimilarAnswers(question, answers)
+      console.log('🤖 Grouping complete, got', groupedSlices.length, 'slices:', groupedSlices)
       
       // Calculate angles for the wheel
       const slicesWithAngles = calculateSliceAngles(groupedSlices)
@@ -2191,12 +2195,7 @@ This is a dramatic moment - react to what the avatar did!`
       return
     }
     
-    // If only one slice, just pick it immediately
-    if (slices.length === 1) {
-      declareWheelWinner(slices[0])
-      return
-    }
-    
+    // Always show the wheel spinning, even with just one slice
     setAnswerSelection(prev => ({ ...prev, subPhase: 'spinning' }))
     
     if (partyClient) {
@@ -2267,6 +2266,7 @@ This is a dramatic moment - react to what the avatar did!`
     if (!isHost) return
     
     console.log('🏆 Wheel winner:', winningSlice.label)
+    console.log('🏆 Setting answerSelection subPhase to: winner')
     
     setAnswerSelection(prev => ({
       ...prev,
