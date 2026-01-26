@@ -12,8 +12,8 @@ const VOICES = {
   // Dater (Maya) - sunny, enthusiastic female voice with quirky attitude
   dater: 'FGY2WhTYpPnrIDTdsKH5', // Laura - "sunny enthusiasm with a quirky attitude"
   
-  // Avatar - young, playful, trendy female voice
-  avatar: 'cgSgspJ2msm6clMCkdW9', // Jessica - "Young and popular, playful American female"
+  // Avatar - young, energetic male voice
+  avatar: 'TX3LPaxmHKxFdv7VOQHJ', // Liam - "young adult with energy and warmth"
 }
 
 // Audio queue to prevent overlapping speech
