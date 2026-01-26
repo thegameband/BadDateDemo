@@ -72,6 +72,9 @@ function LiveDateScene() {
   const [showCompatDebug, setShowCompatDebug] = useState(false)
   const [usingFallback, setUsingFallback] = useState(false)
   const [showWinnerPopup, setShowWinnerPopup] = useState(false)
+  
+  // Track compatibility changes for end-of-game breakdown
+  const [compatibilityHistory, setCompatibilityHistory] = useState([])
   const [winnerText, setWinnerText] = useState('')
   // Timer starts immediately when phase begins (no waiting for submissions)
   const [showPhaseAnnouncement, setShowPhaseAnnouncement] = useState(false)
@@ -299,7 +302,7 @@ function LiveDateScene() {
         
         if (state.phase === 'ended' && !isHost) {
           console.log('🏁 Game ended - transitioning non-host to results')
-          setTimeout(() => setPhase('results'), 2000)
+          setTimeout(() => setPhase('results'), 15000) // Match host timeout for breakdown reading
         }
       }
       
@@ -997,6 +1000,7 @@ function LiveDateScene() {
     // IMPORTANT: Clear conversation history for fresh start
     // This ensures the avatar doesn't "remember" previous games
     useGameStore.setState({ dateConversation: [] })
+    setCompatibilityHistory([]) // Reset end-of-game breakdown tracking
     console.log('🧹 Cleared conversation history for fresh reaction round')
     
     const currentAvatar = useGameStore.getState().avatar
@@ -1481,6 +1485,16 @@ function LiveDateScene() {
             if (partyClient) {
               partyClient.syncState( { compatibility: newCompat })
             }
+            
+            // Record this impact for end-of-game breakdown
+            setCompatibilityHistory(prev => [...prev, {
+              attribute: attrToUse,
+              topic: matchResult.shortLabel || matchResult.matchedValue,
+              category: matchResult.category,
+              change: change,
+              daterValue: matchResult.matchedValue,
+              reason: matchResult.reason || ''
+            }])
           }
           
           // Update streak for escalating reactions
@@ -1676,7 +1690,8 @@ function LiveDateScene() {
       if (partyClient) {
         partyClient.syncState( { phase: 'ended', compatibility: currentCompatibility, cycleCount: newRoundCount })
       }
-      setTimeout(() => setPhase('results'), 2000)
+      // Extend timeout to let players read the breakdown (was 2000ms)
+      setTimeout(() => setPhase('results'), 15000)
     } else {
       // Start new round - Dater asks another question (host only generates)
       setLivePhase('phase1')
@@ -2806,6 +2821,107 @@ This is a dramatic moment - react to what the avatar did!`
             )}
             
             {/* Reaction Phase - now happens in the main date window, not here */}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* End Game Breakdown Overlay */}
+      <AnimatePresence>
+        {livePhase === 'ended' && (
+          <motion.div 
+            className="end-game-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div 
+              className="end-game-content"
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <h1 className="end-game-title">
+                {compatibility >= 70 ? '💕 Great Date!' : 
+                 compatibility >= 40 ? '😐 It Was... Okay' : 
+                 '💔 Total Disaster'}
+              </h1>
+              <div className="end-game-compatibility">
+                <span className="compat-final">{compatibility}%</span>
+                <span className="compat-label">Compatibility</span>
+              </div>
+              
+              {/* Breakdown of top 5 impacts */}
+              <div className="end-game-breakdown">
+                <h2>What Happened:</h2>
+                <div className="breakdown-list">
+                  {(() => {
+                    // Sort by absolute change value and take top 5
+                    const sortedImpacts = [...compatibilityHistory]
+                      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+                      .slice(0, 5)
+                    
+                    if (sortedImpacts.length === 0) {
+                      return <p className="no-impacts">The date was uneventful...</p>
+                    }
+                    
+                    return sortedImpacts.map((impact, index) => {
+                      const daterName = selectedDater?.name || 'Maya'
+                      const avatarName = avatar?.name || 'your date'
+                      
+                      // Generate natural sentence based on category
+                      let sentence = ''
+                      const topic = impact.topic || impact.attribute
+                      
+                      switch (impact.category) {
+                        case 'loves':
+                          sentence = `${daterName} absolutely loved that ${avatarName} ${topic.toLowerCase()}.`
+                          break
+                        case 'likes':
+                          sentence = `${daterName} thought it was cute that ${avatarName} ${topic.toLowerCase()}.`
+                          break
+                        case 'dislikes':
+                          sentence = `${daterName} was put off by ${avatarName}'s ${topic.toLowerCase()}.`
+                          break
+                        case 'dealbreakers':
+                          sentence = `${daterName} was horrified by ${avatarName}'s ${topic.toLowerCase()}. Total dealbreaker!`
+                          break
+                        default:
+                          sentence = `${topic} came up in conversation.`
+                      }
+                      
+                      const emoji = impact.category === 'loves' ? '💕' : 
+                                   impact.category === 'likes' ? '😊' :
+                                   impact.category === 'dislikes' ? '😬' : '💀'
+                      
+                      return (
+                        <motion.div 
+                          key={index}
+                          className={`breakdown-item ${impact.category}`}
+                          initial={{ x: -20, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ delay: 0.5 + (index * 0.2) }}
+                        >
+                          <span className="breakdown-emoji">{emoji}</span>
+                          <span className="breakdown-text">{sentence}</span>
+                          <span className={`breakdown-change ${impact.change > 0 ? 'positive' : 'negative'}`}>
+                            {impact.change > 0 ? '+' : ''}{impact.change}%
+                          </span>
+                        </motion.div>
+                      )
+                    })
+                  })()}
+                </div>
+              </div>
+              
+              <motion.p 
+                className="end-game-hint"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 2 }}
+              >
+                Returning to results...
+              </motion.p>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

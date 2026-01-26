@@ -421,6 +421,150 @@
 }
 
 /* ============================================
+   END GAME BREAKDOWN OVERLAY
+   ============================================ */
+
+.end-game-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(26, 18, 22, 0.98), rgba(45, 25, 35, 0.98));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  backdrop-filter: blur(10px);
+}
+
+.end-game-content {
+  text-align: center;
+  padding: 30px;
+  max-width: 600px;
+  width: 90%;
+}
+
+.end-game-title {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #ff4d6d, #ff8fa3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.end-game-compatibility {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.compat-final {
+  font-size: 4rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ff4d6d, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.compat-label {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.end-game-breakdown {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.end-game-breakdown h2 {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.breakdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.breakdown-item.loves {
+  background: rgba(255, 77, 109, 0.2);
+  border-left: 3px solid #ff4d6d;
+}
+
+.breakdown-item.likes {
+  background: rgba(168, 85, 247, 0.2);
+  border-left: 3px solid #a855f7;
+}
+
+.breakdown-item.dislikes {
+  background: rgba(251, 191, 36, 0.2);
+  border-left: 3px solid #fbbf24;
+}
+
+.breakdown-item.dealbreakers {
+  background: rgba(239, 68, 68, 0.2);
+  border-left: 3px solid #ef4444;
+}
+
+.breakdown-emoji {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.breakdown-text {
+  flex: 1;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+}
+
+.breakdown-change {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.breakdown-change.positive {
+  color: #4ade80;
+}
+
+.breakdown-change.negative {
+  color: #ef4444;
+}
+
+.no-impacts {
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+.end-game-hint {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+  margin-top: 20px;
+}
+
+/* ============================================
    PLOT TWIST OVERLAY
    ============================================ */
 
