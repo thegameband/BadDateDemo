@@ -21,9 +21,12 @@ function LiveGameLobby() {
   const playerId = useGameStore((state) => state.playerId)
   const partyClient = useGameStore((state) => state.partyClient)
   
+  const setShowAttributesByDefault = useGameStore((state) => state.setShowAttributesByDefault)
+  
   const [copied, setCopied] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
   const [startingStatsMode, setStartingStatsMode] = useState(true) // Default ON
+  const [showAttributes, setShowAttributes] = useState(false) // Default OFF
   
   // Subscribe to PartyKit state updates
   useEffect(() => {
@@ -136,6 +139,7 @@ function LiveGameLobby() {
     })
     
     // Update local state
+    setShowAttributesByDefault(showAttributes) // Save the show attributes setting
     startLiveDate(null, showTutorial, startingStatsMode)
   }
   
@@ -288,6 +292,15 @@ function LiveGameLobby() {
                   />
                   <span className="checkbox-label">🎲 Starting Stats</span>
                   <span className="checkbox-hint">Players create the avatar together</span>
+                </label>
+                <label className="tutorial-checkbox">
+                  <input 
+                    type="checkbox" 
+                    checked={showAttributes}
+                    onChange={(e) => setShowAttributes(e.target.checked)}
+                  />
+                  <span className="checkbox-label">👁️ Show Attributes</span>
+                  <span className="checkbox-hint">Debug mode - shows sentiment categories</span>
                 </label>
               </div>
               <motion.button
