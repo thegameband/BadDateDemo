@@ -629,9 +629,10 @@ export const useGameStore = create((set, get) => ({
   // Create a new live room (host)
   createLiveRoom: (roomCode, username) => {
     const { daters } = get()
-    // Randomly select a dater for this room
-    const randomDater = daters[Math.floor(Math.random() * daters.length)]
+    // Always select Maya for now
+    const randomDater = daters.find(d => d.name === 'Maya') || daters[0]
     
+    // IMPORTANT: Reset ALL game state for a fresh start
     set({
       isLiveMode: true,
       roomCode,
@@ -641,16 +642,32 @@ export const useGameStore = create((set, get) => ({
       selectedDater: randomDater,
       livePhase: 'waiting',
       cycleCount: 0,
+      // Reset avatar to initial state
       avatar: { ...initialAvatar },
+      appliedAttributes: [],
+      submittedAttributes: [],
+      latestAttribute: null,
+      // Reset conversation history
+      dateConversation: [],
+      // Reset suggestions
       suggestedAttributes: [],
       numberedAttributes: [],
       playerChat: [],
+      // Reset compatibility
+      compatibility: 50,
+      // Reset sentiment
       sentimentCategories: {
         loves: [],
         likes: [],
         dislikes: [],
         dealbreakers: [],
       },
+      exposedValues: [],
+      glowingValues: [],
+      // Reset other state
+      winningAttribute: null,
+      showWinnerPopup: false,
+      plotTwistCompleted: false,
     })
   },
   
@@ -663,7 +680,7 @@ export const useGameStore = create((set, get) => ({
     if (!currentRoomCode && !selectedDater) {
       // If no room exists, create one (for testing)
       const { daters } = get()
-      const randomDater = daters[Math.floor(Math.random() * daters.length)]
+      const randomDater = daters.find(d => d.name === 'Maya') || daters[0]
       
       set({
         isLiveMode: true,
@@ -676,16 +693,26 @@ export const useGameStore = create((set, get) => ({
         ],
         selectedDater: randomDater,
         livePhase: 'waiting',
+        // Reset state for fresh game
+        avatar: { ...initialAvatar },
+        appliedAttributes: [],
+        dateConversation: [],
+        compatibility: 50,
       })
       return true
     }
     
-    // Room exists, add player
+    // Room exists, add player - reset local state (will sync from server)
     const newPlayer = { id: Date.now(), username, isHost: false }
     set({
       isLiveMode: true,
       username,
       players: [...players, newPlayer],
+      // Reset local state - server will sync correct values
+      avatar: { ...initialAvatar },
+      appliedAttributes: [],
+      dateConversation: [],
+      compatibility: 50,
     })
     return true
   },

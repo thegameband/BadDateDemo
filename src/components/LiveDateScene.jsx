@@ -962,6 +962,11 @@ function LiveDateScene() {
     setIsGenerating(true)
     console.log('🎭 Running reaction round...')
     
+    // IMPORTANT: Clear conversation history for fresh start
+    // This ensures the avatar doesn't "remember" previous games
+    useGameStore.setState({ dateConversation: [] })
+    console.log('🧹 Cleared conversation history for fresh reaction round')
+    
     const currentAvatar = useGameStore.getState().avatar
     const avatarName = currentAvatar.name || 'the date'
     const attributes = currentAvatar.attributes || []
