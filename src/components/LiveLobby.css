@@ -223,6 +223,33 @@
   color: var(--text-muted);
 }
 
+/* Settings Section */
+.settings-section {
+  text-align: left;
+  margin-top: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  padding: 8px 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #6e8efb;
+  cursor: pointer;
+}
+
+.checkbox-text {
+  user-select: none;
+}
+
 /* Main Action Buttons */
 .main-buttons {
   display: flex;

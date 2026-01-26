@@ -69,8 +69,9 @@ function LiveDateScene() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [userVote, setUserVote] = useState(null)
   const [showDaterValuesPopup, setShowDaterValuesPopup] = useState(false)
+  const showAttributesByDefault = useGameStore((state) => state.showAttributesByDefault)
   const [showCompatPercent, setShowCompatPercent] = useState(false) // Heart shows compatibility %
-  const [showSentimentDebug, setShowSentimentDebug] = useState(false) // Phase label shows attributes
+  const [showSentimentDebug, setShowSentimentDebug] = useState(showAttributesByDefault) // Phase label shows attributes
   const [usingFallback, setUsingFallback] = useState(false)
   const [showWinnerPopup, setShowWinnerPopup] = useState(false)
   

@@ -76,6 +76,8 @@ const initialLiveState = {
   },
   // Track if plot twist has occurred this game
   plotTwistCompleted: false,
+  // Game settings (set from lobby)
+  showAttributesByDefault: false, // Whether to show sentiment categories by default
 }
 
 /**
@@ -621,6 +623,7 @@ export const useGameStore = create((set, get) => ({
   setRoomCode: (roomCode) => set({ roomCode }),
   setIsHost: (isHost) => set({ isHost }),
   setSelectedDater: (dater) => set({ selectedDater: dater }),
+  setShowAttributesByDefault: (show) => set({ showAttributesByDefault: show }),
   
   // PartyKit client
   partyClient: null,

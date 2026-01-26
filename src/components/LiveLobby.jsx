@@ -9,7 +9,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.01.38'
+const GAME_VERSION = '0.01.39'
 
 // Main game entry screen - Bad Date
 
@@ -23,8 +23,10 @@ function LiveLobby() {
   const setPlayers = useGameStore((state) => state.setPlayers)
   const setPartyClient = useGameStore((state) => state.setPartyClient)
   const daters = useGameStore((state) => state.daters)
+  const setShowAttributesByDefault = useGameStore((state) => state.setShowAttributesByDefault)
   
   const [view, setView] = useState('main') // 'main', 'host', 'join'
+  const [showAttributes, setShowAttributes] = useState(false) // Checkbox for showing attributes
   const [availableRooms, setAvailableRooms] = useState([])
   const [username, setUsernameLocal] = useState('')
   const [error, setError] = useState('')
@@ -132,6 +134,7 @@ function LiveLobby() {
       setSelectedDater(randomDater)
       setPlayers([{ id: odId, odId, username: playerName, isHost: true }])
       setPartyClient(client)
+      setShowAttributesByDefault(showAttributes) // Save the checkbox setting
       setPhase('live-game-lobby')
       
     } catch (err) {
@@ -184,6 +187,7 @@ function LiveLobby() {
       setIsHost(false)
       setPlayerId(odId)
       setPartyClient(client)
+      setShowAttributesByDefault(showAttributes) // Save the checkbox setting
       setPhase('live-game-lobby')
       
     } catch (err) {
@@ -357,6 +361,18 @@ function LiveLobby() {
               maxLength={15}
               autoFocus
             />
+          </div>
+          
+          {/* Game Settings */}
+          <div className="settings-section">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={showAttributes}
+                onChange={(e) => setShowAttributes(e.target.checked)}
+              />
+              <span className="checkbox-text">Show attributes (debug mode)</span>
+            </label>
           </div>
           
           {error && (
