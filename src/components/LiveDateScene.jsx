@@ -1157,8 +1157,7 @@ function LiveDateScene() {
             if (partyClient) {
               partyClient.syncState( { compatibility: newCompat })
             }
-            // Show reaction feedback
-            showReactionFeedback(matchResult.category, matchResult.shortLabel)
+            // No reaction feedback during first impressions - only during conversation
           }
         }
       }
@@ -1198,8 +1197,7 @@ function LiveDateScene() {
             if (partyClient) {
               partyClient.syncState( { compatibility: newCompat })
             }
-            // Show reaction feedback
-            showReactionFeedback(matchResult.category, matchResult.shortLabel)
+            // No reaction feedback during first impressions - only during conversation
           }
         }
       }
@@ -1568,6 +1566,7 @@ function LiveDateScene() {
       let currentStreak = { ...reactionStreak }
       
       // Helper to check match, apply scoring, and update streak
+      // Returns the category so we can show feedback when Dater actually responds
       const checkAndScore = async (avatarMessage, multiplier) => {
         const matchResult = await checkAttributeMatch(avatarMessage, daterValues, selectedDater, null)
         if (matchResult.category) {
@@ -1585,9 +1584,6 @@ function LiveDateScene() {
             if (partyClient) {
               partyClient.syncState( { compatibility: newCompat })
             }
-            
-            // Show reaction feedback to players
-            showReactionFeedback(matchResult.category, matchResult.shortLabel)
             
             // Record this impact for end-of-game breakdown
             setCompatibilityHistory(prev => [...prev, {
@@ -1609,7 +1605,7 @@ function LiveDateScene() {
           }
           console.log(`🔥 Reaction streak updated:`, currentStreak)
         }
-        return matchResult.category // Return the category so Dater can react appropriately
+        return matchResult.category // Return the category so we can show feedback when Dater responds
       }
       
       // Helper to get fresh conversation history (React state may be stale in async function)
@@ -1657,6 +1653,10 @@ function LiveDateScene() {
           setDaterBubble(daterReaction1)
           addDateMessage('dater', daterReaction1)
           await syncConversationToPartyKit(undefined, daterReaction1, undefined)
+          // Show reaction feedback when Maya responds (if there was a sentiment hit)
+          if (sentimentHit1) {
+            showReactionFeedback(sentimentHit1)
+          }
         }
         
         await new Promise(resolve => setTimeout(resolve, 3000))
@@ -1698,6 +1698,10 @@ function LiveDateScene() {
             setDaterBubble(daterReaction2)
             addDateMessage('dater', daterReaction2)
             await syncConversationToPartyKit(undefined, daterReaction2, undefined)
+            // Show reaction feedback when Maya responds (if there was a sentiment hit)
+            if (sentimentHit2) {
+              showReactionFeedback(sentimentHit2)
+            }
           }
           
           await new Promise(resolve => setTimeout(resolve, 3000))
@@ -1739,6 +1743,10 @@ function LiveDateScene() {
               setDaterBubble(daterReaction3)
               addDateMessage('dater', daterReaction3)
               await syncConversationToPartyKit(undefined, daterReaction3, undefined)
+              // Show reaction feedback when Maya responds (if there was a sentiment hit)
+              if (sentimentHit3) {
+                showReactionFeedback(sentimentHit3)
+              }
             }
           }
         }
