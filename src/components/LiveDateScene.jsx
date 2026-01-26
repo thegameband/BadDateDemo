@@ -69,7 +69,8 @@ function LiveDateScene() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [userVote, setUserVote] = useState(null)
   const [showDaterValuesPopup, setShowDaterValuesPopup] = useState(false)
-  const [showCompatDebug, setShowCompatDebug] = useState(false)
+  const [showCompatPercent, setShowCompatPercent] = useState(false) // Heart shows compatibility %
+  const [showSentimentDebug, setShowSentimentDebug] = useState(false) // Phase label shows attributes
   const [usingFallback, setUsingFallback] = useState(false)
   const [showWinnerPopup, setShowWinnerPopup] = useState(false)
   
@@ -3084,22 +3085,27 @@ This is a dramatic moment - react to what the avatar did!`
       {/* Header Section - Compact horizontal layout */}
       <div className={`live-header ${showTutorial && getTutorialContent().highlight === 'compatibility' ? 'tutorial-highlight' : ''}`}>
         <div className="header-row">
-          {/* Left: Call to Action - Click to toggle debug view */}
+          {/* Left: Call to Action - Click to toggle sentiment/attributes debug */}
           <div 
             className="header-cta"
-            onClick={() => setShowCompatDebug(!showCompatDebug)}
+            onClick={() => setShowSentimentDebug(!showSentimentDebug)}
             style={{ cursor: 'pointer' }}
-            title="Tap to toggle debug info"
+            title="Tap to toggle attributes debug"
           >
             <span className="cta-line1">{getPhaseTitle().line1}</span>
             <span className="cta-line2">{getPhaseTitle().line2}</span>
             <span className="cta-line3">{getPhaseTitle().line3}</span>
           </div>
           
-          {/* Center: Compatibility (hidden, shows when debug is on) */}
-          <div className="compatibility-display compatibility-hidden">
+          {/* Center: Compatibility - Click heart to show percentage */}
+          <div 
+            className="compatibility-display compatibility-hidden"
+            onClick={() => setShowCompatPercent(!showCompatPercent)}
+            style={{ cursor: 'pointer' }}
+            title="Tap to see compatibility"
+          >
             <span className="compat-heart">❤️</span>
-            {showCompatDebug && (
+            {showCompatPercent && (
               <span className="compat-debug">{compatibility}%</span>
             )}
           </div>
@@ -3265,8 +3271,8 @@ This is a dramatic moment - react to what the avatar did!`
         )}
       </AnimatePresence>
       
-      {/* Sentiment Categories - Hidden by default, shown via debug toggle */}
-      {showCompatDebug && (
+      {/* Sentiment Categories - Hidden by default, shown via phase label toggle */}
+      {showSentimentDebug && (
         <div className="sentiment-bar">
           <div className="sentiment-category loves">
             <span className="category-label">✨ Loves</span>
