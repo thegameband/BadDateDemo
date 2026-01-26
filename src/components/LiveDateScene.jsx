@@ -3366,9 +3366,59 @@ This is a dramatic moment - react to what the avatar did!`
                       style={{ transform: `rotate(${answerSelection.spinAngle}deg)` }}
                     >
                       {answerSelection.slices.map((slice, index) => {
+                        const sliceAngle = slice.endAngle - slice.startAngle
+                        const isFullCircle = sliceAngle >= 359.9 // Handle single slice (full wheel)
+                        const isWinner = answerSelection.subPhase === 'winner' && answerSelection.winningSlice?.id === slice.id
+                        
+                        // For a full circle (single slice), draw a circle instead of an arc
+                        if (isFullCircle) {
+                          return (
+                            <g key={slice.id}>
+                              <circle
+                                cx="100"
+                                cy="100"
+                                r="90"
+                                fill={slice.color}
+                                stroke="#1a1225"
+                                strokeWidth="2"
+                                className={isWinner ? 'winning-slice' : ''}
+                              />
+                              <text
+                                x="100"
+                                y="100"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill="#fff"
+                                fontSize={slice.label.length > 12 ? '8' : '10'}
+                                fontWeight="bold"
+                                style={{ 
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                  pointerEvents: 'none'
+                                }}
+                              >
+                                {slice.label.length > 20 ? slice.label.slice(0, 20) + '...' : slice.label}
+                              </text>
+                              {/* Weight indicator */}
+                              {slice.weight > 1 && (
+                                <text
+                                  x="100"
+                                  y="115"
+                                  textAnchor="middle"
+                                  dominantBaseline="middle"
+                                  fill="rgba(255,255,255,0.8)"
+                                  fontSize="6"
+                                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+                                >
+                                  ({slice.weight}x)
+                                </text>
+                              )}
+                            </g>
+                          )
+                        }
+                        
                         const startAngle = slice.startAngle * (Math.PI / 180)
                         const endAngle = slice.endAngle * (Math.PI / 180)
-                        const largeArc = (slice.endAngle - slice.startAngle) > 180 ? 1 : 0
+                        const largeArc = sliceAngle > 180 ? 1 : 0
                         
                         // Calculate path for pie slice
                         const x1 = 100 + 90 * Math.cos(startAngle - Math.PI/2)
@@ -3380,8 +3430,6 @@ This is a dramatic moment - react to what the avatar did!`
                         const midAngle = ((slice.startAngle + slice.endAngle) / 2) * (Math.PI / 180) - Math.PI/2
                         const labelX = 100 + 55 * Math.cos(midAngle)
                         const labelY = 100 + 55 * Math.sin(midAngle)
-                        
-                        const isWinner = answerSelection.subPhase === 'winner' && answerSelection.winningSlice?.id === slice.id
                         
                         return (
                           <g key={slice.id}>
