@@ -1036,27 +1036,79 @@ function LiveDateScene() {
     const currentStats = useGameStore.getState().startingStats
     const answers = currentStats.answers || []
     
-    // Extract attributes by type
-    const physicalAttrs = answers.filter(a => a.questionType === 'physical').map(a => a.answer)
-    const emotionalAttrs = answers.filter(a => a.questionType === 'emotional').map(a => a.answer)
+    // Helper: detect if input is gibberish (random characters, too short, no real words)
+    const isGibberish = (text) => {
+      if (!text || typeof text !== 'string') return true
+      const cleaned = text.trim().toLowerCase()
+      if (cleaned.length < 2) return true
+      // Check for excessive non-letter characters
+      const letterRatio = (cleaned.match(/[a-z]/g) || []).length / cleaned.length
+      if (letterRatio < 0.5) return true
+      // Check for random keyboard mashing (too many consonants in a row)
+      if (/[bcdfghjklmnpqrstvwxz]{5,}/i.test(cleaned)) return true
+      // Check for repeated characters
+      if (/(.)\1{3,}/.test(cleaned)) return true
+      // Check against common gibberish patterns
+      const gibberishPatterns = [
+        /^[asdfjkl;]+$/i, // keyboard row mashing
+        /^[qwertyuiop]+$/i,
+        /^[zxcvbnm]+$/i,
+        /^[0-9]+$/, // just numbers
+        /^test+$/i,
+        /^asdf/i,
+        /^qwer/i,
+        /^[a-z]{1,2}$/i, // just 1-2 random letters
+      ]
+      for (const pattern of gibberishPatterns) {
+        if (pattern.test(cleaned)) return true
+      }
+      return false
+    }
+    
+    // Helper: sanitize attributes based on type
+    const sanitizeAttribute = (text, type) => {
+      if (isGibberish(text)) {
+        console.log(`🧹 Detected gibberish "${text}" for ${type}, using default`)
+        switch (type) {
+          case 'physical': return 'average looking'
+          case 'emotional': return 'neutral'
+          case 'name': return 'Alex'
+          default: return 'unremarkable'
+        }
+      }
+      return text.trim()
+    }
+    
+    // Extract and sanitize attributes by type
+    const physicalAttrs = answers
+      .filter(a => a.questionType === 'physical')
+      .map(a => sanitizeAttribute(a.answer, 'physical'))
+    const emotionalAttrs = answers
+      .filter(a => a.questionType === 'emotional')
+      .map(a => sanitizeAttribute(a.answer, 'emotional'))
     const nameAnswer = answers.find(a => a.questionType === 'name')
+    const sanitizedName = nameAnswer ? sanitizeAttribute(nameAnswer.answer, 'name') : null
+    
+    // If all physical attrs are "average looking", just use one
+    const uniquePhysicalAttrs = [...new Set(physicalAttrs)]
+    const uniqueEmotionalAttrs = [...new Set(emotionalAttrs)]
     
     // Combine all attributes
     const allAttributes = [
-      ...physicalAttrs,
-      ...emotionalAttrs.map(e => `emotionally ${e}`),
+      ...uniquePhysicalAttrs,
+      ...uniqueEmotionalAttrs.map(e => `emotionally ${e}`),
     ]
     
-    // Set avatar name if provided
-    if (nameAnswer) {
-      setAvatarName(nameAnswer.answer)
+    // Set avatar name if provided (and not gibberish)
+    if (sanitizedName) {
+      setAvatarName(sanitizedName)
     }
     
     // Add all attributes to the avatar
     const currentAvatar = useGameStore.getState().avatar
     const updatedAvatar = {
       ...currentAvatar,
-      name: nameAnswer?.answer || currentAvatar.name,
+      name: sanitizedName || currentAvatar.name,
       attributes: [...(currentAvatar.attributes || []), ...allAttributes],
     }
     useGameStore.setState({ avatar: updatedAvatar })
