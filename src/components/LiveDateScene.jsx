@@ -2144,10 +2144,10 @@ This is a dramatic moment - react to what the avatar did!`
         })
       }
       
-      // Show wheel for 2 seconds, then start spinning
+      // Start spinning almost immediately (brief pause for wheel to render)
       setTimeout(() => {
         startWheelSpin(slicesWithAngles)
-      }, 2000)
+      }, 500)
     } catch (error) {
       console.error('❌ Error grouping answers:', error)
       // Fallback: create slices without grouping
@@ -2178,7 +2178,7 @@ This is a dramatic moment - react to what the avatar did!`
       
       setTimeout(() => {
         startWheelSpin(fallbackSlices)
-      }, 2000)
+      }, 500)
     }
   }
   
@@ -3000,7 +3000,7 @@ This is a dramatic moment - react to what the avatar did!`
                 )}
                 
                 {answerSelection.subPhase === 'showing' && (
-                  <h2>Ready to spin!</h2>
+                  <h2 className="spinning-text">Starting spin...</h2>
                 )}
                 
                 {answerSelection.subPhase === 'spinning' && (
