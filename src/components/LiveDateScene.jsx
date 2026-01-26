@@ -2359,22 +2359,23 @@ This is a dramatic moment - react to what the avatar did!`
     if (!chatInput.trim()) return
     
     const message = chatInput.trim()
+    console.log('📝 handleChatSubmit called:', { message, livePhase, username, playerId, hasPartyClient: !!partyClient })
     
     // Helper to truncate long messages
     const truncate = (text, max = 40) => text.length > max ? text.slice(0, max) + '...' : text
     
     // In Phase 1, treat messages as attribute suggestions
     if (livePhase === 'phase1') {
-      const suggestion = {
-        id: Date.now(),
-        text: message,
-        username: username
-      }
+      console.log('📝 Phase 1 - submitting attribute suggestion')
       
       // Submit via PartyKit if available, otherwise local only
       if (partyClient) {
+        console.log('📝 Submitting via PartyKit:', { text: message, username, odId: playerId })
         partyClient.submitAttribute(message, username, playerId)
+        // Also show in local chat immediately for feedback
+        addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
       } else {
+        console.log('📝 No partyClient, submitting locally')
         submitAttributeSuggestion(message, username)
         addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
       }
