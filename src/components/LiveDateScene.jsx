@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
 import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain, groupSimilarAnswers, generateBreakdownSentences } from '../services/llmService'
-import { speak, stopAllAudio, setTTSEnabled, isTTSEnabled } from '../services/ttsService'
+import { speak, stopAllAudio, setTTSEnabled, isTTSEnabled, waitForAllAudio } from '../services/ttsService'
 import { getMayaPortrait, getAvatarPortrait, preloadExpressions } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
 import './LiveDateScene.css'
@@ -1372,10 +1372,15 @@ function LiveDateScene() {
   
   // Finish reaction round and move to Phase 1
   const finishReactionRound = async () => {
-    console.log('✅ Reaction round complete, waiting 10s before Phase 1...')
+    console.log('✅ Reaction round complete, waiting for audio...')
     
-    // Give players 10 seconds to read the conversation before starting Phase 1
-    await new Promise(resolve => setTimeout(resolve, 10000))
+    // Wait for all audio to finish first
+    await waitForAllAudio()
+    console.log('✅ Audio complete, waiting 5s before Phase 1...')
+    
+    // Give players 5 seconds to read the conversation before starting Phase 1
+    // (Reduced from 10s since we now wait for audio)
+    await new Promise(resolve => setTimeout(resolve, 5000))
     
     console.log('⏰ Delay complete, starting Phase 1')
     
@@ -1936,10 +1941,15 @@ function LiveDateScene() {
       setReactionStreak(currentStreak)
       console.log('🔥 Final streak for this round:', currentStreak)
       
-      // After all 3 exchanges, give players 15 seconds to read the conversation before transitioning
-      // This delay is NOT shown on the timer - it's a "reading time" pause
-      console.log('💬 Conversation complete - 15 second reading pause before next phase')
-      await new Promise(resolve => setTimeout(resolve, 15000))
+      // Wait for all audio to finish before transitioning
+      console.log('⏳ Waiting for audio to complete...')
+      await waitForAllAudio()
+      console.log('✅ Audio complete')
+      
+      // After all 3 exchanges, give players 5 seconds to read the conversation before transitioning
+      // (Reduced from 15s since we now wait for audio)
+      console.log('💬 Conversation complete - 5 second reading pause before next phase')
+      await new Promise(resolve => setTimeout(resolve, 5000))
       handleRoundComplete()
       
     } catch (error) {
@@ -2325,12 +2335,18 @@ This is a dramatic moment - react to what the avatar did!`
         partyClient.syncState({ avatarEmotion: avatarMood })
       }
       
-      // Wait for reading, then finish plot twist
-      await new Promise(resolve => setTimeout(resolve, 5000))
+      // Wait for all audio to complete before transitioning
+      console.log('⏳ Waiting for plot twist audio to complete...')
+      await waitForAllAudio()
+      console.log('✅ Plot twist audio complete')
+      
+      // Brief reading pause
+      await new Promise(resolve => setTimeout(resolve, 3000))
       
     } catch (error) {
       console.error('Error generating plot twist reaction:', error)
       setDaterBubble("Well, THAT was unexpected!")
+      await waitForAllAudio()
       await new Promise(resolve => setTimeout(resolve, 2000))
     }
     
