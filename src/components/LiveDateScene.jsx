@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain, groupSimilarAnswers, generateBreakdownSentences } from '../services/llmService'
+import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary } from '../services/llmService'
 import { speak, stopAllAudio, setTTSEnabled, isTTSEnabled, waitForAllAudio } from '../services/ttsService'
 import { getMayaPortraitCached, getAvatarPortraitCached, preloadExpressions, waitForPreload } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -2277,10 +2277,41 @@ function LiveDateScene() {
       partyClient.syncState({ plotTwist: newPlotTwist })
     }
     
-    // Show winner for 3 seconds, then generate reaction
+    // Show winner for 3 seconds, then generate summary
+    setTimeout(() => {
+      generatePlotTwistSummaryPhase(winner)
+    }, 3000)
+  }
+  
+  // Generate and show the plot twist summary before the dater's reaction
+  const generatePlotTwistSummaryPhase = async (winner) => {
+    if (!isHost) return
+    
+    console.log('🎭 Generating plot twist summary...')
+    
+    const avatarName = avatar?.name || 'Your Avatar'
+    const daterName = selectedDater?.name || 'Maya'
+    
+    // Generate the dramatic summary
+    const summary = await generatePlotTwistSummary(avatarName, daterName, winner.answer)
+    
+    // Update to summary phase with the generated text
+    const currentPlotTwist = useGameStore.getState().plotTwist
+    const newPlotTwist = {
+      ...currentPlotTwist,
+      subPhase: 'summary',
+      summary: summary,
+    }
+    setPlotTwist(newPlotTwist)
+    
+    if (partyClient) {
+      partyClient.syncState({ plotTwist: newPlotTwist })
+    }
+    
+    // Show summary for 5 seconds, then go to conversation for dater's reaction
     setTimeout(() => {
       generatePlotTwistReaction(winner)
-    }, 3000)
+    }, 5000)
   }
   
   // Generate LLM reaction to the plot twist
@@ -3124,6 +3155,34 @@ This is a dramatic moment - react to what the avatar did!`
                   <span className="winner-answer">"{plotTwist.winningAnswer.answer}"</span>
                   <span className="winner-by">by {plotTwist.winningAnswer.username}</span>
                 </div>
+              </motion.div>
+            )}
+            
+            {/* Summary Phase - Dramatic narration of what happened */}
+            {plotTwist.subPhase === 'summary' && (
+              <motion.div 
+                className="plot-twist-summary"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="plot-twist-badge">📖 WHAT HAPPENED</div>
+                <motion.div 
+                  className="plot-twist-summary-text"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                >
+                  {plotTwist.summary || 'Something dramatic happened...'}
+                </motion.div>
+                <motion.div 
+                  className="plot-twist-summary-footer"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1 }}
+                >
+                  Now let's see how {selectedDater?.name || 'your date'} reacts...
+                </motion.div>
               </motion.div>
             )}
             

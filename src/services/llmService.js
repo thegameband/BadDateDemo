@@ -1648,3 +1648,79 @@ Return ONLY a JSON array of strings, like:
     return []
   }
 }
+
+/**
+ * Generate a narrative summary of what happened during the plot twist
+ * This creates a 2-3 sentence dramatic description of the action
+ */
+export async function generatePlotTwistSummary(avatarName, daterName, winningAction) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  if (!apiKey) {
+    console.warn('⚠️ No API key for plot twist summary')
+    return `${avatarName} decided to "${winningAction}". The situation was intense.`
+  }
+  
+  const prompt = `You're narrating a dramatic moment in a dating game.
+
+CONTEXT:
+- ${avatarName} is on a date with ${daterName}
+- A random stranger just started hitting on ${daterName}
+- ${avatarName}'s response to this was: "${winningAction}"
+
+Write a 2-3 sentence DRAMATIC NARRATION of what happened. This should describe:
+1. What ${avatarName} actually did (interpret their action dramatically)
+2. What happened to the person who was hitting on ${daterName}
+3. The aftermath/result of the action
+
+RULES:
+- Write in past tense, like narrating a story
+- Be dramatic and visual - describe the SCENE
+- Keep each sentence punchy (10-20 words max)
+- Don't use quotation marks or dialogue
+- Make it sound like a sports commentator or movie narrator
+- If the action was passive/nothing, make that dramatic too ("${avatarName} just... stood there. The silence was deafening.")
+- If the action was violent, describe it cinematically
+- If the action was romantic/protective, make it swoony
+- If the action was weird, lean into the weirdness
+
+EXAMPLES:
+Action: "Punch them in the face"
+→ "${avatarName} wound up and delivered a devastating right hook. The flirty stranger crumpled to the floor. ${daterName}'s jaw dropped."
+
+Action: "Do nothing"
+→ "${avatarName} froze completely, watching the scene unfold. The stranger kept flirting, unbothered. It was painfully awkward."
+
+Action: "Start flirting with them too"
+→ "${avatarName} sidled up next to the stranger and started chatting them up instead. ${daterName} was left sitting alone. Betrayal was in the air."
+
+Return ONLY the 2-3 sentence narration, nothing else.`
+
+  try {
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    const summary = data.content[0]?.text?.trim() || ''
+    console.log('🎭 Generated plot twist summary:', summary)
+    return summary
+  } catch (error) {
+    console.error('Error generating plot twist summary:', error)
+    return `${avatarName} responded with "${winningAction}". The moment was intense.`
+  }
+}
