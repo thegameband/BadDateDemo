@@ -3715,6 +3715,7 @@ This is a dramatic moment - react to what the avatar did!`
             ) : (
               <div className="character-image character-loading">🎭</div>
             )}
+            <span className="character-name">{avatarName || 'Avatar'}</span>
           </div>
           
           <div className="character dater-character">
@@ -3727,6 +3728,7 @@ This is a dramatic moment - react to what the avatar did!`
             ) : (
               <div className="character-image character-loading">💕</div>
             )}
+            <span className="character-name">{selectedDater?.name || 'Maya'}</span>
           </div>
         </div>
         
