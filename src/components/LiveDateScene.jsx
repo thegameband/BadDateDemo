@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGameStore } from '../store/gameStore'
 import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, runAttributePromptChain, groupSimilarAnswers, generateBreakdownSentences } from '../services/llmService'
 import { speak, stopAllAudio, setTTSEnabled, isTTSEnabled } from '../services/ttsService'
+import AnimatedText from './AnimatedText'
 import './LiveDateScene.css'
 
 // PartyKit replaces Firebase for real-time state sync
@@ -3538,7 +3539,7 @@ This is a dramatic moment - react to what the avatar did!`
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: -10 }}
                 >
-                  {avatarBubble}
+                  <AnimatedText text={avatarBubble} wordDelay={50} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -3554,7 +3555,7 @@ This is a dramatic moment - react to what the avatar did!`
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: -10 }}
                 >
-                  {daterBubble}
+                  <AnimatedText text={daterBubble} wordDelay={50} />
                 </motion.div>
               )}
             </AnimatePresence>
