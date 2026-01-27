@@ -2807,31 +2807,6 @@ This is a dramatic moment - react to what the avatar did!`
   
   return (
     <div className="live-date-scene">
-      {/* Phase Announcement Overlay */}
-      <AnimatePresence>
-        {showPhaseAnnouncement && (
-          <motion.div 
-            className="phase-announcement-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.div 
-              className="phase-announcement-card"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <span className="phase-icon">{getPhaseAnnouncement().icon}</span>
-              <h2 className="phase-title">{getPhaseAnnouncement().title}</h2>
-              <h3 className="phase-subtitle">{getPhaseAnnouncement().subtitle}</h3>
-              <p className="phase-description">{getPhaseAnnouncement().description}</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       
       {/* Tutorial Overlay */}
       <AnimatePresence>
@@ -3465,6 +3440,32 @@ This is a dramatic moment - react to what the avatar did!`
       
       {/* Date Screen - Characters with Speech Bubbles */}
       <div className="date-screen">
+        {/* Phase Announcement Banner - at top of conversation area */}
+        <AnimatePresence>
+          {showPhaseAnnouncement && (
+            <motion.div 
+              className="phase-announcement-overlay"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <motion.div 
+                className="phase-announcement-card"
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+              >
+                <span className="phase-icon">{getPhaseAnnouncement().icon}</span>
+                <div className="phase-announcement-text">
+                  <h2 className="phase-title">{getPhaseAnnouncement().title} {getPhaseAnnouncement().subtitle}</h2>
+                  <p className="phase-description">{getPhaseAnnouncement().description}</p>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         {/* Answer Selection Overlay - Spinning Wheel */}
         <AnimatePresence>
           {livePhase === 'answer-selection' && (
