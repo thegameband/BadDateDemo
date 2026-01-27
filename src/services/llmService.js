@@ -10,6 +10,7 @@ import {
   PROMPT_05_DATER_INFER,
   PROMPT_05B_DATER_REACTION_STYLE
 } from './promptChain'
+import { getVoiceProfilePrompt, getEmotionalVoiceGuidance } from './voiceProfiles'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
@@ -353,8 +354,15 @@ This is their ANSWER to YOUR question. React to what they revealed about themsel
     latestAttrContext = `\n\n${activeListeningPrompt}`
   }
   
-  // Add MODULAR PROMPTS: Reaction style (exaggerated & honest) + formatting rules
-  const fullPrompt = systemPrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  // Add MODULAR PROMPTS: Voice profile + Reaction style + formatting rules
+  // Determine emotion for voice guidance
+  const emotionForVoice = sentimentHit === 'loves' ? 'attracted' 
+    : sentimentHit === 'likes' ? 'interested'
+    : sentimentHit === 'dislikes' ? 'uncomfortable'
+    : sentimentHit === 'dealbreakers' ? 'horrified'
+    : null
+  const voicePrompt = getVoiceProfilePrompt('maya', emotionForVoice)
+  const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   
   // Convert conversation history to Claude format
   let messages = conversationHistory.map(msg => ({
@@ -586,8 +594,11 @@ ${rulesPrompt}
 - If they haven't told you something, you don't know it!
 - React to what they ACTUALLY SAY, not what you imagine about them`
 
+  // Add voice profile for more human-sounding speech
+  const avatarVoicePrompt = getVoiceProfilePrompt('avatar', null)
+  
   // Add the response checklist to ensure quality
-  const fullSystemPrompt = systemPrompt + LLM_RESPONSE_CHECKLIST
+  const fullSystemPrompt = systemPrompt + avatarVoicePrompt + LLM_RESPONSE_CHECKLIST
   
   // DEBUG: Log the prompt being sent
   console.log('🤖 AVATAR PROMPT:', {
