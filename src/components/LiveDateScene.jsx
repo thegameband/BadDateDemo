@@ -126,6 +126,9 @@ function LiveDateScene() {
   const [startingStatsInput, setStartingStatsInput] = useState('')
   const [startingStatsTimer, setStartingStatsTimer] = useState(15)
   const [hasSubmittedStartingStat, setHasSubmittedStartingStat] = useState(false)
+  
+  // Current round prompt state (persists during Phase 1)
+  const [currentRoundPrompt, setCurrentRoundPrompt] = useState({ title: '', subtitle: '' })
   const startingStatsTimerRef = useRef(null)
   const lastActivePlayerRef = useRef(null)
   const lastAnswerCountRef = useRef(0)
@@ -1618,9 +1621,6 @@ function LiveDateScene() {
     console.log(`🎯 Selected prompt: "${prompt.title}" (${isFirstRound ? 'first round' : 'later round'})`)
     return prompt
   }
-  
-  // Current round prompt state (persists during Phase 1)
-  const [currentRoundPrompt, setCurrentRoundPrompt] = useState({ title: '', subtitle: '' })
   
   const handlePhaseEnd = async () => {
     if (phaseTimerRef.current) {
