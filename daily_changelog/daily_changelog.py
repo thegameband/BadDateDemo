@@ -60,7 +60,7 @@ def get_yesterdays_commits():
         return ""
 
 def summarize_with_claude(commit_messages):
-    """Use Claude to summarize the commits into a bulleted list."""
+    """Use Claude to create a narrative summary of yesterday's work."""
     if not ANTHROPIC_API_KEY:
         return "Error: ANTHROPIC_API_KEY not set in environment variables."
     
@@ -69,23 +69,35 @@ def summarize_with_claude(commit_messages):
     
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     
-    prompt = f"""Here are the git commit messages from yesterday's work on a dating game project:
+    prompt = f"""Here are the git commit messages from yesterday's work on a multiplayer dating game project called "Bad Date Demo":
 
 {commit_messages}
 
-Please create a bulleted list summarizing the broad changes made. Rules:
-- Maximum 10 bullets
-- Combine similar tasks into single bullets (e.g., multiple timer changes = one bullet about timer changes)
-- Focus on what was accomplished, not technical details
-- Keep each bullet concise but descriptive
-- Start each bullet with a bold topic/category
+Create a narrative daily summary for a general (non-technical) audience. Format:
 
-Return ONLY the bulleted list, nothing else."""
+1. **Theme line**: Start with "Yesterday's Focus: [Theme]" - identify the overarching goal or improvement theme (e.g., "Making the Date Feel Real", "Improving Player Experience", "Polish and Bug Fixes")
+
+2. **Theme description**: 1-2 sentences explaining what the developer was trying to accomplish at a high level.
+
+3. **Bulleted changes**: 4-8 bullets (combine similar changes), each formatted as:
+   • **Short title** — Plain English explanation of what changed and why it matters to players
+
+Rules:
+- Write for someone who doesn't code - no technical jargon
+- Focus on the player experience and why changes matter
+- Each bullet should feel like "what improved" not "what code changed"
+- Be concise but descriptive
+- If commits mention things like "timers", "UI", "prompts", "LLM" - translate these to player-facing benefits
+
+Example bullet style:
+• **Conversations feel more natural** — The date no longer fires off questions like an interview. Instead, she reacts and shares her own stories.
+
+Return the formatted summary."""
 
     try:
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=1000,
+            max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
         return response.content[0].text
@@ -111,12 +123,13 @@ def generate_changelog():
     summary = summarize_with_claude(commits)
     
     # Create the output
-    output = f"""Bad Date Demo - Daily Changelog
+    output = f"""Bad Date Demo - Daily Summary
 {day_name}, {yesterday.strftime("%B %d, %Y")}
 {'=' * 50}
 
 {summary}
 
+---
 Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
     
