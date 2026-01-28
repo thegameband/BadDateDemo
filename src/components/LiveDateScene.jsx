@@ -426,11 +426,16 @@ function LiveDateScene() {
         setTutorialStep(state.tutorialStep)
       }
       
-      // Sync current question (non-hosts)
-      if (state.daterBubble && !isHost) {
+      // Sync current round prompt (non-hosts)
+      if (state.currentRoundPrompt && !isHost) {
+        setCurrentRoundPrompt(state.currentRoundPrompt)
+      }
+      
+      // Sync dater bubble (non-hosts)
+      if (state.daterBubble !== undefined && !isHost) {
         setDaterBubble(state.daterBubble)
         const lastMessage = dateConversation[dateConversation.length - 1]
-        if (dateConversation.length === 0 || lastMessage?.message !== state.daterBubble) {
+        if (state.daterBubble && dateConversation.length === 0 || (state.daterBubble && lastMessage?.message !== state.daterBubble)) {
           if (state.phase === 'phase1') {
             addDateMessage('dater', state.daterBubble)
           }
@@ -1395,8 +1400,9 @@ function LiveDateScene() {
     
     console.log('⏰ Delay complete, starting Phase 1')
     
-    // Generate the opening question for Phase 1
-    const openingLine = getOpeningLine()
+    // Get round prompt (Title + Question) - shown as interstitial, not asked by dater
+    const roundPrompt = getRoundPrompt()
+    setCurrentRoundPrompt(roundPrompt)
     
     // Get current compatibility to preserve it
     const currentCompatibility = useGameStore.getState().compatibility
@@ -1404,29 +1410,25 @@ function LiveDateScene() {
     
     setLivePhase('phase1')
     setPhaseTimer(30)
-    setDaterEmotion('curious') // Asking a question
-    setDaterBubble(openingLine)
-    setAvatarBubble('') // Clear avatar bubble
-    addDateMessage('dater', openingLine)
-    if (partyClient && isHost) {
-      partyClient.syncState({ daterEmotion: 'curious' })
-    }
+    // Don't set dater bubble - the prompt is shown as interstitial instead
+    setDaterBubble('')
+    setAvatarBubble('')
     
     if (partyClient) {
       const currentCycleCount = useGameStore.getState().cycleCount
       partyClient.syncState( {
         phase: 'phase1',
-        phaseTimer: 45, // was 30
+        phaseTimer: 45,
         reactionRoundComplete: true,
-        currentQuestion: openingLine,
-        daterBubble: openingLine,
+        currentRoundPrompt: roundPrompt, // Sync round prompt to all clients
+        daterBubble: '',
         avatarBubble: '',
-        compatibility: currentCompatibility, // IMPORTANT: Preserve compatibility!
-        cycleCount: currentCycleCount, // IMPORTANT: Sync round number!
+        compatibility: currentCompatibility,
+        cycleCount: currentCycleCount,
       })
     }
     
-    console.log('❓ Dater asks:', openingLine)
+    console.log('🎯 Round prompt:', roundPrompt.title, '-', roundPrompt.subtitle)
   }
   
   // ============ END STARTING STATS MODE LOGIC ============
@@ -1442,43 +1444,19 @@ function LiveDateScene() {
     }
   }, [livePhase, isHost])
   
-  // Start Phase 1 - Dater asks Avatar about themselves
-  // Only HOST generates questions; non-hosts receive via PartyKit
+  // Phase 1 initialization - round prompt is now set by finishReactionRound/handleRoundComplete/finishPlotTwist
+  // This effect just ensures prompts are generated if somehow missing (fallback)
   useEffect(() => {
-    const initPhase1 = async () => {
-      if (livePhase === 'phase1' && dateConversation.length === 0) {
-        // Only host generates the question
-        if (isHost) {
-          const openingLine = getOpeningLine()
-          setDaterEmotion('curious') // Asking a question
-          setDaterBubble(openingLine)
-          setAvatarBubble('') // Clear avatar bubble
-          addDateMessage('dater', openingLine)
-          if (partyClient) {
-            partyClient.syncState({ daterEmotion: 'curious' })
-          }
-          
-          // Sync question and state to PartyKit for other players
-          // IMPORTANT: Include compatibility and cycleCount to preserve them!
-          if (partyClient) {
-            const currentCompatibility = useGameStore.getState().compatibility
-            const currentCycleCount = useGameStore.getState().cycleCount
-            partyClient.syncState( { 
-              phase: 'phase1', 
-              phaseTimer: 45, // was 30
-              currentQuestion: openingLine,
-              daterBubble: openingLine, // Sync dater bubble to match question
-              avatarBubble: '', // Clear avatar bubble
-              compatibility: currentCompatibility, // PRESERVE!
-              cycleCount: currentCycleCount // PRESERVE!
-            })
-          }
-        }
-        // Non-hosts will receive the question via PartyKit subscription
+    if (livePhase === 'phase1' && isHost && !currentRoundPrompt.title) {
+      // Fallback: generate a round prompt if none exists
+      const roundPrompt = getRoundPrompt()
+      setCurrentRoundPrompt(roundPrompt)
+      if (partyClient) {
+        partyClient.syncState({ currentRoundPrompt: roundPrompt })
       }
+      console.log('🎯 Fallback round prompt:', roundPrompt.title, '-', roundPrompt.subtitle)
     }
-    initPhase1()
-  }, [livePhase, isHost, partyClient, roomCode])
+  }, [livePhase, isHost, currentRoundPrompt.title])
   
   // Auto-scroll chat
   useEffect(() => {
@@ -1509,7 +1487,13 @@ function LiveDateScene() {
       case 'reaction':
         return { title: 'FIRST IMPRESSIONS', subtitle: 'Meeting Your Date', icon: '👋', description: 'Watch them meet for the first time!' }
       case 'phase1':
-        return { title: 'PHASE 1', subtitle: 'Submit Answers', icon: '✨', description: 'Type an answer for your Avatar!' }
+        // Use current round prompt if available
+        return { 
+          title: currentRoundPrompt.title || 'ROUND ' + (cycleCount + 1), 
+          subtitle: '', 
+          icon: '✨', 
+          description: currentRoundPrompt.subtitle || 'Submit your answer!' 
+        }
       case 'answer-selection':
         return { title: 'SELECTING', subtitle: 'Answer', icon: '🎲', description: 'Picking an answer...' }
       case 'phase3':
@@ -1566,50 +1550,40 @@ function LiveDateScene() {
     initDaterValues()
   }, [selectedDater, isHost, partyClient, roomCode])
   
-  // Questions for the FIRST round only (simple, open-ended icebreakers)
-  const firstRoundQuestions = [
-    "Tell me something about yourself that would surprise me.",
-    "What do you like to do for fun?",
-    "What are you looking for in a partner?",
+  // Round prompts - Title + Subtitle (Question) for each round
+  // These are shown as interstitials during Phase 1 instead of the dater asking
+  const ROUND_PROMPTS = [
+    { title: "First Impressions", subtitle: "What's the first thing you notice about someone?" },
+    { title: "Getting Personal", subtitle: "What's something surprising about you?" },
+    { title: "Dreams & Desires", subtitle: "What are you looking for in a partner?" },
+    { title: "The Real You", subtitle: "What's the weirdest thing about you?" },
+    { title: "Make or Break", subtitle: "What's your biggest deal breaker?" },
   ]
   
-  // ALL questions available for rounds 2-5
-  const laterRoundQuestions = [
-    "Tell me something about yourself that would surprise me.",
-    "What's the most spontaneous thing you've ever done?",
-    "What are you looking for in a partner?",
-    "What do you think makes a good connection?",
-    "What do you like to do for fun?",
-    "What's your favorite way to spend a weekend?",
-    "If you could travel anywhere tomorrow, where would you go?",
-    "What's something you're really passionate about?",
-    "Do you have any hidden talents?",
-  ]
+  // Track which round prompts have been used
+  const usedRoundPromptsRef = useRef(new Set())
   
-  // Track which questions have been used this session
-  const usedQuestionsRef = useRef(new Set())
-  
-  const getOpeningLine = () => {
-    // Use first round questions for round 1, all questions for later rounds
-    const isFirstRound = cycleCount === 0
-    const questionPool = isFirstRound ? firstRoundQuestions : laterRoundQuestions
+  // Get a random round prompt (returns {title, subtitle})
+  const getRoundPrompt = () => {
+    // Get unused prompts
+    const availableIndices = ROUND_PROMPTS.map((_, i) => i).filter(i => !usedRoundPromptsRef.current.has(i))
     
-    // Get unused questions from the appropriate pool
-    const unusedQuestions = questionPool.filter(q => !usedQuestionsRef.current.has(q))
-    
-    // If all used, reset and pick from pool
-    if (unusedQuestions.length === 0) {
-      usedQuestionsRef.current.clear()
-      const randomQuestion = questionPool[Math.floor(Math.random() * questionPool.length)]
-      usedQuestionsRef.current.add(randomQuestion)
-      return randomQuestion
+    // If all used, reset
+    if (availableIndices.length === 0) {
+      usedRoundPromptsRef.current.clear()
+      const randomIndex = Math.floor(Math.random() * ROUND_PROMPTS.length)
+      usedRoundPromptsRef.current.add(randomIndex)
+      return ROUND_PROMPTS[randomIndex]
     }
     
-    // Pick a random unused question
-    const randomQuestion = unusedQuestions[Math.floor(Math.random() * unusedQuestions.length)]
-    usedQuestionsRef.current.add(randomQuestion)
-    return randomQuestion
+    // Pick a random unused prompt
+    const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
+    usedRoundPromptsRef.current.add(randomIndex)
+    return ROUND_PROMPTS[randomIndex]
   }
+  
+  // Current round prompt state (persists during Phase 1)
+  const [currentRoundPrompt, setCurrentRoundPrompt] = useState({ title: '', subtitle: '' })
   
   const handlePhaseEnd = async () => {
     if (phaseTimerRef.current) {
@@ -1677,7 +1651,7 @@ function LiveDateScene() {
   }
   
   // Generate the full Phase 3 conversation flow
-  // Exchange 1: Avatar answers question (1x scoring)
+  // Exchange 1: Avatar paraphrases winning answer (1x scoring)
   // Exchange 2: Avatar continues conversation (0.25x scoring)
   // Exchange 3: Avatar continues again (0.10x scoring)
   // ONLY HOST should run this - non-hosts receive updates via PartyKit
@@ -1702,34 +1676,23 @@ function LiveDateScene() {
     const isFinalRound = currentCycleForCheck >= maxCyclesForCheck - 1
     console.log(`🏁 Round ${currentCycleForCheck + 1}/${maxCyclesForCheck} - Final round: ${isFinalRound}`)
     
-    // Check if the current question is about PREFERENCES (what avatar wants in a partner)
-    // vs ATTRIBUTES (what avatar IS)
-    const preferenceQuestions = [
-      'looking for in a partner',
-      'looking for in a date',
-      'want in a partner',
-      'ideal partner',
-      'perfect date',
-      'type of person',
-    ]
-    const currentQuestion = daterBubble?.toLowerCase() || ''
-    const isPreferenceQuestion = preferenceQuestions.some(q => currentQuestion.includes(q))
+    // Use the round prompt's question as context for the paraphrase
+    const questionContext = currentRoundPrompt.subtitle || 'Tell me about yourself'
+    console.log('🎯 Round prompt question:', questionContext)
     
-    // Frame the answer appropriately based on question type
-    let framedAttribute = attrToUse
-    if (isPreferenceQuestion) {
-      // For preference questions, frame as what they're looking for
-      framedAttribute = `wants a partner who is ${attrToUse}`
-      console.log('💕 Preference question detected - framing as:', framedAttribute)
+    // Frame the attribute with question context for paraphrase mode
+    const framedAttribute = {
+      answer: attrToUse,
+      questionContext: questionContext
     }
     
     // IMPORTANT: Create avatar with the new attribute included
     // (React state might not have updated yet due to async nature)
     const avatarWithNewAttr = {
       ...avatar,
-      attributes: avatar.attributes.includes(framedAttribute) 
+      attributes: avatar.attributes.includes(attrToUse) 
         ? avatar.attributes 
-        : [...avatar.attributes, framedAttribute]
+        : [...avatar.attributes, attrToUse]
     }
     
     console.log('🎯 generateDateConversation called with:', {
@@ -1788,31 +1751,35 @@ function LiveDateScene() {
       // Helper to get fresh conversation history (React state may be stale in async function)
       const getConversation = () => useGameStore.getState().dateConversation
       
-      // ============ EXCHANGE 1: Avatar answers with new attribute (1x scoring) ============
-      // Using the new PROMPT CHAIN SYSTEM for modular, cleaner prompts
-      console.log('--- Exchange 1: Avatar answers with new attribute (PROMPT CHAIN) ---')
+      // ============ EXCHANGE 1: Avatar paraphrases winning answer (1x scoring) ============
+      console.log('--- Exchange 1: Avatar paraphrases winning answer ---')
+      console.log('🎯 Winning answer:', attrToUse)
+      console.log('🎯 Question context:', questionContext)
       
-      // Get the last thing the dater said for context
-      const lastDaterMessage = getConversation()
-        .slice(-20) // Keep more history for better memory
-        .reverse()
-        .find(msg => msg.speaker === 'dater')?.message || ''
-      
-      // Run the full prompt chain: Avatar responds, then Dater reacts
-      // Use framedAttribute for preference questions so LLM understands context
-      const { avatarResponse: avatarResponse1, daterResponse: daterReaction1, visibility, debugPrompts } = await runAttributePromptChain(
+      // Avatar paraphrases the winning answer in their own words
+      const avatarResponse1 = await getAvatarDateResponse(
         avatarWithNewAttr,
         selectedDater,
-        framedAttribute,
-        getConversation().slice(-20) // Keep more history for better memory
+        getConversation().slice(-20),
+        framedAttribute, // Contains answer + questionContext
+        'paraphrase' // Use paraphrase mode
       )
       
-      // Store prompts for debug display
-      if (debugPrompts) {
-        setLastLLMPrompt(debugPrompts)
+      // Then get dater's reaction to the avatar's paraphrase
+      let daterReaction1 = null
+      if (avatarResponse1) {
+        daterReaction1 = await getDaterDateResponse(
+          selectedDater,
+          avatarWithNewAttr,
+          [...getConversation().slice(-20), { speaker: 'avatar', message: avatarResponse1 }],
+          attrToUse, // The original attribute for sentiment checking
+          null, // sentimentHit
+          reactionStreak,
+          isFinalRound
+        )
       }
       
-      console.log('🔗 Prompt chain result:', { avatarResponse1, daterReaction1, visibility })
+      console.log('🔗 Paraphrase result:', { avatarResponse1: avatarResponse1?.substring(0, 50), daterReaction1: daterReaction1?.substring(0, 50) })
       
       if (avatarResponse1) {
         const avatarMood = getAvatarEmotionFromTraits()
@@ -2005,43 +1972,44 @@ function LiveDateScene() {
       // Extend timeout to let players read the breakdown
       setTimeout(() => setPhase('results'), 15000)
     } else {
-      // Start new round - Dater asks another question (host only generates)
+      // Start new round - show round prompt interstitial (not dater question)
       setLivePhase('phase1')
       setPhaseTimer(30)
       
-      // Only host generates the next question
+      // Only host sets up the next round
       if (isHost) {
-        const nextQuestion = getOpeningLine()
-        setDaterEmotion('curious') // Asking a question
-        setDaterBubble(nextQuestion)
+        // Get round prompt (Title + Question) - shown as interstitial
+        const roundPrompt = getRoundPrompt()
+        setCurrentRoundPrompt(roundPrompt)
+        
+        // Don't set dater bubble - the prompt is shown as interstitial
+        setDaterBubble('')
         setAvatarBubble('')
-        addDateMessage('dater', nextQuestion)
-        if (partyClient) {
-          partyClient.syncState({ daterEmotion: 'curious' })
-        }
         
         // Clear previous round's suggestions
         setSuggestedAttributes([])
         setNumberedAttributes([])
         
-        // Sync to PartyKit including the question and cleared state
+        // Sync to PartyKit including the round prompt and cleared state
         if (partyClient) {
           partyClient.syncState( { 
             phase: 'phase1', 
-            phaseTimer: 45, // was 30
-            compatibility: currentCompatibility, // Use fresh value from store!
-            currentQuestion: nextQuestion,
-            daterBubble: nextQuestion, // Sync dater bubble to match question
-            avatarBubble: '', // Clear avatar bubble for new round
+            phaseTimer: 45,
+            compatibility: currentCompatibility,
+            currentRoundPrompt: roundPrompt, // Sync round prompt to all clients
+            daterBubble: '',
+            avatarBubble: '',
             cycleCount: newRoundCount,
-            suggestedAttributes: [], // Clear suggestions
+            suggestedAttributes: [],
             numberedAttributes: []
           })
           partyClient.clearSuggestions()
           partyClient.clearVotes()
         }
+        
+        console.log('🎯 Round prompt:', roundPrompt.title, '-', roundPrompt.subtitle)
       }
-      // Non-hosts will receive the question via PartyKit subscription
+      // Non-hosts will receive the round prompt via PartyKit subscription
     }
   }
   
@@ -2409,21 +2377,20 @@ This is a dramatic moment - react to what the avatar did!`
     if (plotTwistTimerRef.current) clearInterval(plotTwistTimerRef.current)
     if (plotTwistAnimationRef.current) clearTimeout(plotTwistAnimationRef.current)
     
-    // Continue to next round (Phase 1 of Round 4)
+    // Continue to next round (Phase 1 of Round 4) with round prompt
     const currentCompatibility = useGameStore.getState().compatibility
     const currentCycleCount = useGameStore.getState().cycleCount
+    
+    // Get round prompt (Title + Question) - shown as interstitial
+    const roundPrompt = getRoundPrompt()
+    setCurrentRoundPrompt(roundPrompt)
     
     setLivePhase('phase1')
     setPhaseTimer(30)
     
-    const nextQuestion = getOpeningLine()
-    setDaterEmotion('curious') // Asking a question
-    setDaterBubble(nextQuestion)
+    // Don't set dater bubble - the prompt is shown as interstitial
+    setDaterBubble('')
     setAvatarBubble('')
-    addDateMessage('dater', nextQuestion)
-    if (partyClient && isHost) {
-      partyClient.syncState({ daterEmotion: 'curious' })
-    }
     
     setSuggestedAttributes([])
     setNumberedAttributes([])
@@ -2431,11 +2398,12 @@ This is a dramatic moment - react to what the avatar did!`
     if (partyClient) {
       partyClient.syncState({
         phase: 'phase1',
-        phaseTimer: 45, // was 30
+        phaseTimer: 45,
         compatibility: currentCompatibility,
         cycleCount: currentCycleCount,
         plotTwistCompleted: true,
-        daterBubble: nextQuestion,
+        currentRoundPrompt: roundPrompt, // Sync round prompt
+        daterBubble: '',
         avatarBubble: '',
         suggestedAttributes: [],
         numberedAttributes: [],
@@ -2443,6 +2411,8 @@ This is a dramatic moment - react to what the avatar did!`
       partyClient.clearSuggestions()
       partyClient.clearVotes()
     }
+    
+    console.log('🎯 Round prompt:', roundPrompt.title, '-', roundPrompt.subtitle)
   }
   
   // ============================================
@@ -3532,6 +3502,24 @@ This is a dramatic moment - react to what the avatar did!`
                   <p className="phase-description">{getPhaseAnnouncement().description}</p>
                 </div>
               </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Round Prompt Banner - Persistent during Phase 1 */}
+        <AnimatePresence>
+          {livePhase === 'phase1' && currentRoundPrompt.title && (
+            <motion.div 
+              className="round-prompt-banner"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="round-prompt-content">
+                <h2 className="round-prompt-title">{currentRoundPrompt.title}</h2>
+                <p className="round-prompt-subtitle">{currentRoundPrompt.subtitle}</p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
