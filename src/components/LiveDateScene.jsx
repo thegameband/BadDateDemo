@@ -3802,7 +3802,7 @@ This is a dramatic moment - react to what the avatar did!`
             ) : (
               <div className="character-image character-loading">🎭</div>
             )}
-            <span className="character-name">{avatarName || 'Avatar'}</span>
+            <span className="character-name">{avatar?.name || 'Avatar'}</span>
           </div>
           
           <div className="character dater-character">
