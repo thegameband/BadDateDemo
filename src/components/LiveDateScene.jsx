@@ -1122,6 +1122,10 @@ function LiveDateScene() {
       startingStatsTimerRef.current = null
     }
     
+    // Reset used round prompts for the new game
+    usedRoundPromptsRef.current.clear()
+    console.log('🔄 Reset used round prompts for new game')
+    
     console.log('🎉 Starting Stats complete! Applying attributes...')
     
     const currentStats = useGameStore.getState().startingStats
@@ -1401,7 +1405,8 @@ function LiveDateScene() {
     console.log('⏰ Delay complete, starting Phase 1')
     
     // Get round prompt (Title + Question) - shown as interstitial, not asked by dater
-    const roundPrompt = getRoundPrompt()
+    // This is Round 1 (first round after reaction), so use first round prompts
+    const roundPrompt = getRoundPrompt(true) // true = first round
     setCurrentRoundPrompt(roundPrompt)
     
     // Get current compatibility to preserve it
@@ -1449,7 +1454,9 @@ function LiveDateScene() {
   useEffect(() => {
     if (livePhase === 'phase1' && isHost && !currentRoundPrompt.title) {
       // Fallback: generate a round prompt if none exists
-      const roundPrompt = getRoundPrompt()
+      const currentCycle = useGameStore.getState().cycleCount
+      const isFirstRound = currentCycle === 0
+      const roundPrompt = getRoundPrompt(isFirstRound)
       setCurrentRoundPrompt(roundPrompt)
       if (partyClient) {
         partyClient.syncState({ currentRoundPrompt: roundPrompt })
@@ -1552,34 +1559,64 @@ function LiveDateScene() {
   
   // Round prompts - Title + Subtitle (Question) for each round
   // These are shown as interstitials during Phase 1 instead of the dater asking
-  const ROUND_PROMPTS = [
-    { title: "First Impressions", subtitle: "What's the first thing you notice about someone?" },
-    { title: "Getting Personal", subtitle: "What's something surprising about you?" },
-    { title: "Dreams & Desires", subtitle: "What are you looking for in a partner?" },
-    { title: "The Real You", subtitle: "What's the weirdest thing about you?" },
-    { title: "Make or Break", subtitle: "What's your biggest deal breaker?" },
+  
+  // FIRST ROUND ONLY - must be one of these 3
+  const FIRST_ROUND_PROMPTS = [
+    { title: "Green Flag", subtitle: "What's something small that makes you think 'this person gets it'?" },
+    { title: "Ick", subtitle: "What's a small thing that turns you off?" },
+    { title: "Dealbreaker", subtitle: "What's something that would make you immediately lose interest in someone?" },
   ]
   
-  // Track which round prompts have been used
+  // ADDITIONAL prompts available for rounds 2-5 (plus any unused from first round pool)
+  const ADDITIONAL_PROMPTS = [
+    { title: "Hot Take", subtitle: "What's your most controversial opinion about dating or relationships?" },
+    { title: "Unpopular Opinion", subtitle: "What do you believe about relationships that most people would disagree with?" },
+    { title: "Love Language", subtitle: "How do you show someone you care about them?" },
+    { title: "Desert Island Date", subtitle: "You're stranded together—what one item do you bring?" },
+    { title: "Time Traveler", subtitle: "First date in any time period—when and where?" },
+    { title: "Superpower Romance", subtitle: "What superpower would make you the best partner?" },
+    { title: "Lottery Winner", subtitle: "You win $10 million. How does your dating life change?" },
+    { title: "Secret Talent", subtitle: "What's your hidden skill that would impress a date?" },
+    { title: "Embarrassing Moment", subtitle: "What's your most mortifying dating story?" },
+  ]
+  
+  // All prompts combined (for rounds 2-5)
+  const ALL_PROMPTS = [...FIRST_ROUND_PROMPTS, ...ADDITIONAL_PROMPTS]
+  
+  // Track which prompts have been used this game (by title)
   const usedRoundPromptsRef = useRef(new Set())
   
   // Get a random round prompt (returns {title, subtitle})
-  const getRoundPrompt = () => {
-    // Get unused prompts
-    const availableIndices = ROUND_PROMPTS.map((_, i) => i).filter(i => !usedRoundPromptsRef.current.has(i))
+  // isFirstRound determines which pool to pick from
+  const getRoundPrompt = (isFirstRound = false) => {
+    // Determine which pool to use
+    const promptPool = isFirstRound ? FIRST_ROUND_PROMPTS : ALL_PROMPTS
     
-    // If all used, reset
-    if (availableIndices.length === 0) {
+    // Filter out already-used prompts
+    const availablePrompts = promptPool.filter(p => !usedRoundPromptsRef.current.has(p.title))
+    
+    // If no prompts available (shouldn't happen with 12 prompts and 5 rounds), use any unused
+    if (availablePrompts.length === 0) {
+      console.warn('⚠️ No available prompts! This should not happen.')
+      // Fallback: pick from all prompts that haven't been used
+      const anyAvailable = ALL_PROMPTS.filter(p => !usedRoundPromptsRef.current.has(p.title))
+      if (anyAvailable.length > 0) {
+        const prompt = anyAvailable[Math.floor(Math.random() * anyAvailable.length)]
+        usedRoundPromptsRef.current.add(prompt.title)
+        return prompt
+      }
+      // Ultimate fallback: reset and pick
       usedRoundPromptsRef.current.clear()
-      const randomIndex = Math.floor(Math.random() * ROUND_PROMPTS.length)
-      usedRoundPromptsRef.current.add(randomIndex)
-      return ROUND_PROMPTS[randomIndex]
+      const prompt = promptPool[Math.floor(Math.random() * promptPool.length)]
+      usedRoundPromptsRef.current.add(prompt.title)
+      return prompt
     }
     
-    // Pick a random unused prompt
-    const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
-    usedRoundPromptsRef.current.add(randomIndex)
-    return ROUND_PROMPTS[randomIndex]
+    // Pick a random unused prompt from the appropriate pool
+    const prompt = availablePrompts[Math.floor(Math.random() * availablePrompts.length)]
+    usedRoundPromptsRef.current.add(prompt.title)
+    console.log(`🎯 Selected prompt: "${prompt.title}" (${isFirstRound ? 'first round' : 'later round'})`)
+    return prompt
   }
   
   // Current round prompt state (persists during Phase 1)
@@ -1979,7 +2016,9 @@ function LiveDateScene() {
       // Only host sets up the next round
       if (isHost) {
         // Get round prompt (Title + Question) - shown as interstitial
-        const roundPrompt = getRoundPrompt()
+        // newRoundCount is 0-indexed, so round 1 = cycleCount 0
+        const isFirstRound = newRoundCount === 0
+        const roundPrompt = getRoundPrompt(isFirstRound)
         setCurrentRoundPrompt(roundPrompt)
         
         // Don't set dater bubble - the prompt is shown as interstitial
@@ -2382,7 +2421,8 @@ This is a dramatic moment - react to what the avatar did!`
     const currentCycleCount = useGameStore.getState().cycleCount
     
     // Get round prompt (Title + Question) - shown as interstitial
-    const roundPrompt = getRoundPrompt()
+    // This is after plot twist (round 4+), so NOT the first round
+    const roundPrompt = getRoundPrompt(false)
     setCurrentRoundPrompt(roundPrompt)
     
     setLivePhase('phase1')
