@@ -77,7 +77,7 @@ Create a narrative daily summary for a general (non-technical) audience. Format:
 
 1. **Theme line**: Start with "Yesterday's Focus: [Theme]" - identify the overarching goal or improvement theme (e.g., "Making the Date Feel Real", "Improving Player Experience", "Polish and Bug Fixes")
 
-2. **Theme description**: 1-2 sentences explaining what the developer was trying to accomplish at a high level.
+2. **Theme description**: 1-2 sentences explaining what Sean was trying to accomplish at a high level.
 
 3. **Bulleted changes**: 4-8 bullets (combine similar changes), each formatted as:
    • **Short title** — Plain English explanation of what changed and why it matters to players
