@@ -9,8 +9,8 @@ const API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
 // Voice IDs from ElevenLabs
 // You can change these to any voice from your ElevenLabs account
 const VOICES = {
-  // Dater (Maya) - warm, expressive female voice (less high-pitched)
-  dater: '21m00Tcm4TlvDq8ikWAM', // Rachel - warm, calm, expressive
+  // Dater (Maya) - expressive, emotional female voice
+  dater: 'EXAVITQu4vr4xnSDxMaL', // Bella - young, expressive, emotional
   
   // Avatar - young, energetic male voice
   avatar: 'TX3LPaxmHKxFdv7VOQHJ', // Liam - "young adult with energy and warmth"
@@ -225,9 +225,9 @@ async function processQueue() {
           text: text,
           model_id: 'eleven_multilingual_v2',
           voice_settings: {
-            stability: 0.5,
+            stability: speaker === 'dater' ? 0.35 : 0.5, // Lower stability for Maya = more emotion
             similarity_boost: 0.75,
-            style: 0.5,
+            style: speaker === 'dater' ? 0.75 : 0.5, // Higher style for Maya = more expressive
             use_speaker_boost: true,
           },
         }),
