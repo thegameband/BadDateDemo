@@ -201,23 +201,23 @@ function LiveDateScene() {
   const getAvatarEmotionFromContext = (daterSentiment) => {
     if (!daterSentiment) return getAvatarEmotionFromTraits()
     
-    // Avatar reacts to how the dater responded
+    // Avatar reacts to how the dater responded - MORE DRAMATIC!
     const emotionMap = {
-      loves: 'happy',      // Date loved it → Avatar happy/relieved
-      likes: 'confident',   // Date liked it → Avatar confident
-      dislikes: 'nervous',  // Date didn't like it → Avatar nervous
-      dealbreakers: 'worried' // Major red flag → Avatar worried/scared
+      loves: 'excited',      // Date loved it → Avatar EXCITED!!!
+      likes: 'happy',        // Date liked it → Avatar happy!
+      dislikes: 'worried',   // Date didn't like it → Avatar worried...
+      dealbreakers: 'nervous' // Major red flag → Avatar nervous/scared
     }
     return emotionMap[daterSentiment] || getAvatarEmotionFromTraits()
   }
   
-  // Helper: Get dater emotion based on sentiment
+  // Helper: Get dater emotion based on sentiment - MORE DRAMATIC!
   const getDaterEmotionFromSentiment = (sentiment) => {
     const emotionMap = {
-      loves: 'attracted',
-      likes: 'happy',
-      dislikes: 'uncomfortable',
-      dealbreakers: 'horrified'
+      loves: 'excited',       // LOVES it → EXCITED!!!
+      likes: 'happy',         // Likes it → Happy!
+      dislikes: 'uncomfortable', // Dislikes → Uncomfortable...
+      dealbreakers: 'horrified'  // Dealbreaker → HORRIFIED!
     }
     return emotionMap[sentiment] || 'neutral'
   }

@@ -509,52 +509,101 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
   const attributeText = getAttributeText(latestAttribute)
   
   // Build emotional delivery instructions based on current emotional state
+  // MAKE IT DRAMATIC - characters should FEEL their emotions in how they speak!
   const getEmotionalDeliveryInstructions = (emotion) => {
     const emotionGuides = {
-      happy: `😊 EMOTIONAL STATE: You're feeling HAPPY/RELIEVED
-- Your tone is light and warm
-- Use positive phrasing, speak with ease
-- Maybe crack a small smile in your words
-- Example shifts: "I guess..." → "Actually, yeah!", "It's fine" → "It's really nice"`,
+      happy: `🎉 EMOTIONAL STATE: You're feeling HAPPY/OVERJOYED!!!
+- USE EXCLAMATION POINTS! Lots of them!! You're thrilled!!!
+- Your words should bounce with joy and energy!
+- Speak with warmth, enthusiasm, maybe even giddiness!
+- EXAMPLES:
+  ❌ "That's nice." → ✅ "Oh my gosh, that's AMAZING!!"
+  ❌ "I agree." → ✅ "YES! Absolutely! I love that!!"
+  ❌ "Cool." → ✅ "That's so cool!! I can't even!!"`,
       
-      confident: `😎 EMOTIONAL STATE: You're feeling CONFIDENT
-- Your tone is assured and relaxed  
-- Speak with certainty, no hedging
-- You know who you are and you're comfortable with it
-- Example shifts: "I think maybe..." → "I definitely...", "I'm not sure" → "I know"`,
+      confident: `💪 EMOTIONAL STATE: You're feeling CONFIDENT/BOLD
+- Speak with CERTAINTY. No hedging. No "maybe" or "I think."
+- Own your words! Make declarative statements!
+- You KNOW what you want and you're not afraid to say it!
+- EXAMPLES:
+  ❌ "I think maybe I like..." → ✅ "I KNOW what I like."
+  ❌ "I'm not sure but..." → ✅ "Here's the deal."
+  ❌ "That could be good?" → ✅ "That's exactly what I'm talking about."`,
       
-      nervous: `😰 EMOTIONAL STATE: You're feeling NERVOUS
-- Your tone is hesitant, slightly uncertain
-- Maybe stumble over a word or two
-- Second-guess yourself a little
-- Example shifts: "I love..." → "I, uh, really like...", "Definitely" → "I think so?"`,
+      nervous: `😰 EMOTIONAL STATE: You're feeling NERVOUS/ANXIOUS
+- Stammer! Stumble! Use "um" and "uh" and "like"!
+- Trail off with "..." a lot...
+- Second-guess yourself mid-sentence!
+- EXAMPLES:
+  ❌ "I enjoy cooking." → ✅ "I, um... I like to... cook? I guess?"
+  ❌ "That sounds fun." → ✅ "Oh! That's... I mean... yeah, that could be... nice?"
+  ❌ "Yes." → ✅ "Y-yeah... I think so... maybe..."`,
       
-      worried: `😟 EMOTIONAL STATE: You're feeling WORRIED
-- Your tone is cautious, a bit defensive
-- You're not sure how this is going
-- Speak carefully, maybe trail off
-- Example shifts: "That's great!" → "That's... good?", direct statements → more questioning`,
+      worried: `😟 EMOTIONAL STATE: You're feeling WORRIED/SCARED
+- Speak slowly... carefully... like you're walking on eggshells...
+- Use lots of ellipses... trailing off...
+- Sound uncertain, cautious, maybe a little scared...
+- EXAMPLES:
+  ❌ "That's interesting." → ✅ "That's... um... that's something..."
+  ❌ "I see." → ✅ "Oh... okay... I... I see..."
+  ❌ "What do you mean?" → ✅ "Wait... what do you... what?"`,
       
-      excited: `🤩 EMOTIONAL STATE: You're feeling EXCITED
-- Your tone is enthusiastic, energetic
-- Words come quickly, you're engaged
-- Show genuine interest and animation
-- Example shifts: "Nice" → "That's so cool!", "I like that" → "I love that!"`,
+      excited: `🤩 EMOTIONAL STATE: You're feeling EXCITED/ECSTATIC!!!
+- LOTS OF ENERGY!!! SO MUCH EXCITEMENT!!!
+- Talk fast! Use exclamation points everywhere!!
+- You can barely contain yourself!!!
+- EXAMPLES:
+  ❌ "That's nice." → ✅ "OH WOW!! That's INCREDIBLE!!"
+  ❌ "I like that." → ✅ "I LOVE that SO MUCH!!"
+  ❌ "Cool." → ✅ "YESSS!! That's the BEST thing I've ever heard!!"`,
       
-      uncomfortable: `😬 EMOTIONAL STATE: You're feeling UNCOMFORTABLE
-- Your tone is stiff, a bit awkward
-- You're trying to be polite but it shows
-- Short responses, forced pleasantries
-- Example shifts: warm phrases → cooler, more distant ones`,
+      uncomfortable: `😬 EMOTIONAL STATE: You're feeling UNCOMFORTABLE/CRINGING
+- Short. Terse. Minimal words.
+- Awkward pauses... forced politeness...
+- You want this to be over...
+- EXAMPLES:
+  ❌ "That's an interesting hobby." → ✅ "Oh. That's... yeah. Okay."
+  ❌ "Tell me more." → ✅ "Mm. Hmm."
+  ❌ "I understand." → ✅ "Right... sure... yeah..."`,
       
-      attracted: `😍 EMOTIONAL STATE: You're feeling ATTRACTED
-- Your tone is warm, maybe a bit flirty
-- You're leaning into the conversation
-- Complimentary, interested, engaged
-- Example shifts: neutral observations → more positive spin`,
+      attracted: `😍 EMOTIONAL STATE: You're feeling ATTRACTED/SMITTEN
+- Get a little flirty! Warm! Interested!
+- Compliment them! Lean into the conversation!
+- You're charmed and you're showing it!
+- EXAMPLES:
+  ❌ "That's good." → ✅ "Ooh, I like that about you!"
+  ❌ "Interesting." → ✅ "Tell me more... I'm intrigued!"
+  ❌ "Nice." → ✅ "That's actually really attractive..."`,
+      
+      horrified: `😱 EMOTIONAL STATE: You're feeling HORRIFIED/DISGUSTED
+- Express your shock! Your disbelief!
+- Short, choppy sentences of disbelief!
+- Maybe some ALL CAPS for emphasis!
+- EXAMPLES:
+  ❌ "That's concerning." → ✅ "I'm sorry, WHAT?!"
+  ❌ "I don't like that." → ✅ "That is... NO. Just NO."
+  ❌ "Hmm." → ✅ "I... I can't... WHAT?!"`,
+      
+      angry: `😡 EMOTIONAL STATE: You're feeling ANGRY/FURIOUS
+- USE CAPS FOR EMPHASIS! You're MAD!
+- Short, punchy sentences! Exclamation points!
+- Let your frustration SHOW!
+- EXAMPLES:
+  ❌ "I disagree." → ✅ "Absolutely NOT!"
+  ❌ "That's not good." → ✅ "Are you KIDDING me?!"
+  ❌ "I don't like that." → ✅ "That's RIDICULOUS!"`,
+      
+      sad: `😢 EMOTIONAL STATE: You're feeling SAD/DOWN
+- speak softly... quietly... deflated...
+- Use lowercase... trailing off...
+- Your energy is low... your words are heavy...
+- EXAMPLES:
+  ❌ "That's unfortunate." → ✅ "oh... yeah... that's... that's really sad..."
+  ❌ "I understand." → ✅ "i get it... i really do..."
+  ❌ "Okay." → ✅ "okay... i guess..."`,
       
       neutral: `😐 EMOTIONAL STATE: You're feeling NEUTRAL
-- Your tone is balanced, conversational
+- Balanced, conversational tone
 - Neither overly positive nor negative
 - Just being yourself, no strong emotion showing`
     }
