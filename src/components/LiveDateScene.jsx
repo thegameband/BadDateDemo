@@ -2377,7 +2377,7 @@ Generate ${daterName}'s final closing statement:`
     console.log(`🎭 Submitted plot twist answer: "${answer}"`)
   }
   
-  // Move to reveal phase (show all answers)
+  // Move to reveal phase - create wheel slices and start spinning
   const advancePlotTwistToReveal = () => {
     if (!isHost) return
     
@@ -2393,10 +2393,35 @@ Generate ${daterName}'s final closing statement:`
       answers = [{ odId: 'system', username: 'The Universe', answer: 'Pretend nothing happened' }]
     }
     
+    // Create wheel slices from answers (each answer = 1 slice, equal weight)
+    const wheelColors = [
+      '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181',
+      '#AA96DA', '#FCBAD3', '#A8D8EA', '#F9ED69', '#B8F2E6'
+    ]
+    
+    const totalAnswers = answers.length
+    const slices = answers.map((answer, index) => {
+      const startAngle = (index / totalAnswers) * 360
+      const endAngle = ((index + 1) / totalAnswers) * 360
+      return {
+        id: answer.odId,
+        label: answer.answer,
+        submittedBy: answer.username,
+        weight: 1,
+        color: wheelColors[index % wheelColors.length],
+        startAngle,
+        endAngle,
+        originalAnswer: answer
+      }
+    })
+    
     const newPlotTwist = {
       ...currentPlotTwist,
-      subPhase: 'reveal',
+      subPhase: 'spinning',
       answers: answers,
+      slices: slices,
+      spinAngle: 0,
+      winningSlice: null
     }
     setPlotTwist(newPlotTwist)
     
@@ -2405,83 +2430,72 @@ Generate ${daterName}'s final closing statement:`
       partyClient.syncState({ plotTwist: newPlotTwist })
     }
     
-    // Show answers for 2 seconds, then start animation
+    // Start wheel spin after brief pause
     setTimeout(() => {
-      startPlotTwistAnimation()
-    }, 2000)
+      startPlotTwistWheelSpin(slices)
+    }, 500)
   }
   
-  // Start the winner selection animation
-  const startPlotTwistAnimation = () => {
+  // Start the plot twist wheel spinning animation
+  const startPlotTwistWheelSpin = (slices) => {
     if (!isHost) return
     
-    const currentPlotTwist = useGameStore.getState().plotTwist
-    const answers = currentPlotTwist.answers || []
-    
-    if (answers.length === 0) {
+    if (!slices || slices.length === 0) {
       finishPlotTwist()
       return
     }
     
-    const newPlotTwist = { ...currentPlotTwist, subPhase: 'animation' }
-    setPlotTwist(newPlotTwist)
+    // Pick random winner (equal weight for all)
+    const winnerIndex = Math.floor(Math.random() * slices.length)
+    const winningSlice = slices[winnerIndex]
     
-    if (partyClient) {
-      partyClient.syncState({ plotTwist: newPlotTwist })
+    // Calculate the angle to stop at (middle of winning slice)
+    const winningMidAngle = (winningSlice.startAngle + winningSlice.endAngle) / 2
+    // Arrow points up (0 degrees), so we need to rotate to put winning slice at top
+    const fullRotations = 5 + Math.floor(Math.random() * 3) // 5-7 full spins
+    const finalAngle = (fullRotations * 360) + (360 - winningMidAngle)
+    
+    console.log('🎭 Plot Twist wheel spinning to', finalAngle, 'degrees, winner:', winningSlice.label)
+    
+    // Animate the spin with ease-in-out
+    let startTime = null
+    const duration = 5000 // 5 seconds
+    const startAngle = 0
+    
+    const animateSpin = (timestamp) => {
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      
+      // Ease-in-out cubic
+      let eased
+      if (progress < 0.5) {
+        eased = 4 * progress * progress * progress
+      } else {
+        eased = 1 - Math.pow(-2 * progress + 2, 3) / 2
+      }
+      
+      const currentAngle = startAngle + (finalAngle * eased)
+      
+      setPlotTwist(prev => ({ ...prev, spinAngle: currentAngle }))
+      
+      // Sync less frequently
+      if (partyClient && Math.floor(elapsed / 200) !== Math.floor((elapsed - 16) / 200)) {
+        const currentPlotTwistState = useGameStore.getState().plotTwist
+        partyClient.syncState({ plotTwist: { ...currentPlotTwistState, spinAngle: currentAngle } })
+      }
+      
+      if (progress < 1) {
+        plotTwistAnimationRef.current = requestAnimationFrame(animateSpin)
+      } else {
+        // Spin complete - declare winner
+        setTimeout(() => {
+          declareWinner(winningSlice.originalAnswer, winnerIndex)
+        }, 800)
+      }
     }
     
-    // Animation: highlight each answer in sequence, speeding up
-    // Slow: 400ms -> Medium: 200ms -> Fast: 100ms -> then random final pick
-    const animationCycles = [
-      { count: answers.length * 2, delay: 400 },   // Slow pass
-      { count: answers.length * 2, delay: 200 },   // Medium pass
-      { count: answers.length * 3, delay: 100 },   // Fast pass
-      { count: answers.length * 4, delay: 50 },    // Faster pass
-    ]
-    
-    let currentIndex = 0
-    let cycleIndex = 0
-    let stepCount = 0
-    
-    const animate = () => {
-      const currentPlotTwistState = useGameStore.getState().plotTwist
-      const currentAnswers = currentPlotTwistState.answers || []
-      
-      if (currentAnswers.length === 0) {
-        finishPlotTwist()
-        return
-      }
-      
-      const cycle = animationCycles[cycleIndex]
-      currentIndex = (currentIndex + 1) % currentAnswers.length
-      stepCount++
-      
-      // Update the highlighted index
-      const updatedPlotTwist = { ...currentPlotTwistState, animationIndex: currentIndex }
-      setPlotTwist(updatedPlotTwist)
-      
-      if (partyClient) {
-        partyClient.syncState({ plotTwist: updatedPlotTwist })
-      }
-      
-      // Check if we should move to next speed cycle
-      if (stepCount >= cycle.count) {
-        cycleIndex++
-        stepCount = 0
-        
-        if (cycleIndex >= animationCycles.length) {
-          // Animation complete - pick random winner
-          const winnerIndex = Math.floor(Math.random() * currentAnswers.length)
-          declareWinner(currentAnswers[winnerIndex], winnerIndex)
-          return
-        }
-      }
-      
-      plotTwistAnimationRef.current = setTimeout(animate, cycle.delay)
-    }
-    
-    // Start animation
-    animate()
+    plotTwistAnimationRef.current = requestAnimationFrame(animateSpin)
   }
   
   // Declare the winning answer
@@ -3334,48 +3348,95 @@ This is a dramatic moment - react to what the avatar did!`
               </div>
             )}
             
-            {/* Reveal Phase - Show all answers */}
-            {plotTwist.subPhase === 'reveal' && (
-              <div className="plot-twist-reveal">
-                <div className="plot-twist-badge">🎭 PLOT TWIST</div>
-                <h2>Everyone's Answers:</h2>
-                <div className="plot-twist-answers-grid">
-                  {(plotTwist.answers || []).map((answer, index) => (
-                    <motion.div 
-                      key={answer.odId}
-                      className="plot-twist-answer-card"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <span className="answer-text">"{answer.answer}"</span>
-                      <span className="answer-by">- {answer.username}</span>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Animation Phase - Spinning selection */}
-            {plotTwist.subPhase === 'animation' && (
-              <div className="plot-twist-animation">
+            {/* Spinning Phase - Wheel selection (replaces reveal and animation) */}
+            {plotTwist.subPhase === 'spinning' && (
+              <div className="plot-twist-wheel-phase">
                 <div className="plot-twist-badge spinning">🎭 CHOOSING...</div>
-                <div className="plot-twist-answers-grid animated">
-                  {(plotTwist.answers || []).map((answer, index) => (
-                    <motion.div 
-                      key={answer.odId}
-                      className={`plot-twist-answer-card ${plotTwist.animationIndex === index ? 'highlighted' : ''}`}
-                      animate={plotTwist.animationIndex === index ? {
-                        scale: [1, 1.15, 1],
-                        boxShadow: ['0 0 0px rgba(255,255,255,0)', '0 0 30px rgba(255,200,100,0.8)', '0 0 0px rgba(255,255,255,0)']
-                      } : {}}
-                      transition={{ duration: 0.2 }}
+                <h2 className="spinning-text">Spinning the wheel...</h2>
+                
+                {/* The Wheel */}
+                {plotTwist.slices && plotTwist.slices.length > 0 && (
+                  <div className="wheel-container plot-twist-wheel">
+                    <div className="wheel-arrow">▼</div>
+                    <svg 
+                      className="answer-wheel" 
+                      viewBox="0 0 200 200"
+                      style={{ transform: `rotate(${plotTwist.spinAngle || 0}deg)` }}
                     >
-                      <span className="answer-text">"{answer.answer}"</span>
-                      <span className="answer-by">- {answer.username}</span>
-                    </motion.div>
-                  ))}
-                </div>
+                      {plotTwist.slices.map((slice, index) => {
+                        const sliceAngle = slice.endAngle - slice.startAngle
+                        const isFullCircle = sliceAngle >= 359.9
+                        
+                        if (isFullCircle) {
+                          return (
+                            <g key={slice.id}>
+                              <circle
+                                cx="100"
+                                cy="100"
+                                r="90"
+                                fill={slice.color}
+                                stroke="#1a1216"
+                                strokeWidth="2"
+                              />
+                              <text
+                                x="100"
+                                y="100"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill="#1a1216"
+                                fontSize="10"
+                                fontWeight="bold"
+                                style={{ pointerEvents: 'none' }}
+                              >
+                                {slice.label.length > 20 ? slice.label.substring(0, 20) + '...' : slice.label}
+                              </text>
+                            </g>
+                          )
+                        }
+                        
+                        const startRad = (slice.startAngle - 90) * Math.PI / 180
+                        const endRad = (slice.endAngle - 90) * Math.PI / 180
+                        const x1 = 100 + 90 * Math.cos(startRad)
+                        const y1 = 100 + 90 * Math.sin(startRad)
+                        const x2 = 100 + 90 * Math.cos(endRad)
+                        const y2 = 100 + 90 * Math.sin(endRad)
+                        const largeArc = sliceAngle > 180 ? 1 : 0
+                        
+                        const midRad = ((slice.startAngle + slice.endAngle) / 2 - 90) * Math.PI / 180
+                        const labelRadius = 55
+                        const labelX = 100 + labelRadius * Math.cos(midRad)
+                        const labelY = 100 + labelRadius * Math.sin(midRad)
+                        
+                        const path = `M 100 100 L ${x1} ${y1} A 90 90 0 ${largeArc} 1 ${x2} ${y2} Z`
+                        
+                        return (
+                          <g key={slice.id}>
+                            <path
+                              d={path}
+                              fill={slice.color}
+                              stroke="#1a1216"
+                              strokeWidth="2"
+                            />
+                            <text
+                              x={labelX}
+                              y={labelY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              fill="#1a1216"
+                              fontSize={sliceAngle < 30 ? '6' : sliceAngle < 60 ? '8' : '9'}
+                              fontWeight="bold"
+                              style={{ pointerEvents: 'none' }}
+                            >
+                              {slice.label.length > 15 ? slice.label.substring(0, 15) + '...' : slice.label}
+                            </text>
+                          </g>
+                        )
+                      })}
+                      <circle cx="100" cy="100" r="15" fill="#1a1216" stroke="#ffd700" strokeWidth="2" />
+                      <text x="100" y="100" textAnchor="middle" dominantBaseline="middle" fill="#ffd700" fontSize="10">🎭</text>
+                    </svg>
+                  </div>
+                )}
               </div>
             )}
             
