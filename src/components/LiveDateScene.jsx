@@ -1937,15 +1937,20 @@ function LiveDateScene() {
           
           await new Promise(resolve => setTimeout(resolve, 2500))
           
-          // Dater reacts FIRST (no sentiment hit yet - will score after)
+          // Check sentiment FIRST before generating dater's response
+          const matchResult2 = await checkAttributeMatch(avatarResponse2, daterValues, selectedDater, null)
+          const sentimentHit2 = matchResult2.category || null
+          console.log('🎯 Exchange 2 - Sentiment detected BEFORE dater response:', sentimentHit2, matchResult2.shortLabel)
+          
+          // Now generate dater's response WITH sentiment knowledge
           const daterReaction2 = await getDaterDateResponse(
             selectedDater,
             avatarWithNewAttr,
-            getConversation().slice(-20), // Keep more history for better memory
-            null,
-            null, // No sentiment hit - score happens after dater responds
-            currentStreak, // Pass streak for escalating reactions
-            isFinalRound // Pass if this is the last round for finality
+            getConversation().slice(-20),
+            matchResult2.matchedValue, // Pass what triggered the reaction
+            sentimentHit2, // Pass the sentiment so dater knows how to react!
+            currentStreak,
+            isFinalRound
           )
           
           if (daterReaction2) {
@@ -1953,13 +1958,41 @@ function LiveDateScene() {
             addDateMessage('dater', daterReaction2)
             await syncConversationToPartyKit(undefined, daterReaction2, undefined)
             
-            // THEN check match and score - attribute applies when dater responds
-            const matchResult2 = await checkAndScore(avatarResponse2, 0.25) // 25% scoring
+            // Apply scoring now that dater has responded
+            if (sentimentHit2) {
+              const wasAlreadyExposed = exposeValue(matchResult2.category, matchResult2.matchedValue, matchResult2.shortLabel)
+              if (wasAlreadyExposed) {
+                triggerGlow(matchResult2.shortLabel)
+              }
+              const baseChanges = { loves: 25, likes: 10, dislikes: -10, dealbreakers: -25 }
+              const change = Math.round(baseChanges[sentimentHit2] * 0.25) // 25% scoring
+              if (change !== 0) {
+                const newCompat = adjustCompatibility(change)
+                if (partyClient) {
+                  partyClient.syncState({ compatibility: newCompat })
+                }
+                setCompatibilityHistory(prev => [...prev, {
+                  attribute: avatarResponse2,
+                  topic: matchResult2.shortLabel || matchResult2.matchedValue,
+                  category: sentimentHit2,
+                  change: change,
+                  daterValue: matchResult2.matchedValue,
+                  reason: matchResult2.reason || ''
+                }])
+              }
+              // Update streak
+              const isPositive = sentimentHit2 === 'loves' || sentimentHit2 === 'likes'
+              if (isPositive) {
+                currentStreak = { positive: currentStreak.positive + 1, negative: 0 }
+              } else {
+                currentStreak = { positive: 0, negative: currentStreak.negative + 1 }
+              }
+            }
             await syncConversationToPartyKit(undefined, undefined, true)
             
-            // Show reaction feedback with WHY (matchedValue and shortLabel)
-            if (matchResult2?.category) {
-              showReactionFeedback(matchResult2.category, matchResult2.matchedValue, matchResult2.shortLabel)
+            // Show reaction feedback with WHY
+            if (sentimentHit2) {
+              showReactionFeedback(sentimentHit2, matchResult2.matchedValue, matchResult2.shortLabel)
             }
           }
           
@@ -1988,15 +2021,20 @@ function LiveDateScene() {
             
             await new Promise(resolve => setTimeout(resolve, 2500))
             
-            // Dater reacts FIRST (no sentiment hit yet - will score after)
+            // Check sentiment FIRST before generating dater's response
+            const matchResult3 = await checkAttributeMatch(avatarResponse3, daterValues, selectedDater, null)
+            const sentimentHit3 = matchResult3.category || null
+            console.log('🎯 Exchange 3 - Sentiment detected BEFORE dater response:', sentimentHit3, matchResult3.shortLabel)
+            
+            // Now generate dater's response WITH sentiment knowledge
             const daterReaction3 = await getDaterDateResponse(
               selectedDater,
               avatarWithNewAttr,
-              getConversation().slice(-20), // Keep more history for better memory
-              null,
-              null, // No sentiment hit - score happens after dater responds
-              currentStreak, // Pass streak for escalating reactions
-              isFinalRound // Pass if this is the last round for finality
+              getConversation().slice(-20),
+              matchResult3.matchedValue, // Pass what triggered the reaction
+              sentimentHit3, // Pass the sentiment so dater knows how to react!
+              currentStreak,
+              isFinalRound
             )
             
             if (daterReaction3) {
@@ -2004,13 +2042,41 @@ function LiveDateScene() {
               addDateMessage('dater', daterReaction3)
               await syncConversationToPartyKit(undefined, daterReaction3, undefined)
               
-              // THEN check match and score - attribute applies when dater responds
-              const matchResult3 = await checkAndScore(avatarResponse3, 0.10) // 10% scoring
+              // Apply scoring now that dater has responded
+              if (sentimentHit3) {
+                const wasAlreadyExposed = exposeValue(matchResult3.category, matchResult3.matchedValue, matchResult3.shortLabel)
+                if (wasAlreadyExposed) {
+                  triggerGlow(matchResult3.shortLabel)
+                }
+                const baseChanges = { loves: 25, likes: 10, dislikes: -10, dealbreakers: -25 }
+                const change = Math.round(baseChanges[sentimentHit3] * 0.10) // 10% scoring
+                if (change !== 0) {
+                  const newCompat = adjustCompatibility(change)
+                  if (partyClient) {
+                    partyClient.syncState({ compatibility: newCompat })
+                  }
+                  setCompatibilityHistory(prev => [...prev, {
+                    attribute: avatarResponse3,
+                    topic: matchResult3.shortLabel || matchResult3.matchedValue,
+                    category: sentimentHit3,
+                    change: change,
+                    daterValue: matchResult3.matchedValue,
+                    reason: matchResult3.reason || ''
+                  }])
+                }
+                // Update streak
+                const isPositive = sentimentHit3 === 'loves' || sentimentHit3 === 'likes'
+                if (isPositive) {
+                  currentStreak = { positive: currentStreak.positive + 1, negative: 0 }
+                } else {
+                  currentStreak = { positive: 0, negative: currentStreak.negative + 1 }
+                }
+              }
               await syncConversationToPartyKit(undefined, undefined, true)
               
-              // Show reaction feedback with WHY (matchedValue and shortLabel)
-              if (matchResult3?.category) {
-                showReactionFeedback(matchResult3.category, matchResult3.matchedValue, matchResult3.shortLabel)
+              // Show reaction feedback with WHY
+              if (sentimentHit3) {
+                showReactionFeedback(sentimentHit3, matchResult3.matchedValue, matchResult3.shortLabel)
               }
             }
           }
