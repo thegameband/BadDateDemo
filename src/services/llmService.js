@@ -505,33 +505,49 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
     const questionContext = latestAttribute?.questionContext || ''
     const winningAnswer = latestAttribute?.answer || attributeText || ''
     
-    behaviorInstructions = `🎯 ANSWER THE QUESTION with the winning answer in your own words:
+    behaviorInstructions = `🎯 ANSWER THE QUESTION by RESTATING it and giving your answer:
 
-THE QUESTION: "${questionContext}"
-YOUR ANSWER: "${winningAnswer}"
+THE QUESTION ASKED: "${questionContext}"
+YOUR ANSWER TO USE: "${winningAnswer}"
 
-⚠️ CRITICAL: You MUST directly address the question in your response!
-Your response should make it CLEAR you are answering the specific question asked.
+⚠️ YOU MUST ANSWER THE QUESTION - NOT JUST REPEAT IT!
+Weave the question INTO your answer naturally, then give your response.
 
-🔥 HOW TO RESPOND:
-- START by addressing the question (e.g., "My ick is...", "What turns me off is...", "I'd have to say...")
-- Incorporate the winning answer naturally
-- Put it in YOUR voice and personality
-- Keep it SHORT - just 1-2 sentences
-- Make it sound like YOUR honest, direct answer
+🔥 THE FORMULA:
+1. RESTATE the question as part of your answer (don't ask it back!)
+2. GIVE your answer using the winning answer provided
+3. ADD a brief personal touch or elaboration
+4. Make it sound natural and conversational
 
-✅ GOOD EXAMPLES (note how they ADDRESS the question):
-- Q: "What's your ick?" A: "dirty feet" → "Oh, my ick? Definitely people who don't wash their feet. That's a hard no for me."
-- Q: "What's your dealbreaker?" A: "lying" → "My biggest dealbreaker has to be dishonesty. I just can't deal with liars."
-- Q: "What's something surprising about you?" A: "I eat bugs" → "Something surprising? I'm actually really into eating insects. It's a whole thing."
-- Q: "What turns you off?" A: "bad breath" → "What turns me off? Bad breath, for sure. Like, please carry mints."
+✅ GREAT EXAMPLES (notice how the question is RESTATED as an answer):
 
-❌ BAD EXAMPLES (don't do these):
-- Just saying the answer without context: "Dirty feet." (doesn't address the question!)
-- Ignoring the question entirely
-- Being vague or not committing to the answer
+Q: "What would you bring on a date?"
+A: "a bat"
+→ "I think the one thing I'd absolutely need to bring with me on any date is my trusty baseball bat. It just gives me so much security, you know?"
 
-You are directly answering "${questionContext}" - make that crystal clear in your response!`
+Q: "What's your ick?"
+A: "dirty feet"
+→ "If I'm being honest, the one thing that really gives me the ick is dirty feet. Like, please just wash them. Is that too much to ask?"
+
+Q: "What's your biggest dealbreaker?"
+A: "lying"
+→ "My absolute biggest dealbreaker in any relationship has to be lying. I just cannot handle dishonesty at all."
+
+Q: "What's something surprising about you?"
+A: "I collect dolls"
+→ "Something surprising that most people don't know about me? I actually have a huge collection of vintage dolls. Yeah, it's a whole thing."
+
+Q: "What superpower would make you the best partner?"
+A: "mind reading"
+→ "The superpower that would make me the perfect partner? Definitely mind reading. Imagine never having to ask what's wrong!"
+
+❌ WHAT NOT TO DO:
+- DON'T just repeat the question back: "What would I bring? Well..." (sounds like you're stalling!)
+- DON'T give a one-word answer: "A bat." (too short, no personality!)
+- DON'T ignore the question entirely
+- DON'T ask the question instead of answering it
+
+Your response should make it OBVIOUS you understood the question AND are giving a real answer.`
     
     console.log('🔗 Using PARAPHRASE mode for avatar response')
   } else if (!hasRealAttributes) {
