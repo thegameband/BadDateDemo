@@ -205,7 +205,7 @@ function LiveGameLobby() {
           </div>
           
           <div className="dater-preview">
-            <h3 className="preview-title">Your Date</h3>
+            <h3 className="preview-title">{selectedDater?.name || 'Your Date'}</h3>
             {selectedDater && (
               <motion.div 
                 className="dater-card-mini"

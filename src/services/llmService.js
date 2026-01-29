@@ -483,7 +483,7 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
   // Fill in template variables for modular prompts
   const fillModularPrompt = (prompt) => {
     return prompt
-      .replace(/\{\{avatarName\}\}/g, name || 'Your Date')
+      .replace(/\{\{avatarName\}\}/g, name || 'them')
       .replace(/\{\{allAttributes\}\}/g, realAttributes.join(', ') || 'none yet')
       .replace(/\{\{attribute\}\}/g, attributeText)
   }
@@ -541,7 +541,7 @@ You are directly answering "${questionContext}" - make that crystal clear in you
     behaviorInstructions = buildAvatarPromptChain({
       attribute: latestAttribute,
       daterLastMessage: lastDaterMessage,
-      avatarName: name || 'Your Date',
+      avatarName: name || 'them',
       allAttributes: realAttributes,
       isVisible: visibility === 'VISIBLE'
     })
@@ -762,7 +762,7 @@ export async function getAvatarResponseWithPromptChain(avatar, attribute, daterL
   const promptChain = buildAvatarPromptChain({
     attribute,
     daterLastMessage,
-    avatarName: avatar.name || 'Your Date',
+    avatarName: avatar.name || 'them',
     allAttributes: avatar.attributes || [],
     isVisible: visibility === 'VISIBLE'
   })
@@ -914,7 +914,7 @@ export async function runAttributePromptChain(avatar, dater, newAttribute, conve
   const avatarPromptChain = buildAvatarPromptChain({
     attribute: newAttribute,
     daterLastMessage: lastDaterMessage,
-    avatarName: avatar.name || 'Your Date',
+    avatarName: avatar.name || 'them',
     allAttributes: avatar.attributes || [],
     isVisible: visibility === 'VISIBLE'
   })

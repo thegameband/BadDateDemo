@@ -480,7 +480,7 @@ export function buildAvatarPromptChain(options) {
   const variables = {
     attribute,
     daterLastMessage: daterLastMessage || '',
-    avatarName: avatarName || 'Your Date',
+    avatarName: avatarName || 'them',
     allAttributes: Array.isArray(allAttributes) ? allAttributes.join(', ') : allAttributes
   }
   

@@ -1495,7 +1495,7 @@ function LiveDateScene() {
   const getPhaseAnnouncement = () => {
     switch (announcementPhase) {
       case 'reaction':
-        return { title: 'FIRST IMPRESSIONS', subtitle: 'Meeting Your Date', icon: '👋', description: 'Watch them meet for the first time!' }
+        return { title: 'FIRST IMPRESSIONS', subtitle: `Meeting ${selectedDater?.name || 'Maya'}`, icon: '👋', description: 'Watch them meet for the first time!' }
       case 'phase1':
         // Use current round prompt if available
         return { 
@@ -3084,7 +3084,7 @@ This is a dramatic moment - react to what the avatar did!`
                 transition={{ type: 'spring', damping: 12 }}
               >
                 <div className="plot-twist-badge">🎭 PLOT TWIST</div>
-                <h1 className="plot-twist-title">Another Person Hit on Your Date!</h1>
+                <h1 className="plot-twist-title">Another Person Hit on {selectedDater?.name || 'Maya'}!</h1>
                 <p className="plot-twist-subtitle">What Do You Do?</p>
               </motion.div>
             )}
@@ -3094,7 +3094,7 @@ This is a dramatic moment - react to what the avatar did!`
               <div className="plot-twist-input-container">
                 <div className="plot-twist-header">
                   <div className="plot-twist-badge">🎭 PLOT TWIST</div>
-                  <h2>Another Person Hit on Your Date!</h2>
+                  <h2>Another Person Hit on {selectedDater?.name || 'Maya'}!</h2>
                   <p className="plot-twist-question">What Do You Do?</p>
                 </div>
                 
@@ -3856,7 +3856,7 @@ This is a dramatic moment - react to what the avatar did!`
             ) : (
               <div className="character-image character-loading">🎭</div>
             )}
-            <span className="character-name">{avatar?.name || 'Avatar'}</span>
+            <span className="character-name">{avatar?.name || 'Your Date'}</span>
           </div>
           
           <div className="character dater-character">
