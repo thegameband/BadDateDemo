@@ -2039,6 +2039,93 @@ function LiveDateScene() {
     setIsGenerating(false)
   }
   
+  // Generate Maya's final summary statement based on compatibility
+  const generateFinalSummary = async (compatibilityScore) => {
+    const daterName = selectedDater?.name || 'Maya'
+    const avatarName = avatar?.name || 'you'
+    
+    // Determine sentiment based on compatibility
+    let sentiment, instruction
+    if (compatibilityScore >= 80) {
+      sentiment = 'very positive'
+      instruction = `You had an AMAZING time! You're totally smitten. Hint that you want to see them again, maybe even tonight. Be flirty and enthusiastic.`
+    } else if (compatibilityScore >= 60) {
+      sentiment = 'positive'
+      instruction = `You had a good time overall. You'd be open to another date. Be warm but not over-the-top.`
+    } else if (compatibilityScore >= 40) {
+      sentiment = 'mixed'
+      instruction = `You're on the fence. There were some good moments but also some concerns. Be polite but noncommittal about future plans.`
+    } else if (compatibilityScore >= 20) {
+      sentiment = 'negative'  
+      instruction = `This date was rough. You're trying to be polite but you're definitely not feeling it. Make a polite excuse to wrap things up.`
+    } else {
+      sentiment = 'very negative'
+      instruction = `This was a DISASTER. You can barely hide how ready you are to leave. Be clearly done with this date while maintaining basic politeness.`
+    }
+    
+    const prompt = `You are ${daterName} wrapping up a first date with ${avatarName}.
+
+COMPATIBILITY LEVEL: ${compatibilityScore}% (${sentiment})
+
+${instruction}
+
+RULES:
+- This is your FINAL statement to close out the date
+- Summarize how you felt WITHOUT mentioning percentages or scores
+- Reference 1-2 specific things from the date if possible (from the conversation)
+- Keep it SHORT - 1-2 sentences MAX
+- NO action descriptors (*smiles*, etc) - dialogue only
+- End on a note that matches the sentiment: hopeful, neutral, or relieved it's over
+
+Examples for different sentiments:
+- Very Positive: "Honestly? This was the best date I've had in forever. When can I see you again?"
+- Positive: "Well, this was really nice. We should definitely do this again sometime."
+- Mixed: "So... this was interesting. I'll, um, think about it."
+- Negative: "Okay well, I should probably get going. It was... nice meeting you."
+- Very Negative: "Yeah, I'm gonna call it here. Good luck with... everything."
+
+Generate ${daterName}'s final closing statement:`
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 150,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      })
+      
+      const data = await response.json()
+      const finalStatement = data.content?.[0]?.text?.trim() || ''
+      
+      if (finalStatement) {
+        console.log(`🎬 Maya's final summary (${compatibilityScore}%):`, finalStatement)
+        
+        // Show Maya's final statement
+        const daterMood = compatibilityScore >= 60 ? 'happy' : compatibilityScore >= 40 ? 'neutral' : 'uncomfortable'
+        setDaterEmotion(daterMood)
+        setDaterBubble(finalStatement)
+        addDateMessage('dater', finalStatement)
+        await syncConversationToPartyKit(undefined, finalStatement, undefined)
+        
+        // Speak the final statement
+        await speak(finalStatement, 'dater')
+        
+        // Give players time to read/hear it
+        await new Promise(resolve => setTimeout(resolve, 3000))
+      }
+    } catch (error) {
+      console.error('Error generating final summary:', error)
+    }
+  }
+  
   // Handle round completion - check if we continue or end
   // ONLY HOST should run this - non-hosts receive state via PartyKit
   const handleRoundComplete = async () => {
@@ -2066,7 +2153,9 @@ function LiveDateScene() {
     }
     
     if (newRoundCount >= currentMaxCycles) {
-      // Game over!
+      // Game over! Generate Maya's final summary before showing results
+      await generateFinalSummary(currentCompatibility)
+      
       setLivePhase('ended')
       if (partyClient) {
         partyClient.syncState( { phase: 'ended', compatibility: currentCompatibility, cycleCount: newRoundCount })
