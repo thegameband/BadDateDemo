@@ -1185,17 +1185,17 @@
 
 .header-center-content {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
 }
 
 .header-cta {
-  text-align: center;
+  text-align: left;
   display: flex;
   flex-direction: column;
   gap: 1px;
-  max-width: 300px;
+  max-width: 400px;
   overflow: hidden;
 }
 
