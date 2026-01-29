@@ -1475,8 +1475,8 @@ function LiveDateScene() {
   
   // Show phase announcement when phase changes
   useEffect(() => {
-    // Don't show announcement for starting-stats (it has its own overlay) or ended
-    const skipAnnouncement = ['starting-stats', 'ended', 'waiting']
+    // Don't show announcement for starting-stats, phase1 (has round prompt banner), or ended
+    const skipAnnouncement = ['starting-stats', 'ended', 'waiting', 'phase1']
     if (livePhase && livePhase !== lastPhaseRef.current && !skipAnnouncement.includes(livePhase)) {
       lastPhaseRef.current = livePhase
       setAnnouncementPhase(livePhase)
@@ -3559,6 +3559,9 @@ This is a dramatic moment - react to what the avatar did!`
               <div className="round-prompt-content">
                 <h2 className="round-prompt-title">{currentRoundPrompt.title}</h2>
                 <p className="round-prompt-subtitle">{currentRoundPrompt.subtitle}</p>
+                {phaseTimer > 0 && (
+                  <div className="round-prompt-timer">{formatTime(phaseTimer)}</div>
+                )}
               </div>
             </motion.div>
           )}

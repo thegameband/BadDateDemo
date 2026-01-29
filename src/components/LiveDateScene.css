@@ -146,6 +146,15 @@
   line-height: 1.4;
 }
 
+.round-prompt-timer {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-top: 12px;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
 /* ============================================
    STARTING STATS MODE OVERLAY
    ============================================ */
