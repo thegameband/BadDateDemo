@@ -491,7 +491,7 @@ This is their ANSWER to YOUR question. React to what they revealed about themsel
  * NOW USES MODULAR 7-STEP PROMPT CHAIN
  * @param mode - 'answer' (answering question with new attribute), 'continue' (continuing with all attributes)
  */
-export async function getAvatarDateResponse(avatar, dater, conversationHistory, latestAttribute = null, mode = 'answer') {
+export async function getAvatarDateResponse(avatar, dater, conversationHistory, latestAttribute = null, mode = 'answer', emotionalState = 'neutral') {
   const { name, age, occupation, attributes } = avatar
   
   // Filter out the generic starter attributes
@@ -507,6 +507,61 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
     return ''
   }
   const attributeText = getAttributeText(latestAttribute)
+  
+  // Build emotional delivery instructions based on current emotional state
+  const getEmotionalDeliveryInstructions = (emotion) => {
+    const emotionGuides = {
+      happy: `😊 EMOTIONAL STATE: You're feeling HAPPY/RELIEVED
+- Your tone is light and warm
+- Use positive phrasing, speak with ease
+- Maybe crack a small smile in your words
+- Example shifts: "I guess..." → "Actually, yeah!", "It's fine" → "It's really nice"`,
+      
+      confident: `😎 EMOTIONAL STATE: You're feeling CONFIDENT
+- Your tone is assured and relaxed  
+- Speak with certainty, no hedging
+- You know who you are and you're comfortable with it
+- Example shifts: "I think maybe..." → "I definitely...", "I'm not sure" → "I know"`,
+      
+      nervous: `😰 EMOTIONAL STATE: You're feeling NERVOUS
+- Your tone is hesitant, slightly uncertain
+- Maybe stumble over a word or two
+- Second-guess yourself a little
+- Example shifts: "I love..." → "I, uh, really like...", "Definitely" → "I think so?"`,
+      
+      worried: `😟 EMOTIONAL STATE: You're feeling WORRIED
+- Your tone is cautious, a bit defensive
+- You're not sure how this is going
+- Speak carefully, maybe trail off
+- Example shifts: "That's great!" → "That's... good?", direct statements → more questioning`,
+      
+      excited: `🤩 EMOTIONAL STATE: You're feeling EXCITED
+- Your tone is enthusiastic, energetic
+- Words come quickly, you're engaged
+- Show genuine interest and animation
+- Example shifts: "Nice" → "That's so cool!", "I like that" → "I love that!"`,
+      
+      uncomfortable: `😬 EMOTIONAL STATE: You're feeling UNCOMFORTABLE
+- Your tone is stiff, a bit awkward
+- You're trying to be polite but it shows
+- Short responses, forced pleasantries
+- Example shifts: warm phrases → cooler, more distant ones`,
+      
+      attracted: `😍 EMOTIONAL STATE: You're feeling ATTRACTED
+- Your tone is warm, maybe a bit flirty
+- You're leaning into the conversation
+- Complimentary, interested, engaged
+- Example shifts: neutral observations → more positive spin`,
+      
+      neutral: `😐 EMOTIONAL STATE: You're feeling NEUTRAL
+- Your tone is balanced, conversational
+- Neither overly positive nor negative
+- Just being yourself, no strong emotion showing`
+    }
+    return emotionGuides[emotion] || emotionGuides.neutral
+  }
+  
+  const emotionalInstructions = getEmotionalDeliveryInstructions(emotionalState)
   
   // Fill in template variables for modular prompts
   const fillModularPrompt = (prompt) => {
@@ -567,7 +622,11 @@ A: "mind reading"
 - DON'T ignore the question entirely
 - DON'T ask the question instead of answering it
 
-Your response should make it OBVIOUS you understood the question AND are giving a real answer.`
+Your response should make it OBVIOUS you understood the question AND are giving a real answer.
+
+${emotionalInstructions}
+
+⚠️ Let your emotional state subtly influence HOW you say things - don't announce how you feel, just let it color your delivery.`
     
     console.log('🔗 Using PARAPHRASE mode for avatar response')
   } else if (!hasRealAttributes) {
@@ -620,7 +679,11 @@ YOUR NEWEST TRAIT: "${newestAttribute}"
 ❌ BAD RESPONSES:
 - Ignoring what they said
 - Changing the subject completely
-- Being mysterious about your traits`
+- Being mysterious about your traits
+
+${emotionalInstructions}
+
+⚠️ Let your emotional state subtly influence HOW you say things - don't announce how you feel, just let it color your delivery.`
     
     console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: react)')
   } else if (mode === 'connect') {
@@ -647,7 +710,11 @@ ALL YOUR TRAITS SO FAR: ${realAttributes.join(', ')}
 - Or share how one trait affects living with another
 - Even "these things seem random but they're all me" works!
 
-Make the conversation feel like it's building toward understanding WHO YOU ARE.`
+Make the conversation feel like it's building toward understanding WHO YOU ARE.
+
+${emotionalInstructions}
+
+⚠️ Let your emotional state subtly influence HOW you say things - don't announce how you feel, just let it color your delivery.`
     
     console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: connect)')
   } else if (mode === 'introduce') {
@@ -669,7 +736,11 @@ YOUR TRAITS: ${realAttributes.join(', ')}
 ✅ GOOD EXAMPLES:
 - "Hey! I'm ${name}. Nice to finally meet you!"
 - "Hi there! So... yeah, I'm the one with ${realAttributes[0] || 'all the charm'}. Nice to meet you!"
-- "Hey, you must be my date! I'm ${name}."`
+- "Hey, you must be my date! I'm ${name}."
+
+${emotionalInstructions}
+
+⚠️ Let your emotional state subtly influence HOW you say things - don't announce how you feel, just let it color your delivery.`
     
     console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: introduce)')
   } else if (mode === 'introduce-emotional') {
@@ -711,7 +782,11 @@ Your emotional state: "${emotionalState}" - Let this DRIVE how you speak!`
 YOUR TRAITS: ${realAttributes.join(', ')}
 YOUR NEWEST TRAIT: "${newestAttribute}"
 
-Just keep the conversation going naturally. React to what your date said.`
+Just keep the conversation going naturally. React to what your date said.
+
+${emotionalInstructions}
+
+⚠️ Let your emotional state subtly influence HOW you say things - don't announce how you feel, just let it color your delivery.`
     
     console.log('🔗 Using MODULAR PROMPT CHAIN for avatar response (mode: continue)')
   }

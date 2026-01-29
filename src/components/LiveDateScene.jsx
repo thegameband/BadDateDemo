@@ -1383,12 +1383,16 @@ function LiveDateScene() {
       // === STEP 2: Avatar responds, EMPHASIZING their EMOTIONAL state ===
       console.log('💭 Avatar responding with emotional state:', emotionalList)
       
+      // Get avatar's starting emotional state for introduction
+      const startingMood = getAvatarEmotionFromTraits()
+      
       const avatarIntro = await getAvatarDateResponse(
         currentAvatar,
         selectedDater,
         [{ speaker: 'dater', message: daterReaction1 }],
         emotionalList, // Pass emotional attributes as the focus
-        'introduce-emotional' // Special mode emphasizing emotional state
+        'introduce-emotional', // Special mode emphasizing emotional state
+        startingMood // Pass current emotional state
       )
       
       if (avatarIntro) {
@@ -1893,12 +1897,16 @@ function LiveDateScene() {
       console.log('🎯 Question context:', questionContext)
       
       // Avatar paraphrases the winning answer in their own words
+      // Use avatar's baseline emotional state for opening response
+      const avatarMood1 = getAvatarEmotionFromTraits()
+      
       const avatarResponse1 = await getAvatarDateResponse(
         avatarWithNewAttr,
         selectedDater,
         getConversation().slice(-20),
         framedAttribute, // Contains answer + questionContext
-        'paraphrase' // Use paraphrase mode
+        'paraphrase', // Use paraphrase mode
+        avatarMood1 // Pass current emotional state
       )
       
       console.log('🔗 Avatar paraphrase:', avatarResponse1?.substring(0, 50))
@@ -1986,17 +1994,20 @@ function LiveDateScene() {
         // ============ EXCHANGE 2: Avatar responds to Dater's reaction (0.25x scoring) ============
         console.log('--- Exchange 2: Avatar responds to Dater reaction ---')
         
+        // Avatar's mood is affected by how dater reacted in exchange 1
+        const avatarMood2 = getAvatarEmotionFromContext(sentimentHit1)
+        
         const avatarResponse2 = await getAvatarDateResponse(
           avatarWithNewAttr,
           selectedDater,
           getConversation().slice(-20), // Keep more history for better memory
           attrToUse, // Pass the latest attribute for context
-          'react' // Mode: responding to what the Dater just said
+          'react', // Mode: responding to what the Dater just said
+          avatarMood2 // Pass current emotional state
         )
         
         if (avatarResponse2) {
-          // Avatar reacts based on how dater responded to previous exchange
-          const avatarMood2 = getAvatarEmotionFromContext(sentimentHit1)
+          // Set avatar emotion for display
           setAvatarEmotion(avatarMood2)
           setAvatarBubble(avatarResponse2)
           addDateMessage('avatar', avatarResponse2)
@@ -2078,17 +2089,20 @@ function LiveDateScene() {
           // ============ EXCHANGE 3: Avatar connects all traits (0.10x scoring) ============
           console.log('--- Exchange 3: Avatar connects all previous traits ---')
           
+          // Avatar's mood is affected by how dater reacted in exchange 2
+          const avatarMood3 = getAvatarEmotionFromContext(sentimentHit2)
+          
           const avatarResponse3 = await getAvatarDateResponse(
             avatarWithNewAttr,
             selectedDater,
             getConversation().slice(-20), // Keep more history for better memory
             attrToUse, // Pass latest attribute for context
-            'connect' // Mode: draw connections between ALL traits
+            'connect', // Mode: draw connections between ALL traits
+            avatarMood3 // Pass current emotional state
           )
           
           if (avatarResponse3) {
-            // Avatar reacts based on how dater responded to previous exchange
-            const avatarMood3 = getAvatarEmotionFromContext(sentimentHit2)
+            // Set avatar emotion for display
             setAvatarEmotion(avatarMood3)
             setAvatarBubble(avatarResponse3)
             addDateMessage('avatar', avatarResponse3)
@@ -2703,15 +2717,20 @@ This is a DRAMATIC, PIVOTAL moment - react with FULL emotion to what the avatar 
       
       // ============ EXCHANGE 2: Avatar responds to Maya's reaction ============
       console.log('🎭 Plot Twist Exchange 2: Avatar responds')
+      
+      // During plot twist, avatar is likely excited or nervous depending on what they did
+      const plotTwistAvatarMood = winner.answer.toLowerCase().includes('nothing') ? 'nervous' : 'excited'
+      
       const avatarResponse = await getAvatarDateResponse(
         avatar,
         selectedDater,
         useGameStore.getState().dateConversation || [],
         daterReaction1,
-        'react'
+        'react',
+        plotTwistAvatarMood // Pass emotional state for plot twist reaction
       )
       
-      const avatarMood = getAvatarEmotionFromTraits()
+      const avatarMood = plotTwistAvatarMood
       setAvatarEmotion(avatarMood)
       setAvatarBubble(avatarResponse)
       addDateMessage('avatar', avatarResponse)
