@@ -2052,12 +2052,12 @@
 /* Suggestions Display (Phase 1) - positioned below round prompt banner */
 .suggestions-display {
   position: absolute;
-  top: 130px; /* Below the round prompt banner */
+  top: 180px; /* Below the round prompt banner (banner ~120px + spacing) */
   left: 12px;
   right: 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
   z-index: 80;
 }
