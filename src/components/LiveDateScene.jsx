@@ -122,6 +122,10 @@ function LiveDateScene() {
   const answerSelectionAnimationRef = useRef(null)
   const wheelSpinRef = useRef(null)
   
+  // Pre-generated conversation data (for early LLM calls)
+  const preGenConversationRef = useRef(null)
+  const preGenPromiseRef = useRef(null)
+  
   // Starting Stats Mode state
   const [startingStatsInput, setStartingStatsInput] = useState('')
   const [startingStatsTimer, setStartingStatsTimer] = useState(15)
@@ -211,15 +215,61 @@ function LiveDateScene() {
     return emotionMap[daterSentiment] || getAvatarEmotionFromTraits()
   }
   
-  // Helper: Get dater emotion based on sentiment - MORE DRAMATIC!
-  const getDaterEmotionFromSentiment = (sentiment) => {
-    const emotionMap = {
+  // Helper: Get dater emotion based on sentiment AND compatibility
+  // For LIKES/DISLIKES (minor): 70% weight on date vibe, 30% on comment
+  // For LOVES/DEALBREAKERS (major): 30% weight on date vibe, 70% on comment
+  const getDaterEmotionFromSentiment = (sentiment, currentCompatibility = null) => {
+    const compat = currentCompatibility ?? useGameStore.getState().compatibility
+    const isMajor = sentiment === 'loves' || sentiment === 'dealbreakers'
+    const isMinor = sentiment === 'likes' || sentiment === 'dislikes'
+    const isPositive = sentiment === 'loves' || sentiment === 'likes'
+    
+    // Base emotions for each sentiment
+    const baseEmotionMap = {
       loves: 'excited',       // LOVES it → EXCITED!!!
       likes: 'happy',         // Likes it → Happy!
       dislikes: 'uncomfortable', // Dislikes → Uncomfortable...
       dealbreakers: 'horrified'  // Dealbreaker → HORRIFIED!
     }
-    return emotionMap[sentiment] || 'neutral'
+    
+    // For MAJOR sentiments (loves/dealbreakers), mostly use the base emotion
+    // but slightly temper it based on compatibility
+    if (isMajor) {
+      // 70% comment, 30% date vibe - mostly use base emotion
+      if (sentiment === 'loves') {
+        // Even if date is going poorly, a LOVE should still be positive
+        // But maybe not MAXIMUM excited if they were having doubts
+        if (compat < 30) return 'happy' // Tone down from excited to just happy
+        return 'excited' // Normal excited for most cases
+      }
+      if (sentiment === 'dealbreakers') {
+        // Even if date was going well, a dealbreaker is still horrifying
+        // But maybe they're more shocked than horrified if it was going great
+        if (compat > 70) return 'worried' // More shocked/worried than horrified
+        return 'horrified' // Normal horrified for most cases
+      }
+    }
+    
+    // For MINOR sentiments (likes/dislikes), heavily weight by compatibility
+    // 70% date vibe, 30% comment
+    if (isMinor) {
+      if (sentiment === 'likes') {
+        // Like hit, but how enthused they are depends on the date
+        if (compat >= 70) return 'excited' // Date going great + like = very happy!
+        if (compat >= 50) return 'happy'   // Neutral-positive date + like = happy
+        if (compat >= 30) return 'neutral' // Date not great + like = meh
+        return 'neutral' // Date going poorly + like = barely registers
+      }
+      if (sentiment === 'dislikes') {
+        // Dislike hit, but severity depends on the date
+        if (compat >= 70) return 'neutral' // Date going great + dislike = brush it off
+        if (compat >= 50) return 'uncomfortable' // Neutral date + dislike = uncomfortable
+        if (compat >= 30) return 'uncomfortable' // Date rough + dislike = more uncomfortable
+        return 'worried' // Date going poorly + dislike = very worried
+      }
+    }
+    
+    return baseEmotionMap[sentiment] || 'neutral'
   }
   
   // Show reaction feedback temporarily (auto-clears after 4 seconds)
@@ -1359,7 +1409,9 @@ function LiveDateScene() {
         physicalList, // Only physical attributes
         null,
         { positive: 0, negative: 0 },
-        false
+        false,
+        true, // isFirstImpressions
+        useGameStore.getState().compatibility // Pass current compatibility
       )
       
       if (daterReaction1) {
@@ -1473,12 +1525,13 @@ function LiveDateScene() {
         emotionalSentiment, // Pass the sentiment so Maya knows how to react!
         reactionStreak,
         false, // not final round
-        true   // isFirstImpressions - react, don't ask questions
+        true,  // isFirstImpressions - react, don't ask questions
+        useGameStore.getState().compatibility // Pass current compatibility
       )
       
       if (daterReaction2) {
-        // Set dater's emotion based on her reaction to avatar's intro
-        const daterReaction2Mood = getDaterEmotionFromSentiment(emotionalSentiment)
+        // Set dater's emotion based on her reaction to avatar's intro + current compatibility
+        const daterReaction2Mood = getDaterEmotionFromSentiment(emotionalSentiment, useGameStore.getState().compatibility)
         setDaterEmotion(daterReaction2Mood)
         setDaterBubble(daterReaction2)
         addDateMessage('dater', daterReaction2)
@@ -1494,11 +1547,34 @@ function LiveDateScene() {
           partyClient.syncState({ avatarEmotion: avatarReactionToFeedback })
         }
         
-        // Show reaction feedback if there was a sentiment hit
+        // Show reaction feedback AND APPLY SCORING if there was a sentiment hit
+        // Show immediately when dater starts speaking (not with delay!)
         if (emotionalSentiment) {
-          // Wait for bubble to appear
-          await new Promise(resolve => setTimeout(resolve, 800))
           showReactionFeedback(emotionalSentiment, emotionalMatchResult.matchedValue, emotionalMatchResult.shortLabel)
+          
+          // SCORE the dater's first impression reaction!
+          const wasAlreadyExposed = exposeValue(emotionalMatchResult.category, emotionalMatchResult.matchedValue, emotionalMatchResult.shortLabel)
+          if (wasAlreadyExposed) triggerGlow(emotionalMatchResult.shortLabel)
+          
+          const baseChanges = { loves: 25, likes: 10, dislikes: -10, dealbreakers: -25 }
+          const change = baseChanges[emotionalSentiment] // Full 1.0x multiplier for first impression!
+          if (change !== 0) {
+            const newCompat = adjustCompatibility(change)
+            console.log(`🎭 First impression reaction: ${change > 0 ? '+' : ''}${change}% (${emotionalMatchResult.shortLabel})`)
+            if (partyClient) {
+              partyClient.syncState({ compatibility: newCompat })
+            }
+            
+            // Record for end-of-game breakdown
+            setCompatibilityHistory(prev => [...prev, {
+              attribute: avatarIntro,
+              topic: emotionalMatchResult.shortLabel || emotionalMatchResult.matchedValue,
+              category: emotionalSentiment,
+              change: change,
+              daterValue: emotionalMatchResult.matchedValue,
+              reason: 'First impression reaction'
+            }])
+          }
         }
       }
       
@@ -1898,12 +1974,13 @@ function LiveDateScene() {
         if (exchange1.daterOpener) convoWithExchange1.push({ speaker: 'dater', message: exchange1.daterOpener })
         if (exchange1.avatarResponse) convoWithExchange1.push({ speaker: 'avatar', message: exchange1.avatarResponse })
         
-        // Dater reacts to avatar
+        // Dater reacts to avatar - pass current compatibility for weighted response
+        const currentCompat1 = useGameStore.getState().compatibility
         exchange1.daterReaction = await getDaterDateResponse(
           selectedDater, avatarWithNewAttr, convoWithExchange1,
-          attrToUse, sentimentHit1, currentStreak, isFinalRound
+          attrToUse, sentimentHit1, currentStreak, isFinalRound, false, currentCompat1
         )
-        exchange1.daterMood = getDaterEmotionFromSentiment(sentimentHit1)
+        exchange1.daterMood = getDaterEmotionFromSentiment(sentimentHit1, currentCompat1)
         exchange1.sentimentHit = sentimentHit1
         exchange1.scoringMultiplier = 1.0
         
@@ -1935,11 +2012,13 @@ function LiveDateScene() {
         const sentimentHit2 = exchange2.matchResult.category || null
         
         const convoWithEx2 = [...convoAfterEx1, { speaker: 'avatar', message: avatarResponse2 }]
+        // Dater reacts - pass current compatibility for weighted response
+        const currentCompat2 = useGameStore.getState().compatibility
         exchange2.daterReaction = await getDaterDateResponse(
           selectedDater, avatarWithNewAttr, convoWithEx2,
-          exchange2.matchResult.matchedValue, sentimentHit2, currentStreak, isFinalRound
+          exchange2.matchResult.matchedValue, sentimentHit2, currentStreak, isFinalRound, false, currentCompat2
         )
-        exchange2.daterMood = getDaterEmotionFromSentiment(sentimentHit2)
+        exchange2.daterMood = getDaterEmotionFromSentiment(sentimentHit2, currentCompat2)
         exchange2.sentimentHit = sentimentHit2
         exchange2.scoringMultiplier = 0.25
         
@@ -1969,11 +2048,13 @@ function LiveDateScene() {
         const sentimentHit3 = exchange3.matchResult.category || null
         
         const convoWithEx3 = [...convoAfterEx2, { speaker: 'avatar', message: avatarResponse3 }]
+        // Dater reacts - pass current compatibility for weighted response
+        const currentCompat3 = useGameStore.getState().compatibility
         exchange3.daterReaction = await getDaterDateResponse(
           selectedDater, avatarWithNewAttr, convoWithEx3,
-          exchange3.matchResult.matchedValue, sentimentHit3, currentStreak, isFinalRound
+          exchange3.matchResult.matchedValue, sentimentHit3, currentStreak, isFinalRound, false, currentCompat3
         )
-        exchange3.daterMood = getDaterEmotionFromSentiment(sentimentHit3)
+        exchange3.daterMood = getDaterEmotionFromSentiment(sentimentHit3, currentCompat3)
         exchange3.sentimentHit = sentimentHit3
         exchange3.scoringMultiplier = 0.10
       }
@@ -2005,7 +2086,7 @@ function LiveDateScene() {
   
   // ============================================
   // PHASE 2: PLAYBACK PRE-GENERATED CONVERSATION
-  // Smooth, natural timing - no LLM waits
+  // Smooth, natural timing - waits for audio to complete
   // ============================================
   const playbackConversation = async (preGenData) => {
     if (!preGenData || !isHost) return
@@ -2024,7 +2105,9 @@ function LiveDateScene() {
         addDateMessage('dater', exchange.daterOpener)
         await syncConversationToPartyKit(undefined, exchange.daterOpener, undefined)
         if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterOpenerMood || 'happy' })
-        await new Promise(r => setTimeout(r, 2500))
+        // Wait for audio to complete before next message
+        await waitForAllAudio()
+        await new Promise(r => setTimeout(r, 500)) // Brief pause between speakers
       }
       
       // Play avatar response
@@ -2034,7 +2117,9 @@ function LiveDateScene() {
         addDateMessage('avatar', exchange.avatarResponse)
         await syncConversationToPartyKit(exchange.avatarResponse, undefined, undefined)
         if (partyClient) partyClient.syncState({ avatarEmotion: exchange.avatarMood || 'neutral' })
-        await new Promise(r => setTimeout(r, 2500))
+        // Wait for audio to complete before next message
+        await waitForAllAudio()
+        await new Promise(r => setTimeout(r, 500)) // Brief pause between speakers
       }
       
       // Play dater reaction
@@ -2045,9 +2130,10 @@ function LiveDateScene() {
         await syncConversationToPartyKit(undefined, exchange.daterReaction, undefined)
         if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterMood || 'neutral' })
         
-        // Show reaction feedback and apply scoring
+        // Show reaction feedback IMMEDIATELY when dater starts speaking (not before!)
+        // Apply scoring at the same time
         if (exchange.sentimentHit && exchange.matchResult) {
-          await new Promise(r => setTimeout(r, 800))
+          // Show reaction text NOW - when dater is speaking
           showReactionFeedback(exchange.sentimentHit, exchange.matchResult.matchedValue, exchange.matchResult.shortLabel)
           
           // Apply scoring
@@ -2072,9 +2158,12 @@ function LiveDateScene() {
         
         await syncConversationToPartyKit(undefined, undefined, true)
         
+        // Wait for dater's audio to complete before next exchange
+        await waitForAllAudio()
+        
         // Pause between exchanges
         if (i < exchanges.length - 1) {
-          await new Promise(r => setTimeout(r, 2000))
+          await new Promise(r => setTimeout(r, 1000))
         }
       }
     }
@@ -2084,7 +2173,7 @@ function LiveDateScene() {
   
   // ============================================
   // MAIN CONVERSATION FUNCTION
-  // Pre-generates then plays back
+  // Uses pre-generated data if available, otherwise generates fresh
   // ============================================
   const generateDateConversation = async (currentAttribute) => {
     if (!isHost) {
@@ -2096,13 +2185,34 @@ function LiveDateScene() {
     setIsGenerating(true)
     
     try {
-      // PHASE 1: Pre-generate all conversation (front-load LLM calls)
-      const preGenData = await preGenerateRoundConversation(currentAttribute)
+      // Check if we have pre-generated data from early LLM call
+      let preGenData = preGenConversationRef.current
+      
+      if (preGenData) {
+        console.log('🚀 Using pre-generated conversation data!')
+      } else if (preGenPromiseRef.current) {
+        // Pre-gen started but not finished - wait for it
+        console.log('⏳ Waiting for pre-generation to complete...')
+        preGenData = await preGenPromiseRef.current
+      } else {
+        // No pre-gen - generate fresh (fallback)
+        console.log('📝 No pre-gen available, generating fresh...')
+        preGenData = await preGenerateRoundConversation(currentAttribute)
+      }
+      
+      // Clear refs for next round
+      preGenConversationRef.current = null
+      preGenPromiseRef.current = null
       
       if (preGenData) {
         // PHASE 2: Playback smoothly
         await playbackConversation(preGenData)
       }
+      
+      // Wait for all audio to finish before ending the round
+      console.log('⏳ Waiting for final audio to complete...')
+      await waitForAllAudio()
+      console.log('✅ All audio complete')
       
       // Handle round completion
       const currentCycleForCheck = useGameStore.getState().cycleCount
@@ -2618,6 +2728,7 @@ This is a DRAMATIC, PIVOTAL moment - react with FULL emotion to what the avatar 
       
       // ============ EXCHANGE 1: Maya's FIRST big reaction ============
       console.log('🎭 Plot Twist Exchange 1: Maya reacts to what happened')
+      const plotTwistCompat = useGameStore.getState().compatibility
       const daterReaction1 = await getDaterDateResponse(
         selectedDater,
         avatar,
@@ -2625,7 +2736,9 @@ This is a DRAMATIC, PIVOTAL moment - react with FULL emotion to what the avatar 
         plotTwistContext,
         null, // no sentiment hit for plot twist
         { positive: 0, negative: 0 },
-        false
+        false,
+        false, // not first impressions
+        plotTwistCompat // Pass current compatibility
       )
       
       // Dater is probably shocked/excited during plot twist!
@@ -2693,7 +2806,9 @@ Give your final thoughts on this dramatic moment.`
         continueContext,
         null,
         { positive: 0, negative: 0 },
-        false
+        false,
+        false, // not first impressions
+        plotTwistCompat // Pass current compatibility
       )
       
       // Update dater's emotion for final thoughts - could shift based on processing
@@ -3035,6 +3150,16 @@ Give your final thoughts on this dramatic moment.`
     
     console.log('🏆 Wheel winner:', winningSlice.label)
     console.log('🏆 Setting answerSelection subPhase to: winner')
+    
+    // 🚀 START LLM PRE-GENERATION IMMEDIATELY!
+    // This runs in the background while winner animations play
+    console.log('🚀 Starting early LLM pre-generation for:', winningSlice.label)
+    preGenConversationRef.current = null // Clear any previous
+    preGenPromiseRef.current = preGenerateRoundConversation(winningSlice.label)
+    preGenPromiseRef.current.then(data => {
+      preGenConversationRef.current = data
+      console.log('✅ LLM pre-generation complete (background)')
+    })
     
     setAnswerSelection(prev => ({
       ...prev,

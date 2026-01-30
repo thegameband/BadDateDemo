@@ -217,8 +217,9 @@ Your response should invite your date to share their perspective too!`
   }
 }
 
-export async function getDaterDateResponse(dater, avatar, conversationHistory, latestAttribute = null, sentimentHit = null, reactionStreak = { positive: 0, negative: 0 }, isFinalRound = false, isFirstImpressions = false) {
+export async function getDaterDateResponse(dater, avatar, conversationHistory, latestAttribute = null, sentimentHit = null, reactionStreak = { positive: 0, negative: 0 }, isFinalRound = false, isFirstImpressions = false, compatibility = 50) {
   console.log('🔗 Using MODULAR PROMPT CHAIN for dater response')
+  console.log('📊 Current compatibility:', compatibility, '% | Sentiment:', sentimentHit)
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   
   // Filter attributes to only include VISIBLE ones the Dater can actually see
@@ -296,6 +297,80 @@ DO NOT ask questions - just REACT with emotion. Keep it 1-2 sentences.`
         : `\n\n💀 ESCALATION: Building! Another red flag - your worry is increasing!`
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COMPATIBILITY-WEIGHTED EMOTIONAL CONTEXT
+    // How the overall date is going affects how you interpret individual comments
+    // ═══════════════════════════════════════════════════════════════════════════
+    const isMajorSentiment = sentimentHit === 'loves' || sentimentHit === 'dealbreakers'
+    const isMinorSentiment = sentimentHit === 'likes' || sentimentHit === 'dislikes'
+    
+    // Determine the overall date vibe based on compatibility meter
+    let dateVibeDescription = ''
+    let dateVibeModifier = ''
+    
+    if (compatibility >= 75) {
+      dateVibeDescription = 'The date is going AMAZINGLY well. You really like this person and feel a genuine connection.'
+      dateVibeModifier = isPositive ? 'amplify your positive reaction - you were already into them!' : 'temper your negative reaction slightly - they\'ve earned some goodwill'
+    } else if (compatibility >= 60) {
+      dateVibeDescription = 'The date is going well. You\'re interested and enjoying the conversation.'
+      dateVibeModifier = isPositive ? 'show genuine warmth - this confirms your good impression' : 'show mild concern - this is a bit disappointing given how well things were going'
+    } else if (compatibility >= 40) {
+      dateVibeDescription = 'The date is okay. You\'re neutral - still figuring out how you feel about this person.'
+      dateVibeModifier = isPositive ? 'show cautious interest - this is a good sign but you\'re not sold yet' : 'show your displeasure clearly - you weren\'t sure about them anyway'
+    } else if (compatibility >= 25) {
+      dateVibeDescription = 'The date is not going well. You\'re having doubts about this person.'
+      dateVibeModifier = isPositive ? 'be reserved - one good comment doesn\'t fix a bad date' : 'add to your growing list of concerns'
+    } else {
+      dateVibeDescription = 'The date is going TERRIBLY. You\'re looking for an exit and counting the minutes.'
+      dateVibeModifier = isPositive ? 'almost shrug it off - too little too late' : 'this confirms everything you suspected'
+    }
+    
+    // Build the compatibility context instruction
+    let compatibilityContext = ''
+    if (isMinorSentiment) {
+      // LIKES/DISLIKES: 70% compatibility weight, 30% comment weight
+      compatibilityContext = `
+📊 HOW THE DATE IS GOING (THIS HEAVILY AFFECTS YOUR REACTION):
+Current vibe: ${dateVibeDescription}
+Compatibility: ${compatibility}%
+
+⚖️ WEIGHTING FOR LIKES/DISLIKES (70% date vibe, 30% this comment):
+Since this is a MINOR sentiment (${sentimentHit}), your OVERALL feelings about the date should HEAVILY influence your reaction.
+
+- ${dateVibeModifier}
+- If the date is going well (>60%), even a "dislike" shouldn't make you too harsh
+- If the date is going poorly (<40%), even a "like" shouldn't make you too enthusiastic
+- Your emotional response should reflect the CUMULATIVE experience, not just this moment
+
+EXAMPLES:
+- Date going GREAT + dislike hit → "Hmm, okay... that's not my favorite thing, but honestly? I'm still having fun with you."
+- Date going POORLY + like hit → "Oh. That's... nice, I guess." (forced, unenthusiastic)
+- Date going GREAT + like hit → "Oh my god, see? This is why I'm enjoying talking to you!"
+- Date going POORLY + dislike hit → "Ugh. Of course. Why am I not surprised at this point."
+`
+    } else if (isMajorSentiment) {
+      // LOVES/DEALBREAKERS: 30% compatibility weight, 70% comment weight
+      compatibilityContext = `
+📊 HOW THE DATE IS GOING (minor influence):
+Current vibe: ${dateVibeDescription}
+Compatibility: ${compatibility}%
+
+⚖️ WEIGHTING FOR LOVES/DEALBREAKERS (30% date vibe, 70% this comment):
+Since this is a MAJOR sentiment (${sentimentHit}), THIS SPECIFIC COMMENT matters most!
+
+- The comment itself should drive ~70% of your reaction
+- But still let the date vibe slightly color your tone
+- A LOVE is still exciting even if the date was rough
+- A DEALBREAKER is still alarming even if the date was going well
+
+EXAMPLES:
+- Date going POORLY + LOVE hit → "Wait... actually? Okay that's... that actually kind of changes things." (surprised positivity breaking through)
+- Date going GREAT + DEALBREAKER hit → "Whoa whoa whoa. Hold on. That's... wow. I was really enjoying this but..." (shock disrupting good vibes)
+- Date going GREAT + LOVE hit → "STOP. Are you serious right now?! This person just keeps getting better!" (maximum enthusiasm)
+- Date going POORLY + DEALBREAKER hit → "And THERE it is. I knew something was off about you." (confirmation of suspicions)
+`
+    }
+    
     const sentimentGuide = {
       loves: `🥰💥💥💥 YOU ABSOLUTELY LOVE THIS - GO BIG!
 ⚠️ CRITICAL: YOUR RESPONSE MUST BE OVERWHELMINGLY POSITIVE!
@@ -367,7 +442,7 @@ EXAMPLES of what your response should sound like:
 
 DO NOT: Be polite, understanding, or try to see their side. This is UNACCEPTABLE to you!`
     }
-    sentimentInstruction = `\n\n🎯🎯🎯 YOUR EMOTIONAL REACTION (MANDATORY):\n${sentimentGuide[sentimentHit]}${escalationNote}${finalRoundInstruction}\n\n⚠️⚠️⚠️ ABSOLUTE REQUIREMENT: Your response tone MUST match the sentiment above! A ${sentimentHit.toUpperCase()} reaction means ${isPositive ? 'POSITIVE and ENTHUSIASTIC' : 'NEGATIVE and CONCERNED'}. If you give a neutral response, you have FAILED. Make your ${isPositive ? 'excitement' : 'displeasure'} IMPOSSIBLE to miss!\n\n🚫 THE HONESTY TRAP: Do NOT praise your date for "being honest" or "being open" when the CONTENT of what they said triggers a ${isPositive ? '' : 'negative '}reaction! React to WHAT they said, not HOW they said it. Being charming about something terrible doesn't make it less terrible!`
+    sentimentInstruction = `\n\n🎯🎯🎯 YOUR EMOTIONAL REACTION (MANDATORY):\n${sentimentGuide[sentimentHit]}${compatibilityContext}${escalationNote}${finalRoundInstruction}\n\n⚠️⚠️⚠️ ABSOLUTE REQUIREMENT: Your response tone MUST match the sentiment above, BUT TEMPERED BY THE DATE VIBE! A ${sentimentHit.toUpperCase()} reaction means ${isPositive ? 'POSITIVE' : 'NEGATIVE'}, but HOW positive/negative depends on how the date is going overall. If the date is going poorly, even good comments get lukewarm reactions. If it's going great, even bad comments get some benefit of the doubt.\n\n🚫 THE HONESTY TRAP: Do NOT praise your date for "being honest" or "being open" when the CONTENT of what they said triggers a ${isPositive ? '' : 'negative '}reaction! React to WHAT they said, not HOW they said it. Being charming about something terrible doesn't make it less terrible!`
   } else if (isFinalRound) {
     // Even if no sentiment hit, still add finality instruction
     sentimentInstruction = finalRoundInstruction
