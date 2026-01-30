@@ -770,7 +770,7 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
   
   // Check for paraphrase mode FIRST (before other checks)
   if (mode === 'paraphrase') {
-    // MODE: PARAPHRASE - Drop into the middle of a conversation naturally
+    // MODE: PARAPHRASE - OPEN A NEW ROUND by sharing your answer
     const questionContext = latestAttribute?.questionContext || ''
     const winningAnswer = latestAttribute?.answer || attributeText || ''
     const isPreference = isPreferenceQuestion(questionContext)
@@ -784,11 +784,15 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
 - Talk about this as YOUR PREFERENCE for what you want in a partner!
 ` : ''
     
-    behaviorInstructions = `🗣️ YOU'RE IN THE MIDDLE OF A CONVERSATION - JUST SHARE YOUR TAKE!
+    behaviorInstructions = `🆕🆕🆕 NEW TOPIC ALERT! 🆕🆕🆕
 
-TOPIC: "${questionContext}"
-YOUR ANSWER: "${winningAnswer}"
+⚠️ IGNORE PREVIOUS CONVERSATION! A new topic just came up. You MUST talk about THIS topic now.
+
+🎯 THE NEW TOPIC: "${questionContext}"
+🎯 YOUR ANSWER: "${winningAnswer}"
 ${preferenceContext}
+⚠️ YOU MUST INTRODUCE YOUR ANSWER "${winningAnswer}" IN THIS RESPONSE!
+
 💬 SOUND LIKE YOU'RE ALREADY CHATTING - NOT ANSWERING AN INTERVIEW QUESTION!
 
 You're on a date, casually talking. The topic came up naturally. Just share your perspective like you would with a friend.
@@ -854,13 +858,17 @@ ${emotionalInstructions}
 - Talk about this as YOUR PREFERENCE for partners!
 ` : ''
     
-    behaviorInstructions = `🗣️ YOUR DATE JUST SHARED - NOW KEEP THE CONVERSATION FLOWING!
+    behaviorInstructions = `🆕🆕🆕 NEW TOPIC ALERT! 🆕🆕🆕
 
-They said: "${daterOpener}"
+⚠️ IGNORE PREVIOUS CONVERSATION! A new topic just came up. Respond to THIS topic now.
 
-Topic: "${questionContext}"
-YOUR TAKE: "${winningAnswer}"
+Your date just opened with: "${daterOpener}"
+
+🎯 THE NEW TOPIC: "${questionContext}"
+🎯 YOUR ANSWER: "${winningAnswer}"
 ${preferenceContext}
+⚠️ YOU MUST STATE YOUR ANSWER "${winningAnswer}" IN THIS RESPONSE!
+
 💬 THIS IS A REAL CONVERSATION - REACT AND SHARE!
 
 1. Quick reaction to what they said (agree, disagree, laugh, be surprised - just 2-4 words!)

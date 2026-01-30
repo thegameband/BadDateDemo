@@ -1932,13 +1932,21 @@ function LiveDateScene() {
       const daterOpensFirst = Math.random() < 0.5
       console.log('📝 Pre-generating:', daterOpensFirst ? 'DATER opens' : 'AVATAR opens')
       
+      // For the FIRST exchange of a new round, use LIMITED history with a round boundary marker
+      // This prevents the LLM from continuing the previous round's conversation
+      const recentHistory = getConversation().slice(-6) // Just last 6 messages for context
+      const newRoundHistory = [
+        ...recentHistory,
+        { speaker: 'system', message: `--- NEW TOPIC: ${questionContext} ---` }
+      ]
+      
       // ===== EXCHANGE 1 =====
       let exchange1 = { daterOpener: null, avatarResponse: null, daterReaction: null, matchResult: null }
       
       if (daterOpensFirst) {
         // Dater opens
         exchange1.daterOpener = await getDaterConversationOpener(
-          selectedDater, avatarWithNewAttr, getConversation().slice(-20),
+          selectedDater, avatarWithNewAttr, newRoundHistory,
           currentRoundPrompt.title, questionContext
         )
         exchange1.daterOpenerMood = 'happy'
@@ -1948,7 +1956,7 @@ function LiveDateScene() {
           const avatarMood1 = getAvatarEmotionFromTraits()
           exchange1.avatarResponse = await getAvatarDateResponse(
             avatarWithNewAttr, selectedDater,
-            [...getConversation().slice(-20), { speaker: 'dater', message: exchange1.daterOpener }],
+            [...newRoundHistory, { speaker: 'dater', message: exchange1.daterOpener }],
             { answer: attrToUse, questionContext, daterOpener: exchange1.daterOpener },
             'respond-to-opener', avatarMood1
           )
@@ -1958,7 +1966,7 @@ function LiveDateScene() {
         // Avatar opens
         const avatarMood1 = getAvatarEmotionFromTraits()
         exchange1.avatarResponse = await getAvatarDateResponse(
-          avatarWithNewAttr, selectedDater, getConversation().slice(-20),
+          avatarWithNewAttr, selectedDater, newRoundHistory,
           framedAttribute, 'paraphrase', avatarMood1
         )
         exchange1.avatarMood = avatarMood1
