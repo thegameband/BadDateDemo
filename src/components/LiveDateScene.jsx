@@ -1358,9 +1358,24 @@ function LiveDateScene() {
       )
       
       if (daterReaction1) {
+        // Set dater's initial emotion based on first impression
+        // Analyze the physical attributes to guess her reaction
+        const firstImpressionMood = physicalList.toLowerCase().includes('attractive') || 
+                                    physicalList.toLowerCase().includes('handsome') ||
+                                    physicalList.toLowerCase().includes('beautiful') ||
+                                    physicalList.toLowerCase().includes('cute') ? 'attracted' :
+                                    physicalList.toLowerCase().includes('scary') ||
+                                    physicalList.toLowerCase().includes('bloody') ||
+                                    physicalList.toLowerCase().includes('terrifying') ? 'horrified' :
+                                    physicalList.toLowerCase().includes('nervous') ||
+                                    physicalList.toLowerCase().includes('sweaty') ? 'uncomfortable' : 'neutral'
+        setDaterEmotion(firstImpressionMood)
         setDaterBubble(daterReaction1)
         addDateMessage('dater', daterReaction1)
         await syncConversationToPartyKit(undefined, daterReaction1, false)
+        if (partyClient && isHost) {
+          partyClient.syncState({ daterEmotion: firstImpressionMood })
+        }
       }
       
       // Score physical attributes
@@ -1457,9 +1472,22 @@ function LiveDateScene() {
       )
       
       if (daterReaction2) {
+        // Set dater's emotion based on her reaction to avatar's intro
+        const daterReaction2Mood = getDaterEmotionFromSentiment(emotionalSentiment)
+        setDaterEmotion(daterReaction2Mood)
         setDaterBubble(daterReaction2)
         addDateMessage('dater', daterReaction2)
         await syncConversationToPartyKit(undefined, daterReaction2, false)
+        if (partyClient && isHost) {
+          partyClient.syncState({ daterEmotion: daterReaction2Mood })
+        }
+        
+        // Update avatar's emotion based on how dater reacted
+        const avatarReactionToFeedback = getAvatarEmotionFromContext(emotionalSentiment)
+        setAvatarEmotion(avatarReactionToFeedback)
+        if (partyClient && isHost) {
+          partyClient.syncState({ avatarEmotion: avatarReactionToFeedback })
+        }
         
         // Show reaction feedback if there was a sentiment hit
         if (emotionalSentiment) {
@@ -2694,9 +2722,21 @@ This is a DRAMATIC, PIVOTAL moment - react with FULL emotion to what the avatar 
         false
       )
       
+      // Dater is probably shocked/excited during plot twist!
+      const plotTwistDaterMood = winner.answer.toLowerCase().includes('punch') ||
+                                 winner.answer.toLowerCase().includes('fight') ||
+                                 winner.answer.toLowerCase().includes('hit') ? 'horrified' :
+                                 winner.answer.toLowerCase().includes('nothing') ||
+                                 winner.answer.toLowerCase().includes('ignore') ? 'uncomfortable' :
+                                 winner.answer.toLowerCase().includes('flirt') ||
+                                 winner.answer.toLowerCase().includes('kiss') ? 'attracted' : 'excited'
+      setDaterEmotion(plotTwistDaterMood)
       setDaterBubble(daterReaction1)
       addDateMessage('dater', daterReaction1)
       syncConversationToPartyKit(undefined, daterReaction1)
+      if (partyClient && isHost) {
+        partyClient.syncState({ daterEmotion: plotTwistDaterMood })
+      }
       
       // Wait for Maya to finish speaking - this is important!
       await waitForAllAudio()
@@ -2706,7 +2746,9 @@ This is a DRAMATIC, PIVOTAL moment - react with FULL emotion to what the avatar 
       console.log('🎭 Plot Twist Exchange 2: Avatar responds')
       
       // During plot twist, avatar is likely excited or nervous depending on what they did
-      const plotTwistAvatarMood = winner.answer.toLowerCase().includes('nothing') ? 'nervous' : 'excited'
+      const plotTwistAvatarMood = winner.answer.toLowerCase().includes('nothing') ? 'nervous' : 
+                                  winner.answer.toLowerCase().includes('punch') ||
+                                  winner.answer.toLowerCase().includes('fight') ? 'confident' : 'excited'
       
       const avatarResponse = await getAvatarDateResponse(
         avatar,
@@ -2748,9 +2790,25 @@ Give your final thoughts on this dramatic moment.`
         false
       )
       
+      // Update dater's emotion for final thoughts - could shift based on processing
+      const finalPlotTwistMood = winner.answer.toLowerCase().includes('nothing') ? 'uncomfortable' :
+                                 winner.answer.toLowerCase().includes('punch') ||
+                                 winner.answer.toLowerCase().includes('fight') ? 'worried' : 'happy'
+      setDaterEmotion(finalPlotTwistMood)
       setDaterBubble(daterReaction2)
       addDateMessage('dater', daterReaction2)
       syncConversationToPartyKit(undefined, daterReaction2)
+      if (partyClient && isHost) {
+        partyClient.syncState({ daterEmotion: finalPlotTwistMood })
+      }
+      
+      // Avatar reacts to Maya's final feelings
+      const avatarFinalMood = finalPlotTwistMood === 'happy' ? 'happy' : 
+                              finalPlotTwistMood === 'worried' ? 'nervous' : 'worried'
+      setAvatarEmotion(avatarFinalMood)
+      if (partyClient && isHost) {
+        partyClient.syncState({ avatarEmotion: avatarFinalMood })
+      }
       
       // Wait for all audio to complete before transitioning
       console.log('⏳ Waiting for plot twist audio to complete...')
