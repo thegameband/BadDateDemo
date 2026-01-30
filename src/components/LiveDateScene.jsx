@@ -3002,6 +3002,21 @@ Give your final thoughts on this dramatic moment.`
       
       console.log('🎡 Created wheel with', slicesWithAngles.length, 'slices:', slicesWithAngles)
       
+      // 🚀 PICK WINNER FIRST - before showing the wheel!
+      // This lets us start LLM generation while the wheel spins
+      const predeterminedWinner = selectWinningSlice(slicesWithAngles)
+      console.log('🎯 Pre-selected winner:', predeterminedWinner.label)
+      
+      // 🚀 START LLM PRE-GENERATION IMMEDIATELY!
+      // This runs in the background while the wheel spins
+      console.log('🚀 Starting early LLM pre-generation for:', predeterminedWinner.label)
+      preGenConversationRef.current = null
+      preGenPromiseRef.current = preGenerateRoundConversation(predeterminedWinner.label)
+      preGenPromiseRef.current.then(data => {
+        preGenConversationRef.current = data
+        console.log('✅ LLM pre-generation complete (during wheel spin!)')
+      })
+      
       // Show the wheel
       setAnswerSelection({
         subPhase: 'showing',
@@ -3021,9 +3036,9 @@ Give your final thoughts on this dramatic moment.`
         })
       }
       
-      // Start spinning almost immediately (brief pause for wheel to render)
+      // Start spinning - wheel will land on predetermined winner
       setTimeout(() => {
-        startWheelSpin(slicesWithAngles)
+        startWheelSpin(slicesWithAngles, predeterminedWinner)
       }, 500)
     } catch (error) {
       console.error('❌ Error grouping answers:', error)
@@ -3034,6 +3049,19 @@ Give your final thoughts on this dramatic moment.`
         weight: 1,
         originalAnswers: [a]
       })))
+      
+      // 🚀 PICK WINNER FIRST - even in fallback!
+      const predeterminedWinner = selectWinningSlice(fallbackSlices)
+      console.log('🎯 Pre-selected winner (fallback):', predeterminedWinner.label)
+      
+      // 🚀 START LLM PRE-GENERATION IMMEDIATELY!
+      console.log('🚀 Starting early LLM pre-generation for:', predeterminedWinner.label)
+      preGenConversationRef.current = null
+      preGenPromiseRef.current = preGenerateRoundConversation(predeterminedWinner.label)
+      preGenPromiseRef.current.then(data => {
+        preGenConversationRef.current = data
+        console.log('✅ LLM pre-generation complete (during wheel spin!)')
+      })
       
       setAnswerSelection({
         subPhase: 'showing',
@@ -3054,13 +3082,31 @@ Give your final thoughts on this dramatic moment.`
       }
       
       setTimeout(() => {
-        startWheelSpin(fallbackSlices)
+        startWheelSpin(fallbackSlices, predeterminedWinner)
       }, 500)
     }
   }
   
+  // Helper: Select winning slice using weighted random
+  const selectWinningSlice = (slices) => {
+    if (slices.length === 0) return null
+    if (slices.length === 1) return slices[0]
+    
+    const totalWeight = slices.reduce((sum, s) => sum + s.weight, 0)
+    let randomValue = Math.random() * totalWeight
+    
+    for (const slice of slices) {
+      randomValue -= slice.weight
+      if (randomValue <= 0) {
+        return slice
+      }
+    }
+    return slices[0] // Fallback
+  }
+  
   // Start the wheel spinning animation
-  const startWheelSpin = (slices) => {
+  // Now accepts a predetermined winner (selected earlier to allow early LLM generation)
+  const startWheelSpin = (slices, predeterminedWinner = null) => {
     if (!isHost) return
     
     if (slices.length === 0) {
@@ -3077,16 +3123,20 @@ Give your final thoughts on this dramatic moment.`
       })
     }
     
-    // Calculate where to stop (weighted random)
-    const totalWeight = slices.reduce((sum, s) => sum + s.weight, 0)
-    let randomValue = Math.random() * totalWeight
-    let winningSlice = slices[0]
-    
-    for (const slice of slices) {
-      randomValue -= slice.weight
-      if (randomValue <= 0) {
-        winningSlice = slice
-        break
+    // Use predetermined winner if provided, otherwise calculate (fallback)
+    let winningSlice = predeterminedWinner
+    if (!winningSlice) {
+      // Fallback: calculate winner now (shouldn't happen with new flow)
+      const totalWeight = slices.reduce((sum, s) => sum + s.weight, 0)
+      let randomValue = Math.random() * totalWeight
+      winningSlice = slices[0]
+      
+      for (const slice of slices) {
+        randomValue -= slice.weight
+        if (randomValue <= 0) {
+          winningSlice = slice
+          break
+        }
       }
     }
     
@@ -3145,21 +3195,13 @@ Give your final thoughts on this dramatic moment.`
   }
   
   // Declare the winning slice
+  // Note: LLM pre-generation already started when wheel began spinning!
   const declareWheelWinner = (winningSlice) => {
     if (!isHost) return
     
     console.log('🏆 Wheel winner:', winningSlice.label)
     console.log('🏆 Setting answerSelection subPhase to: winner')
-    
-    // 🚀 START LLM PRE-GENERATION IMMEDIATELY!
-    // This runs in the background while winner animations play
-    console.log('🚀 Starting early LLM pre-generation for:', winningSlice.label)
-    preGenConversationRef.current = null // Clear any previous
-    preGenPromiseRef.current = preGenerateRoundConversation(winningSlice.label)
-    preGenPromiseRef.current.then(data => {
-      preGenConversationRef.current = data
-      console.log('✅ LLM pre-generation complete (background)')
-    })
+    // LLM pre-generation was already started when the winner was pre-selected!
     
     setAnswerSelection(prev => ({
       ...prev,
