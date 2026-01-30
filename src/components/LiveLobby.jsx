@@ -9,7 +9,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.02.00'
+const GAME_VERSION = '0.02.01'
 
 // Main game entry screen - Bad Date
 
@@ -23,7 +23,7 @@ function LiveLobby() {
   const setPlayers = useGameStore((state) => state.setPlayers)
   const setPartyClient = useGameStore((state) => state.setPartyClient)
   const daters = useGameStore((state) => state.daters)
-  const [view, setView] = useState('main') // 'main', 'host', 'join'
+  const [view, setView] = useState('main') // 'main', 'host', 'join', 'qr-join'
   const [availableRooms, setAvailableRooms] = useState([])
   const [username, setUsernameLocal] = useState('')
   const [error, setError] = useState('')
@@ -31,9 +31,25 @@ function LiveLobby() {
   const [partyKitReady, setPartyKitReady] = useState(true) // PartyKit is always "ready"
   const [showAdminModal, setShowAdminModal] = useState(false)
   const [adminStatus, setAdminStatus] = useState('')
+  const [qrRoomCode, setQrRoomCode] = useState(null) // Room code from QR scan
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
+  
+  // Check for room code in URL (from QR scan)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const roomFromUrl = urlParams.get('room')
+    
+    if (roomFromUrl) {
+      console.log('🔗 Room code from URL:', roomFromUrl)
+      setQrRoomCode(roomFromUrl)
+      setView('qr-join')
+      
+      // Clean up the URL (remove the ?room= parameter)
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
   
   // Connect to the registry room for room discovery
   useEffect(() => {
@@ -222,6 +238,135 @@ function LiveLobby() {
     
     // Clear status after 3 seconds
     setTimeout(() => setAdminStatus(''), 3000)
+  }
+
+  // QR Join view - Streamlined join from QR code scan
+  if (view === 'qr-join' && qrRoomCode) {
+    return (
+      <div className="live-lobby qr-join-lobby">
+        {/* Version number */}
+        <div className="version-number">v{GAME_VERSION}</div>
+        
+        {/* Floating hearts background */}
+        <div className="lobby-background">
+          <div className="floating-hearts">
+            {[...Array(8)].map((_, i) => (
+              <motion.span
+                key={i}
+                className="floating-heart"
+                initial={{ 
+                  y: '100vh', 
+                  x: `${Math.random() * 100}vw`,
+                  opacity: 0,
+                  rotate: Math.random() * 360
+                }}
+                animate={{ 
+                  y: '-20vh',
+                  opacity: [0, 1, 1, 0],
+                  rotate: Math.random() * 360 + 180
+                }}
+                transition={{
+                  duration: 8 + Math.random() * 4,
+                  repeat: Infinity,
+                  delay: Math.random() * 5,
+                  ease: 'linear'
+                }}
+              >
+                {['💔', '💕', '❤️', '💘', '💗', '💖', '💝'][Math.floor(Math.random() * 7)]}
+              </motion.span>
+            ))}
+          </div>
+        </div>
+        
+        <motion.div 
+          className="live-lobby-card qr-join-card"
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.4 }}
+        >
+          {/* Title */}
+          <motion.div 
+            className="title-container"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+          >
+            <h1 className="game-title">
+              <span className="title-bad">Bad</span>
+              <span className="title-heart">💔</span>
+              <span className="title-date">Date</span>
+            </h1>
+            <p className="game-tagline">You've been invited to join a date!</p>
+          </motion.div>
+          
+          {/* Name input and join button */}
+          <motion.div 
+            className="qr-join-form"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="input-group">
+              <label className="input-label">What's your name?</label>
+              <input
+                type="text"
+                className="name-input"
+                placeholder="Enter your name..."
+                value={username}
+                onChange={(e) => setUsernameLocal(e.target.value)}
+                maxLength={20}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && username.trim()) {
+                    handleJoinRoom(qrRoomCode)
+                  }
+                }}
+              />
+            </div>
+            
+            {error && (
+              <motion.p 
+                className="error-message"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {error}
+              </motion.p>
+            )}
+            
+            <motion.button
+              className="join-date-btn"
+              onClick={() => handleJoinRoom(qrRoomCode)}
+              disabled={isLoading || !username.trim()}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {isLoading ? (
+                <>
+                  <span className="loading-spinner">💕</span>
+                  Joining...
+                </>
+              ) : (
+                <>
+                  <span className="btn-icon">💘</span>
+                  Join Date
+                </>
+              )}
+            </motion.button>
+            
+            <button 
+              className="back-link"
+              onClick={() => {
+                setQrRoomCode(null)
+                setView('main')
+              }}
+            >
+              ← Go to main menu instead
+            </button>
+          </motion.div>
+        </motion.div>
+      </div>
+    )
   }
 
   // Main view - Choose Host or Join

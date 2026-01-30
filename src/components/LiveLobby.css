@@ -834,3 +834,121 @@
     gap: 4px;
   }
 }
+
+/* ============================================
+   QR JOIN VIEW - Streamlined join from QR scan
+   ============================================ */
+
+.live-lobby.qr-join-lobby {
+  padding: 0;
+}
+
+.live-lobby.qr-join-lobby .live-lobby-card {
+  padding: 32px 24px;
+  z-index: 1;
+}
+
+.qr-join-card {
+  text-align: center;
+}
+
+.qr-join-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.qr-join-form .input-group {
+  text-align: left;
+}
+
+.qr-join-form .input-label {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.qr-join-form .name-input {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 1.1rem;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.qr-join-form .name-input:focus {
+  border-color: var(--accent-pink);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 20px rgba(255, 77, 109, 0.2);
+}
+
+.qr-join-form .name-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.join-date-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 18px 24px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ff4d6d 0%, #ff6b8a 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 20px rgba(255, 77, 109, 0.4);
+}
+
+.join-date-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 77, 109, 0.5);
+}
+
+.join-date-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.join-date-btn .btn-icon {
+  font-size: 1.3rem;
+}
+
+.join-date-btn .loading-spinner {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.back-link {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 8px;
+  margin-top: 8px;
+  transition: color 0.2s ease;
+}
+
+.back-link:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.qr-join-form .error-message {
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  padding: 10px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}

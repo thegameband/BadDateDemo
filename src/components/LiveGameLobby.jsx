@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { QRCodeSVG } from 'qrcode.react'
 import { useGameStore } from '../store/gameStore'
 import PartySocket from 'partysocket'
 import './LiveGameLobby.css'
@@ -171,6 +172,22 @@ function LiveGameLobby() {
               ← Leave
             </button>
           </div>
+          
+          {/* QR Code for players to scan and join */}
+          {isHost && (
+            <div className="qr-invite-section">
+              <div className="qr-code-wrapper">
+                <QRCodeSVG 
+                  value={`https://bad-date-demo.vercel.app?room=${roomCode}`}
+                  size={100}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  level="M"
+                />
+              </div>
+              <p className="qr-invite-label">Scan to join!</p>
+            </div>
+          )}
           
           <div className="dater-preview">
             <h3 className="preview-title">{selectedDater?.name || 'Your Date'}</h3>
