@@ -759,17 +759,36 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
   // Build behavior instructions based on mode and attributes
   let behaviorInstructions
   
+  // Helper: Detect if question is about PREFERENCES (what you want in a date) vs SELF (what you are like)
+  const isPreferenceQuestion = (question) => {
+    const q = (question || '').toLowerCase()
+    const preferenceKeywords = ['ick', 'dealbreaker', 'deal breaker', 'green flag', 'red flag', 
+      'turn off', 'turn on', 'looking for', 'want in', 'need in', 'ideal', 'perfect', 
+      'must have', 'can\'t stand', 'hate when', 'love when', 'attracted to', 'type']
+    return preferenceKeywords.some(kw => q.includes(kw))
+  }
+  
   // Check for paraphrase mode FIRST (before other checks)
   if (mode === 'paraphrase') {
     // MODE: PARAPHRASE - Drop into the middle of a conversation naturally
     const questionContext = latestAttribute?.questionContext || ''
     const winningAnswer = latestAttribute?.answer || attributeText || ''
+    const isPreference = isPreferenceQuestion(questionContext)
+    
+    // Context about whether this is a PREFERENCE or SELF-DESCRIPTION
+    const preferenceContext = isPreference ? `
+⚠️ IMPORTANT CONTEXT: This is a PREFERENCE question!
+- Your answer "${winningAnswer}" is about what you WANT (or don't want) in a DATE
+- You are NOT saying you have/are "${winningAnswer}" - you're saying this is your PREFERENCE
+- Example: "big butt" as an ick = you're turned OFF by dates with big butts, NOT that YOU have one
+- Talk about this as YOUR PREFERENCE for what you want in a partner!
+` : ''
     
     behaviorInstructions = `🗣️ YOU'RE IN THE MIDDLE OF A CONVERSATION - JUST SHARE YOUR TAKE!
 
 TOPIC: "${questionContext}"
 YOUR ANSWER: "${winningAnswer}"
-
+${preferenceContext}
 💬 SOUND LIKE YOU'RE ALREADY CHATTING - NOT ANSWERING AN INTERVIEW QUESTION!
 
 You're on a date, casually talking. The topic came up naturally. Just share your perspective like you would with a friend.
@@ -826,6 +845,14 @@ ${emotionalInstructions}
     const questionContext = latestAttribute?.questionContext || ''
     const winningAnswer = latestAttribute?.answer || attributeText || ''
     const daterOpener = latestAttribute?.daterOpener || ''
+    const isPreference = isPreferenceQuestion(questionContext)
+    
+    // Context about whether this is a PREFERENCE or SELF-DESCRIPTION
+    const preferenceContext = isPreference ? `
+⚠️ IMPORTANT: This is a PREFERENCE question!
+- "${winningAnswer}" is what you WANT (or don't want) in a DATE, not about yourself
+- Talk about this as YOUR PREFERENCE for partners!
+` : ''
     
     behaviorInstructions = `🗣️ YOUR DATE JUST SHARED - NOW KEEP THE CONVERSATION FLOWING!
 
@@ -833,7 +860,7 @@ They said: "${daterOpener}"
 
 Topic: "${questionContext}"
 YOUR TAKE: "${winningAnswer}"
-
+${preferenceContext}
 💬 THIS IS A REAL CONVERSATION - REACT AND SHARE!
 
 1. Quick reaction to what they said (agree, disagree, laugh, be surprised - just 2-4 words!)
@@ -891,6 +918,14 @@ ${emotionalInstructions}`
     const lastDaterMessage = [...conversationHistory].reverse().find(msg => msg.speaker === 'dater')?.message || ''
     const newestAttribute = latestAttribute?.answer || latestAttribute || realAttributes[realAttributes.length - 1]
     const currentTopic = latestAttribute?.questionContext || ''
+    const isPreference = isPreferenceQuestion(currentTopic)
+    
+    // Context about whether this is a PREFERENCE or SELF-DESCRIPTION
+    const preferenceContext = isPreference ? `
+⚠️ REMEMBER: "${newestAttribute}" is your PREFERENCE for what you want in a DATE!
+- You're discussing what you find attractive/unattractive in PARTNERS
+- This is NOT about you having this trait - it's about you WANTING (or not wanting) it in others
+` : ''
     
     behaviorInstructions = `🎯 RESPOND TO YOUR DATE'S REACTION - STAY ON TOPIC!
 
@@ -898,6 +933,7 @@ Your date just said: "${lastDaterMessage}"
 
 ${currentTopic ? `🎯 CURRENT TOPIC/QUESTION: "${currentTopic}"` : ''}
 YOUR ANSWER TO THIS TOPIC: "${newestAttribute}"
+${preferenceContext}
 YOUR OTHER TRAITS: ${realAttributes.join(', ')}
 
 ⚠️ CRITICAL: STAY ON THIS ROUND'S TOPIC!
@@ -930,11 +966,18 @@ ${emotionalInstructions}
     // MODE: CONNECT - Wrap up THIS ROUND's topic, optionally connect to other traits
     const newestAttribute = latestAttribute?.answer || latestAttribute || realAttributes[realAttributes.length - 1]
     const currentTopic = latestAttribute?.questionContext || ''
+    const isPreference = isPreferenceQuestion(currentTopic)
+    
+    // Context about whether this is a PREFERENCE or SELF-DESCRIPTION
+    const preferenceContext = isPreference ? `
+⚠️ REMEMBER: "${newestAttribute}" is your PREFERENCE for partners, not about yourself!
+` : ''
     
     behaviorInstructions = `🎯 WRAP UP THIS TOPIC - Final thought on your answer:
 
 ${currentTopic ? `🎯 CURRENT TOPIC/QUESTION: "${currentTopic}"` : ''}
 YOUR ANSWER TO THIS TOPIC: "${newestAttribute}"
+${preferenceContext}
 YOUR OTHER TRAITS: ${realAttributes.join(', ')}
 
 ⚠️ CRITICAL: This is your FINAL comment on "${newestAttribute}" for this round!
