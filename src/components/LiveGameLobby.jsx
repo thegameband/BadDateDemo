@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { QRCodeSVG } from 'qrcode.react'
 import { useGameStore } from '../store/gameStore'
 import PartySocket from 'partysocket'
 import './LiveGameLobby.css'
@@ -23,7 +22,6 @@ function LiveGameLobby() {
   
   const setShowAttributesByDefault = useGameStore((state) => state.setShowAttributesByDefault)
   
-  const [copied, setCopied] = useState(false)
   // Tutorial always false, Starting Stats always true (removed checkboxes)
   const showTutorial = false
   const startingStatsMode = true
@@ -107,12 +105,6 @@ function LiveGameLobby() {
     }
   }, [isHost, roomCode, players.length])
   
-  const copyCode = () => {
-    navigator.clipboard.writeText(roomCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  
   const handleStart = async () => {
     if (!partyClient) {
       console.error('No PartyKit client!')
@@ -178,30 +170,6 @@ function LiveGameLobby() {
             <button className="back-btn" onClick={handleBack}>
               ← Leave
             </button>
-            <div className="room-join-row">
-              <div className="room-code-section">
-                <span className="room-label">Room Code</span>
-                <div className="room-code" onClick={copyCode}>
-                  <span className="code-text">{roomCode}</span>
-                  <span className="copy-icon">{copied ? '✓' : '📋'}</span>
-                </div>
-                {copied && <span className="copied-toast">Copied!</span>}
-              </div>
-              
-              {/* QR Code to join this room */}
-              <div className="qr-section">
-                <div className="qr-code-container">
-                  <QRCodeSVG 
-                    value={`https://bad-date-demo.vercel.app?room=${roomCode}`}
-                    size={80}
-                    bgColor="#ffffff"
-                    fgColor="#000000"
-                    level="M"
-                  />
-                </div>
-                <p className="qr-label">Scan to join</p>
-              </div>
-            </div>
           </div>
           
           <div className="dater-preview">
