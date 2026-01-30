@@ -787,35 +787,25 @@ export async function getAvatarDateResponse(avatar, dater, conversationHistory, 
     behaviorInstructions = `🚨🚨🚨 CRITICAL: ONLY TALK ABOUT "${winningAnswer}" 🚨🚨🚨
 
 🎯 TOPIC: "${questionContext}"
-🎯 YOUR ANSWER (THE ONLY THING YOU SHOULD DISCUSS): "${winningAnswer}"
+🎯 YOUR ANSWER: "${winningAnswer}"
+🎯 YOUR PERSONALITY / OTHER TRAITS (use these to make your REASON feel consistent): ${realAttributes.join(', ') || 'none yet'}
 ${preferenceContext}
 
-⚠️ YOUR FIRST SENTENCE MUST REFERENCE "${winningAnswer}" DIRECTLY!
-- You are NOT introducing yourself. You are NOT saying hello.
-- You are sharing your answer to the question. Jump straight into it.
-- The very first words out of your mouth should be about "${winningAnswer}" (or lead into it in the same sentence).
+⚠️ YOUR RESPONSE MUST DO TWO THINGS:
+1. State your answer "${winningAnswer}" in the first sentence (no intro, no hello).
+2. Explain WHY you answered that way — a brief reason that fits YOUR personality and traits above. You don't have to mention every trait; just give a reason that feels like *you*.
 
-✅ YOUR RESPONSE MUST:
-1. First sentence = mention or reference "${winningAnswer}" immediately
-2. ONLY discuss "${winningAnswer}" - nothing else!
-3. Sound like casual conversation, not an interview
+✅ STRUCTURE: [Answer] + [Why — reason that fits your personality]
+✅ EXAMPLES WITH REASONS:
+- Answer "not flossing" + reason: "Yeah, not flossing is a no from me. Basic hygiene — like, if you can't do that, what else are you skipping?"
+- Answer "loud chewing" + reason: "Oh man, loud chewing. I just can't. Makes me so uncomfortable, I lose my appetite."
+- Answer "being kind to waiters" + reason: "For me it's how someone treats waiters. Says everything about how they'll treat you when nobody's watching."
+- Answer "pineapple on pizza" + reason: "Real talk? Pineapple on pizza. I'm a sweet-and-savory person, that's just who I am."
 
-✅ GOOD FIRST LINES (answer is in the opening):
-- "For me it's definitely ${winningAnswer}. Like, without question."
-- "Oh man, ${winningAnswer} is huge for me."
-- "Yeah, ${winningAnswer} is a no from me. Basic hygiene, come on."
-- "Real talk? ${winningAnswer}. I feel strongly about that."
-
-✅ EXAMPLES:
-Answer: "not flossing" → "Yeah, not flossing is a no from me. Basic hygiene, come on."
-Answer: "loud chewing" → "Oh man, loud chewing. I just can't. Makes me so uncomfortable."
-Answer: "being kind to waiters" → "For me it's how someone treats waiters. Says everything."
-
-❌ FORBIDDEN - DO NOT:
-- Start with an introduction, hello, or "So..." / "Well..." that doesn't lead to the answer
-- Say "My answer is..." or "I would say..." - just SAY the answer naturally
-- Mention ANY previous topics or answers
-- Talk about anything OTHER than "${winningAnswer}"
+❌ FORBIDDEN:
+- Don't just state the answer with no reason. Always include a brief "why."
+- No introduction or hello. Jump to answer + reason.
+- Don't mention every trait — one coherent reason is enough.
 
 ${emotionalInstructions}`
     
@@ -839,30 +829,24 @@ ${emotionalInstructions}`
 Your date just said: "${daterOpener}"
 
 🎯 TOPIC: "${questionContext}"
-🎯 YOUR ANSWER (THE ONLY THING YOU SHOULD DISCUSS): "${winningAnswer}"
+🎯 YOUR ANSWER: "${winningAnswer}"
+🎯 YOUR PERSONALITY / OTHER TRAITS (use these to make your REASON feel consistent): ${realAttributes.join(', ') || 'none yet'}
 ${preferenceContext}
 
-⚠️ YOUR FIRST SENTENCE MUST REFERENCE "${winningAnswer}" DIRECTLY!
-- You are NOT introducing yourself. You are NOT saying hello.
-- React briefly to what they said (2-4 words), then immediately state your answer "${winningAnswer}" in the same sentence or the next.
-- The answer "${winningAnswer}" must appear in your first sentence or the very start of your response.
+⚠️ YOUR RESPONSE MUST DO TWO THINGS:
+1. Brief reaction to what they said (2-4 words), then state your answer "${winningAnswer}" in the same or next sentence.
+2. Explain WHY you answered that way — a brief reason that fits YOUR personality and traits above. You don't have to mention every trait; just give a reason that feels like *you*.
 
-✅ YOUR RESPONSE MUST:
-1. Brief reaction (2-4 words) + "${winningAnswer}" in the same or next sentence
-2. ONLY discuss "${winningAnswer}" - nothing else!
-3. No intro, no "So..." - jump to your take
+✅ STRUCTURE: [Reaction] + [Answer] + [Why — reason that fits your personality]
+✅ EXAMPLES WITH REASONS:
+- "Oh totally! For me it's ${winningAnswer}. [Then add why — e.g. that's just how I'm wired / I've had bad experiences / it says a lot about a person.]"
+- "Ha! See, ${winningAnswer} is my thing. [Then add why — one sentence that fits your traits.]"
+- "Right?? ${winningAnswer} though. That's mine. [Then add why.]"
 
-✅ GOOD FIRST LINES:
-- "Oh totally! For me it's ${winningAnswer}."
-- "Ha! See, ${winningAnswer} is my thing."
-- "Right?? ${winningAnswer} though. That's mine."
-- "I feel that! Mine's ${winningAnswer} - no question."
-
-❌ FORBIDDEN - DO NOT:
-- Start with an introduction or hello
-- Say "My answer would be..." - just say the answer
-- Mention ANY previous topics or answers
-- Talk about anything OTHER than "${winningAnswer}"
+❌ FORBIDDEN:
+- Don't just state the answer with no reason. Always include a brief "why."
+- No introduction or hello. Jump to reaction + answer + reason.
+- Don't mention every trait — one coherent reason is enough.
 
 ${emotionalInstructions}`
     
