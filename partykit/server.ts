@@ -453,6 +453,7 @@ export default class GameRoom implements Party.Server {
         
         if (this.state.cycleCount >= this.state.maxCycles) {
           this.state.phase = 'ended';
+          this.clearPlayerAnswerData();
         } else {
           this.state.phase = 'phase1';
           this.state.phaseTimer = 30;
@@ -462,6 +463,7 @@ export default class GameRoom implements Party.Server {
       
       case 'END_GAME': {
         this.state.phase = 'ended';
+        this.clearPlayerAnswerData();
         break;
       }
       
@@ -473,6 +475,9 @@ export default class GameRoom implements Party.Server {
       case 'SYNC_STATE': {
         // Allow host to sync complex state updates
         Object.assign(this.state, action.state);
+        if (this.state.phase === 'ended') {
+          this.clearPlayerAnswerData();
+        }
         break;
       }
       
@@ -500,10 +505,23 @@ export default class GameRoom implements Party.Server {
           username: action.username,
           answer: action.answer,
         });
-        
-        console.log(`Plot twist answer from ${action.username}: "${action.answer}"`);
         break;
       }
+    }
+  }
+
+  /** Remove all player-submitted answer data from state (privacy: do not retain after game ends). */
+  clearPlayerAnswerData() {
+    this.state.suggestedAttributes = [];
+    this.state.numberedAttributes = [];
+    this.state.votes = {};
+    if (this.state.startingStats) {
+      this.state.startingStats.answers = [];
+    }
+    this.state.playerChat = [];
+    if (this.state.plotTwist) {
+      this.state.plotTwist.answers = [];
+      this.state.plotTwist.winningAnswer = null;
     }
   }
 

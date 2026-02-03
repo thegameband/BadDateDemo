@@ -133,13 +133,25 @@ export async function speak(text, speaker = 'avatar', options = {}) {
   if (!text || text.trim().length === 0) {
     return { started: false, immediate: true }
   }
-  
-  // Clean up the text - remove asterisks and actions like *smiles*
-  const cleanText = text
+
+  // Sanitize for speech: remove LLM artifacts and trailing nonsense so we don't speak gibberish
+  let cleanText = text
     .replace(/\*[^*]+\*/g, '') // Remove *actions*
     .replace(/\([^)]+\)/g, '') // Remove (parenthetical actions)
+    .replace(/<[^>]+>/g, '') // Remove XML/HTML tags
+    .replace(/\[[^\]]*\]/g, '') // Remove [bracketed] content
+    .replace(/\s+/g, ' ')
     .trim()
-  
+
+  // Trim to last natural sentence end — drop trailing nonsense the LLM sometimes appends
+  const lastEnd = Math.max(cleanText.lastIndexOf('.'), cleanText.lastIndexOf('!'), cleanText.lastIndexOf('?'))
+  if (lastEnd !== -1 && lastEnd < cleanText.length - 1) {
+    const after = cleanText.slice(lastEnd + 1).trim()
+    if (after.length > 0 && (after.length > 60 || /^[a-z]/.test(after) || /^[^a-zA-Z]/.test(after))) {
+      cleanText = cleanText.slice(0, lastEnd + 1).trim()
+    }
+  }
+
   if (cleanText.length === 0) {
     return { started: false, immediate: true }
   }

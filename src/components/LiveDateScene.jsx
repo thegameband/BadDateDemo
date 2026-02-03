@@ -59,6 +59,7 @@ function LiveDateScene() {
   const setStartingStats = useGameStore((state) => state.setStartingStats)
   const setAvatarName = useGameStore((state) => state.setAvatarName)
   const setPlayers = useGameStore((state) => state.setPlayers)
+  const clearPlayerAnswerData = useGameStore((state) => state.clearPlayerAnswerData)
   
   const [chatInput, setChatInput] = useState('')
   const [avatarBubble, setAvatarBubble] = useState('')
@@ -733,8 +734,7 @@ function LiveDateScene() {
   
   // Debug: Log when suggestedAttributes changes
   useEffect(() => {
-    console.log('💡 DEBUG suggestedAttributes changed:', suggestedAttributes?.length, 'items', suggestedAttributes)
-    console.log('💡 Should display suggestions?', livePhase === 'phase1' && (suggestedAttributes?.length || 0) > 0)
+    console.log('💡 DEBUG suggestedAttributes count:', suggestedAttributes?.length || 0)
   }, [suggestedAttributes, livePhase])
   
   // Track which bubbles are ready to show (audio has started or TTS disabled)
@@ -1210,7 +1210,7 @@ function LiveDateScene() {
       partyClient.syncState({ startingStats: newStats })
     }
     
-    console.log('📝 Starting Stats answer submitted:', newAnswer, 'Total answers:', newAnswers.length)
+    console.log('📝 Starting Stats answer submitted. Total answers:', newAnswers.length)
     console.log('📝 isHost:', isHost, 'Current questionIndex:', currentStats.currentQuestionIndex)
     
     // If host, directly advance to next question (don't wait for state sync)
@@ -1843,7 +1843,7 @@ function LiveDateScene() {
           return // Don't transition, stay in Phase 1
         }
         // Move to Answer Selection - show all answers and randomly pick one
-        console.log('📋 Processing suggestions for answer selection:', suggestedAttributes)
+        console.log('📋 Processing suggestions for answer selection:', suggestedAttributes?.length || 0, 'items')
         {
           const answers = suggestedAttributes
             .filter(attr => attr && (attr.text || typeof attr === 'string'))
@@ -1946,27 +1946,21 @@ function LiveDateScene() {
       )
       exchange1.avatarMood = avatarMood1
       
-      // Check sentiment for avatar's response
+      // Dater reacts first (no pre-assigned sentiment); then we derive attribute hit FROM her reaction
       if (exchange1.avatarResponse) {
-        exchange1.matchResult = await checkAttributeMatch(exchange1.avatarResponse, daterValues, selectedDater, null)
-        const sentimentHit1 = exchange1.matchResult.category || null
-        
-        // Build conversation history for next call
         const convoWithExchange1 = [...getConversation().slice(-20)]
         if (exchange1.daterOpener) convoWithExchange1.push({ speaker: 'dater', message: exchange1.daterOpener })
         if (exchange1.avatarResponse) convoWithExchange1.push({ speaker: 'avatar', message: exchange1.avatarResponse })
-        
-        // Dater reacts to avatar - pass current compatibility for weighted response
         const currentCompat1 = useGameStore.getState().compatibility
         exchange1.daterReaction = await getDaterDateResponse(
           selectedDater, avatarWithNewAttr, convoWithExchange1,
-          framedAttribute, sentimentHit1, currentStreak, isFinalRound, false, currentCompat1
+          framedAttribute, null, currentStreak, isFinalRound, false, currentCompat1
         )
+        exchange1.matchResult = await checkAttributeMatch(exchange1.avatarResponse, daterValues, selectedDater, exchange1.daterReaction)
+        const sentimentHit1 = exchange1.matchResult.category || null
         exchange1.daterMood = getDaterEmotionFromSentiment(sentimentHit1, currentCompat1)
         exchange1.sentimentHit = sentimentHit1
         exchange1.scoringMultiplier = 1.0
-        
-        // Update streak for next exchange
         if (sentimentHit1) {
           const isPositive = sentimentHit1 === 'loves' || sentimentHit1 === 'likes'
           if (isPositive) currentStreak = { positive: currentStreak.positive + 1, negative: 0 }
@@ -1991,21 +1985,18 @@ function LiveDateScene() {
       let exchange2 = { avatarResponse: avatarResponse2, avatarMood: avatarMood2, daterReaction: null, matchResult: null }
       
       if (avatarResponse2) {
-        exchange2.matchResult = await checkAttributeMatch(avatarResponse2, daterValues, selectedDater, null)
-        const sentimentHit2 = exchange2.matchResult.category || null
-        
         const convoWithEx2 = [...convoAfterEx1, { speaker: 'avatar', message: avatarResponse2 }]
         const currentCompat2 = useGameStore.getState().compatibility
-        // Dater reacts to avatar's new comment and tries to connect to other things avatar said earlier
         exchange2.daterReaction = await getDaterDateResponse(
           selectedDater, avatarWithNewAttr, convoWithEx2,
-          { answer: exchange2.matchResult.matchedValue, questionContext }, sentimentHit2, currentStreak, isFinalRound, false, currentCompat2,
+          { answer: exchange1.matchResult?.matchedValue || framedAttribute, questionContext }, null, currentStreak, isFinalRound, false, currentCompat2,
           'React to what the avatar just said. Try to connect your response to other things the avatar said earlier in the date — reference or tie in something they mentioned before.'
         )
+        exchange2.matchResult = await checkAttributeMatch(avatarResponse2, daterValues, selectedDater, exchange2.daterReaction)
+        const sentimentHit2 = exchange2.matchResult.category || null
         exchange2.daterMood = getDaterEmotionFromSentiment(sentimentHit2, currentCompat2)
         exchange2.sentimentHit = sentimentHit2
         exchange2.scoringMultiplier = 0.25
-        
         if (sentimentHit2) {
           const isPositive = sentimentHit2 === 'loves' || sentimentHit2 === 'likes'
           if (isPositive) currentStreak = { positive: currentStreak.positive + 1, negative: 0 }
@@ -2029,17 +2020,15 @@ function LiveDateScene() {
       let exchange3 = { avatarResponse: avatarResponse3, avatarMood: avatarMood3, daterReaction: null, matchResult: null }
       
       if (avatarResponse3) {
-        exchange3.matchResult = await checkAttributeMatch(avatarResponse3, daterValues, selectedDater, null)
-        const sentimentHit3 = exchange3.matchResult.category || null
-        
         const convoWithEx3 = [...convoAfterEx2, { speaker: 'avatar', message: avatarResponse3 }]
         const currentCompat3 = useGameStore.getState().compatibility
-        // Dater offers their opinion about the Avatar based on this round's interaction
         exchange3.daterReaction = await getDaterDateResponse(
           selectedDater, avatarWithNewAttr, convoWithEx3,
-          { answer: exchange3.matchResult.matchedValue, questionContext }, sentimentHit3, currentStreak, isFinalRound, false, currentCompat3,
+          { answer: exchange2.matchResult?.matchedValue || framedAttribute, questionContext }, null, currentStreak, isFinalRound, false, currentCompat3,
           "Offer your opinion about the Avatar based on this round's interaction — what do you think of them so far? Summarize your take in 1-2 sentences (dialogue only)."
         )
+        exchange3.matchResult = await checkAttributeMatch(avatarResponse3, daterValues, selectedDater, exchange3.daterReaction)
+        const sentimentHit3 = exchange3.matchResult.category || null
         exchange3.daterMood = getDaterEmotionFromSentiment(sentimentHit3, currentCompat3)
         exchange3.sentimentHit = sentimentHit3
         exchange3.scoringMultiplier = 0.10
@@ -2276,19 +2265,18 @@ function LiveDateScene() {
 
 YOUR TRAITS REVEALED DURING THE DATE: ${avatarAttributes.join(', ')}
 
-🎯 YOUR TASK: Give a casual wrap-up of how you think the date went and ask if they'd want to do this again.
+🎯 YOUR TASK: Give a SHORT casual wrap-up and ask if they'd want to do this again.
 
 RULES:
-- Reference 1-2 specific things you said or that happened during the date
-- Be genuine about how you think it went (you can sense the vibe)
-- Casually ask about seeing them again - not too formal, not too desperate
-- Keep it to 2-3 sentences MAX
+- Be CONCISE: 1-2 short sentences only (~15-25 words total). Cut filler.
+- Reference one specific thing from the date if you can, briefly
+- Casually ask about seeing them again - one short line
 - NO action descriptors (*smiles*, etc) - dialogue only
-- Sound natural, like you're actually on a date
+- Sound natural but punchy
 
-Generate ${avatarName}'s wrap-up statement:`
+Generate ${avatarName}'s wrap-up (brief):`
 
-      const avatarWrapUp = await getSingleResponseWithTimeout(avatarWrapUpPrompt, { maxTokens: 200, timeoutMs: LLM_TIMEOUT_MS })
+      const avatarWrapUp = await getSingleResponseWithTimeout(avatarWrapUpPrompt, { maxTokens: 120, timeoutMs: LLM_TIMEOUT_MS })
         || "So... would you want to do this again sometime?"
 
       if (ttsEnabled) setAvatarBubbleReady(false)
@@ -2318,13 +2306,12 @@ ${recentConvo}
 THINGS ${avatarName.toUpperCase()} REVEALED ABOUT THEMSELVES:
 ${avatarAttributes.map(a => `- ${a}`).join('\n')}
 
-🎯 YOUR TASK: Sum up your feelings about the date and about ${avatarName} based on what was said and your overall compatibility (${compatibilityScore}%). Give an honest 2-3 sentence assessment.
+🎯 YOUR TASK: Sum up your feelings in 1-2 SHORT sentences (~15-25 words total). Be concise.
 
 RULES:
-- Base your summary on what was actually said in the conversation and how you felt about it
-- Your tone should match a ${compatibilityScore}% compatibility: ${sentimentTier.replace(/_/g, ' ')}
-- Reference specific things they said or traits they revealed
-- Keep it to 2-3 sentences. NO action descriptors - dialogue only. Don't mention percentages.
+- Base your summary on what was said and how you felt. Your tone should match ${compatibilityScore}%: ${sentimentTier.replace(/_/g, ' ')}
+- Reference one specific thing they said or revealed if you can, briefly
+- 1-2 sentences only. NO action descriptors - dialogue only. Don't mention percentages. Cut filler.
 
 ${sentimentTier === 'falling_in_love' ? 'You are TOTALLY SMITTEN. Sum up why you loved the date and them.' :
   sentimentTier === 'want_another_date' ? 'You had a great time. Sum up what you liked and that you\'d see them again.' :
@@ -2332,9 +2319,9 @@ ${sentimentTier === 'falling_in_love' ? 'You are TOTALLY SMITTEN. Sum up why you
   sentimentTier === 'no_second_date' ? 'You are NOT feeling it. Sum up why it didn\'t work for you.' :
   'This was a disaster. Sum up why you\'re done.'}
 
-Generate ${daterName}'s summary of their feelings about the date and ${avatarName}:`
+Generate ${daterName}'s brief summary:`
 
-      const daterAssessment = await getSingleResponseWithTimeout(daterAssessmentPrompt, { maxTokens: 200, timeoutMs: LLM_TIMEOUT_MS })
+      const daterAssessment = await getSingleResponseWithTimeout(daterAssessmentPrompt, { maxTokens: 120, timeoutMs: LLM_TIMEOUT_MS })
         || "Well... that was certainly something."
 
       if (ttsEnabled) setDaterBubbleReady(false)
@@ -2352,35 +2339,35 @@ Generate ${daterName}'s summary of their feelings about the date and ${avatarNam
       console.log('🎭 Wrap-Up Exchange 3: Dater gives final verdict')
 
       const verdictInstructions = {
-        falling_in_love: `You are TOTALLY falling for them! Say something enthusiastic about wanting to see them again SOON. Maybe even tonight. Be flirty and excited!`,
-        want_another_date: `You definitely want another date! Be warm and clear that you'd like to see them again. Leave it open-ended but positive.`,
-        uncertain: `You're on the fence. Be politely noncommittal - "I'll think about it" energy. Don't commit but don't slam the door.`,
-        no_second_date: `You do NOT want another date. Be polite but clear - make an excuse or just be honest that you don't see it working.`,
-        deleting_number: `You are DONE. You're being polite but you're definitely deleting their number after this. Make it clear this is goodbye forever.`
+        falling_in_love: `Say something short and enthusiastic about seeing them again soon. Be flirty, one short line.`,
+        want_another_date: `Be warm and clear you'd like to see them again. One short sentence.`,
+        uncertain: `Politely noncommittal - "I'll think about it" in one short line.`,
+        no_second_date: `Polite but clear you don't want another date. One short line.`,
+        deleting_number: `Polite but clear this is goodbye. One short line.`
       }
 
       const verdictExamples = {
-        falling_in_love: '"YES. Absolutely yes. When are you free? Tomorrow? Tonight? I\'m not even joking."',
-        want_another_date: '"I\'d really like that. Text me - let\'s figure something out."',
-        uncertain: '"I\'ll... think about it. It was nice meeting you though."',
-        no_second_date: '"I think I\'m good, actually. Take care of yourself though."',
-        deleting_number: '"Yeah... I\'m gonna go. Good luck with everything. Don\'t call me."'
+        falling_in_love: '"Yes. When are you free? Tomorrow?"',
+        want_another_date: '"I\'d like that. Text me."',
+        uncertain: '"I\'ll think about it. Nice meeting you."',
+        no_second_date: '"I\'m good. Take care."',
+        deleting_number: '"I\'m gonna go. Don\'t call me."'
       }
 
-      const daterVerdictPrompt = `You are ${daterName} giving your FINAL answer about whether you want to see ${avatarName} again.
+      const daterVerdictPrompt = `You are ${daterName} giving your FINAL answer about seeing ${avatarName} again.
 
 COMPATIBILITY: ${compatibilityScore}%
 YOUR DECISION: ${sentimentTier.replace(/_/g, ' ').toUpperCase()}
 
 ${verdictInstructions[sentimentTier]}
 
-🎯 Give your final verdict in ONE sentence. NO action descriptors - dialogue only.
+🎯 ONE short sentence only (~8-15 words). NO action descriptors - dialogue only.
 
 EXAMPLE: ${verdictExamples[sentimentTier]}
 
 Generate ${daterName}'s final verdict:`
 
-      const daterVerdict = await getSingleResponseWithTimeout(daterVerdictPrompt, { maxTokens: 100, timeoutMs: LLM_TIMEOUT_MS })
+      const daterVerdict = await getSingleResponseWithTimeout(daterVerdictPrompt, { maxTokens: 60, timeoutMs: LLM_TIMEOUT_MS })
         || "We'll see."
 
       const verdictMood = sentimentTier === 'falling_in_love' ? 'excited' :
@@ -2461,6 +2448,7 @@ Generate ${daterName}'s final verdict:`
       const finalCycleCount = newRoundCount + 1
       useGameStore.setState({ cycleCount: finalCycleCount })
       setLivePhase('ended')
+      clearPlayerAnswerData()
       if (partyClient) {
         partyClient.syncState({ phase: 'ended', compatibility: currentCompatibility, cycleCount: finalCycleCount })
       }
@@ -2468,6 +2456,7 @@ Generate ${daterName}'s final verdict:`
     } else if (newRoundCount >= currentMaxCycles) {
       // Only reachable if maxCycles changed or wrap-up was already run; end game
       setLivePhase('ended')
+      clearPlayerAnswerData()
       if (partyClient) {
         partyClient.syncState({ phase: 'ended', compatibility: currentCompatibility, cycleCount: newRoundCount })
       }
@@ -2619,7 +2608,7 @@ Generate ${daterName}'s final verdict:`
       partyClient.submitPlotTwistAnswer(playerId, username, answer.trim())
     }
     
-    console.log(`🎭 Submitted plot twist answer: "${answer}"`)
+    console.log('🎭 Plot twist answer submitted')
   }
   
   // Move to reveal phase - create wheel slices and start spinning
@@ -2703,7 +2692,7 @@ Generate ${daterName}'s final verdict:`
     console.log('🎭 Plot Twist wheel spinning to', finalAngle, 'degrees, winner:', winningSlice.label)
     
     let startTime = null
-    const duration = 6000 // 6 seconds so spin is clearly visible
+    const duration = 9000 // 9 seconds (50% longer to mask LLM call timing)
     const startAngle = 0
     
     const animateSpin = (timestamp) => {
@@ -2755,7 +2744,7 @@ Generate ${daterName}'s final verdict:`
   const declareWinner = (winner, winnerIndex) => {
     if (!isHost) return
     
-    console.log(`🎭 Plot Twist Winner: "${winner.answer}" by ${winner.username}`)
+    console.log('🎭 Plot twist winner selected')
     
     const currentPlotTwist = useGameStore.getState().plotTwist
     const newPlotTwist = {
@@ -2782,10 +2771,10 @@ Generate ${daterName}'s final verdict:`
     
     console.log('🎭 Generating plot twist summary...')
     
-    const avatarName = avatar?.name || 'Your Avatar'
+    const avatarName = avatar?.name || 'your date'
     const daterName = selectedDater?.name || 'Maya'
     
-    // Generate the dramatic summary
+    // Generate the dramatic summary (use avatar's name, never "Avatar")
     const summary = await generatePlotTwistSummary(avatarName, daterName, winner.answer)
     
     // Update to summary phase with the generated text
@@ -2842,13 +2831,17 @@ Generate ${daterName}'s final verdict:`
     setIsGenerating(true)
     
     try {
-      // Dater responds to the "What happened" story (not just the raw winning action)
+      // Build context: "What Happened" narrative + Maya's attributes so she reacts honestly as herself
+      const daterName = selectedDater?.name || 'Maya'
+      const daterValues = selectedDater?.values || 'honesty, authenticity'
+      const daterDealbreakers = Array.isArray(selectedDater?.dealbreakers) ? selectedDater.dealbreakers.join(', ') : (selectedDater?.dealbreakers || '')
+      const daterBackstoryNote = selectedDater?.backstory ? selectedDater.backstory.slice(0, 200) + '...' : ''
       const storyContext = whatHappenedStory
-        ? `PLOT TWIST SCENARIO - HERE IS WHAT HAPPENED (react to this story):\n\n"${whatHappenedStory}"\n\nYou are ${selectedDater?.name || 'the dater'}. React with FULL emotion to what happened. The winning choice was an ACTION: "${winner.answer}" — but you're responding to the story above.`
-        : `PLOT TWIST SCENARIO: Someone else hit on ${selectedDater?.name || 'your date'}. The avatar's response (action): "${winner.answer}". React with full emotion to what the avatar did!`
+        ? `PLOT TWIST SCENARIO - HERE IS WHAT HAPPENED (you must react to this story):\n\nWHAT HAPPENED:\n"${whatHappenedStory}"\n\nYOU ARE ${daterName}. Respond as ${daterName} would honestly respond to what happened in the story above.\n\nYOUR CHARACTER: Values: ${daterValues}. Dealbreakers: ${daterDealbreakers}.${daterBackstoryNote ? ` Backstory (who you are): ${daterBackstoryNote}` : ''}\n\nReact with full emotion, in character. Your response should be how YOU would really feel given your values and personality. The winning action was: "${winner.answer}" — but you are reacting to the NARRATIVE above.`
+        : `PLOT TWIST SCENARIO: Someone else hit on ${daterName}. Your date's response (action): "${winner.answer}". You are ${daterName}. Values: ${daterValues}. Dealbreakers: ${daterDealbreakers}. React honestly, as yourself, with full emotion.`
       
       // ============ EXCHANGE 1: Dater's FIRST reaction to "What happened" ============
-      console.log('🎭 Plot Twist Exchange 1: Dater reacts to what happened story')
+      console.log('🎭 Plot Twist Exchange 1: Dater reacts to what happened story (with dater attributes)')
       const plotTwistCompat = useGameStore.getState().compatibility
       const daterReaction1 = await getDaterDateResponse(
         selectedDater,
@@ -2914,11 +2907,9 @@ Generate ${daterName}'s final verdict:`
       
       // ============ EXCHANGE 3: Maya continues processing - final thoughts ============
       console.log('🎭 Plot Twist Exchange 3: Maya continues her emotional processing')
-      const continueContext = `Continue reacting to the PLOT TWIST. 
-The avatar just ${winner.answer}. You already said: "${daterReaction1}"
-Now continue processing your emotions - what does this mean for you and this date?
-Are you more or less interested? Has this changed everything?
-Give your final thoughts on this dramatic moment.`
+      const continueContext = whatHappenedStory
+        ? `PLOT TWIST - CONTINUE REACTING TO WHAT HAPPENED.\n\nWHAT HAPPENED: "${whatHappenedStory}"\n\nYou (${daterName}) already said: "${daterReaction1}"\n\nNow give your final thoughts on this moment. What does what happened mean for you and this date? Are you more or less interested? Stay in character (values: ${daterValues}; dealbreakers: ${daterDealbreakers}). React honestly.`
+        : `Continue reacting to the PLOT TWIST. Your date just ${winner.answer}. You already said: "${daterReaction1}". Now give your final thoughts — what does this mean for you and this date? Stay in character.`
       
       const daterReaction2 = await getDaterDateResponse(
         selectedDater,
@@ -3069,7 +3060,7 @@ Give your final thoughts on this dramatic moment.`
     console.log('🎰 startAnswerSelection called, isHost:', isHost)
     if (!isHost) return
     
-    console.log('🎰 Starting answer selection with', answers.length, 'answers')
+    console.log('🎰 Starting answer selection with', answers.length, 'answer(s)')
     
     const currentCompatibility = useGameStore.getState().compatibility
     const currentCycleCount = useGameStore.getState().cycleCount
@@ -3114,7 +3105,7 @@ Give your final thoughts on this dramatic moment.`
     
     try {
       // Group similar answers using LLM
-      console.log('🤖 Grouping similar answers... question:', question, 'answers:', answers)
+      console.log('🤖 Grouping similar answers... count:', answers.length)
       const groupedSlices = await groupSimilarAnswers(question, answers)
       console.log('🤖 Grouping complete, got', groupedSlices.length, 'slices:', groupedSlices)
       
@@ -3272,7 +3263,7 @@ Give your final thoughts on this dramatic moment.`
     
     // Animate the spin with ease-in-out (slow start → fast middle → slow end)
     let startTime = null
-    const duration = 6000 // 6 seconds for longer, more dramatic spin
+    const duration = 9000 // 9 seconds (50% longer, more dramatic spin)
     const startAngle = 0
     
     const animateSpin = (timestamp) => {
@@ -3426,7 +3417,7 @@ Give your final thoughts on this dramatic moment.`
       
       // Submit via PartyKit if available, otherwise local only
       if (partyClient) {
-        console.log('📝 Submitting via PartyKit:', { text: message, username, odId: playerId })
+        console.log('📝 Submitting attribute via PartyKit')
         partyClient.submitAttribute(message, username, playerId)
         // Also show in local chat immediately for feedback
         addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
@@ -3729,15 +3720,15 @@ Give your final thoughts on this dramatic moment.`
               </div>
             )}
             
-            {/* Showing / Spinning Phase - Wheel (same flow as other rounds) */}
+            {/* Showing / Spinning Phase - Wheel (same structure as answer-selection overlay so it's not covered) */}
             {(plotTwist.subPhase === 'showing' || plotTwist.subPhase === 'spinning') && (
-              <div className="plot-twist-wheel-phase">
+              <div className="plot-twist-wheel-phase answer-selection-content">
                 <div className="plot-twist-badge spinning">🎭 {plotTwist.subPhase === 'showing' ? 'GET READY...' : 'CHOOSING...'}</div>
                 <h2 className="spinning-text">{plotTwist.subPhase === 'showing' ? 'Starting spin...' : 'Spinning the wheel...'}</h2>
                 
-                {/* The Wheel */}
+                {/* The Wheel - same markup as answer-selection wheel */}
                 {plotTwist.slices && plotTwist.slices.length > 0 && (
-                  <div className="wheel-container plot-twist-wheel">
+                  <div className="wheel-container">
                     <div className="wheel-arrow">▼</div>
                     <svg 
                       className="answer-wheel" 
@@ -3853,7 +3844,13 @@ Give your final thoughts on this dramatic moment.`
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.3, duration: 0.5 }}
                 >
-                  {plotTwist.summary || 'Something dramatic happened...'}
+                  {(() => {
+                    const name = avatar?.name || 'your date'
+                    const raw = plotTwist.summary || 'Something dramatic happened...'
+                    return raw
+                      .replace(/\bthe Avatar\b/gi, `the ${name}`)
+                      .replace(/\bAvatar\b/g, name)
+                  })()}
                 </motion.div>
                 <motion.div 
                   className="plot-twist-summary-footer"

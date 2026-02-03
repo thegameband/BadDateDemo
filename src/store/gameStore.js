@@ -1076,4 +1076,16 @@ export const useGameStore = create((set, get) => ({
       },
     })
   },
+
+  /** Remove all player-submitted answer data (privacy: do not retain after game ends). */
+  clearPlayerAnswerData: () => {
+    const { plotTwist, startingStats } = get()
+    set({
+      suggestedAttributes: [],
+      numberedAttributes: [],
+      playerChat: [],
+      plotTwist: plotTwist ? { ...plotTwist, answers: [], winningAnswer: null } : plotTwist,
+      startingStats: startingStats ? { ...startingStats, answers: [] } : startingStats,
+    })
+  },
 }))

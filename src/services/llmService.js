@@ -559,40 +559,28 @@ A normal person + scary thing = scared reaction (even if they try to be polite a
     
     if (isPlotTwist) {
       const plotTwistContent = typeof latestAttribute === 'string' ? latestAttribute : (latestAttribute?.answer || String(latestAttribute))
-      // PLOT TWIST: Strong, EXTENDED reaction to this dramatic event
-      // This is a KEY MOMENT - Maya should really express herself!
-      latestAttrContext = `\n\n🚨🚨🚨 PLOT TWIST - THIS IS A MAJOR DRAMATIC MOMENT! 🚨🚨🚨
+      const daterName = dater?.name || 'the dater'
+      const daterDealbreakers = Array.isArray(dater?.dealbreakers) ? dater.dealbreakers.join(', ') : (dater?.dealbreakers || '')
+      const daterValues = dater?.values || ''
+      // PLOT TWIST: React to the "What Happened" story as yourself, using your attributes
+      latestAttrContext = `\n\n🚨🚨🚨 PLOT TWIST - REACT TO WHAT HAPPENED 🚨🚨🚨
 
 ${plotTwistContent}
 
-⚠️ THIS IS THE MOST IMPORTANT REACTION OF THE DATE! REALLY GO FOR IT!
+⚠️ YOUR TASK: React to the "WHAT HAPPENED" narrative above as ${daterName}.
+- Your values and dealbreakers MUST shape your reaction (values: ${daterValues}; dealbreakers: ${daterDealbreakers}).
+- Respond as you would honestly react given your personality and backstory. Don't be generic — be YOU.
+- If what happened aligns with your dealbreakers, be upset. If it aligns with what you value, show it.
+- This is the most important reaction of the date — 2-4 sentences, full emotion, in character.
 
-YOUR RESPONSE SHOULD BE LONGER AND MORE EMOTIONAL THAN USUAL:
-- Give 2-4 sentences - this moment MATTERS
-- POUR your emotions into this response
-- Express what you're feeling AND what this means to you
-- This is a turning point - let the audience feel your reaction!
+HOW TO REACT based on what happened in the story:
+- If they DEFENDED you → Be deeply touched, swooning, falling for them.
+- If they did something ROMANTIC → Be flustered, giddy. Share how it made you feel.
+- If they were PASSIVE/did nothing → Be hurt and disappointed. Let them know how that made you feel.
+- If they FLIRTED with the other person → Be FURIOUS. This is a betrayal.
+- If they were VIOLENT → Be shocked. Process whether you're scared or impressed (or both) given YOUR values.
 
-HOW TO REACT based on what happened:
-- If they DEFENDED you → Be deeply touched, swooning, falling for them. "I can't believe you did that for me... No one's ever... wow."
-- If they did something ROMANTIC → Be flustered, giddy, heart racing. Share how it made you feel inside.
-- If they did something WEIRD → Be confused and alarmed, but process it out loud. Express your disbelief.
-- If they were PASSIVE/did nothing → Be hurt and disappointed. Let them know how that made you feel abandoned.
-- If they FLIRTED with the other person → Be FURIOUS. This is a betrayal. Let them have it.
-- If they were VIOLENT → Be shocked. Process whether you're scared or impressed (or both).
-
-TONE:
-- This is heightened emotion - lean INTO it
-- Let your vulnerability or anger show
-- Don't hold back - this is the climax of the scene
-- You're allowed to ramble, stammer, get emotional
-
-EXAMPLES (notice they're longer and more emotional):
-- "Oh my god... did you just... I can't even... No one has EVER done something like that for me. I'm literally shaking right now. That was the most romantic thing anyone's ever done."
-- "Excuse me?! You just gave them your NUMBER?! While I'm sitting RIGHT HERE?! I cannot believe this is happening. I am so done with this date."
-- "That was... honestly terrifying. Like, you just HIT that person. I don't even know what to say. Part of me is impressed but also... are you okay? Am I okay? What just happened?"
-- "You literally just stood there. Like a statue. While someone was hitting on YOUR date. I feel like I don't even exist to you right now."
-`
+TONE: Heightened emotion. Let your vulnerability or anger show. Don't hold back — react honestly as ${daterName}.`
     } else {
       const isVisible = isVisibleAttribute(answerRevealed)
       
@@ -1780,12 +1768,12 @@ export async function checkAttributeMatch(attribute, daterValues, dater, daterRe
       category = Math.random() > 0.3 ? 'likes' : 'loves'
       shortLabel = 'good vibes'
     } else if (hasNegative && hasPositive) {
-      // Mixed signals - coin flip
-      category = Math.random() > 0.5 ? 'likes' : 'dislikes'
+      // Mixed signals - prefer negative when reaction has strong negative language
+      category = hasStrongNegative ? 'dealbreakers' : (Math.random() > 0.5 ? 'likes' : 'dislikes')
       shortLabel = 'mixed vibes'
     } else {
       // No clear signals - default to mild positive for engagement
-      category = 'likes'
+      category = Math.random() > 0.3 ? 'likes' : 'loves'
       shortLabel = 'curiosity'
     }
     
@@ -1804,14 +1792,12 @@ export async function checkAttributeMatch(attribute, daterValues, dater, daterRe
   const reactionContext = daterReaction ? `
 THE DATER'S REACTION TO THIS WAS: "${daterReaction}"
 
-CRITICAL: Use the reaction to determine the category!
-- If the dater seemed POSITIVE (happy, interested, attracted, amused) → MUST return LOVES or LIKES
-- If the dater seemed NEGATIVE (scared, disgusted, concerned, uncomfortable) → MUST return DISLIKES or DEALBREAKERS
-- If the dater seemed HORRIFIED or TERRIFIED → MUST return DEALBREAKERS
-- Match the SENTIMENT of the reaction to the CATEGORY
-
-The dater has baseline human morality (murder = bad, monsters = scary, danger = concerning).
-Their reaction tells you how THEY felt about this attribute.` : ''
+🚨 CRITICAL: THE CATEGORY MUST MATCH THE DATER'S ACTUAL REACTION!
+- If the dater reacted POSITIVELY (happy, interested, attracted, amused, impressed) → return LOVES or LIKES
+- If the dater reacted NEGATIVELY (scared, disgusted, concerned, uncomfortable, upset, disappointed) → you MUST return DISLIKES or DEALBREAKERS — NEVER return LOVES or LIKES
+- If the dater seemed HORRIFIED, TERRIFIED, or FURIOUS → MUST return DEALBREAKERS
+- NEVER hit a good attribute (loves/likes) when the dater is clearly reacting negatively. Find a DISLIKES or DEALBREAKERS match that fits what they're upset about.
+- The reaction text is the source of truth: negative words = negative category; positive words = positive category.` : ''
 
   const systemPrompt = `You are checking how a dating attribute affects the dater's opinion.
 
@@ -1829,10 +1815,10 @@ ${reactionContext}
 
 MATCHING RULES (in order of priority):
 1. If the dater's reaction was POSITIVE → find a LOVES or LIKES match
-2. If the dater's reaction was NEGATIVE → find a DISLIKES or DEALBREAKERS match
+2. If the dater's reaction was NEGATIVE → you MUST find a DISLIKES or DEALBREAKERS match. NEVER return loves or likes when the dater reacted negatively.
 3. Use creative interpretation - what does this attribute IMPLY about the person?
 4. Consider BASELINE HUMAN MORALITY: murder, violence, danger, monsters = generally bad
-5. If nothing obvious matches, use the CLOSEST thematic connection
+5. If nothing obvious matches, use the CLOSEST thematic connection from the appropriate category (positive reaction → loves/likes; negative reaction → dislikes/dealbreakers)
 
 ALWAYS FIND A MATCH. Be creative! Examples:
 - "I'm a gargoyle" → could match "uniqueness" (like) or "scary things" (dislike)
@@ -1881,17 +1867,24 @@ Return ONLY valid JSON (matches MUST be true):
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
-      // Always return a match - if LLM said no match, use fallback
       if (parsed.category && parsed.shortLabel) {
-        return {
+        const result = {
           category: parsed.category,
           matchedValue: parsed.matchedValue || 'general impression',
           shortLabel: parsed.shortLabel
         }
+        // Safeguard: never return loves/likes when dater reacted negatively
+        if (daterReaction && (result.category === 'loves' || result.category === 'likes')) {
+          const fallback = getFallbackMatch(daterReaction)
+          if (fallback.category === 'dislikes' || fallback.category === 'dealbreakers') {
+            console.warn('Attribute match: dater reacted negatively but LLM returned positive category; overriding to', fallback.category)
+            return fallback
+          }
+        }
+        return result
       }
     }
     
-    // Fallback if parsing failed or no match returned
     console.warn('LLM did not return valid match, using fallback')
     return getFallbackMatch(daterReaction)
   } catch (error) {
@@ -1955,7 +1948,7 @@ function getFallbackDaterValues(_dater) {
  * @returns {Array} - Array of grouped slices: {id, label, weight, originalAnswers: [{id, text, submittedBy}]}
  */
 export async function groupSimilarAnswers(question, answers) {
-  console.log('🎯 groupSimilarAnswers called with', answers.length, 'answers:', answers.map(a => a.text))
+  console.log('🎯 groupSimilarAnswers called with', answers.length, 'answer(s)')
   
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   
@@ -2057,7 +2050,7 @@ RULES FOR JSON:
         }
       }).filter(slice => slice.originalAnswers.length > 0)
       
-      console.log('🎯 Grouped answers into', slices.length, 'slices:', slices)
+      console.log('🎯 Grouped answers into', slices.length, 'slice(s)')
       return slices
     }
     
@@ -2182,7 +2175,7 @@ CONTEXT:
 - A random stranger just started hitting on ${daterName}
 - The winning choice (what ${avatarName} DID) is: "${winningAction}"
 
-IMPORTANT: "${winningAction}" is usually an ACTION or choice (e.g. "punch them", "kiss the dater", "run away", "do nothing"), NOT something they said. Interpret it as what the avatar DID in the situation. Build the story from that action.
+IMPORTANT: "${winningAction}" is usually an ACTION or choice (e.g. "punch them", "kiss the dater", "run away", "do nothing"), NOT something they said. Interpret it as what ${avatarName} DID in the situation. Build the story from that action.
 
 Write a 2-3 sentence DRAMATIC NARRATION of what happened. This should describe:
 1. What ${avatarName} actually did (interpret their action dramatically)
@@ -2190,6 +2183,7 @@ Write a 2-3 sentence DRAMATIC NARRATION of what happened. This should describe:
 3. The aftermath/result of the action
 
 RULES:
+- Always use the person's name "${avatarName}" in the narration. NEVER use the word "Avatar" or "the avatar".
 - Write in past tense, like narrating a story
 - Be dramatic and visual - describe the SCENE
 - Keep each sentence punchy (10-20 words max)
@@ -2234,7 +2228,7 @@ Return ONLY the 2-3 sentence narration, nothing else.`
     
     const data = await response.json()
     const summary = data.content[0]?.text?.trim() || ''
-    console.log('🎭 Generated plot twist summary:', summary)
+    console.log('🎭 Generated plot twist summary')
     return summary
   } catch (error) {
     console.error('Error generating plot twist summary:', error)

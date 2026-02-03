@@ -682,7 +682,7 @@
   font-size: 1.1rem;
 }
 
-/* Wheel phase - prevent cut-off / black screen; keep wheel visible */
+/* Wheel phase - match answer-selection overlay so wheel is visible and not covered */
 .plot-twist-wheel-phase {
   display: flex;
   flex-direction: column;
@@ -690,9 +690,12 @@
   justify-content: center;
   min-height: 380px;
   width: 100%;
+  position: relative;
+  z-index: 1;
+  overflow: visible;
 }
 
-.plot-twist-wheel-phase .wheel-container.plot-twist-wheel {
+.plot-twist-wheel-phase .wheel-container {
   flex-shrink: 0;
 }
 
