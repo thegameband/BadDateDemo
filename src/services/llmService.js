@@ -662,6 +662,77 @@ React to what they revealed about themselves!`
 }
 
 /**
+ * Dater responds directly to the player's answer (no Avatar speaking).
+ * Call this with the round question and the player's answer so the LLM has full context.
+ * @returns {Promise<string|null>} The dater's reaction line (dialogue only).
+ */
+export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], compatibility = 50, isFinalRound = false) {
+  const systemPrompt = buildDaterAgentPrompt(dater, 'date')
+  const voicePrompt = getVoiceProfilePrompt('maya', null)
+  const finalNote = isFinalRound
+    ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
+    : ''
+  const taskPrompt = `
+🎯 YOUR TASK: React to what your date just said.
+
+📋 THE QUESTION THAT WAS ASKED: "${question}"
+
+💬 WHAT THEY ANSWERED: "${playerAnswer}"
+
+React naturally to their answer. You are the dater on a first date. Be in character — show interest, concern, delight, or discomfort based on what they said and your personality. Keep it 1–2 short sentences, dialogue only. No actions or asterisks.
+${finalNote}
+`
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+
+  const historyMessages = conversationHistory.slice(-12).map(msg => ({
+    role: msg.speaker === 'dater' ? 'assistant' : 'user',
+    content: msg.message
+  }))
+  const userContent = `[The date was asked: "${question}". They answered: "${playerAnswer}". React to what they said.]`
+  const messages = historyMessages.length
+    ? [...historyMessages, { role: 'user', content: userContent }]
+    : [{ role: 'user', content: userContent }]
+  if (messages[messages.length - 1]?.role === 'assistant') {
+    messages.push({ role: 'user', content: userContent })
+  }
+
+  const response = await getChatResponse(messages, fullPrompt)
+  return response ? stripActionDescriptions(response) : null
+}
+
+/**
+ * Dater responds to the player's justification (after "JUSTIFY WHAT YOU JUST SAID").
+ * @returns {Promise<string|null>} The dater's response to the justification.
+ */
+export async function getDaterResponseToJustification(dater, originalAnswer, justification, daterReactionToAnswer, conversationHistory = []) {
+  const systemPrompt = buildDaterAgentPrompt(dater, 'date')
+  const voicePrompt = getVoiceProfilePrompt('maya', null)
+  const taskPrompt = `
+🎯 YOUR TASK: They just tried to justify what they said. Respond to their justification.
+
+What they originally said: "${originalAnswer}"
+Your reaction to that was: "${daterReactionToAnswer}"
+What they just said to justify it: "${justification}"
+
+Respond in character. You might be slightly mollified, still unimpressed, or even more put off. One or two short sentences, dialogue only. No actions or asterisks.
+`
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const historyMessages = conversationHistory.slice(-8).map(msg => ({
+    role: msg.speaker === 'dater' ? 'assistant' : 'user',
+    content: msg.message
+  }))
+  const userContent = `[They justified their answer: "${justification}". You had said: "${daterReactionToAnswer}". Respond.]`
+  const messages = historyMessages.length
+    ? [...historyMessages, { role: 'user', content: userContent }]
+    : [{ role: 'user', content: userContent }]
+  if (messages[messages.length - 1]?.role === 'assistant') {
+    messages.push({ role: 'user', content: userContent })
+  }
+  const response = await getChatResponse(messages, fullPrompt)
+  return response ? stripActionDescriptions(response) : null
+}
+
+/**
  * Get Avatar response during the date (for auto-conversation)
  * NOW USES MODULAR 7-STEP PROMPT CHAIN
  * @param mode - 'answer' (answering question with new attribute), 'continue' (continuing with all attributes)

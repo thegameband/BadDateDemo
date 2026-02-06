@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getAvatarDateResponse, generateDaterValues, checkAttributeMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
+import { getDaterDateResponse, getAvatarDateResponse, getDaterResponseToPlayerAnswer, getDaterResponseToJustification, generateDaterValues, checkAttributeMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio } from '../services/ttsService'
 import { getMayaPortraitCached, getAvatarPortraitCached, preloadExpressions } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -137,6 +137,12 @@ function LiveDateScene() {
   // Current round prompt state (persists during Phase 1)
   const [currentRoundPrompt, setCurrentRoundPrompt] = useState({ title: '', subtitle: '' })
   const [roundPromptAnimationComplete, setRoundPromptAnimationComplete] = useState(false)
+  // Justify phase: after dater has strong negative reaction, player can justify
+  const [showJustifyPrompt, setShowJustifyPrompt] = useState(false)
+  const [justifyOriginalAnswer, setJustifyOriginalAnswer] = useState('')
+  const [justifyDaterReaction, setJustifyDaterReaction] = useState('')
+  const [justifyInput, setJustifyInput] = useState('')
+  const [isSubmittingJustify, setIsSubmittingJustify] = useState(false)
   const startingStatsTimerRef = useRef(null)
   const lastActivePlayerRef = useRef(null)
   const lastAnswerCountRef = useRef(0)
@@ -1918,163 +1924,54 @@ function LiveDateScene() {
   // ============================================
   const preGenerateRoundConversation = async (currentAttribute) => {
     if (!isHost || !selectedDater) return null
-    
-    const attrToUse = currentAttribute || latestAttribute
-    if (!attrToUse) return null
-    
-    console.log('🎬 PRE-GENERATING round conversation...')
+
+    const playerAnswer = currentAttribute || latestAttribute
+    if (!playerAnswer) return null
+
+    const question = currentRoundPrompt.subtitle || 'Tell me about yourself'
+    console.log('🎬 Pre-generating: Dater responds to player answer (question + answer context)...')
     setIsPreGenerating(true)
-    
-    // Sync loading state to clients
-    if (partyClient) {
-      partyClient.syncState({ isPreGenerating: true })
-    }
-    
+    if (partyClient) partyClient.syncState({ isPreGenerating: true })
+
     const currentCycleForCheck = useGameStore.getState().cycleCount
     const maxCyclesForCheck = useGameStore.getState().maxCycles
     const isFinalRound = currentCycleForCheck >= maxCyclesForCheck - 1
-    
-    const questionContext = currentRoundPrompt.subtitle || 'Tell me about yourself'
-    const framedAttribute = { answer: attrToUse, questionContext }
-    
-    const avatarWithNewAttr = {
-      ...avatar,
-      attributes: avatar.attributes.includes(attrToUse) 
-        ? avatar.attributes 
-        : [...avatar.attributes, attrToUse]
-    }
-    
-    const getConversation = () => useGameStore.getState().dateConversation
-    let currentStreak = { ...reactionStreak }
-    
-    // Store all exchanges here
-    const exchanges = []
-    
+    const currentCompat = useGameStore.getState().compatibility
+    const conversationHistory = useGameStore.getState().dateConversation
+
     try {
-      // Phase 3 always starts with the AVATAR speaking first (fresh start).
-      // The Avatar makes a statement based on the winning answer — conversational, not verbatim.
-      // The Dater has not said anything yet; after the Avatar's first line, the Dater can react and make connections.
-      console.log('📝 Pre-generating: AVATAR opens (Phase 3 fresh start)')
-      
-      // For the FIRST exchange of a new round, pass EMPTY history
-      // This completely prevents the LLM from referencing previous rounds
-      const newRoundHistory = [] // Empty! No previous context allowed for first response
-      
-      // ===== EXCHANGE 1 =====
-      // Avatar always opens with a conversational statement based on the winning answer
-      let exchange1 = { daterOpener: null, avatarResponse: null, daterReaction: null, matchResult: null }
-      const avatarMood1 = getAvatarEmotionFromTraits()
-      exchange1.avatarResponse = await getAvatarDateResponse(
-        avatarWithNewAttr, selectedDater, newRoundHistory,
-        framedAttribute, 'paraphrase', avatarMood1
+      const daterReaction = await getDaterResponseToPlayerAnswer(
+        selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound
       )
-      exchange1.avatarMood = avatarMood1
-      
-      // Dater reacts first (no pre-assigned sentiment); then we derive attribute hit FROM her reaction
-      if (exchange1.avatarResponse) {
-        const convoWithExchange1 = [...getConversation().slice(-20)]
-        if (exchange1.daterOpener) convoWithExchange1.push({ speaker: 'dater', message: exchange1.daterOpener })
-        if (exchange1.avatarResponse) convoWithExchange1.push({ speaker: 'avatar', message: exchange1.avatarResponse })
-        const currentCompat1 = useGameStore.getState().compatibility
-        exchange1.daterReaction = await getDaterDateResponse(
-          selectedDater, avatarWithNewAttr, convoWithExchange1,
-          framedAttribute, null, currentStreak, isFinalRound, false, currentCompat1
-        )
-        exchange1.matchResult = await checkAttributeMatch(exchange1.avatarResponse, daterValues, selectedDater, exchange1.daterReaction)
-        const sentimentHit1 = exchange1.matchResult.category || null
-        exchange1.daterMood = getDaterEmotionFromSentiment(sentimentHit1, currentCompat1)
-        exchange1.sentimentHit = sentimentHit1
-        exchange1.scoringMultiplier = 1.0
-        if (sentimentHit1) {
-          const isPositive = sentimentHit1 === 'loves' || sentimentHit1 === 'likes'
-          if (isPositive) currentStreak = { positive: currentStreak.positive + 1, negative: 0 }
-          else currentStreak = { positive: 0, negative: currentStreak.negative + 1 }
-        }
+      if (!daterReaction) {
+        setIsPreGenerating(false)
+        if (partyClient) partyClient.syncState({ isPreGenerating: false })
+        return null
       }
-      exchanges.push(exchange1)
-      
-      // ===== EXCHANGE 2 =====
-      const convoAfterEx1 = [...getConversation().slice(-20)]
-      if (exchange1.daterOpener) convoAfterEx1.push({ speaker: 'dater', message: exchange1.daterOpener })
-      if (exchange1.avatarResponse) convoAfterEx1.push({ speaker: 'avatar', message: exchange1.avatarResponse })
-      if (exchange1.daterReaction) convoAfterEx1.push({ speaker: 'dater', message: exchange1.daterReaction })
-      
-      const avatarMood2 = getAvatarEmotionFromContext(exchange1.sentimentHit)
-      // Pass framedAttribute so avatar stays on THIS round's topic
-      const avatarResponse2 = await getAvatarDateResponse(
-        avatarWithNewAttr, selectedDater, convoAfterEx1,
-        framedAttribute, 'react', avatarMood2
-      )
-      
-      let exchange2 = { avatarResponse: avatarResponse2, avatarMood: avatarMood2, daterReaction: null, matchResult: null }
-      
-      if (avatarResponse2) {
-        const convoWithEx2 = [...convoAfterEx1, { speaker: 'avatar', message: avatarResponse2 }]
-        const currentCompat2 = useGameStore.getState().compatibility
-        exchange2.daterReaction = await getDaterDateResponse(
-          selectedDater, avatarWithNewAttr, convoWithEx2,
-          { answer: exchange1.matchResult?.matchedValue || framedAttribute, questionContext }, null, currentStreak, isFinalRound, false, currentCompat2,
-          'React to what the avatar just said. Try to connect your response to other things the avatar said earlier in the date — reference or tie in something they mentioned before.'
-        )
-        exchange2.matchResult = await checkAttributeMatch(avatarResponse2, daterValues, selectedDater, exchange2.daterReaction)
-        const sentimentHit2 = exchange2.matchResult.category || null
-        exchange2.daterMood = getDaterEmotionFromSentiment(sentimentHit2, currentCompat2)
-        exchange2.sentimentHit = sentimentHit2
-        exchange2.scoringMultiplier = 0.25
-        if (sentimentHit2) {
-          const isPositive = sentimentHit2 === 'loves' || sentimentHit2 === 'likes'
-          if (isPositive) currentStreak = { positive: currentStreak.positive + 1, negative: 0 }
-          else currentStreak = { positive: 0, negative: currentStreak.negative + 1 }
-        }
-      }
-      exchanges.push(exchange2)
-      
-      // ===== EXCHANGE 3 =====
-      const convoAfterEx2 = [...convoAfterEx1]
-      if (exchange2.avatarResponse) convoAfterEx2.push({ speaker: 'avatar', message: exchange2.avatarResponse })
-      if (exchange2.daterReaction) convoAfterEx2.push({ speaker: 'dater', message: exchange2.daterReaction })
-      
-      const avatarMood3 = getAvatarEmotionFromContext(exchange2.sentimentHit)
-      // Pass framedAttribute so avatar wraps up THIS round's topic
-      const avatarResponse3 = await getAvatarDateResponse(
-        avatarWithNewAttr, selectedDater, convoAfterEx2,
-        framedAttribute, 'connect', avatarMood3
-      )
-      
-      let exchange3 = { avatarResponse: avatarResponse3, avatarMood: avatarMood3, daterReaction: null, matchResult: null }
-      
-      if (avatarResponse3) {
-        const convoWithEx3 = [...convoAfterEx2, { speaker: 'avatar', message: avatarResponse3 }]
-        const currentCompat3 = useGameStore.getState().compatibility
-        exchange3.daterReaction = await getDaterDateResponse(
-          selectedDater, avatarWithNewAttr, convoWithEx3,
-          { answer: exchange2.matchResult?.matchedValue || framedAttribute, questionContext }, null, currentStreak, isFinalRound, false, currentCompat3,
-          "Offer your opinion about the Avatar based on this round's interaction — what do you think of them so far? Summarize your take in 1-2 sentences (dialogue only)."
-        )
-        exchange3.matchResult = await checkAttributeMatch(avatarResponse3, daterValues, selectedDater, exchange3.daterReaction)
-        const sentimentHit3 = exchange3.matchResult.category || null
-        exchange3.daterMood = getDaterEmotionFromSentiment(sentimentHit3, currentCompat3)
-        exchange3.sentimentHit = sentimentHit3
-        exchange3.scoringMultiplier = 0.10
-      }
-      exchanges.push(exchange3)
-      
-      console.log('✅ Pre-generation complete! Exchanges:', exchanges.length)
-      
+
+      const matchResult = await checkAttributeMatch(playerAnswer, daterValues, selectedDater, daterReaction)
+      const sentimentHit = matchResult?.category || null
+      const daterMood = getDaterEmotionFromSentiment(sentimentHit, currentCompat)
+      const needsJustify = sentimentHit === 'dealbreakers'
+
       const preGenData = {
-        attribute: attrToUse,
+        attribute: playerAnswer,
         isFinalRound,
-        exchanges,
-        avatarWithNewAttr
+        exchanges: [{
+          avatarResponse: null,
+          daterReaction,
+          daterMood,
+          matchResult,
+          sentimentHit,
+          scoringMultiplier: 1.0,
+          needsJustify
+        }],
+        avatarWithNewAttr: { ...avatar, attributes: avatar.attributes.includes(playerAnswer) ? avatar.attributes : [...avatar.attributes, playerAnswer] }
       }
-      
+
       setIsPreGenerating(false)
-      if (partyClient) {
-        partyClient.syncState({ isPreGenerating: false, preGeneratedConvo: preGenData })
-      }
-      
+      if (partyClient) partyClient.syncState({ isPreGenerating: false, preGeneratedConvo: preGenData })
       return preGenData
-      
     } catch (error) {
       console.error('Pre-generation error:', error)
       setIsPreGenerating(false)
@@ -2089,63 +1986,13 @@ function LiveDateScene() {
   // ============================================
   const playbackConversation = async (preGenData) => {
     if (!preGenData || !isHost) return
-    
-    console.log('▶️ PLAYING BACK pre-generated conversation...')
+
+    console.log('▶️ PLAYING BACK pre-generated conversation (dater only)...')
     const { attribute, exchanges } = preGenData
-    
+
     for (let i = 0; i < exchanges.length; i++) {
       const exchange = exchanges[i]
-      console.log(`▶️ Playing exchange ${i + 1}/${exchanges.length}`)
-      
-      // Play dater opener (only exchange 1 might have this)
-      if (exchange.daterOpener) {
-        // Hide bubble first, then set text - audio start will show it
-        if (ttsEnabled) setDaterBubbleReady(false)
-        setDaterEmotion(exchange.daterOpenerMood || 'happy')
-        setDaterBubble(exchange.daterOpener)
-        addDateMessage('dater', exchange.daterOpener)
-        await syncConversationToPartyKit(undefined, exchange.daterOpener, undefined)
-        if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterOpenerMood || 'happy' })
-        // Wait for audio to complete before next message
-        await waitForAllAudio()
-        await new Promise(r => setTimeout(r, 500)) // Brief pause between speakers
-      }
-      
-      // Play avatar response (optionally interrupted by dater for loves/dealbreakers)
-      const shouldInterrupt = exchange.avatarResponse && exchange.daterReaction &&
-        (exchange.sentimentHit === 'loves' || exchange.sentimentHit === 'dealbreakers') &&
-        Math.random() < INTERRUPT_AVATAR_PROBABILITY
-
-      if (exchange.avatarResponse) {
-        if (ttsEnabled) setAvatarBubbleReady(false)
-        setAvatarEmotion(exchange.avatarMood || 'neutral')
-        setAvatarBubble(exchange.avatarResponse)
-        addDateMessage('avatar', exchange.avatarResponse)
-        await syncConversationToPartyKit(exchange.avatarResponse, undefined, undefined)
-        if (partyClient) partyClient.syncState({ avatarEmotion: exchange.avatarMood || 'neutral' })
-
-        if (shouldInterrupt && ttsEnabled) {
-          // EXPERIMENT: Avatar starts (useEffect queues TTS). Cut off after a short time; dater interjects then full reaction.
-          await new Promise(r => setTimeout(r, INTERRUPT_AFTER_AVATAR_MS))
-          stopAllAudio()
-          const interjections = DATER_INTERRUPTIONS[exchange.sentimentHit] || DATER_INTERRUPTIONS.dealbreakers
-          const interjection = interjections[Math.floor(Math.random() * interjections.length)]
-          if (ttsEnabled) setDaterBubbleReady(false)
-          setDaterEmotion(exchange.daterMood || 'neutral')
-          setDaterBubble(interjection)
-          addDateMessage('dater', interjection)
-          await syncConversationToPartyKit(undefined, interjection, undefined)
-          if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterMood || 'neutral' })
-          await new Promise(r => setTimeout(r, 150))
-          await waitForAllAudio()
-          await new Promise(r => setTimeout(r, 400))
-        } else {
-          await waitForAllAudio()
-          await new Promise(r => setTimeout(r, 500))
-        }
-      }
-
-      // Play dater reaction (full line; if we interrupted, we already showed the short interjection)
+      // No avatar: only play dater reaction to the player's answer
       if (exchange.daterReaction) {
         if (ttsEnabled) setDaterBubbleReady(false)
         setDaterEmotion(exchange.daterMood || 'neutral')
@@ -2226,22 +2073,25 @@ function LiveDateScene() {
       }
       
       if (preGenData) {
-        // PHASE 2: Playback smoothly
+        // PHASE 2: Playback smoothly (dater only)
         await playbackConversation(preGenData)
       }
-      
+
       // Wait for all audio to finish before ending the round
       console.log('⏳ Waiting for final audio to complete...')
       await waitForAllAudio()
       console.log('✅ All audio complete')
-      
-      // Handle round completion
-      const _currentCycleForCheck = useGameStore.getState().cycleCount
-      const _maxCyclesForCheck = useGameStore.getState().maxCycles
-      const _isFinalRound = _currentCycleForCheck >= _maxCyclesForCheck - 1
-      
-      // Note: Wrap-up round is handled separately after Round 5 completes
-      
+
+      // If dater had a strong negative (dealbreaker), ask player to justify instead of next question
+      const needsJustify = preGenData?.exchanges?.[0]?.needsJustify
+      if (needsJustify && preGenData?.exchanges?.[0]) {
+        setJustifyOriginalAnswer(preGenData.attribute)
+        setJustifyDaterReaction(preGenData.exchanges[0].daterReaction)
+        setShowJustifyPrompt(true)
+        setIsGenerating(false)
+        return
+      }
+
       await handleRoundComplete()
       
     } catch (error) {
@@ -3420,6 +3270,35 @@ Generate ${daterName}'s final verdict:`
     
     setChatInput('')
   }
+
+  const handleJustifySubmit = async (e) => {
+    e.preventDefault()
+    if (!justifyInput.trim() || isSubmittingJustify) return
+    const justification = justifyInput.trim()
+    setIsSubmittingJustify(true)
+    try {
+      const conversationHistory = useGameStore.getState().dateConversation
+      const daterResponseToJustification = await getDaterResponseToJustification(
+        selectedDater, justifyOriginalAnswer, justification, justifyDaterReaction, conversationHistory
+      )
+      if (daterResponseToJustification) {
+        addDateMessage('dater', daterResponseToJustification)
+        if (ttsEnabled) setDaterBubbleReady(false)
+        setDaterBubble(daterResponseToJustification)
+        await syncConversationToPartyKit(undefined, daterResponseToJustification, undefined)
+        if (partyClient) partyClient.syncState({ daterBubble: daterResponseToJustification })
+        await waitForAllAudio()
+      }
+      setShowJustifyPrompt(false)
+      setJustifyOriginalAnswer('')
+      setJustifyDaterReaction('')
+      setJustifyInput('')
+      await handleRoundComplete()
+    } catch (err) {
+      console.error('Justify flow error:', err)
+    }
+    setIsSubmittingJustify(false)
+  }
   
   const formatTime = (seconds) => {
     return `0:${seconds.toString().padStart(2, '0')}`
@@ -4492,6 +4371,27 @@ Generate ${daterName}'s final verdict:`
       
       {/* Chat Module */}
       <div className="chat-module">
+        {showJustifyPrompt ? (
+          <div className="justify-prompt-block">
+            <h3 className="justify-title">JUSTIFY WHAT YOU JUST SAID</h3>
+            <p className="justify-hint">The dater had a strong negative reaction. Explain yourself.</p>
+            <form className="justify-form" onSubmit={handleJustifySubmit}>
+              <input
+                type="text"
+                className="chat-input justify-input"
+                placeholder="Type your justification..."
+                value={justifyInput}
+                onChange={(e) => setJustifyInput(e.target.value)}
+                maxLength={150}
+                autoFocus
+              />
+              <button type="submit" className="chat-send-btn" disabled={isSubmittingJustify || !justifyInput.trim()}>
+                {isSubmittingJustify ? '…' : 'Submit'}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <>
         <div className="chat-header">
           <span className="chat-title">💬 Player Chat</span>
           <span className="chat-hint">{getPhaseInstructions()}</span>
@@ -4523,6 +4423,8 @@ Generate ${daterName}'s final verdict:`
             {livePhase === 'phase1' ? '✨' : '💬'}
           </button>
         </form>
+        </>
+        )}
       </div>
     </div>
   )

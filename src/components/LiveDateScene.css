@@ -2141,6 +2141,40 @@
   font-weight: 500;
 }
 
+.justify-prompt-block {
+  padding: 16px 12px;
+  background: rgba(180, 60, 80, 0.2);
+  border: 2px solid rgba(255, 77, 109, 0.5);
+  border-radius: 12px;
+  margin: 8px;
+}
+
+.justify-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #ff6b8a;
+  margin: 0 0 6px 0;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.justify-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+  text-align: center;
+}
+
+.justify-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.justify-form .justify-input {
+  flex: 1;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
