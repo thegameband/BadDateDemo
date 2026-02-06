@@ -1,0 +1,20 @@
+---
+description: Required step when pushing the game live — always bump version and report it.
+globs: 
+alwaysApply: true
+---
+
+# Deploy / Push: Always Bump Build and Report Version
+
+**When the user asks to push the game live, or when you complete a task that will be pushed live:**
+
+1. **Increment the build number** in both places:
+   - `package.json` → `"version": "0.02.XX"` (increment the last number)
+   - `src/components/LiveLobby.jsx` → `const GAME_VERSION = '0.02.XX'` (same value)
+
+2. **Commit and push** the changes (including the version bump).
+
+3. **Tell the user the new version number** after pushing, e.g.  
+   **"Pushed. Version is 0.02.XX."**
+
+Do this **every time** you push the game live, unless the user explicitly says not to bump the version.

@@ -9,7 +9,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.02.30'
+const GAME_VERSION = '0.02.31'
 
 // Main game entry screen - Bad Date
 
@@ -120,7 +120,7 @@ function LiveLobby() {
     setPartyClient(null)
     setRoomCode(null)
     setLiveMode(true)
-    startLiveDate(null, false, true) // no tutorial, with starting stats (same as multiplayer)
+    startLiveDate(null, false, false) // no tutorial, no starting stats — straight into Phase 1 opening round
   }
 
   const handleCreate = async () => {
