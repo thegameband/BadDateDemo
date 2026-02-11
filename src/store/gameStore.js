@@ -758,7 +758,7 @@ export const useGameStore = create((set, get) => ({
         questionAssignments: [],
         avatarName: '',
       } : initialLiveState.startingStats,
-      phaseTimer: withStartingStats ? 15 : 30, // Starting stats uses 15s timer
+      phaseTimer: 0, // No timers: progression is turn-based
       cycleCount: 0,
       // IMPORTANT: Reset all game state for fresh start
       avatar: { ...initialAvatar },
@@ -963,6 +963,25 @@ export const useGameStore = create((set, get) => ({
       },
       appliedAttributes: [...appliedAttributes, winner.text],
       latestAttribute: winner.text,
+      latestAttributeReactionsLeft: 2,
+      suggestedAttributes: [],
+      numberedAttributes: [],
+    })
+  },
+
+  // Single-player: apply the player's submitted text as the round answer (no wheel)
+  applySinglePlayerAnswer: (text) => {
+    const { avatar, appliedAttributes } = get()
+    const trimmed = (text || '').trim()
+    if (!trimmed) return
+    set({
+      winningAttribute: { text: trimmed },
+      avatar: {
+        ...avatar,
+        attributes: avatar.attributes.includes(trimmed) ? avatar.attributes : [...avatar.attributes, trimmed],
+      },
+      appliedAttributes: [...appliedAttributes, trimmed],
+      latestAttribute: trimmed,
       latestAttributeReactionsLeft: 2,
       suggestedAttributes: [],
       numberedAttributes: [],

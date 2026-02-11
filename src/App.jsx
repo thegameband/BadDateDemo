@@ -9,6 +9,7 @@ import GameHeader from './components/GameHeader'
 import LiveLobby from './components/LiveLobby'
 import LiveGameLobby from './components/LiveGameLobby'
 import LiveDateScene from './components/LiveDateScene'
+import DaterBioPage from './components/DaterBioPage'
 import './App.css'
 
 function App() {
@@ -45,6 +46,8 @@ function App() {
       // Main game flow (formerly "Live Mode")
       case 'live-lobby':
         return <LiveLobby />
+      case 'dater-bio':
+        return <DaterBioPage />
       case 'live-game-lobby':
         return <LiveGameLobby />
       case 'live-date':
@@ -55,7 +58,7 @@ function App() {
   }
   
   // Determine if we should show the header
-  const showHeader = phase !== 'lobby' && phase !== 'live-lobby'
+  const showHeader = phase !== 'lobby' && phase !== 'live-lobby' && phase !== 'dater-bio'
   // For Live Date, we use a custom header in the component
   const showGameHeader = showHeader && phase !== 'live-date'
   

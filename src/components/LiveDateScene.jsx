@@ -45,6 +45,7 @@ function LiveDateScene() {
   const setPhaseTimer = useGameStore((state) => state.setPhaseTimer)
   const submitAttributeSuggestion = useGameStore((state) => state.submitAttributeSuggestion)
   const applyWinningAttribute = useGameStore((state) => state.applyWinningAttribute)
+  const applySinglePlayerAnswer = useGameStore((state) => state.applySinglePlayerAnswer)
   const incrementCycle = useGameStore((state) => state.incrementCycle)
   const addPlayerChatMessage = useGameStore((state) => state.addPlayerChatMessage)
   const addDateMessage = useGameStore((state) => state.addDateMessage)
@@ -68,6 +69,7 @@ function LiveDateScene() {
   const setAvatarName = useGameStore((state) => state.setAvatarName)
   const setPlayers = useGameStore((state) => state.setPlayers)
   const clearPlayerAnswerData = useGameStore((state) => state.clearPlayerAnswerData)
+  const addPlotTwistAnswer = useGameStore((state) => state.addPlotTwistAnswer)
   
   const [chatInput, setChatInput] = useState('')
   const [avatarBubble, setAvatarBubble] = useState('')
@@ -153,15 +155,13 @@ function LiveDateScene() {
   const allPlotTwistAnsweredRef = useRef(false) // Prevent multiple plot twist auto-advance triggers
   const narratorSummarySpokenRef = useRef(null)  // Track which summary we've already read with narrator TTS
   
-  // Starting Stats question definitions - Players build the Avatar (the dater going on the date)
-  const STARTING_STATS_QUESTIONS = [
-    { type: 'physical', question: "What physical attribute do you want to have?" },
-    { type: 'physical', question: "What physical attribute do you want to have?" },
-    { type: 'physical', question: "What physical attribute do you want to have?" },
-    { type: 'emotional', question: "What emotional state do you want to be in?" },
-    { type: 'emotional', question: "What emotional state do you want to be in?" },
-    { type: 'name', question: "What do you want your name to be?" },
+  // Create Your Dater: exactly 3 questions, no timer (single player only)
+  const CREATE_YOUR_DATER_QUESTIONS = [
+    { type: 'physical', question: 'How do you look?' },
+    { type: 'emotional', question: 'How are you feeling?' },
+    { type: 'name', question: 'What is your name?' },
   ]
+  const STARTING_STATS_QUESTIONS = CREATE_YOUR_DATER_QUESTIONS
   
   // Helper to sync conversation state via PartyKit (host only)
   const syncConversationToPartyKit = async (avatarText, daterText, syncSentiments = false) => {
@@ -842,45 +842,7 @@ function LiveDateScene() {
     }
   }, [livePhase, compatibilityHistory, compatibility, selectedDater, avatar, isGeneratingBreakdown, breakdownSentences.length])
   
-  // Phase timer countdown - only host runs the timer, others sync from PartyKit
-  // Timer starts immediately when phase begins
-  useEffect(() => {
-    // Only the host should run the timer
-    if (!isHost && partyClient) return
-    
-    // Run timer during Phase 1 and Phase 3 (answer-selection has no timer)
-    const shouldRunTimer = livePhase === 'phase1' || livePhase === 'phase3'
-    
-    if (shouldRunTimer) {
-      phaseTimerRef.current = setInterval(async () => {
-        const currentTime = phaseTimerValueRef.current
-        const newTime = currentTime - 1
-        if (newTime >= 0) {
-          setPhaseTimer(newTime)
-          // Sync timer to PartyKit for other players every second
-          if (partyClient && isHost) {
-            partyClient.setTimer(newTime)
-          }
-        }
-      }, 1000)
-      
-      return () => {
-        if (phaseTimerRef.current) {
-          clearInterval(phaseTimerRef.current)
-        }
-      }
-    }
-  }, [livePhase, isHost, partyClient, roomCode, setPhaseTimer])
-  
-  // Handle phase transitions when timer hits 0
-  useEffect(() => {
-    // Only trigger once when timer reaches 0 (only Phase 1 needs timer-based transitions now)
-    if (phaseTimer === 0 && livePhase === 'phase1') {
-      console.log('⏰ Timer hit 0, triggering phase end for:', livePhase)
-      handlePhaseEnd()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: handlePhaseEnd is stable
-  }, [phaseTimer, livePhase])
+  // No phase timer: progression is turn-based (player submits → dater reacts → advance).
   
   // ============ STARTING STATS MODE LOGIC ============
   
@@ -928,6 +890,8 @@ function LiveDateScene() {
     }
     
     console.log('🎲 Initializing Starting Stats phase with', players.length, 'players')
+    
+    // No starting-stats timer: advance only when player submits (see submitStartingStatsAnswer)
     
     // Build question assignments - spread questions evenly across all players
     const assignments = []
@@ -1025,65 +989,7 @@ function LiveDateScene() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: init once when phase/assignments change
   }, [livePhase, isHost, partyClient, roomCode, players.length, startingStats.questionAssignments?.length])
   
-  // Starting Stats timer (host only)
-  useEffect(() => {
-    if (livePhase !== 'starting-stats' || !isHost) return
-    
-    // Clear any existing timer
-    if (startingStatsTimerRef.current) {
-      clearInterval(startingStatsTimerRef.current)
-    }
-    
-    startingStatsTimerRef.current = setInterval(() => {
-      // Check phase is still starting-stats before doing anything
-      const currentPhase = useGameStore.getState().livePhase
-      if (currentPhase !== 'starting-stats') {
-        if (startingStatsTimerRef.current) {
-          clearInterval(startingStatsTimerRef.current)
-        }
-        return
-      }
-      
-      setStartingStatsTimer(prev => {
-        const newTime = prev - 1
-        
-        // Sync timer to PartyKit
-        if (partyClient) {
-          const currentStats = useGameStore.getState().startingStats
-          if (currentStats) {
-            partyClient.syncState({ 
-              startingStats: { ...currentStats, timer: newTime }
-            })
-          }
-        }
-        
-        // When timer hits 0, move to next question
-        if (newTime <= 0) {
-          // Clear timer before moving to prevent race conditions
-          if (startingStatsTimerRef.current) {
-            clearInterval(startingStatsTimerRef.current)
-          }
-          // Use setTimeout to move out of the setState callback
-          setTimeout(() => {
-            const phase = useGameStore.getState().livePhase
-            if (phase === 'starting-stats') {
-              moveToNextStartingStatsQuestion()
-            }
-          }, 0)
-          return 15 // Reset timer (will be overwritten by next question setup)
-        }
-        
-        return newTime
-      })
-    }, 1000)
-    
-    return () => {
-      if (startingStatsTimerRef.current) {
-        clearInterval(startingStatsTimerRef.current)
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: moveToNextStartingStatsQuestion is stable
-  }, [livePhase, isHost, partyClient, roomCode])
+  // No Starting Stats timer: advance only when player submits (submitStartingStatsAnswer → moveToNextStartingStatsQuestion)
   
   // Move to next Starting Stats question
   const moveToNextStartingStatsQuestion = async () => {
@@ -1152,45 +1058,7 @@ function LiveDateScene() {
     setStartingStatsTimer(15)
     setHasSubmittedStartingStat(false)
     
-    // Restart the timer for the next question
-    if (startingStatsTimerRef.current) {
-      clearInterval(startingStatsTimerRef.current)
-    }
-    startingStatsTimerRef.current = setInterval(() => {
-      const currentPhase = useGameStore.getState().livePhase
-      if (currentPhase !== 'starting-stats') {
-        if (startingStatsTimerRef.current) {
-          clearInterval(startingStatsTimerRef.current)
-        }
-        return
-      }
-      
-      setStartingStatsTimer(prev => {
-        const newTime = prev - 1
-        
-        if (partyClient) {
-          const stats = useGameStore.getState().startingStats
-          if (stats) {
-            partyClient.syncState({ startingStats: { ...stats, timer: newTime } })
-          }
-        }
-        
-        if (newTime <= 0) {
-          if (startingStatsTimerRef.current) {
-            clearInterval(startingStatsTimerRef.current)
-          }
-          setTimeout(() => {
-            const phase = useGameStore.getState().livePhase
-            if (phase === 'starting-stats') {
-              moveToNextStartingStatsQuestion()
-            }
-          }, 0)
-          return 15
-        }
-        
-        return newTime
-      })
-    }, 1000)
+    // No timer: next question starts when player submits
     
     // Sync to PartyKit
     if (partyClient) {
@@ -1640,7 +1508,7 @@ function LiveDateScene() {
     
     setRoundPromptAnimationComplete(false)
     setLivePhase('phase1')
-    setPhaseTimer(45) // Start timer immediately
+    setPhaseTimer(0) // No timer: advance when player submits answer
     // Don't set dater bubble - the prompt is shown as interstitial instead
     setDaterBubble('')
     setAvatarBubble('')
@@ -1649,7 +1517,7 @@ function LiveDateScene() {
       const currentCycleCount = useGameStore.getState().cycleCount
       partyClient.syncState( {
         phase: 'phase1',
-        phaseTimer: 45,
+        phaseTimer: 0,
         reactionRoundComplete: true,
         currentRoundPrompt: roundPrompt, // Sync round prompt to all clients
         daterBubble: '',
@@ -1754,13 +1622,13 @@ function LiveDateScene() {
       case 2:
         return {
           title: 'How to Play',
-          text: "When your date asks a question, type in any answer you think will impress them. After 30 seconds, everyone votes for their favorite answer. The winning answer becomes a permanent fact about your avatar!",
+          text: "When your date asks a question, type your answer and press Enter (or tap ✨). Your date will react to whatever you say—no timers, no voting. Just you and the date!",
           highlight: null
         }
       case 3:
         return {
           title: "Let's Go!",
-          text: "After 5 questions have been answered, the date ends and you'll see your final compatibility score. Good luck — try not to say anything too weird!",
+          text: "After 6 rounds, the date ends and you'll see your final compatibility score. Good luck — try not to say anything too weird!",
           highlight: null
         }
       default:
@@ -1789,6 +1657,13 @@ function LiveDateScene() {
     initDaterValues()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: daterValues/setDaterValues not in deps
   }, [selectedDater, isHost, partyClient, roomCode])
+  
+  // Single player: auto-advance from Plot Twist input to "What Happened" after submitting (no wheel, no Continue click)
+  useEffect(() => {
+    if (livePhase !== 'plot-twist' || plotTwist?.subPhase !== 'input' || !hasSubmittedPlotTwist || partyClient) return
+    const t = setTimeout(() => advancePlotTwistToReveal(), 1500)
+    return () => clearTimeout(t)
+  }, [livePhase, plotTwist?.subPhase, hasSubmittedPlotTwist, partyClient])
   
   // Round prompts - Title + Subtitle (Question) for each round
   // These are shown as interstitials during Phase 1 instead of the dater asking
@@ -1890,14 +1765,7 @@ function LiveDateScene() {
     }
   }
   
-  // Watch for first suggestion in Phase 1 when timer is at 0
-  useEffect(() => {
-    if (livePhase === 'phase1' && phaseTimer <= 0 && suggestedAttributes.length > 0) {
-      // First suggestion came in while waiting - now we can proceed
-      handlePhaseEnd()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: handlePhaseEnd/livePhase/phaseTimer stable
-  }, [suggestedAttributes.length])
+  // Phase 1 advancement is now on submit only (no timer); see handleChatSubmit → submitPhase1AnswerDirect
   
   // Get the winning attribute text (before applying it to the store)
   const _getWinningAttributeText = () => {
@@ -1928,6 +1796,7 @@ function LiveDateScene() {
     const playerAnswer = currentAttribute || latestAttribute
     if (!playerAnswer) return null
 
+    // Always pass question + answer so LLM has context (critical for short answers like single words)
     const question = currentRoundPrompt.subtitle || 'Tell me about yourself'
     console.log('🎬 Pre-generating: Dater responds to player answer (question + answer context)...')
     setIsPreGenerating(true)
@@ -2349,7 +2218,7 @@ Generate ${daterName}'s final verdict:`
       // Start new round - show round prompt interstitial (not dater question)
       setRoundPromptAnimationComplete(false)
       setLivePhase('phase1')
-      setPhaseTimer(45) // Start timer immediately
+      setPhaseTimer(0) // No timer: advance when player submits
       
       // Only host sets up the next round
       if (isHost) {
@@ -2450,34 +2319,7 @@ Generate ${daterName}'s final verdict:`
       partyClient.syncState({ plotTwist: newPlotTwist })
     }
     
-    // Start the 15 second timer
-    startPlotTwistTimer()
-  }
-  
-  // Start the plot twist input timer
-  const startPlotTwistTimer = () => {
-    if (plotTwistTimerRef.current) {
-      clearInterval(plotTwistTimerRef.current)
-    }
-    
-    plotTwistTimerRef.current = setInterval(() => {
-      const currentPlotTwist = useGameStore.getState().plotTwist
-      const newTimer = currentPlotTwist.timer - 1
-      
-      if (newTimer <= 0) {
-        clearInterval(plotTwistTimerRef.current)
-        // Timer ended - move to reveal phase
-        advancePlotTwistToReveal()
-      } else {
-        const updatedPlotTwist = { ...currentPlotTwist, timer: newTimer }
-        setPlotTwist(updatedPlotTwist)
-        
-        // Sync timer every 5 seconds to reduce traffic
-        if (newTimer % 5 === 0 && partyClient) {
-          partyClient.syncState({ plotTwist: updatedPlotTwist })
-        }
-      }
-    }, 1000)
+    // No plot twist timer: advance via Continue button (advancePlotTwistToReveal)
   }
   
   // Submit a plot twist answer (any player)
@@ -2487,9 +2329,11 @@ Generate ${daterName}'s final verdict:`
     setHasSubmittedPlotTwist(true)
     setPlotTwistInput('')
     
-    // Submit via PartyKit
     if (partyClient) {
       partyClient.submitPlotTwistAnswer(playerId, username, answer.trim())
+    } else {
+      // Single player: store answer locally so advancePlotTwistToReveal can use it
+      addPlotTwistAnswer(playerId || 'local', username || avatar?.name || 'You', answer.trim())
     }
     
     console.log('🎭 Plot twist answer submitted')
@@ -2509,6 +2353,21 @@ Generate ${daterName}'s final verdict:`
     let answers = currentPlotTwist.answers || []
     if (answers.length === 0) {
       answers = [{ odId: 'system', username: 'The Universe', answer: 'Pretend nothing happened' }]
+    }
+    
+    // Single player: only one answer — skip the wheel, go straight to winner then "What Happened" → dater reaction
+    if (answers.length === 1 && !partyClient) {
+      const winner = answers[0]
+      const newPlotTwist = {
+        ...currentPlotTwist,
+        subPhase: 'winner',
+        winningAnswer: winner,
+        animationIndex: 0,
+        answers,
+      }
+      setPlotTwist(newPlotTwist)
+      setTimeout(() => generatePlotTwistSummaryPhase(winner), 3000)
+      return
     }
     
     // Create wheel slices from answers (each answer = 1 slice, equal weight)
@@ -2758,7 +2617,14 @@ Generate ${daterName}'s final verdict:`
       await waitForAllAudio()
       await new Promise(resolve => setTimeout(resolve, 2000))
       
-      // ============ EXCHANGE 2: Avatar justifies (if she didn't like it) or doubles down (if she did), then phase ends ============
+      // Single player: only the dater speaks; skip avatar response and continue to Round 4
+      if (!partyClient) {
+        setIsGenerating(false)
+        finishPlotTwist()
+        return
+      }
+      
+      // ============ EXCHANGE 2 (multiplayer): Avatar justifies or doubles down, then phase ends ============
       console.log('🎭 Plot Twist Exchange 2: Avatar justifies or doubles down')
       const plotTwistAvatarMood = winner.answer.toLowerCase().includes('nothing') ? 'nervous' : 
                                   winner.answer.toLowerCase().includes('punch') ||
@@ -2819,7 +2685,7 @@ Generate ${daterName}'s final verdict:`
     
     setRoundPromptAnimationComplete(false)
     setLivePhase('phase1')
-    setPhaseTimer(45) // Start timer immediately
+    setPhaseTimer(0) // No timer: advance when player submits
     
     // Don't set dater bubble - the prompt is shown as interstitial
     setDaterBubble('')
@@ -3234,6 +3100,41 @@ Generate ${daterName}'s final verdict:`
   // END ANSWER SELECTION FUNCTIONS
   // ============================================
   
+  // Single-player: accept whatever the player types as the answer; no wheel, no timer
+  const submitPhase1AnswerDirect = (playerAnswer) => {
+    if (!isHost) return
+    const currentCompatibility = useGameStore.getState().compatibility
+    const currentCycleCount = useGameStore.getState().cycleCount
+    if (phaseTimerRef.current) {
+      clearInterval(phaseTimerRef.current)
+      phaseTimerRef.current = null
+    }
+    applySinglePlayerAnswer(playerAnswer)
+    setWinnerText(playerAnswer)
+    setShowWinnerPopup(true)
+    setLivePhase('phase3')
+    setPhaseTimer(0)
+    setAnswerSelection({ subPhase: 'idle', slices: [], spinAngle: 0, winningSlice: null })
+    if (partyClient) {
+      partyClient.syncState({
+        phase: 'phase3',
+        phaseTimer: 0,
+        winningAttribute: playerAnswer,
+        showWinnerPopup: true,
+        compatibility: currentCompatibility,
+        cycleCount: currentCycleCount,
+        answerSelection: { subPhase: 'idle', slices: [], spinAngle: 0, winningSlice: null },
+      })
+      partyClient.clearSuggestions()
+      partyClient.clearVotes()
+    }
+    setTimeout(() => {
+      setShowWinnerPopup(false)
+      if (partyClient) partyClient.syncState({ showWinnerPopup: false })
+      setTimeout(() => generateDateConversation(playerAnswer), 100)
+    }, 3000)
+  }
+  
   const handleChatSubmit = async (e) => {
     e.preventDefault()
     if (!chatInput.trim()) return
@@ -3244,20 +3145,18 @@ Generate ${daterName}'s final verdict:`
     // Helper to truncate long messages
     const truncate = (text, max = 40) => text.length > max ? text.slice(0, max) + '...' : text
     
-    // In Phase 1, treat messages as attribute suggestions
+    // In Phase 1, player's message is the answer for this round (no wheel)
     if (livePhase === 'phase1') {
-      console.log('📝 Phase 1 - submitting attribute suggestion')
-      
-      // Submit via PartyKit if available, otherwise local only
       if (partyClient) {
-        console.log('📝 Submitting attribute via PartyKit')
         partyClient.submitAttribute(message, username, playerId)
-        // Also show in local chat immediately for feedback
         addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
       } else {
-        console.log('📝 No partyClient, submitting locally')
         submitAttributeSuggestion(message, username)
         addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
+      }
+      // Single-player: use this answer immediately and go to dater reaction (no wheel)
+      if (isHost) {
+        submitPhase1AnswerDirect(message)
       }
     } 
     // Regular chat (Phase 3 and others)
@@ -3276,7 +3175,19 @@ Generate ${daterName}'s final verdict:`
     if (!justifyInput.trim() || isSubmittingJustify) return
     const justification = justifyInput.trim()
     setIsSubmittingJustify(true)
+    setShowJustifyPrompt(false) // Dismiss full-screen immediately and return to date view
+    setJustifyInput('')
     try {
+      // First: dater says canned invite line ("Do you want to explain that a little more?")
+      const inviteLine = "Do you want to explain that a little more?"
+      addDateMessage('dater', inviteLine)
+      if (ttsEnabled) setDaterBubbleReady(false)
+      setDaterBubble(inviteLine)
+      await syncConversationToPartyKit(undefined, inviteLine, undefined)
+      if (partyClient) partyClient.syncState({ daterBubble: inviteLine })
+      await waitForAllAudio()
+
+      // Then: LLM reacts to the justification
       const conversationHistory = useGameStore.getState().dateConversation
       const daterResponseToJustification = await getDaterResponseToJustification(
         selectedDater, justifyOriginalAnswer, justification, justifyDaterReaction, conversationHistory
@@ -3289,10 +3200,8 @@ Generate ${daterName}'s final verdict:`
         if (partyClient) partyClient.syncState({ daterBubble: daterResponseToJustification })
         await waitForAllAudio()
       }
-      setShowJustifyPrompt(false)
       setJustifyOriginalAnswer('')
       setJustifyDaterReaction('')
-      setJustifyInput('')
       await handleRoundComplete()
     } catch (err) {
       console.error('Justify flow error:', err)
@@ -3321,13 +3230,9 @@ Generate ${daterName}'s final verdict:`
   const getPhaseInstructions = () => {
     switch (livePhase) {
       case 'reaction': return 'Watch them meet!'
-      case 'phase1': 
-        if (phaseTimer <= 0 && suggestedAttributes.length === 0) {
-          return '⏳ Waiting for an answer...'
-        }
-        return 'Submit an answer!'
+      case 'phase1': return 'Type your answer and press Enter (or tap ✨)'
       case 'answer-selection': return 'Selecting an answer...'
-      case 'phase3': return 'Chat with other players'
+      case 'phase3': return 'Watch the date'
       case 'plot-twist': return 'What do you do?'
       case 'plot-twist-reaction': return "Watch the reaction"
       default: return ''
@@ -3336,6 +3241,42 @@ Generate ${daterName}'s final verdict:`
   
   return (
     <div className="live-date-scene">
+      
+      {/* Justify: full-screen takeover */}
+      <AnimatePresence>
+        {showJustifyPrompt && (
+          <motion.div
+            className="justify-fullscreen-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="justify-fullscreen-content">
+              <h1 className="justify-fullscreen-title">Justify Your Opinion</h1>
+              <p className="justify-fullscreen-hint">The dater had a strong reaction. Explain yourself.</p>
+              <form className="justify-fullscreen-form" onSubmit={handleJustifySubmit}>
+                <input
+                  type="text"
+                  className="justify-fullscreen-input"
+                  placeholder="Type your justification..."
+                  value={justifyInput}
+                  onChange={(e) => setJustifyInput(e.target.value)}
+                  maxLength={200}
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="justify-fullscreen-submit"
+                  disabled={isSubmittingJustify || !justifyInput.trim()}
+                >
+                  {isSubmittingJustify ? '…' : 'Submit'}
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Tutorial Overlay */}
       <AnimatePresence>
@@ -3409,32 +3350,23 @@ Generate ${daterName}'s final verdict:`
                     Question {(startingStats.questionAssignments?.findIndex(
                       a => a.playerId === startingStats.activePlayerId && 
                            a.questionType === startingStats.currentQuestionType
-                    ) || 0) + 1} of {startingStats.questionAssignments?.length || 6}
+                    ) || 0) + 1} of {startingStats.questionAssignments?.length || 3}
                   </div>
                 </div>
                 
-                <div className="starting-stats-timer-bar">
-                  <div 
-                    className="starting-stats-timer-fill"
-                    style={{ width: `${(startingStatsTimer / 15) * 100}%` }}
-                  />
-                  <span className="starting-stats-timer-text">{startingStatsTimer}s</span>
-                </div>
+                {/* No timer: Create Your Dater advances on submit only */}
                 
                 {/* Show who's answering and the question */}
                 <div className="starting-stats-question-area">
-                  <div className="question-type-badge">
-                    {startingStats.currentQuestionType === 'physical' && '👤 Your Physical Trait'}
-                    {startingStats.currentQuestionType === 'emotional' && '💭 Your Emotional State'}
-                    {startingStats.currentQuestionType === 'name' && '📛 Your Name'}
+                    <div className="question-type-badge">
+                    {startingStats.currentQuestionType === 'physical' && '👤 How do you look?'}
+                    {startingStats.currentQuestionType === 'emotional' && '💭 How are you feeling?'}
+                    {startingStats.currentQuestionType === 'name' && '📛 What is your name?'}
                   </div>
                   
+                  {/* Single player: no "waiting for others" */}
                   <div className="active-player-indicator">
-                    {startingStats.activePlayerId === playerId ? (
-                      <span className="your-turn">✨ Your Turn!</span>
-                    ) : (
-                      <span className="waiting-for">{startingStats.activePlayerName || 'Someone'} is answering...</span>
-                    )}
+                    <span className="your-turn">✨ Your turn</span>
                   </div>
                   
                   <h2 className="starting-stats-question">
@@ -3455,11 +3387,11 @@ Generate ${daterName}'s final verdict:`
                         value={startingStatsInput}
                         onChange={(e) => setStartingStatsInput(e.target.value)}
                         placeholder={
-                          startingStats.currentQuestionType === 'physical' 
-                            ? "e.g., 'has glowing red eyes'" 
+                          startingStats.currentQuestionType === 'physical'
+                            ? "e.g., tall with blue hair"
                             : startingStats.currentQuestionType === 'emotional'
-                            ? "e.g., 'nervous and sweaty'"
-                            : "e.g., 'Gerald'"
+                            ? "e.g., nervous"
+                            : "e.g., Sam"
                         }
                         disabled={hasSubmittedStartingStat}
                         autoFocus
@@ -3538,14 +3470,6 @@ Generate ${daterName}'s final verdict:`
                   <p className="plot-twist-question">What Do You Do?</p>
                 </div>
                 
-                <div className="plot-twist-timer-bar">
-                  <div 
-                    className="plot-twist-timer-fill"
-                    style={{ width: `${(plotTwist.timer / 15) * 100}%` }}
-                  />
-                  <span className="plot-twist-timer-text">{plotTwist.timer}s</span>
-                </div>
-                
                 {!hasSubmittedPlotTwist ? (
                   <div className="plot-twist-input-area">
                     <form onSubmit={(e) => {
@@ -3572,13 +3496,25 @@ Generate ${daterName}'s final verdict:`
                 ) : (
                   <div className="plot-twist-submitted">
                     <span className="submitted-icon">✓</span>
-                    <span>Answer submitted! Waiting for others...</span>
+                    <span>Answer submitted!</span>
                   </div>
                 )}
                 
-                <div className="plot-twist-answer-count">
-                  {plotTwist.answers?.length || 0} / {players.length} players answered
-                </div>
+                {partyClient && (
+                  <div className="plot-twist-answer-count">
+                    {plotTwist.answers?.length || 0} / {players.length} players answered
+                  </div>
+                )}
+                
+                {isHost && (
+                  <button
+                    type="button"
+                    className="plot-twist-continue-btn"
+                    onClick={() => advancePlotTwistToReveal()}
+                  >
+                    Continue
+                  </button>
+                )}
               </div>
             )}
             
@@ -4083,9 +4019,6 @@ Generate ${daterName}'s final verdict:`
               <div className="round-prompt-content">
                 <h2 className="round-prompt-title">{currentRoundPrompt.title}</h2>
                 <p className="round-prompt-subtitle">{currentRoundPrompt.subtitle}</p>
-                {livePhase === 'phase1' && phaseTimer > 0 && (
-                  <div className="round-prompt-timer">{formatTime(phaseTimer)}</div>
-                )}
               </div>
             </motion.div>
           )}
@@ -4369,61 +4302,50 @@ Generate ${daterName}'s final verdict:`
         )}
       </div>
       
-      {/* Chat Module */}
-      <div className="chat-module">
+      {/* Chat Module: single answer input only in date mode (no chat window) */}
+      <div className={`chat-module ${['phase1', 'phase3'].includes(livePhase) ? 'chat-module-single-input' : ''}`}>
         {showJustifyPrompt ? (
-          <div className="justify-prompt-block">
-            <h3 className="justify-title">JUSTIFY WHAT YOU JUST SAID</h3>
-            <p className="justify-hint">The dater had a strong negative reaction. Explain yourself.</p>
-            <form className="justify-form" onSubmit={handleJustifySubmit}>
-              <input
-                type="text"
-                className="chat-input justify-input"
-                placeholder="Type your justification..."
-                value={justifyInput}
-                onChange={(e) => setJustifyInput(e.target.value)}
-                maxLength={150}
-                autoFocus
-              />
-              <button type="submit" className="chat-send-btn" disabled={isSubmittingJustify || !justifyInput.trim()}>
-                {isSubmittingJustify ? '…' : 'Submit'}
-              </button>
-            </form>
-          </div>
+          /* Justify UI is now full-screen overlay (see Task 6) */
+          null
         ) : (
           <>
-        <div className="chat-header">
-          <span className="chat-title">💬 Player Chat</span>
-          <span className="chat-hint">{getPhaseInstructions()}</span>
-        </div>
-        
-        <div className="chat-messages">
-          {(playerChat || []).slice(-20).map((msg) => (
-            <div 
-              key={msg.id} 
-              className={`chat-message ${msg.username === username ? 'own-message' : ''}`}
-            >
-              <span className="chat-username">{msg.username}:</span>
-              <span className="chat-text">{msg.message}</span>
-            </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-        
-        <form className="chat-input-form" onSubmit={handleChatSubmit}>
-          <input
-            type="text"
-            className="chat-input"
-            placeholder={livePhase === 'phase1' ? 'Type your answer...' : 'Chat...'}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            maxLength={100}
-          />
-          <button type="submit" className="chat-send-btn">
-            {livePhase === 'phase1' ? '✨' : '💬'}
-          </button>
-        </form>
-        </>
+            {!['phase1', 'phase3'].includes(livePhase) && (
+              <>
+                <div className="chat-header">
+                  <span className="chat-title">💬 Player Chat</span>
+                  <span className="chat-hint">{getPhaseInstructions()}</span>
+                </div>
+                <div className="chat-messages">
+                  {(playerChat || []).slice(-20).map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`chat-message ${msg.username === username ? 'own-message' : ''}`}
+                    >
+                      <span className="chat-username">{msg.username}:</span>
+                      <span className="chat-text">{msg.message}</span>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+              </>
+            )}
+            {['phase1', 'phase3'].includes(livePhase) && (
+              <span className="chat-hint chat-hint-single">{getPhaseInstructions()}</span>
+            )}
+            <form className="chat-input-form" onSubmit={handleChatSubmit}>
+              <input
+                type="text"
+                className="chat-input"
+                placeholder={livePhase === 'phase1' ? 'Type your answer...' : 'Chat...'}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                maxLength={100}
+              />
+              <button type="submit" className="chat-send-btn">
+                {livePhase === 'phase1' ? '✨' : '💬'}
+              </button>
+            </form>
+          </>
         )}
       </div>
     </div>

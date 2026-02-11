@@ -679,7 +679,7 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
 
 💬 WHAT THEY ANSWERED: "${playerAnswer}"
 
-React naturally to their answer. You are the dater on a first date. Be in character — show interest, concern, delight, or discomfort based on what they said and your personality. Keep it 1–2 short sentences, dialogue only. No actions or asterisks.
+React naturally to their answer. You are the dater on a first date. Be in character — show interest, concern, delight, or discomfort based on what they said and your personality. You're the only one speaking, so you can be a bit more expressive when it fits: 2–4 sentences is fine when natural; keep it dialogue only, no actions or asterisks.
 ${finalNote}
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST

@@ -9,7 +9,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.02.32'
+const GAME_VERSION = '0.02.33'
 
 // Main game entry screen - Bad Date
 
@@ -107,7 +107,7 @@ function LiveLobby() {
     }
   }, [view])
   
-  // Single-player: start the same live date game as multiplayer, but no lobby (straight into game)
+  // Single-player: Play → Dater Bio Page → START THE DATE → 3 questions → date
   const handlePlayNow = () => {
     const playerName = username.trim() || `Player${Math.floor(Math.random() * 1000)}`
     const odId = generatePlayerId()
@@ -120,7 +120,7 @@ function LiveLobby() {
     setPartyClient(null)
     setRoomCode(null)
     setLiveMode(true)
-    startLiveDate(null, false, false) // no tutorial, no starting stats — straight into Phase 1 opening round
+    setPhase('dater-bio') // Show Dater Bio Page; user taps START THE DATE to begin 3 questions then date
   }
 
   const handleCreate = async () => {

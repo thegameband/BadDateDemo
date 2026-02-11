@@ -1,0 +1,99 @@
+.dater-bio-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(180deg, var(--bg-dark, #0f0d14) 0%, var(--bg-card, #1a1625) 100%);
+}
+
+.dater-bio-card {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 77, 109, 0.2);
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.dater-bio-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 20px 0;
+}
+
+.dater-bio-image-wrap {
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(255, 77, 109, 0.4);
+  background: var(--bg-card);
+}
+
+.dater-bio-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dater-bio-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary, #fff);
+  margin: 0 0 6px 0;
+}
+
+.dater-bio-meta {
+  font-size: 0.95rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.75));
+  margin-bottom: 10px;
+}
+
+.dater-bio-occupation {
+  font-size: 1rem;
+  color: var(--accent-pink, #ff6b8a);
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.dater-bio-tagline {
+  font-size: 0.9rem;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
+  font-style: italic;
+  margin: 0 0 24px 0;
+  line-height: 1.4;
+}
+
+.dater-bio-start-btn {
+  width: 100%;
+  padding: 16px 24px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff;
+  background: linear-gradient(135deg, #ff4d6d 0%, #ff8c42 100%);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dater-bio-start-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 6px 24px rgba(255, 77, 109, 0.45);
+}
+
+.dater-bio-start-btn:active {
+  transform: scale(0.98);
+}
