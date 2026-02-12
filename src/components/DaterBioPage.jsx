@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { useGameStore } from '../store/gameStore'
+import { speak } from '../services/ttsService'
 import './DaterBioPage.css'
 
 /**
@@ -10,6 +12,15 @@ function DaterBioPage() {
   const selectedDater = useGameStore((state) => state.selectedDater)
   const setPhase = useGameStore((state) => state.setPhase)
   const startLiveDate = useGameStore((state) => state.startLiveDate)
+  const hasSpoken = useRef(false)
+
+  // Narrator announces the dater when the bio page loads
+  useEffect(() => {
+    if (selectedDater?.name && !hasSpoken.current) {
+      hasSpoken.current = true
+      speak(`Your date today is ${selectedDater.name}`, 'narrator')
+    }
+  }, [selectedDater])
 
   const handleStartDate = () => {
     setPhase('live-date')
