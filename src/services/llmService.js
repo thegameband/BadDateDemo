@@ -666,7 +666,7 @@ React to what they revealed about themselves!`
  * Call this with the round question and the player's answer so the LLM has full context.
  * @returns {Promise<string|null>} The dater's reaction line (dialogue only).
  */
-export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false) {
+export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt('maya', null)
   const finalNote = isFinalRound
@@ -684,13 +684,24 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
         .replace(/\{\{attribute\}\}/g, playerAnswer)
         .replace(/\{\{avatarLastMessage\}\}/g, playerAnswer)
 
+  // Include dater's trait values so the reaction naturally aligns with what they love/like/dislike/hate
+  const valuesBlock = valuesContext ? `
+🔑 YOUR INNER VALUES (use these to ground your reaction):
+- Things you LOVE: ${valuesContext.loves?.join(', ') || 'not specified'}
+- Things you LIKE: ${valuesContext.likes?.join(', ') || 'not specified'}
+- Things you DISLIKE: ${valuesContext.dislikes?.join(', ') || 'not specified'}
+- Things that are DEALBREAKERS: ${valuesContext.dealbreakers?.join(', ') || 'not specified'}
+
+Your reaction should naturally reflect one of these traits. If what they said aligns with something you love, your reaction should be enthusiastic. If it hits a dealbreaker, your reaction should be strong and negative. Ground your opinion in a specific trait.
+` : ''
+
   const taskPrompt = `
 🎯 YOUR TASK: Give your IMMEDIATE, STRONG reaction to what your date just said.
 
 📋 THE QUESTION THAT WAS ASKED: "${question}"
 
 💬 WHAT THEY ANSWERED: "${playerAnswer}"
-
+${valuesBlock}
 CRITICAL RULES FOR YOUR REACTION:
 - You MUST have an OPINION. Never just say something is "weird" or "strange" or "interesting" without explaining WHY you feel that way based on your personality, your values, and your life experience.
 - React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
@@ -1903,113 +1914,95 @@ Return ONLY valid JSON in this exact format:
  */
 export async function checkAttributeMatch(attribute, daterValues, dater, daterReaction = null) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const daterName = dater?.name || 'the dater'
   
-  // Fallback function that always returns a match based on reaction AND attribute sentiment
+  // Fallback: analyze the reaction text to determine Good/Great/Bad/Awful, then pick a trait
   const getFallbackMatch = (reaction) => {
-    // Analyze BOTH the reaction text AND the attribute itself for sentiment
-    const lowerReaction = (reaction || '').toLowerCase()
-    const lowerAttribute = (attribute || '').toLowerCase()
-    const textToAnalyze = lowerReaction + ' ' + lowerAttribute
+    const lower = (reaction || '').toLowerCase()
     
-    // Positive indicators (things people generally like)
-    const positiveWords = ['love', 'amazing', 'great', 'wonderful', 'exciting', 'cool', 'awesome', 'interesting', 'wow', 'nice', 'like', 'sweet', 'cute', 'fun', 'happy', 'glad', 'impressed', 'beautiful', 'kind', 'gentle', 'creative', 'artistic', 'music', 'cooking', 'travel', 'adventure', 'smart', 'clever', 'funny', 'humor', 'passionate']
-    // Negative indicators (things people generally dislike)
-    const negativeWords = ['scary', 'terrifying', 'horrible', 'awful', 'disgusting', 'gross', 'weird', 'strange', 'concerning', 'worried', 'afraid', 'uncomfortable', 'yikes', 'nervous', 'alarmed', 'monster', 'demon', 'spider', 'snake', 'creepy', 'stalker', 'annoying', 'lazy', 'mean', 'rude', 'arrogant', 'boring', 'selfish']
-    // Strong negative indicators (dealbreakers)
-    const strongNegativeWords = ['murder', 'kill', 'killing', 'death', 'dead', 'horror', 'nightmare', 'run', 'escape', 'dangerous', 'threat', 'terrified', 'blood', 'corpse', 'grave', 'crime', 'criminal', 'violent', 'violence', 'evil', 'hurt', 'harm', 'weapon', 'poison', 'victim', 'predator', 'stalk']
-    // Strong positive indicators (loves)
-    const strongPositiveWords = ['adore', 'obsessed', 'soulmate', 'perfect', 'incredible', 'delightful', 'charming', 'romantic', 'dreamy', 'swoon']
+    // Awful signals (dealbreakers)
+    const awfulWords = ['murder', 'kill', 'terrified', 'furious', 'disgusted', 'horrified', 'run', 'escape', 'dangerous', 'threat', 'violence', 'evil', 'predator', 'absolutely not', 'hard no', 'deal breaker']
+    // Bad signals (dislikes)
+    const badWords = ['uncomfortable', 'concerned', 'worried', 'nervous', 'yikes', 'alarmed', 'disappointed', 'upset', 'put off', 'not okay', 'problem', 'red flag', 'don\'t like']
+    // Great signals (loves)
+    const greatWords = ['adore', 'obsessed', 'soulmate', 'perfect', 'incredible', 'swoon', 'falling for', 'dream', 'amazing', 'oh my god yes']
+    // Good signals (likes)
+    const goodWords = ['like', 'nice', 'cool', 'fun', 'sweet', 'cute', 'interesting', 'impressed', 'into it', 'appreciate', 'respect']
     
-    const hasPositive = positiveWords.some(w => textToAnalyze.includes(w))
-    const hasNegative = negativeWords.some(w => textToAnalyze.includes(w))
-    const hasStrongNegative = strongNegativeWords.some(w => textToAnalyze.includes(w))
-    const hasStrongPositive = strongPositiveWords.some(w => textToAnalyze.includes(w))
+    const isAwful = awfulWords.some(w => lower.includes(w))
+    const isBad = badWords.some(w => lower.includes(w))
+    const isGreat = greatWords.some(w => lower.includes(w))
+    const isGood = goodWords.some(w => lower.includes(w))
     
-    // Determine category based on strongest signal found
-    let category
-    let shortLabel
-    
-    if (hasStrongNegative) {
+    let category, traitList
+    if (isAwful) {
       category = 'dealbreakers'
-      shortLabel = 'danger'
-    } else if (hasStrongPositive) {
+      traitList = daterValues.dealbreakers
+    } else if (isGreat) {
       category = 'loves'
-      shortLabel = 'charm'
-    } else if (hasNegative && !hasPositive) {
+      traitList = daterValues.loves
+    } else if (isBad && !isGood) {
       category = 'dislikes'
-      shortLabel = 'red flag'
-    } else if (hasPositive && !hasNegative) {
-      category = Math.random() > 0.3 ? 'likes' : 'loves'
-      shortLabel = 'good vibes'
-    } else if (hasNegative && hasPositive) {
-      // Mixed signals - prefer negative when reaction has strong negative language
-      category = hasStrongNegative ? 'dealbreakers' : (Math.random() > 0.5 ? 'likes' : 'dislikes')
-      shortLabel = 'mixed vibes'
+      traitList = daterValues.dislikes
+    } else if (isGood) {
+      category = 'likes'
+      traitList = daterValues.likes
     } else {
-      // No clear signals - default to mild positive for engagement
-      category = Math.random() > 0.3 ? 'likes' : 'loves'
-      shortLabel = 'curiosity'
+      category = 'likes'
+      traitList = daterValues.likes
     }
     
-    return {
-      category,
-      matchedValue: 'general impression',
-      shortLabel
-    }
+    // Pick a random trait from the matching list
+    const matchedValue = traitList?.length > 0
+      ? traitList[Math.floor(Math.random() * traitList.length)]
+      : 'general impression'
+    
+    return { category, matchedValue, shortLabel: matchedValue }
   }
   
   if (!apiKey) {
     return getFallbackMatch(daterReaction)
   }
-  
-  // Analyze the dater's reaction to determine if it was positive or negative
-  const reactionContext = daterReaction ? `
-THE DATER'S REACTION TO THIS WAS: "${daterReaction}"
 
-🚨 CRITICAL: THE CATEGORY MUST MATCH THE DATER'S ACTUAL REACTION!
-- If the dater reacted POSITIVELY (happy, interested, attracted, amused, impressed) → you MUST return LOVES or LIKES. NEVER return dislikes or dealbreakers for a positive reaction.
-- If the dater reacted NEGATIVELY (scared, disgusted, concerned, uncomfortable, upset, disappointed) → you MUST return DISLIKES or DEALBREAKERS — NEVER return LOVES or LIKES
-- If the dater seemed HORRIFIED, TERRIFIED, or FURIOUS → MUST return DEALBREAKERS
-- The reaction text is the source of truth: positive words = LOVES or LIKES only; negative words = DISLIKES or DEALBREAKERS only.` : ''
+  const systemPrompt = `You are ${daterName} rating your OWN reaction to what your date just said.
 
-  const systemPrompt = `You are checking how a dating attribute affects the dater's opinion.
+YOUR TRAITS AND VALUES:
+LOVE traits (things you adore): ${daterValues.loves.join(', ')}
+LIKE traits (things you enjoy): ${daterValues.likes.join(', ')}
+DISLIKE traits (things that bother you): ${daterValues.dislikes.join(', ')}
+NOPE traits (absolute dealbreakers): ${daterValues.dealbreakers.join(', ')}
 
-🚨 CRITICAL: YOU MUST ALWAYS FIND A MATCH! Every attribute MUST trigger a score change.
-There is NO scenario where matches = false. ALWAYS return matches = true.
+WHAT YOUR DATE SAID: "${attribute}"
 
-DATER'S PREFERENCES:
-LOVES: ${daterValues.loves.join(', ')}
-LIKES: ${daterValues.likes.join(', ')}
-DISLIKES: ${daterValues.dislikes.join(', ')}
-DEALBREAKERS: ${daterValues.dealbreakers.join(', ')}
+YOUR REACTION WAS: "${daterReaction || '(no reaction yet)'}"
 
-ATTRIBUTE/STATEMENT TO CHECK: "${attribute}"
-${reactionContext}
+🎯 YOUR TASK: Judge your OWN reaction. How did what they said make you feel?
 
-MATCHING RULES (in order of priority):
-1. If the dater's reaction was POSITIVE → you MUST find a LOVES or LIKES match. NEVER return dislikes or dealbreakers when the dater reacted positively.
-2. If the dater's reaction was NEGATIVE → you MUST find a DISLIKES or DEALBREAKERS match. NEVER return loves or likes when the dater reacted negatively.
-3. Use creative interpretation - what does this attribute IMPLY about the person?
-4. Consider BASELINE HUMAN MORALITY: murder, violence, danger, monsters = generally bad
-5. If nothing obvious matches, use the CLOSEST thematic connection from the appropriate category (positive reaction → loves/likes; negative reaction → dislikes/dealbreakers)
+STEP 1 — Rate your reaction:
+- GREAT → You loved it. It excited, attracted, or delighted you.
+- GOOD → You liked it. It was pleasant, interesting, or promising.
+- BAD → You didn't like it. It bothered, concerned, or disappointed you.
+- AWFUL → You hated it. It horrified, disgusted, or infuriated you.
 
-ALWAYS FIND A MATCH. Be creative! Examples:
-- "I'm a gargoyle" → could match "uniqueness" (like) or "scary things" (dislike)
-- "I kill people" → MUST match "violence" or "danger" (dealbreaker/dislike)
-- "I love puppies" → could match "kindness" or "warmth" (like/love)
-- "I'm always late" → could match "unreliable" (dislike) or "spontaneous" (like)
+STEP 2 — Pick the specific trait from YOUR values that justifies your rating:
+- If GREAT → pick one of your LOVE traits: ${daterValues.loves.join(', ')}
+- If GOOD → pick one of your LIKE traits: ${daterValues.likes.join(', ')}
+- If BAD → pick one of your DISLIKE traits: ${daterValues.dislikes.join(', ')}
+- If AWFUL → pick one of your NOPE traits: ${daterValues.dealbreakers.join(', ')}
 
-ABOUT THE SHORT LABEL:
-- Explains WHY the dater likes/dislikes what was said
-- Should be the UNDERLYING VALUE, not a literal description
-- Use abstract concepts: "danger", "creativity", "warmth", "chaos", etc.
+Pick the trait that BEST explains why you reacted the way you did. The trait should be the underlying reason for your opinion.
 
-Return ONLY valid JSON (matches MUST be true):
+CRITICAL RULES:
+- Your rating MUST match the tone of your reaction. If you sounded happy/excited → GREAT or GOOD. If you sounded upset/scared → BAD or AWFUL.
+- You MUST pick a trait from the correct list. GREAT = LOVE traits only. GOOD = LIKE traits only. BAD = DISLIKE traits only. AWFUL = NOPE traits only.
+- The shortLabel should be 1-2 words explaining the core reason (e.g. "creativity", "danger", "warmth", "chaos").
+
+Return ONLY valid JSON:
 {
-  "matches": true,
+  "rating": "great" | "good" | "bad" | "awful",
   "category": "loves" | "likes" | "dislikes" | "dealbreakers",
-  "matchedValue": "the preference that best relates to this",
-  "shortLabel": "1-2 word label explaining the reaction"
+  "matchedValue": "the specific trait from your list",
+  "shortLabel": "1-2 word reason"
 }`
 
   try {
@@ -2025,7 +2018,7 @@ Return ONLY valid JSON (matches MUST be true):
         model: 'claude-sonnet-4-20250514',
         max_tokens: 150,
         system: systemPrompt,
-        messages: [{ role: 'user', content: 'Find a match for this attribute. Remember: matches MUST be true!' }],
+        messages: [{ role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' }],
       }),
     })
     
@@ -2040,36 +2033,27 @@ Return ONLY valid JSON (matches MUST be true):
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
-      if (parsed.category && parsed.shortLabel) {
+      
+      // Map rating to category if category wasn't set correctly
+      const ratingToCategory = { great: 'loves', good: 'likes', bad: 'dislikes', awful: 'dealbreakers' }
+      const category = ratingToCategory[parsed.rating] || parsed.category
+      
+      if (category && parsed.shortLabel) {
         const result = {
-          category: parsed.category,
+          category,
           matchedValue: parsed.matchedValue || 'general impression',
-          shortLabel: parsed.shortLabel
+          shortLabel: parsed.shortLabel,
+          reason: parsed.reason || ''
         }
-        // Safeguard: reaction must match category
-        if (daterReaction) {
-          const fallback = getFallbackMatch(daterReaction)
-          const resultPositive = result.category === 'loves' || result.category === 'likes'
-          const resultNegative = result.category === 'dislikes' || result.category === 'dealbreakers'
-          const fallbackPositive = fallback.category === 'loves' || fallback.category === 'likes'
-          const fallbackNegative = fallback.category === 'dislikes' || fallback.category === 'dealbreakers'
-          if (resultPositive && fallbackNegative) {
-            console.warn('Attribute match: dater reacted negatively but LLM returned positive; overriding to', fallback.category)
-            return fallback
-          }
-          if (resultNegative && fallbackPositive) {
-            console.warn('Attribute match: dater reacted positively but LLM returned negative; overriding to', fallback.category)
-            return fallback
-          }
-        }
+        console.log(`🎯 Dater self-rated: ${parsed.rating?.toUpperCase()} → ${category} (trait: "${result.matchedValue}", label: "${result.shortLabel}")`)
         return result
       }
     }
     
-    console.warn('LLM did not return valid match, using fallback')
+    console.warn('LLM did not return valid self-rating, using fallback')
     return getFallbackMatch(daterReaction)
   } catch (error) {
-    console.error('Error checking attribute match:', error)
+    console.error('Error in dater self-rating:', error)
     return getFallbackMatch(daterReaction)
   }
 }

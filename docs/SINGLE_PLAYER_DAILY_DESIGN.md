@@ -193,14 +193,18 @@ Reaction guidelines (conceptually): horrifying → horrified; dangerous → conc
 
 ## 2.5 Sentiment and compatibility (reaction → score)
 
-The dater's response is analyzed for **sentiment** (or matched against hidden dater values). That sentiment drives compatibility changes:
+After reacting, the dater **self-rates** their own reaction using a four-tier system, then picks a specific trait from their hidden values to justify the rating:
 
-- **Strong positive (+8 to +10)** → category **Loves**
-- **Positive (+1 to +7)** → **Likes**
-- **Negative (-1 to -7)** → **Dislikes**
-- **Strong negative (-8 to -10)** → **Dealbreakers**
+| Rating | Category | Meaning | Trait source |
+|--------|----------|---------|--------------|
+| **Great** | Loves | Thrilled, attracted, delighted | Pick from Love traits |
+| **Good** | Likes | Pleasant, interesting, promising | Pick from Like traits |
+| **Bad** | Dislikes | Bothered, concerned, disappointed | Pick from Dislike traits |
+| **Awful** | Dealbreakers | Horrified, disgusted, furious | Pick from Nope traits |
 
-The reaction tone is **tempered by current compatibility**: if the date is going poorly, even a "likes" hit may be lukewarm; if it's going well, even a "dislikes" may get some benefit of the doubt. The system can also trigger a **Justify** step when the dater reacts strongly negatively: player gets one follow-up answer to justify; dater reacts again (no timer).
+The dater's reaction text is the **source of truth** for the rating. The LLM reads the reaction, decides how the dater felt, then selects the matching trait from the correct list. This ensures that the sentiment category always matches the tone of the reaction, and the justification is grounded in the dater's actual personality.
+
+The system can also trigger a **Justify** step when the dater rates their reaction as **Awful** (dealbreaker): the player gets one follow-up answer to justify; the dater reacts again (no timer).
 
 ---
 

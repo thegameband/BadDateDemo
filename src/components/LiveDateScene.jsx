@@ -1692,7 +1692,7 @@ function LiveDateScene() {
 
     try {
       const daterReaction = await getDaterResponseToPlayerAnswer(
-        selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound
+        selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound, daterValues
       )
       if (!daterReaction) {
         setIsPreGenerating(false)
