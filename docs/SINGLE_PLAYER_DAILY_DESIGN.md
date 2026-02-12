@@ -72,7 +72,7 @@ Each round follows this timing:
 3. **Player submits** – The answer appears in a **small oval beneath the question**. The **narrator reads the answer aloud** while the LLM generates the dater's response in parallel.
 4. **Dater reacts (two comments)** – Once the narrator finishes and the LLM response is ready, the **dater** responds with **two separate comments,** each shown as text and spoken via VO simultaneously. Only the dater speaks; the avatar never has dialogue.
    - **Comment 1 — Immediate Reaction:** The dater gives their gut reaction to the player's answer, tested against their personality, values, and attributes. They must have a clear opinion — never just calling something "weird" or "strange" — and explain *why* they feel that way. Exactly 2 sentences.
-   - **Comment 2 — Follow-up with Memory:** The dater connects the current answer with 1–5 things the player said earlier in the date. This builds a running impression: do they like this person more now? Less? Is a pattern forming? The dater states their evolving opinion and explains why. Exactly 2 sentences. **The reaction feedback (sentiment tag: loves/likes/dislikes/dealbreakers) appears when Comment 2 begins**, not during Comment 1.
+   - **Comment 2 — Follow-up / Deeper Opinion:** The dater looks for **one** previous thing the player said that naturally relates to the current answer. If a connection exists, they mention it briefly ("Earlier you said X, and now this..."). If nothing connects, they simply share more of their own opinion — going deeper into why they feel the way they do about the current answer. The dater never forces a connection or tries to combine everything said. Exactly 2 sentences. **The reaction feedback (sentiment tag: loves/likes/dislikes/dealbreakers) appears when Comment 2 begins**, not during Comment 1.
    See Part 2 and Part 3 for how reactions and compatibility work.
 5. **Wait 4 seconds** – After the dater finishes speaking, the game holds for 4 seconds so the player can read the reaction.
 6. **Next round** – The next question is shown.
@@ -178,14 +178,16 @@ The dater gives their gut-level response to the player's answer. The LLM receive
 - The reaction should be **specific**: reference what the player actually said and connect it to something about the dater (their values, past, dealbreakers, what they find attractive).
 - 1–2 sentences, dialogue only.
 
-### Comment 2 — Follow-up with Memory
+### Comment 2 — Follow-up / Deeper Opinion
 
-After the immediate reaction, the dater connects the current answer with **1–5 things the player said earlier** in the date. The LLM receives the first comment plus a list of prior player answers. Rules:
+After the immediate reaction, the dater looks for **one** previous thing the player said that naturally relates to the current answer. The LLM receives the first comment plus a list of prior player answers. Rules:
 
-- The dater **connects the dots:** how does this new answer change or reinforce their impression? Is a pattern forming that they love or a red flag emerging?
-- They state their **evolving opinion** and explain why — are they falling for this person, getting worried, or starting to see a type?
-- Again, never just observe that something is "interesting" — explain what it means to them.
-- 1–2 sentences, dialogue only.
+- **If a connection exists:** The dater briefly references one earlier answer ("Earlier you said X, and now this...") and shares their opinion on what that pattern means.
+- **If nothing connects:** The dater does **not** force a connection. Instead, they go deeper into their own opinion on the current answer — why it matters to them, what it tells them about this person, how it makes them feel.
+- At most **one** prior answer is referenced. The dater never tries to combine or summarize everything said so far.
+- They state their **opinion** clearly — are they falling for this person, getting worried, or starting to see a type?
+- Never just observe that something is "interesting" — explain what it means to them.
+- Exactly 2 sentences, dialogue only.
 
 ### Intensity
 
@@ -289,7 +291,7 @@ When the LLM is unavailable, fallback logic can use simple rules (e.g. question 
 # Summary
 
 - **Flow:** Play (no name) → **Dater Bio Page** (image + age, gender, occupation, hobbies + START THE DATE) → **3 questions** (look, feeling, name) → **Date begins** (dater's first impressions of avatar) → **6 rounds** (game asks → player answers → dater responds with two comments) → **Wrap-up** (dater sums up) → **Date Review** (highlights/lowlights) → **Score** (compatibility %). Single-player, no chat window in date mode, no timers, dater-only speech.
-- **Two-comment reactions:** Comment 1 is the dater's immediate, opinionated gut reaction. Comment 2 connects the answer to 1–5 things the player said earlier, expressing an evolving opinion. The dater never just calls something "weird" — they always explain why they feel the way they do.
+- **Two-comment reactions:** Comment 1 is the dater's immediate, opinionated gut reaction. Comment 2 looks for one previous thing the player said that naturally relates — if nothing connects, the dater just goes deeper into their own opinion. The dater never forces connections or just calls something "weird" — they always explain why they feel the way they do.
 - **First impressions:** Dater opens the date by reacting to the avatar's physical description, name, and (to a lesser degree) emotional state.
 - **Justify:** Full-screen "Justify Your Opinion" takeover; player types one justification; return to date with dater saying something like "Do you want to explain that a little more?" then continue.
 - **Reactions:** Dater responds via LLM using full personality, visible vs inferred context, reaction intensity, and "stuck on date" constraint. Sentiment from the reaction (loves/likes/dislikes/dealbreakers) drives compatibility updates.

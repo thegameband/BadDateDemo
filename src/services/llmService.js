@@ -747,19 +747,20 @@ export async function getDaterFollowupComment(dater, question, playerAnswer, fir
 
   const priorContext = priorAnswers.length > 0
     ? `Earlier in the date, they also said these things about themselves:\n${priorAnswers.map((a, i) => `${i + 1}. "${a}"`).join('\n')}`
-    : 'This is early in the date, so you don\'t have much history yet. Build naturally on what they just said.'
+    : ''
 
   const taskPrompt = `
-🎯 YOUR TASK: Give a FOLLOW-UP comment. You already reacted to their answer; now connect it to the bigger picture of who this person is.
+🎯 YOUR TASK: Give a FOLLOW-UP comment. You already reacted to their answer; now go deeper with your opinion.
 
 📋 THE QUESTION WAS: "${question}"
 💬 THEY ANSWERED: "${playerAnswer}"
 💭 YOUR FIRST REACTION WAS: "${firstReaction}"
 
-${priorContext}
+${priorContext ? `${priorContext}\n\nScan the list above. Is there ONE previous thing they said that NATURALLY connects to "${playerAnswer}"? If so, mention it briefly — "Earlier you said X, and now this..." — to show you're paying attention. If NOTHING relates, don't force a connection. Instead, just share more of YOUR opinion on what they just said.` : `This is early in the date, so you don't have much history yet. Just share more of your opinion on what they said — why it matters to you, what it tells you about them.`}
 
 CRITICAL RULES:
-- CONNECT their current answer to 1-3 things they said earlier. How does this new answer change or reinforce your impression of them?
+- Do NOT try to combine everything they've said. At most, reference ONE prior answer — and only if it genuinely relates.
+- If nothing connects, just offer MORE of your opinion on the current answer. Go deeper into why you feel the way you do.
 - Have a CLEAR OPINION. Do you like this person more now? Less? Are you seeing a pattern you love or a red flag forming? SAY IT.
 - Never just observe that something is "weird" or "interesting" — explain WHY it matters to you personally based on your values and personality.
 - Be honest and in character. If you're starting to fall for them, show it. If you're getting worried, say why.
@@ -774,7 +775,7 @@ ${finalNote}
       role: msg.speaker === 'dater' ? 'assistant' : 'user',
       content: msg.message
     }))
-  const userContent = `[Follow up on your reaction. Connect "${playerAnswer}" to what they've said before and share your evolving opinion of them.]`
+  const userContent = `[Follow up on your reaction to "${playerAnswer}". If one previous thing they said relates, mention it. Otherwise, just share more of your opinion.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
