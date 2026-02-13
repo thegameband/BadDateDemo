@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line n
 import { useGameStore } from '../store/gameStore'
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
+import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
 import './LiveLobby.css'
 
 // PartyKit host - update after deployment
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.02.45'
+const GAME_VERSION = '0.02.46'
 
 // Main game entry screen - Bad Date
 
@@ -33,6 +34,9 @@ function LiveLobby() {
   const [showAdminModal, setShowAdminModal] = useState(false)
   const [adminStatus, setAdminStatus] = useState('')
   const [qrRoomCode, setQrRoomCode] = useState(null) // Room code from QR scan
+  const [selectedDaterName, setSelectedDaterName] = useState('Adam') // Debug: which dater to use
+  const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
+  const [showDaterPicker, setShowDaterPicker] = useState(false)
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
@@ -110,7 +114,7 @@ function LiveLobby() {
   const handlePlayNow = () => {
     const playerName = username.trim() || `Player${Math.floor(Math.random() * 1000)}`
     const odId = generatePlayerId()
-    const dater = daters.find((d) => d.name === 'Maya') || daters[0]
+    const dater = daters.find((d) => d.name === selectedDaterName) || daters[0]
     setUsername(playerName)
     setSelectedDater(dater)
     setIsHost(true)
@@ -129,8 +133,8 @@ function LiveLobby() {
     const roomCode = generateRoomCode()
     const playerName = username.trim() || `Player${Math.floor(Math.random() * 1000)}`
     const odId = generatePlayerId()
-    // Always use Maya for now (id: 2)
-    const randomDater = daters.find(d => d.name === 'Maya') || daters[0]
+    // Use debug-selected dater
+    const randomDater = daters.find(d => d.name === selectedDaterName) || daters[0]
     
     try {
       // Create PartyKit client and connect to room
@@ -462,7 +466,7 @@ function LiveLobby() {
               <span 
                 className="title-heart clickable-heart"
                 onClick={() => setShowAdminModal(true)}
-                title="Admin Menu"
+                title="Debug Menu"
               >
                 💔
               </span>
@@ -471,7 +475,7 @@ function LiveLobby() {
             <p className="game-tagline">Where love goes hilariously wrong</p>
           </motion.div>
           
-          {/* Admin Modal */}
+          {/* Debug Menu */}
           <AnimatePresence>
             {showAdminModal && (
               <motion.div 
@@ -479,47 +483,137 @@ function LiveLobby() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={() => setShowAdminModal(false)}
+                onClick={() => { setShowAdminModal(false); setShowDaterPicker(false) }}
               >
                 <motion.div 
-                  className="admin-modal"
+                  className="admin-modal debug-menu"
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="admin-modal-header">
-                    <h3>🔧 Admin Menu</h3>
+                    <h3>🔧 Debug Menu</h3>
                     <button 
                       className="admin-close-btn"
-                      onClick={() => setShowAdminModal(false)}
+                      onClick={() => { setShowAdminModal(false); setShowDaterPicker(false) }}
                     >
                       ✕
                     </button>
                   </div>
                   
-                  <div className="admin-modal-content">
-                    <p className="admin-warning">⚠️ These actions cannot be undone</p>
-                    
-                    <motion.button
-                      className="admin-action-btn danger"
-                      onClick={handleDeleteAllRooms}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <span className="btn-icon">🗑️</span>
-                      <span>Delete All Rooms</span>
-                    </motion.button>
-                    
-                    {adminStatus && (
-                      <motion.div 
-                        className="admin-status"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                  <div className="admin-modal-content debug-menu-content">
+                    {/* Section: Change Dater */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Dater</div>
+                      <motion.button
+                        className="debug-action-btn"
+                        onClick={() => setShowDaterPicker(!showDaterPicker)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                       >
-                        {adminStatus}
-                      </motion.div>
-                    )}
+                        <span className="btn-icon">🎭</span>
+                        <span>Change Dater</span>
+                        <span className="debug-current-value">{selectedDaterName}</span>
+                      </motion.button>
+                      
+                      <AnimatePresence>
+                        {showDaterPicker && (
+                          <motion.div
+                            className="dater-picker-grid"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            {daters.map((d) => (
+                              <motion.button
+                                key={d.id}
+                                className={`dater-picker-card ${selectedDaterName === d.name ? 'selected' : ''}`}
+                                onClick={() => {
+                                  setSelectedDaterName(d.name)
+                                  setShowDaterPicker(false)
+                                }}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                              >
+                                <div className="dater-card-avatar">
+                                  {d.photo && d.photo.startsWith('/images') ? (
+                                    <img src={d.photo} alt={d.name} className="dater-card-img" />
+                                  ) : (
+                                    <span className="dater-card-emoji">🎭</span>
+                                  )}
+                                </div>
+                                <div className="dater-card-info">
+                                  <div className="dater-card-name">{d.name}</div>
+                                  <div className="dater-card-archetype">{d.archetype}</div>
+                                </div>
+                                {selectedDaterName === d.name && (
+                                  <span className="dater-card-check">✓</span>
+                                )}
+                              </motion.button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    
+                    {/* Section: Voice Over toggle */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Audio</div>
+                      <button
+                        className="debug-action-btn debug-toggle-btn"
+                        onClick={() => {
+                          const next = !voEnabled
+                          setVoEnabled(next)
+                          setTTSEnabled(next)
+                        }}
+                      >
+                        <span className="btn-icon">🔊</span>
+                        <span>Voice Over</span>
+                        <span className={`debug-toggle ${voEnabled ? 'on' : 'off'}`}>
+                          {voEnabled ? 'ON' : 'OFF'}
+                        </span>
+                      </button>
+                    </div>
+                    
+                    {/* Section: Multiplayer Mode */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Modes</div>
+                      <motion.button
+                        className="debug-action-btn"
+                        onClick={() => { setShowAdminModal(false); setShowDaterPicker(false); setView('multiplayer') }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="btn-icon">📺</span>
+                        <span>Multiplayer Mode – Archive</span>
+                      </motion.button>
+                    </div>
+                    
+                    {/* Section: Admin Actions */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Admin</div>
+                      <motion.button
+                        className="debug-action-btn danger"
+                        onClick={handleDeleteAllRooms}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="btn-icon">🗑️</span>
+                        <span>Delete All Rooms</span>
+                      </motion.button>
+                      
+                      {adminStatus && (
+                        <motion.div 
+                          className="admin-status"
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          {adminStatus}
+                        </motion.div>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               </motion.div>
@@ -548,14 +642,6 @@ function LiveLobby() {
               <span className="btn-text">Play Now</span>
             </motion.button>
           </div>
-          
-          <button
-            type="button"
-            className="archive-link"
-            onClick={() => setView('multiplayer')}
-          >
-            Multiplayer Mode – Archive
-          </button>
           
           <div className="live-info">
             <div className="info-item">

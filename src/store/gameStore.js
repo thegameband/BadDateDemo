@@ -473,9 +473,9 @@ export const useGameStore = create((set, get) => ({
   
   // Create a new live room (host)
   createLiveRoom: (roomCode, username) => {
-    const { daters } = get()
-    // Always select Maya for now
-    const randomDater = daters.find(d => d.name === 'Maya') || daters[0]
+    const { daters, selectedDater: currentDater } = get()
+    // Use currently selected dater, or default to Adam
+    const randomDater = currentDater || daters.find(d => d.name === 'Adam') || daters[0]
     
     // IMPORTANT: Reset ALL game state for a fresh start
     set({
@@ -525,7 +525,7 @@ export const useGameStore = create((set, get) => ({
     if (!currentRoomCode && !selectedDater) {
       // If no room exists, create one (for testing)
       const { daters } = get()
-      const randomDater = daters.find(d => d.name === 'Maya') || daters[0]
+      const randomDater = daters.find(d => d.name === 'Adam') || daters[0]
       
       set({
         isLiveMode: true,

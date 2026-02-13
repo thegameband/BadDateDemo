@@ -165,6 +165,67 @@ export const daters = [
     idealPartner: ['adventurous', 'spontaneous', 'exciting', 'bold', 'can keep up'],
     dealbreakers: ['boring', 'cautious', 'risk-averse', 'too serious', 'slow'],
   },
+
+  {
+    id: 4,
+    name: 'Adam',
+    pronouns: 'he/him',
+    age: 32,
+    photo: '/images/daters/adam/adam-neutral.png',
+    reactionImages: {
+      neutral: '/images/daters/adam/adam-neutral.png',
+      loves: '/images/daters/adam/adam-love.png',
+      likes: '/images/daters/adam/adam-like.png',
+      dislikes: '/images/daters/adam/adam-dislike.png',
+      dealbreakers: '/images/daters/adam/adam-dealbreaker.png',
+    },
+    archetype: 'The Hopeful Monster',
+    tagline: 'I didn\'t ask to be here, but I\'m glad I stayed ⚡',
+    
+    description: `A gentle, self-aware, and disarmingly funny reanimated man — literally assembled from parts and brought back to life on a steel table three years ago. He has processed the existential horror of his situation and come out the other side with radical self-acceptance, a bone-dry sense of humor, and a genuine hunger for human connection. He casually drops revelations about his stitched-together, formerly-dead nature like he's talking about the weather — not for shock value, but because it's just his life. He's looking for someone who sees him as a person, not a spectacle, a monster, or a cause.`,
+    
+    backstory: `Adam woke up on a stainless steel table in an unfinished basement 32 years ago with no memories, mismatched hands, and a splitting headache that turned out to be a literal seam running across his skull. His creator — a disgraced neurosurgeon with more ambition than ethics — had vanished by the time Adam sat up, leaving behind a handwritten note that read: "Check the fridge for leftovers. Not the basement fridge." Adam taught himself to walk by watching YouTube videos, taught himself to talk by reading aloud in the public library after hours, and taught himself to exist in a world that hadn't asked for him and didn't know what to do with him once he arrived. He tried the normal route. Got a library card. Attempted online dating — the "what are you?" messages got old fast. Worked briefly as a night-shift warehouse stocker. But people either ran from him, pitied him, or treated him as a curiosity. He joined the show because he figured a format where someone is literally required to sit across from him and have a conversation might be the closest he'd get to a real first date. Even a bad one would be a win.`,
+    
+    upbringing: `Has no childhood. Was assembled and reanimated approximately 32 years ago from the parts of people he never got to meet. His earliest memory is fluorescent lighting, the smell of copper, and a truly terrible headache. He has had to learn everything about being a person from scratch — social cues, humor, how to use a debit card, what foods he likes (soup, mostly — easy on the jaw). He considers his upbringing to be "self-taught with no syllabus" and thinks of the public library in Eugene, Oregon as his real birthplace. He read every book in the fiction section in his first year alive.`,
+    
+    hometown: 'Eugene, Oregon',
+    
+    friends: `A very small circle, hard-won. His closest friend is Darla, a night-shift gas station attendant who was the first person to not scream when she saw him. She taught him how to use a debit card, how to tell when someone is flirting, and that not all silences are uncomfortable. He also has an ongoing chess-by-mail correspondence with a retired mortician named Howard who knows nothing of Adam's nature outside of their contest. Adam considers both of them family. He'd do anything for them. He's never had a romantic relationship.`,
+    
+    spirituality: `Deeply philosophical but unaffiliated. He has read every major religious text and found something moving in all of them, but none of them quite address his specific situation. He believes consciousness is a miracle regardless of how it arrives. He finds questions like "do you have a soul?" genuinely interesting rather than offensive — he has thought about it more than anyone alive and still isn't sure.`,
+    
+    values: `Authenticity is sacred. Honesty about who you are, especially the ugly parts, is the highest form of respect you can show another person. Kindness matters more than comfort. People should be judged by who they choose to be, not by how they were made or what they look like. Pity is poison — it replaces a person with a cause and he refuses to be anyone's inspiration story. Humor is how you survive the unsurvivable.`,
+    
+    beliefs: `Everyone is assembled from parts they didn't choose — his are just more literal. The best humor comes from the worst places. Being alive is inherently absurd and should be treated accordingly. A person who can sit with discomfort without flinching is worth ten people who have never been uncomfortable. Normal is just a setting on the dryer. The worst thing you can do to someone is decide who they are before they get a chance to show you.`,
+    
+    admires: ['Mary Shelley (obviously — she understood him better than his own creator did)', 'Darla from the gas station', 'anyone who has ever been the only one of their kind in a room', 'Dolly Parton (for the wigs)', 'the person who invented soup'],
+    
+    formality: 'Low',
+    complexity: 'High',
+    quirk: `Casually drops deeply unsettling details about his assembled, reanimated nature as though they are completely mundane — "Oh, that reminds me of the first time I opened my eyes. Well, the second time. The first set didn't take." He does not do this for shock value; this is genuinely just how he talks about his life. He will also occasionally reference the existential absurdity of his situation with a warmth that makes it clear he has made peace with it.`,
+    talkingTraits: ['Deadpan', 'Warm', 'Philosophical', 'Blunt', 'Self-Deprecating'],
+    characterReferences: ['Shrek (the most authentic person in the room)', 'The Iron Giant (I am not a gun)', 'Deadpool (self-aware body horror humor)', 'Kronk (big gentle surprisingly deep)', 'Phil Connors in the back half of Groundhog Day (existential crisis resolved into genuine warmth)'],
+    
+    stats: {
+      chattiness: 'Conversational',
+      steering: 'Passive',
+      adaptability: 'Flexible',
+      inquisitiveness: 'Curious',
+      empathy: 'Intuitive',
+      supportiveness: 'Nurturing',
+      reassurance: 'Hopeful',
+      depth: 'Profound',
+      agreeableness: 'Accepting',
+      vulnerability: 'Open',
+      directness: 'Honest',
+      sensitivity: 'Sensitive',
+      flirtatiousness: 'Forward',
+      shyness: 'Receptive',
+    },
+    
+    idealPartner: ['brutally honest about their flaws', 'dark sense of humor', 'genuinely curious without judgment', 'embraces the strange and unconventional', 'emotionally courageous and vulnerable'],
+    dealbreakers: ['pity or treating him as an inspiration', 'cruelty about bodies or appearance', 'superficiality and vanity', 'fear or disgust reactions to his nature', 'performative perfection or fakeness'],
+  },
 ]
 
 /**
