@@ -11,7 +11,7 @@ const API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
 const NARRATOR_VOICE_ID = import.meta.env.VITE_ELEVENLABS_NARRATOR_VOICE_ID
 
 const VOICES = {
-  // Dater (Maya) - expressive, emotional female voice
+  // Dater - default is Bella (female); overridden per-dater via setVoice()
   dater: 'EXAVITQu4vr4xnSDxMaL', // Bella - young, expressive, emotional
   
   // Avatar - young, energetic male voice
@@ -21,6 +21,9 @@ const VOICES = {
   // Set VITE_ELEVENLABS_NARRATOR_VOICE_ID in .env to use a different voice (e.g. Hope, Josh, your custom voice)
   narrator: NARRATOR_VOICE_ID || 'Dkbbg7k9Ir9TNzn5GYLp', // Henry - deep, professional, soothing
 }
+
+// Track whether the current dater uses a male voice (for browser TTS fallback)
+let daterVoiceIsMale = false
 
 // Audio queue to prevent overlapping speech
 let audioQueue = []
@@ -272,15 +275,17 @@ async function processQueue() {
     const allVoices = window.speechSynthesis.getVoices()
     const preferred = allVoices.find((v) =>
       speaker === 'narrator'
-        ? /narrator|daniel|david|james|matthew|oliver|serena|samantha|victoria/i.test(v.name)
+        ? /narrator|daniel|david|james|matthew|oliver/i.test(v.name)
         : speaker === 'dater'
-          ? /samantha|victoria|karen|zira|ava|allison|emma/i.test(v.name)
+          ? (daterVoiceIsMale
+              ? /daniel|david|james|matthew|alex|tom|oliver/i.test(v.name)
+              : /samantha|victoria|karen|zira|ava|allison|emma/i.test(v.name))
           : /david|daniel|matthew|alex|tom/i.test(v.name)
     )
     if (preferred) utterance.voice = preferred
 
     utterance.rate = speaker === 'narrator' ? 0.95 : 1.0
-    utterance.pitch = speaker === 'narrator' ? 0.95 : speaker === 'dater' ? 1.05 : 1.0
+    utterance.pitch = speaker === 'narrator' ? 0.95 : (speaker === 'dater' ? (daterVoiceIsMale ? 0.9 : 1.05) : 1.0)
     utterance.volume = 1
 
     utterance.onstart = () => {
@@ -408,11 +413,16 @@ export function getCharacterCount(text) {
  * Change the voice for a character
  * @param {'dater' | 'avatar' | 'narrator'} character 
  * @param {string} voiceId - ElevenLabs voice ID
+ * @param {boolean} [isMale] - Whether this is a male voice (for browser TTS fallback)
  */
-export function setVoice(character, voiceId) {
+export function setVoice(character, voiceId, isMale = undefined) {
   if (VOICES[character] !== undefined) {
     VOICES[character] = voiceId
-    console.log(`🎙️ Set ${character} voice to ${voiceId}`)
+    // Track dater gender for browser TTS fallback voice selection
+    if (character === 'dater' && isMale !== undefined) {
+      daterVoiceIsMale = isMale
+    }
+    console.log(`🎙️ Set ${character} voice to ${voiceId}${isMale !== undefined ? ` (${isMale ? 'male' : 'female'})` : ''}`)
   }
 }
 

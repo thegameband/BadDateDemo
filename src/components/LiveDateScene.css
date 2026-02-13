@@ -1760,14 +1760,13 @@
 }
 
 .character-image {
-  width: 220px;
+  width: 260px;
   height: 220px;
   border-radius: 16px;
   background: var(--bg-card);
   border: 4px solid var(--accent-pink);
   box-shadow: 0 6px 32px rgba(255, 77, 109, 0.45);
-  object-fit: cover;
-  transition: src 0.15s ease;
+  object-fit: contain;
 }
 
 .character-loading {
@@ -2394,7 +2393,7 @@
   }
   
   .character-image {
-    width: 170px;
+    width: 200px;
     height: 170px;
   }
   
@@ -2463,7 +2462,7 @@
   }
   
   .character-image {
-    width: 130px;
+    width: 160px;
     height: 130px;
   }
   

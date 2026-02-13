@@ -627,7 +627,8 @@ React to what they revealed about themselves!`
     : sentimentHit === 'dislikes' ? 'uncomfortable'
     : sentimentHit === 'dealbreakers' ? 'horrified'
     : null
-  const voicePrompt = getVoiceProfilePrompt('maya', emotionForVoice)
+  const daterKey = dater?.name?.toLowerCase() || 'maya'
+  const voicePrompt = getVoiceProfilePrompt(daterKey, emotionForVoice)
   const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   
   // Convert conversation history to Claude format
@@ -667,7 +668,7 @@ React to what they revealed about themselves!`
  */
 export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
-  const voicePrompt = getVoiceProfilePrompt('maya', null)
+  const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const finalNote = isFinalRound
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
@@ -740,7 +741,7 @@ ${finalNote}
  */
 export async function getDaterFollowupComment(dater, question, playerAnswer, firstReaction, priorAnswers = [], conversationHistory = [], isFinalRound = false) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
-  const voicePrompt = getVoiceProfilePrompt('maya', null)
+  const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const finalNote = isFinalRound
     ? '\n\n🏁 This is the final round — your follow-up should have a sense of conclusion.'
     : ''
@@ -793,7 +794,7 @@ ${finalNote}
  */
 export async function getDaterResponseToJustification(dater, originalAnswer, justification, daterReactionToAnswer, conversationHistory = []) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
-  const voicePrompt = getVoiceProfilePrompt('maya', null)
+  const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const taskPrompt = `
 🎯 YOUR TASK: They just tried to justify what they said. Respond to their justification.
 

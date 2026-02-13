@@ -7,6 +7,7 @@ export const daters = [
     pronouns: 'he/him',
     age: 28,
     photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=LeoArtist&backgroundColor=ffd5dc',
+    voiceId: 'TX3LPaxmHKxFdv7VOQHJ', // Liam - young adult male with energy and warmth
     archetype: 'The Passionate Artist',
     tagline: 'Life is about collecting experiences, not possessions ✨',
     
@@ -62,6 +63,7 @@ export const daters = [
     pronouns: 'she/her',
     age: 31,
     photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=MayaArchitect&backgroundColor=b6e3f4',
+    voiceId: 'EXAVITQu4vr4xnSDxMaL', // Bella - young, expressive, emotional female
     archetype: 'The Pragmatic Architect',
     tagline: 'I appreciate a connection that can handle a little stress-testing 🏛️',
     
@@ -117,6 +119,7 @@ export const daters = [
     pronouns: 'she/her',
     age: 24,
     photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=KickflipXtreme&backgroundColor=ffdfbf',
+    voiceId: 'EXAVITQu4vr4xnSDxMaL', // Bella - young, expressive, emotional female
     archetype: 'The Adrenaline Junkie',
     tagline: 'A life without constant challenges is no life at all 🔥',
     
@@ -172,6 +175,7 @@ export const daters = [
     pronouns: 'he/him',
     age: 32,
     photo: '/images/daters/adam/adam-neutral.png',
+    voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam (ElevenLabs) - deep, mature American male
     reactionImages: {
       neutral: '/images/daters/adam/adam-neutral.png',
       loves: '/images/daters/adam/adam-love.png',

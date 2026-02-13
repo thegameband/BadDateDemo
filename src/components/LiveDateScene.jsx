@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore } from '../store/gameStore'
 import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterFollowupComment, getDaterResponseToJustification, generateDaterValues, checkAttributeMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
-import { speak, stopAllAudio, waitForAllAudio, onTTSStatus } from '../services/ttsService'
+import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
 import './LiveDateScene.css'
@@ -394,6 +394,14 @@ function LiveDateScene() {
       setPortraitsReady(true)
     }
     loadPortraits()
+  }, [selectedDater])
+  
+  // Set the dater's voice when dater is selected (supports per-dater voice IDs)
+  useEffect(() => {
+    if (selectedDater?.voiceId) {
+      const isMale = selectedDater.pronouns?.includes('he') || false
+      setVoice('dater', selectedDater.voiceId, isMale)
+    }
   }, [selectedDater])
   
   // Check if API key is available
@@ -1273,6 +1281,7 @@ RULES:
 - Speak as YOURSELF (the Dater), directly to your date.
 - React to what you SEE — their physical appearance only.
 - Have a strong opinion. Don't be generic.
+- NEVER mention that they haven't spoken yet, are being quiet, or are silent. This is your opening — they'll talk soon.
 - Exactly 2 sentences, dialogue only. No actions or asterisks.`
       const daterReaction1 = await getDaterDateResponse(
         selectedDater,
@@ -1338,6 +1347,7 @@ RULES:
 - DO NOT ask any questions. This is a statement, not a conversation starter.
 - Have a clear opinion — do you think this date has potential, or are you already worried?
 - Ground it in what you see (their looks) and what you sense (their mood/energy).
+- NEVER mention that they haven't spoken yet, are being quiet, or are silent. This is your opening — they'll talk soon.
 - Exactly 2 sentences, dialogue only. No actions or asterisks.`
       const daterReaction2 = await getDaterDateResponse(
         selectedDater,
