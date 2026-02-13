@@ -175,7 +175,7 @@ export const daters = [
     pronouns: 'he/him',
     age: 32,
     photo: '/images/daters/adam/adam-neutral.png',
-    voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam (ElevenLabs) - deep, mature American male
+    voiceId: 'Dkbbg7k9Ir9TNzn5GYLp', // Henry - deep, professional, soothing (the original narrator voice)
     reactionImages: {
       neutral: '/images/daters/adam/adam-neutral.png',
       loves: '/images/daters/adam/adam-love.png',
