@@ -17,9 +17,9 @@ const VOICES = {
   // Avatar - young, energetic male voice
   avatar: 'TX3LPaxmHKxFdv7VOQHJ', // Liam - "young adult with energy and warmth"
   
-  // Narrator - soothing, soulful voice for "What Happened" plot twist summary
-  // Set VITE_ELEVENLABS_NARRATOR_VOICE_ID in .env to use a different voice (e.g. Hope, Josh, your custom voice)
-  narrator: NARRATOR_VOICE_ID || 'Dkbbg7k9Ir9TNzn5GYLp', // Henry - deep, professional, soothing
+  // Narrator - sultry, seductive female voice for narration and plot twist summaries
+  // Set VITE_ELEVENLABS_NARRATOR_VOICE_ID in .env to override
+  narrator: NARRATOR_VOICE_ID || 'XB0fDUnXU5powFXDhCwa', // Charlotte - seductive, English-Swedish, video-game optimized
 }
 
 // Track whether the current dater uses a male voice (for browser TTS fallback)
@@ -275,7 +275,7 @@ async function processQueue() {
     const allVoices = window.speechSynthesis.getVoices()
     const preferred = allVoices.find((v) =>
       speaker === 'narrator'
-        ? /narrator|daniel|david|james|matthew|oliver/i.test(v.name)
+        ? /samantha|victoria|karen|serena|allison|ava|emma/i.test(v.name)
         : speaker === 'dater'
           ? (daterVoiceIsMale
               ? /daniel|david|james|matthew|alex|tom|oliver/i.test(v.name)
@@ -284,8 +284,8 @@ async function processQueue() {
     )
     if (preferred) utterance.voice = preferred
 
-    utterance.rate = speaker === 'narrator' ? 0.95 : 1.0
-    utterance.pitch = speaker === 'narrator' ? 0.95 : (speaker === 'dater' ? (daterVoiceIsMale ? 0.9 : 1.05) : 1.0)
+    utterance.rate = speaker === 'narrator' ? 0.92 : 1.0
+    utterance.pitch = speaker === 'narrator' ? 1.0 : (speaker === 'dater' ? (daterVoiceIsMale ? 0.9 : 1.05) : 1.0)
     utterance.volume = 1
 
     utterance.onstart = () => {
@@ -332,9 +332,9 @@ async function processQueue() {
           text: text,
           model_id: 'eleven_multilingual_v2',
           voice_settings: {
-            stability: speaker === 'dater' ? 0.35 : speaker === 'narrator' ? 0.7 : 0.5, // Narrator: calmer; Maya: more emotion
+            stability: speaker === 'dater' ? 0.35 : speaker === 'narrator' ? 0.55 : 0.5, // Narrator: sultry warmth; Dater: more emotion
             similarity_boost: 0.75,
-            style: speaker === 'dater' ? 0.75 : speaker === 'narrator' ? 0.3 : 0.5, // Narrator: restrained, soulful
+            style: speaker === 'dater' ? 0.75 : speaker === 'narrator' ? 0.5 : 0.5, // Narrator: expressive but smooth
             use_speaker_boost: true,
           },
         }),
