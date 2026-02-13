@@ -50,13 +50,10 @@ Answers are freeform text. Progression: player submits an answer → next questi
 
 ## 1.4 First impressions (date open)
 
-When the date begins, the **dater** speaks first. Their line is **first impressions of the avatar**, based on:
+When the date begins, the **dater** speaks first with **two comments**. Only the dater speaks; the avatar has no dialogue during First Impressions.
 
-- **Physical description** (primary).
-- **Name** (primary).
-- **Emotional state** (to a lesser degree).
-
-Only the dater speaks; no avatar dialogue.
+- **Comment 1 — Appearance reaction:** The dater's immediate gut reaction to what the avatar **looks like**. This is purely about physical appearance — the description the player typed in "How do you look?" Input: physical description + name.
+- **Comment 2 — Full first impression + prediction:** The dater takes in the **full picture** — appearance **and** emotional state. They state their overall first impression of this person and make a quick prediction about how they think the date is going to go. They do NOT ask a question. Input: physical description + emotional state.
 
 ## 1.5 Match / dater selection (when applicable)
 
@@ -298,7 +295,7 @@ When the LLM is unavailable, fallback logic can use simple rules (e.g. question 
 
 - **Flow:** Play (no name) → **Dater Bio Page** (image + age, gender, occupation, hobbies + START THE DATE) → **3 questions** (look, feeling, name) → **Date begins** (dater's first impressions of avatar) → **6 rounds** (game asks → player answers → dater responds with two comments) → **Wrap-up** (dater sums up) → **Date Review** (highlights/lowlights) → **Score** (compatibility %). Single-player, no chat window in date mode, no timers, dater-only speech.
 - **Two-comment reactions:** Comment 1 is the dater's immediate, opinionated gut reaction. Comment 2 looks for one previous thing the player said that naturally relates — if nothing connects, the dater just goes deeper into their own opinion. The dater never forces connections or just calls something "weird" — they always explain why they feel the way they do.
-- **First impressions:** Dater opens the date by reacting to the avatar's physical description, name, and (to a lesser degree) emotional state.
+- **First impressions:** Dater opens with two comments — Comment 1 reacts to the avatar's appearance, Comment 2 factors in their emotional state and makes a prediction about the date. The avatar does not speak.
 - **Justify:** Full-screen "Justify Your Opinion" takeover; player types one justification; return to date with dater saying something like "Do you want to explain that a little more?" then continue.
 - **Reactions:** Dater responds via LLM using full personality, visible vs inferred context, reaction intensity, and "stuck on date" constraint. Sentiment from the reaction (loves/likes/dislikes/dealbreakers) drives compatibility updates.
 - **Compatibility:** Single meter (0–100, starts at 50). Love +20, Like +5, Dislike -5, Dealbreaker -20. Updated only when the dater reacts. Tie-breaking on ambiguous answers uses the current meter state (above 50 = benefit of doubt, below 50 = skepticism). Love and Dealbreaker always override.

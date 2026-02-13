@@ -1264,18 +1264,27 @@ function LiveDateScene() {
     }
     
     try {
-      // === COMMENT 1: First impression of physical appearance and name ===
-      const firstImpressionPrompt = `${avatarDisplayName} looks like: ${physicalList}. Name: ${avatarDisplayName}. Give your immediate first impression.`
+      // === COMMENT 1: Dater's initial impression of the Avatar's appearance ===
+      const firstImpressionInstruction = `You (the Dater) are seeing ${avatarDisplayName} for the very first time. They look like: ${physicalList}.
+
+YOUR TASK: Give YOUR immediate gut reaction to their appearance. What do you notice first? Are you attracted, alarmed, intrigued, or put off?
+
+RULES:
+- Speak as YOURSELF (the Dater), directly to your date.
+- React to what you SEE — their physical appearance only.
+- Have a strong opinion. Don't be generic.
+- Exactly 2 sentences, dialogue only. No actions or asterisks.`
       const daterReaction1 = await getDaterDateResponse(
         selectedDater,
         currentAvatar,
         [],
-        firstImpressionPrompt,
+        null,
         null,
         { positive: 0, negative: 0 },
         false,
         true,
-        useGameStore.getState().compatibility
+        useGameStore.getState().compatibility,
+        firstImpressionInstruction
       )
 
       if (daterReaction1) {
@@ -1316,27 +1325,31 @@ function LiveDateScene() {
       await waitForAllAudio()
       await new Promise(resolve => setTimeout(resolve, 900))
 
-      // === COMMENT 2: First impression statement — looks + emotional state → prediction about the date ===
-      const followupPrompt = `You've just gotten a look at ${avatarDisplayName}. They look like: ${physicalList}. Their emotional state: ${emotionalList}.
+      // === COMMENT 2: Dater factors in appearance + emotional state → prediction about the date ===
+      const followupInstruction = `You (the Dater) have just seen ${avatarDisplayName}. You already commented on their appearance. Now take in the FULL picture.
 
-🎯 YOUR TASK: State your FIRST IMPRESSION of this person based on how they look and their attitude. Then make a quick prediction or gut feeling about how this date might go.
+Their appearance: ${physicalList}.
+Their emotional state: ${emotionalList}.
+
+YOUR TASK: Speak directly to ${avatarDisplayName} about your overall first impression — combining what they look like AND the vibe they're giving off. Then make a quick prediction or gut feeling about how you think this date is going to go.
 
 RULES:
+- Speak as YOURSELF (the Dater), directly to your date. This is YOU talking TO THEM.
 - DO NOT ask any questions. This is a statement, not a conversation starter.
 - Have a clear opinion — do you think this date has potential, or are you already worried?
-- You can make a lighthearted prediction: "I have a feeling this is going to be..." or "Something tells me..."
-- Ground it in what you see (their looks) and what you sense (their emotional state).
+- Ground it in what you see (their looks) and what you sense (their mood/energy).
 - Exactly 2 sentences, dialogue only. No actions or asterisks.`
       const daterReaction2 = await getDaterDateResponse(
         selectedDater,
         currentAvatar,
         daterReaction1 ? [{ speaker: 'dater', message: daterReaction1 }] : [],
-        followupPrompt,
+        null,
         null,
         reactionStreak,
         false,
         true,
-        useGameStore.getState().compatibility
+        useGameStore.getState().compatibility,
+        followupInstruction
       )
 
       if (daterReaction2) {
