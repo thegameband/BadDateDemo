@@ -1861,6 +1861,9 @@ RULES:
 - Dealbreakers SHOULD include things like "violence", "danger", "harm" for normal characters
 - OR include "boring", "safe", "conventional" for edgy characters
 
+CHARACTER-SPECIFIC OVERRIDES:
+If the character's backstory, description, or dealbreakers mention a specific phobia, trauma, or hatred of something (e.g., fire), that thing MUST appear in their dealbreakers list, and related terms should appear in dislikes. For example, if a character has fire trauma in their backstory, "fire" and "flames" MUST be in dealbreakers, and terms like "burning", "torches", "heat" should be in dislikes.
+
 Return ONLY valid JSON in this exact format:
 {
   "loves": ["item1", "item2", "item3", "item4", "item5"],
