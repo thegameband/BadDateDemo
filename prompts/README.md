@@ -14,6 +14,15 @@ This folder contains modular prompts that are chained together when generating c
 | `06_AVATAR_CORE_PERSONALITY.md` | Avatar's fundamental personality | ALL Avatar responses |
 | `07_RESPONSE_RULES.md` | Formatting and length rules | ALL responses |
 | `08_GENZ_DATING_SPEECH.md` | Gen-Z reality TV speech patterns | ALL dater responses |
+| `voices/*.md` | Per-dater speech overlays (optional) | Daters with `speechStylePrompt` |
+
+---
+
+## Per-Dater Voice Overlays
+
+Individual daters can have a custom speech style prompt that layers **on top of** the Gen-Z base (Prompt 08). These are stored in the `voices/` subdirectory as reference `.md` files, with the actual prompt text living in the dater's `speechStylePrompt` field in `src/data/daters.js`.
+
+When present, the per-dater overlay is injected between `08_GENZ_DATING_SPEECH` and `05B_DATER_REACTION_STYLE`. When absent, only the Gen-Z base is used. See `voices/README.md` for the full template and instructions.
 
 ---
 
@@ -86,6 +95,8 @@ This folder contains modular prompts that are chained together when generating c
 +
 [Prompt 08: Gen-Z Dating Speech Register]
 +
+[Per-Dater Voice Overlay (optional)]
++
 [Prompt 05B: Reaction Style]
 +
 [Prompt 07: Response Rules]
@@ -96,6 +107,8 @@ This folder contains modular prompts that are chained together when generating c
 [Prompt 05: Infer from Words]
 +
 [Prompt 08: Gen-Z Dating Speech Register]
++
+[Per-Dater Voice Overlay (optional)]
 +
 [Prompt 05B: Reaction Style]
 +

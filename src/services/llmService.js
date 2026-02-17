@@ -630,7 +630,8 @@ React to what they revealed about themselves!`
     : null
   const daterKey = dater?.name?.toLowerCase() || 'maya'
   const voicePrompt = getVoiceProfilePrompt(daterKey, emotionForVoice)
-  const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + '\n\n' + PROMPT_08_GENZ_SPEECH + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
+  const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   
   // Convert conversation history to Claude format
   let messages = conversationHistory.map(msg => ({
@@ -710,7 +711,8 @@ CRITICAL RULES FOR YOUR REACTION:
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
 ${finalNote}
 `
-  const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
+  const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
 
   const historyMessages = conversationHistory.slice(-12).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
@@ -769,7 +771,8 @@ CRITICAL RULES:
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
 ${finalNote}
 `
-  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
 
   const historyMessages = [...conversationHistory, { speaker: 'dater', message: firstReaction }]
     .slice(-12)
@@ -808,7 +811,8 @@ Respond in character. You might be slightly mollified, still unimpressed, or eve
 - If they made it worse, say WHY based on your values. If they redeemed themselves, say what specifically won you over.
 - Exactly 2 sentences, dialogue only. No actions or asterisks.
 `
-  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   const historyMessages = conversationHistory.slice(-8).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message

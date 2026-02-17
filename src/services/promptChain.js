@@ -634,7 +634,8 @@ export function buildDaterPromptChain(options) {
     attribute,
     avatarLastMessage,
     allVisibleAttributes,
-    isVisible
+    isVisible,
+    daterSpeechPrompt
   } = options
   
   const variables = {
@@ -657,6 +658,11 @@ export function buildDaterPromptChain(options) {
   
   // Add Gen-Z dating speech register
   prompt += '\n\n' + PROMPT_08_GENZ_SPEECH
+  
+  // Add per-dater speech overlay if provided
+  if (daterSpeechPrompt) {
+    prompt += '\n\n' + daterSpeechPrompt
+  }
   
   // Always add reaction style (exaggerated & honest)
   prompt += '\n\n' + PROMPT_05B_DATER_REACTION_STYLE
