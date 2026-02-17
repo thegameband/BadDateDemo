@@ -13,6 +13,7 @@ This folder contains modular prompts that are chained together when generating c
 | `05_DATER_INFER_REACTION.md` | Dater infers from what Avatar SAID | Non-visible attributes only |
 | `06_AVATAR_CORE_PERSONALITY.md` | Avatar's fundamental personality | ALL Avatar responses |
 | `07_RESPONSE_RULES.md` | Formatting and length rules | ALL responses |
+| `08_GENZ_DATING_SPEECH.md` | Gen-Z reality TV speech patterns | ALL dater responses |
 
 ---
 
@@ -83,12 +84,20 @@ This folder contains modular prompts that are chained together when generating c
 ```
 [Prompt 04: React to Visible]
 +
+[Prompt 08: Gen-Z Dating Speech Register]
++
+[Prompt 05B: Reaction Style]
++
 [Prompt 07: Response Rules]
 ```
 
 ### For DATER (Non-Visible Attribute)
 ```
 [Prompt 05: Infer from Words]
++
+[Prompt 08: Gen-Z Dating Speech Register]
++
+[Prompt 05B: Reaction Style]
 +
 [Prompt 07: Response Rules]
 ```
