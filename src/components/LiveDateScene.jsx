@@ -4094,7 +4094,23 @@ Generate ${daterName}'s final verdict:`
           )}
         </AnimatePresence>
         
-        {/* Conversation Bubbles Area - Both bubbles visible */}
+        {/* Characters - dater portrait first (dominant, centered) */}
+        <div className="characters-container">
+          <div className="character dater-character">
+            {portraitsReady && selectedDater ? (
+              <img 
+                src={getDaterPortrait(selectedDater, daterEmotion)}
+                alt={selectedDater.name} 
+                className="character-image"
+              />
+            ) : (
+              <div className="character-image character-loading">💕</div>
+            )}
+            <span className="character-name">{selectedDater?.name || 'Dater'}</span>
+          </div>
+        </div>
+        
+        {/* Conversation Bubbles Area - dater speech below portrait */}
         <div className="conversation-bubbles">
           <div className="bubble-column dater-column">
             <AnimatePresence mode="wait">
@@ -4110,22 +4126,6 @@ Generate ${daterName}'s final verdict:`
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-        </div>
-        
-        {/* Characters - dater only */}
-        <div className="characters-container">
-          <div className="character dater-character">
-            {portraitsReady && selectedDater ? (
-              <img 
-                src={getDaterPortrait(selectedDater, daterEmotion)}
-                alt={selectedDater.name} 
-                className="character-image"
-              />
-            ) : (
-              <div className="character-image character-loading">💕</div>
-            )}
-            <span className="character-name">{selectedDater?.name || 'Dater'}</span>
           </div>
         </div>
         
