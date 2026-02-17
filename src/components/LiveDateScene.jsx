@@ -4094,23 +4094,7 @@ Generate ${daterName}'s final verdict:`
           )}
         </AnimatePresence>
         
-        {/* Characters - dater portrait first (dominant, centered) */}
-        <div className="characters-container">
-          <div className="character dater-character">
-            {portraitsReady && selectedDater ? (
-              <img 
-                src={getDaterPortrait(selectedDater, daterEmotion)}
-                alt={selectedDater.name} 
-                className="character-image"
-              />
-            ) : (
-              <div className="character-image character-loading">💕</div>
-            )}
-            <span className="character-name">{selectedDater?.name || 'Dater'}</span>
-          </div>
-        </div>
-        
-        {/* Conversation Bubbles Area - dater speech below portrait */}
+        {/* Conversation Bubbles Area - dater speech text (always readable) */}
         <div className="conversation-bubbles">
           <div className="bubble-column dater-column">
             <AnimatePresence mode="wait">
@@ -4126,6 +4110,22 @@ Generate ${daterName}'s final verdict:`
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+        </div>
+        
+        {/* Characters - dater portrait below speech */}
+        <div className="characters-container">
+          <div className="character dater-character">
+            {portraitsReady && selectedDater ? (
+              <img 
+                src={getDaterPortrait(selectedDater, daterEmotion)}
+                alt={selectedDater.name} 
+                className="character-image"
+              />
+            ) : (
+              <div className="character-image character-loading">💕</div>
+            )}
+            <span className="character-name">{selectedDater?.name || 'Dater'}</span>
           </div>
         </div>
         
@@ -4152,55 +4152,34 @@ Generate ${daterName}'s final verdict:`
         )}
       </div>
       
-      {/* Chat Module: single answer input only in date mode (no chat window) */}
-      <div className={`chat-module ${['phase1', 'phase3'].includes(livePhase) ? 'chat-module-single-input' : ''}`}>
-        {showJustifyPrompt ? (
-          /* Justify UI is now full-screen overlay (see Task 6) */
-          null
-        ) : (
-          <>
-            {!['phase1', 'phase3'].includes(livePhase) && (
-              <>
-                <div className="chat-header">
-                  <span className="chat-title">💬 Player Chat</span>
-                  <span className="chat-hint">{getPhaseInstructions()}</span>
-                </div>
-                <div className="chat-messages">
-                  {(playerChat || []).slice(-20).map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`chat-message ${msg.username === username ? 'own-message' : ''}`}
-                    >
-                      <span className="chat-username">{msg.username}:</span>
-                      <span className="chat-text">{msg.message}</span>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-              </>
-            )}
-            {['phase1', 'phase3'].includes(livePhase) && (
+      {/* Chat Module: hidden during passive phases, slim input bar during active phases */}
+      {!['reaction', 'phase3', 'plot-twist-reaction', 'ended'].includes(livePhase) && (
+        <div className="chat-module chat-module-single-input">
+          {showJustifyPrompt ? (
+            null
+          ) : (
+            <>
               <span className="chat-hint chat-hint-single">{getPhaseInstructions()}</span>
-            )}
-            <form className="chat-input-form" onSubmit={handleChatSubmit}>
-              <input
-                type="text"
-                className="chat-input"
-                placeholder={livePhase === 'phase1'
-                  ? (questionNarrationComplete ? 'Type your answer...' : 'Listen to the question...')
-                  : 'Chat...'}
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                maxLength={100}
-                disabled={livePhase === 'phase1' && !questionNarrationComplete}
-              />
-              <button type="submit" className="chat-send-btn">
-                {livePhase === 'phase1' ? '✨' : '💬'}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
+              <form className="chat-input-form" onSubmit={handleChatSubmit}>
+                <input
+                  type="text"
+                  className="chat-input"
+                  placeholder={livePhase === 'phase1'
+                    ? (questionNarrationComplete ? 'Type your answer...' : 'Listen to the question...')
+                    : livePhase === 'plot-twist'
+                      ? 'What do you do?'
+                      : 'Type your answer...'}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  maxLength={100}
+                  disabled={livePhase === 'phase1' && !questionNarrationComplete}
+                />
+                <button type="submit" className="chat-send-btn">✨</button>
+              </form>
+            </>
+          )}
+        </div>
+      )}
 
       {ttsStatusNote && (
         <div className="tts-status-note">{ttsStatusNote}</div>
