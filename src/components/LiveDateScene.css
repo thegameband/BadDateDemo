@@ -1661,8 +1661,7 @@
   flex-direction: column;
   justify-content: flex-end;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* When round prompt banner is visible, reserve space so submitted answers and content are not covered */
