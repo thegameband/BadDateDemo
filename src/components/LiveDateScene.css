@@ -1752,6 +1752,8 @@
   position: relative;
   z-index: 1;
   flex-shrink: 0;
+  margin-top: 200px;
+  margin-bottom: 50px;
 }
 
 .character {
@@ -2391,6 +2393,8 @@
   
   .characters-container {
     padding: 4px 15px 8px;
+    margin-top: 120px;
+    margin-bottom: 40px;
   }
   
   .character-image {
@@ -2465,6 +2469,8 @@
   
   .characters-container {
     padding: 4px 10px 6px;
+    margin-top: 80px;
+    margin-bottom: 30px;
   }
   
   .character-image {
