@@ -1541,17 +1541,6 @@ RULES:
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advancePlotTwistToReveal intentionally omitted to avoid re-trigger loops
   }, [livePhase, plotTwist?.subPhase, hasSubmittedPlotTwist, partyClient])
 
-  // Single player: auto-advance from "What Happened" summary to dater reaction
-  useEffect(() => {
-    if (!isHost || partyClient) return
-    if (livePhase !== 'plot-twist' || plotTwist?.subPhase !== 'summary') return
-    if (!plotTwist?.winningAnswer) return
-    const t = setTimeout(() => {
-      advanceFromPlotTwistSummary()
-    }, 2200)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- advanceFromPlotTwistSummary intentionally omitted to avoid timer reset loops
-  }, [livePhase, plotTwist?.subPhase, plotTwist?.winningAnswer, partyClient, isHost])
   
   // Round prompts - Title + Subtitle (Question) for each round
   // These are shown as interstitials during Phase 1 instead of the dater asking
@@ -2477,6 +2466,7 @@ Generate ${daterName}'s final verdict:`
     
     // Close overlay and show date window in plot-twist-reaction (not Phase 3 of previous round)
     setLivePhase('plot-twist-reaction')
+    setDaterBubble('')
     setPhaseTimer(0)
     
     const currentCompatibility = useGameStore.getState().compatibility
@@ -2532,6 +2522,7 @@ Generate ${daterName}'s final verdict:`
                                  winnerTextLower.includes('kiss') ? 'attracted' : 'excited'
       setDaterEmotion(plotTwistDaterMood)
       const safeReaction1 = daterReaction1 || 'That was... more than I expected, and I am still processing it.'
+      if (ttsEnabled) setDaterBubbleReady(false)
       setDaterBubble(safeReaction1)
       addDateMessage('dater', safeReaction1)
       syncConversationToPartyKit(undefined, safeReaction1)
@@ -2560,6 +2551,7 @@ Generate ${daterName}'s final verdict:`
       )
 
       if (daterReaction2) {
+        if (ttsEnabled) setDaterBubbleReady(false)
         setDaterBubble(daterReaction2)
         addDateMessage('dater', daterReaction2)
         syncConversationToPartyKit(undefined, daterReaction2)
@@ -3555,7 +3547,7 @@ Generate ${daterName}'s final verdict:`
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      See {selectedDater?.name || 'Maya'}'s Reaction →
+                      Continue
                     </motion.button>
                   ) : (
                     <span>Waiting for host to continue...</span>
