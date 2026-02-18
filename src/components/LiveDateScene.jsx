@@ -1577,6 +1577,18 @@ RULES:
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advancePlotTwistToReveal intentionally omitted to avoid re-trigger loops
   }, [livePhase, plotTwist?.subPhase, hasSubmittedPlotTwist, partyClient])
+
+  // Single player: auto-advance from "What Happened" summary to dater reaction
+  useEffect(() => {
+    if (!isHost || partyClient) return
+    if (livePhase !== 'plot-twist' || plotTwist?.subPhase !== 'summary') return
+    if (!plotTwist?.winningAnswer) return
+    const t = setTimeout(() => {
+      advanceFromPlotTwistSummary()
+    }, 2200)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- advanceFromPlotTwistSummary intentionally omitted to avoid timer reset loops
+  }, [livePhase, plotTwist?.subPhase, plotTwist?.winningAnswer, partyClient, isHost])
   
   // Round prompts - Title + Subtitle (Question) for each round
   // These are shown as interstitials during Phase 1 instead of the dater asking
@@ -2455,9 +2467,17 @@ Generate ${daterName}'s final verdict:`
     
     const avatarName = avatar?.name || 'your date'
     const daterName = selectedDater?.name || 'Maya'
-    
-    // Generate the dramatic summary (use avatar's name, never "Avatar")
-    const summary = await generatePlotTwistSummary(avatarName, daterName, winner.answer)
+    const winnerText = typeof winner === 'string' ? winner : (winner?.answer || 'Stayed calm and handled it politely')
+    let summary = 'A dramatic interruption shook the date, and both of you are still reacting to it.'
+    try {
+      // Generate the dramatic summary (use avatar's name, never "Avatar")
+      summary = await Promise.race([
+        generatePlotTwistSummary(avatarName, daterName, winnerText),
+        new Promise(resolve => setTimeout(() => resolve(summary), 12000)),
+      ])
+    } catch (error) {
+      console.error('Plot twist summary generation failed:', error)
+    }
     
     // Update to summary phase with the generated text
     const currentPlotTwist = useGameStore.getState().plotTwist
@@ -2465,7 +2485,7 @@ Generate ${daterName}'s final verdict:`
       ...currentPlotTwist,
       subPhase: 'summary',
       summary: summary,
-      winningAnswer: winner, // Store winner for when host advances
+      winningAnswer: winner || { answer: winnerText }, // Store winner for when host advances
     }
     setPlotTwist(newPlotTwist)
     
@@ -2482,10 +2502,9 @@ Generate ${daterName}'s final verdict:`
     if (!isHost) return
     
     const currentPlotTwist = useGameStore.getState().plotTwist
-    if (currentPlotTwist.winningAnswer) {
-      // Pass the "What happened" story so the Dater responds to that narrative
-      generatePlotTwistReaction(currentPlotTwist.winningAnswer, currentPlotTwist.summary)
-    }
+    const safeWinner = currentPlotTwist?.winningAnswer || { answer: 'Stayed calm and handled it politely.' }
+    // Pass the "What happened" story so the Dater responds to that narrative
+    generatePlotTwistReaction(safeWinner, currentPlotTwist?.summary)
   }
   
   // Generate LLM reaction to the plot twist - THIS IS A KEY MOMENT!
@@ -2513,12 +2532,14 @@ Generate ${daterName}'s final verdict:`
     setIsGenerating(true)
     
     try {
+      const winnerText = typeof winner === 'string' ? winner : (winner?.answer || '')
+      const winnerTextLower = winnerText.toLowerCase()
       // Build context: "What Happened" narrative + dater's attributes so they react honestly
       const daterName = selectedDater?.name || 'Maya'
       const daterValues = selectedDater?.values || 'honesty, authenticity'
       const daterDealbreakers = Array.isArray(selectedDater?.dealbreakers) ? selectedDater.dealbreakers.join(', ') : (selectedDater?.dealbreakers || '')
       const daterBackstoryNote = selectedDater?.backstory ? selectedDater.backstory.slice(0, 200) + '...' : ''
-      const narrativeText = whatHappenedStory || `Someone else hit on ${daterName}. Your date's response: "${winner.answer}".`
+      const narrativeText = whatHappenedStory || `Someone else hit on ${daterName}. Your date's response: "${winnerText || 'Stayed calm and polite'}".`
 
       // ============ COMMENT 1: Dater's immediate gut reaction to what they just witnessed ============
       const comment1Prompt = `PLOT TWIST — HERE IS WHAT JUST HAPPENED ON YOUR DATE:\n\n"${narrativeText}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.${daterBackstoryNote ? ` BACKSTORY: ${daterBackstoryNote}` : ''}\n\n🎯 YOUR TASK: Give your IMMEDIATE gut reaction to what you just witnessed. How did it make you feel? Were you impressed, horrified, turned on, embarrassed?\n\nRULES:\n- React to what HAPPENED in the story, not to the player's action in isolation.\n- Have a strong OPINION — don't just describe what happened, say how it made you FEEL and why.\n- Ground your reaction in your personality and values.\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
@@ -2529,31 +2550,33 @@ Generate ${daterName}'s final verdict:`
         selectedDater,
         avatar,
         useGameStore.getState().dateConversation || [],
-        comment1Prompt,
+        null,
         null,
         { positive: 0, negative: 0 },
         false,
         false,
-        plotTwistCompat
+        plotTwistCompat,
+        comment1Prompt
       )
       
       // Determine dater mood from player action context
-      const plotTwistDaterMood = winner.answer.toLowerCase().includes('punch') ||
-                                 winner.answer.toLowerCase().includes('fight') ||
-                                 winner.answer.toLowerCase().includes('hit') ? 'horrified' :
-                                 winner.answer.toLowerCase().includes('nothing') ||
-                                 winner.answer.toLowerCase().includes('ignore') ? 'uncomfortable' :
-                                 winner.answer.toLowerCase().includes('flirt') ||
-                                 winner.answer.toLowerCase().includes('kiss') ? 'attracted' : 'excited'
+      const plotTwistDaterMood = winnerTextLower.includes('punch') ||
+                                 winnerTextLower.includes('fight') ||
+                                 winnerTextLower.includes('hit') ? 'horrified' :
+                                 winnerTextLower.includes('nothing') ||
+                                 winnerTextLower.includes('ignore') ? 'uncomfortable' :
+                                 winnerTextLower.includes('flirt') ||
+                                 winnerTextLower.includes('kiss') ? 'attracted' : 'excited'
       setDaterEmotion(plotTwistDaterMood)
-      setDaterBubble(daterReaction1)
-      addDateMessage('dater', daterReaction1)
-      syncConversationToPartyKit(undefined, daterReaction1)
+      const safeReaction1 = daterReaction1 || 'That was... more than I expected, and I am still processing it.'
+      setDaterBubble(safeReaction1)
+      addDateMessage('dater', safeReaction1)
+      syncConversationToPartyKit(undefined, safeReaction1)
       if (partyClient && isHost) {
         partyClient.syncState({ daterEmotion: plotTwistDaterMood })
       }
       
-      await waitForAllAudio()
+      await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
       await new Promise(resolve => setTimeout(resolve, 1000))
 
       // ============ COMMENT 2: Dater tells the avatar how she felt about what she witnessed ============
@@ -2564,25 +2587,26 @@ Generate ${daterName}'s final verdict:`
         selectedDater,
         avatar,
         [...(useGameStore.getState().dateConversation || [])],
-        comment2Prompt,
+        null,
         null,
         { positive: 0, negative: 0 },
         false,
         false,
-        plotTwistCompat
+        plotTwistCompat,
+        comment2Prompt
       )
 
       if (daterReaction2) {
         setDaterBubble(daterReaction2)
         addDateMessage('dater', daterReaction2)
         syncConversationToPartyKit(undefined, daterReaction2)
-        await waitForAllAudio()
+        await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
         await new Promise(resolve => setTimeout(resolve, 2000))
       }
     } catch (error) {
       console.error('Error generating plot twist reaction:', error)
       setDaterBubble("Well, THAT was unexpected! I... I don't even know what to say right now.")
-      await waitForAllAudio()
+      await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
       await new Promise(resolve => setTimeout(resolve, 3000))
     }
     

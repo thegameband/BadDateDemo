@@ -66,6 +66,15 @@ function stripActionDescriptions(text) {
   return text.replace(/\*[^*]+\*/g, '').replace(/\s+/g, ' ').trim()
 }
 
+function buildSpeechStyleBlock(dater) {
+  const overlay = dater?.speechStylePrompt ? `\n\n${dater.speechStylePrompt}` : ''
+  const isAdam = (dater?.name || '').toLowerCase() === 'adam'
+  if (isAdam && overlay) {
+    return `${overlay}\n\n${PROMPT_08_GENZ_SPEECH}\n\n⚠️ ADAM STYLE PRIORITY: Use Adam's overlay above as the primary voice. Keep a medium old-English/poetic tone, avoid modern slang, and preserve conversational readability.`
+  }
+  return `\n\n${PROMPT_08_GENZ_SPEECH}${overlay}`
+}
+
 /**
  * Call Claude API for a response
  */
@@ -630,8 +639,7 @@ React to what they revealed about themselves!`
     : null
   const daterKey = dater?.name?.toLowerCase() || 'maya'
   const voicePrompt = getVoiceProfilePrompt(daterKey, emotionForVoice)
-  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
-  const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   
   // Convert conversation history to Claude format
   let messages = conversationHistory.map(msg => ({
@@ -641,6 +649,12 @@ React to what they revealed about themselves!`
   
   // Claude requires at least one message - add a prompt if empty
   if (messages.length === 0) {
+    if (customInstruction) {
+      messages = [{
+        role: 'user',
+        content: `[${customInstruction}]`,
+      }]
+    } else
     // FIRST MEETING - react to seeing your date for the first time
     if (visibleAttributes.length > 0) {
       // They have visible traits! React to seeing them walk in
@@ -711,8 +725,7 @@ CRITICAL RULES FOR YOUR REACTION:
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
 ${finalNote}
 `
-  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
-  const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
 
   const historyMessages = conversationHistory.slice(-12).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
@@ -771,8 +784,7 @@ CRITICAL RULES:
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
 ${finalNote}
 `
-  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
-  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
 
   const historyMessages = [...conversationHistory, { speaker: 'dater', message: firstReaction }]
     .slice(-12)
@@ -811,8 +823,7 @@ Respond in character. You might be slightly mollified, still unimpressed, or eve
 - If they made it worse, say WHY based on your values. If they redeemed themselves, say what specifically won you over.
 - Exactly 2 sentences, dialogue only. No actions or asterisks.
 `
-  const daterSpeechOverlay = dater?.speechStylePrompt ? '\n\n' + dater.speechStylePrompt : ''
-  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + '\n\n' + PROMPT_08_GENZ_SPEECH + daterSpeechOverlay + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
   const historyMessages = conversationHistory.slice(-8).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
