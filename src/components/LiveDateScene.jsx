@@ -1328,7 +1328,7 @@ RULES:
           if (matchResult.category) {
             const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
             if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-            const baseChanges = { loves: 20, likes: 5, dislikes: -5, dealbreakers: -20 }
+            const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
             const change = baseChanges[matchResult.category]
             if (change !== 0) {
               const newCompat = adjustCompatibility(change)
@@ -1344,7 +1344,7 @@ RULES:
         if (matchResult.category) {
           const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
           if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-          const baseChanges = { loves: 20, likes: 5, dislikes: -5, dealbreakers: -20 }
+          const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
           const change = baseChanges[matchResult.category]
           if (change !== 0) {
             const newCompat = adjustCompatibility(change)
@@ -1786,7 +1786,7 @@ RULES:
           showReactionFeedback(sentimentHit, matchResult.matchedValue, matchResult.shortLabel)
           const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
           if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-          const baseChanges = { loves: 20, likes: 5, dislikes: -5, dealbreakers: -20 }
+          const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
           const change = baseChanges[sentimentHit]
           if (change !== 0) {
             const newCompat = adjustCompatibility(change)
@@ -1818,7 +1818,7 @@ RULES:
       showReactionFeedback(sentimentHit, matchResult.matchedValue, matchResult.shortLabel)
       const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
       if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-      const baseChanges = { loves: 20, likes: 5, dislikes: -5, dealbreakers: -20 }
+      const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
       const change = baseChanges[sentimentHit]
       if (change !== 0) {
         const newCompat = adjustCompatibility(change)

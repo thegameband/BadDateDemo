@@ -154,7 +154,7 @@ export const useGameStore = create((set, get) => ({
   ...initialLiveState,
   
   // Simple compatibility meter (0-100, starts at 50)
-  // Love: +20, Like: +5, Dislike: -5, Dealbreaker: -20
+  // Love: +10, Like: +5, Dislike: -5, Dealbreaker: -20
   compatibility: 50,
   // Legacy stubs (kept for DateScene.jsx compatibility)
   compatibilityFactors: { physicalAttraction: 50, similarInterests: 50, similarValues: 50, similarTastes: 50, similarIntelligence: 50 },
