@@ -115,6 +115,7 @@ function LiveDateScene() {
   const [ttsEnabled] = useState(true) // Enabled by default
   const lastSpokenDater = useRef('')
   const [hasSubmittedPlotTwist, setHasSubmittedPlotTwist] = useState(false)
+  const [plotTwistNarratorDone, setPlotTwistNarratorDone] = useState(false)
   const plotTwistTimerRef = useRef(null)
   const plotTwistAnimationRef = useRef(null)
   
@@ -705,11 +706,17 @@ function LiveDateScene() {
     if (plotTwist?.subPhase !== 'summary' || !plotTwist?.summary) return
     if (narratorSummarySpokenRef.current === plotTwist.summary) return
     narratorSummarySpokenRef.current = plotTwist.summary
+    setPlotTwistNarratorDone(false)
     const name = avatar?.name || 'your date'
     const text = (plotTwist.summary || '')
       .replace(/\bthe Avatar\b/gi, `the ${name}`)
       .replace(/\bAvatar\b/g, name)
-    if (text.trim()) speak(text, 'narrator')
+    if (text.trim()) {
+      speak(text, 'narrator')
+      waitForAllAudio().then(() => setPlotTwistNarratorDone(true))
+    } else {
+      setPlotTwistNarratorDone(true)
+    }
   }, [plotTwist?.subPhase, plotTwist?.summary, avatar?.name])
 
   // Narrator TTS: read each round question before player can answer
@@ -2459,14 +2466,15 @@ Generate ${daterName}'s final verdict:`
     generatePlotTwistReaction(safeWinner, currentPlotTwist?.summary)
   }
   
-  // Generate LLM reaction to the plot twist - THIS IS A KEY MOMENT!
-  // whatHappenedStory = the LLM-generated "What happened" narrative; Dater responds to that.
+  // Generate LLM reaction to the plot twist - single comment about what the Avatar did
+  // whatHappenedStory = the LLM-generated "What happened" narrative; Dater responds to the Avatar's action.
   const generatePlotTwistReaction = async (winner, whatHappenedStory) => {
     if (!isHost) return
     
-    // Close overlay and show date window in plot-twist-reaction (not Phase 3 of previous round)
+    // Close overlay and show date window in plot-twist-reaction
     setLivePhase('plot-twist-reaction')
     setDaterBubble('')
+    setDaterBubbleReady(true) // Start ready so bubble shows as soon as text arrives
     setPhaseTimer(0)
     
     const currentCompatibility = useGameStore.getState().compatibility
@@ -2487,19 +2495,19 @@ Generate ${daterName}'s final verdict:`
     try {
       const winnerText = typeof winner === 'string' ? winner : (winner?.answer || '')
       const winnerTextLower = winnerText.toLowerCase()
-      // Build context: "What Happened" narrative + dater's attributes so they react honestly
       const daterName = selectedDater?.name || 'Maya'
+      const avatarName = avatar?.name || 'your date'
       const daterValues = selectedDater?.values || 'honesty, authenticity'
       const daterDealbreakers = Array.isArray(selectedDater?.dealbreakers) ? selectedDater.dealbreakers.join(', ') : (selectedDater?.dealbreakers || '')
       const daterBackstoryNote = selectedDater?.backstory ? selectedDater.backstory.slice(0, 200) + '...' : ''
-      const narrativeText = whatHappenedStory || `Someone else hit on ${daterName}. Your date's response: "${winnerText || 'Stayed calm and polite'}".`
+      const narrativeText = whatHappenedStory || `Someone else hit on ${daterName}. ${avatarName}'s response: "${winnerText || 'Stayed calm and polite'}".`
 
-      // ============ COMMENT 1: Dater's immediate gut reaction to what they just witnessed ============
-      const comment1Prompt = `PLOT TWIST — HERE IS WHAT JUST HAPPENED ON YOUR DATE:\n\n"${narrativeText}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.${daterBackstoryNote ? ` BACKSTORY: ${daterBackstoryNote}` : ''}\n\n🎯 YOUR TASK: Give your IMMEDIATE gut reaction to what you just witnessed. How did it make you feel? Were you impressed, horrified, turned on, embarrassed?\n\nRULES:\n- React to what HAPPENED in the story, not to the player's action in isolation.\n- Have a strong OPINION — don't just describe what happened, say how it made you FEEL and why.\n- Ground your reaction in your personality and values.\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
+      // Single comment: Dater reacts to what the AVATAR did during the plot twist
+      const reactionPrompt = `PLOT TWIST — HERE IS WHAT JUST HAPPENED ON YOUR DATE:\n\n"${narrativeText}"\n\nThe Avatar (${avatarName}) chose to: "${winnerText || 'stay calm and handle it politely'}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.${daterBackstoryNote ? ` BACKSTORY: ${daterBackstoryNote}` : ''}\n\n🎯 YOUR TASK: React SPECIFICALLY to what ${avatarName} did during the plot twist. Were you impressed by their action? Disgusted? Turned on? Tell them directly how their choice made you feel.\n\nRULES:\n- Focus on the AVATAR'S ACTION, not the overall situation.\n- Speak directly to ${avatarName} — this is you talking TO them.\n- Have a STRONG opinion grounded in your personality and values.\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
 
-      console.log('🎭 Plot Twist Comment 1: Dater immediate gut reaction')
+      console.log('🎭 Plot Twist Reaction: Dater reacts to Avatar action')
       const plotTwistCompat = useGameStore.getState().compatibility
-      const daterReaction1 = await getDaterDateResponse(
+      const daterReaction = await getDaterDateResponse(
         selectedDater,
         avatar,
         useGameStore.getState().dateConversation || [],
@@ -2509,7 +2517,7 @@ Generate ${daterName}'s final verdict:`
         false,
         false,
         plotTwistCompat,
-        comment1Prompt
+        reactionPrompt
       )
       
       // Determine dater mood from player action context
@@ -2521,48 +2529,31 @@ Generate ${daterName}'s final verdict:`
                                  winnerTextLower.includes('flirt') ||
                                  winnerTextLower.includes('kiss') ? 'attracted' : 'excited'
       setDaterEmotion(plotTwistDaterMood)
-      const safeReaction1 = daterReaction1 || 'That was... more than I expected, and I am still processing it.'
-      if (ttsEnabled) setDaterBubbleReady(false)
-      setDaterBubble(safeReaction1)
-      addDateMessage('dater', safeReaction1)
-      syncConversationToPartyKit(undefined, safeReaction1)
+      
+      const safeReaction = daterReaction || `Well, ${avatarName}... that was really something. I'm still processing what you just did.`
+      console.log('🎭 Plot Twist Dater Reaction:', safeReaction)
+      
+      // Show the bubble immediately (daterBubbleReady is already true)
+      setDaterBubble(safeReaction)
+      // Force bubble visible in case useEffect toggles daterBubbleReady off for TTS
+      setTimeout(() => setDaterBubbleReady(true), 500)
+      
+      addDateMessage('dater', safeReaction)
+      syncConversationToPartyKit(undefined, safeReaction)
       if (partyClient && isHost) {
         partyClient.syncState({ daterEmotion: plotTwistDaterMood })
       }
       
+      // Wait for audio to finish, then pause before continuing
       await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 4000))
 
-      // ============ COMMENT 2: Dater tells the avatar how she felt about what she witnessed ============
-      const comment2Prompt = `PLOT TWIST FOLLOW-UP — You just reacted to this story:\n"${narrativeText}"\n\nYour first reaction was: "${daterReaction1}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.\n\n🎯 YOUR TASK: Now speak DIRECTLY to your date about how what just happened makes you feel about THEM. Does it change how you see them? Are you more attracted, more nervous, more skeptical?\n\nRULES:\n- Address your date directly — this is you talking TO them, not narrating.\n- Connect what happened to how you feel about the date going forward.\n- Have a clear opinion — are you impressed? Worried? Falling harder?\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
-
-      console.log('🎭 Plot Twist Comment 2: Dater tells avatar how she feels')
-      const daterReaction2 = await getDaterDateResponse(
-        selectedDater,
-        avatar,
-        [...(useGameStore.getState().dateConversation || [])],
-        null,
-        null,
-        { positive: 0, negative: 0 },
-        false,
-        false,
-        plotTwistCompat,
-        comment2Prompt
-      )
-
-      if (daterReaction2) {
-        if (ttsEnabled) setDaterBubbleReady(false)
-        setDaterBubble(daterReaction2)
-        addDateMessage('dater', daterReaction2)
-        syncConversationToPartyKit(undefined, daterReaction2)
-        await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
-        await new Promise(resolve => setTimeout(resolve, 2000))
-      }
     } catch (error) {
       console.error('Error generating plot twist reaction:', error)
-      setDaterBubble("Well, THAT was unexpected! I... I don't even know what to say right now.")
-      await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      const fallback = "Well, THAT was unexpected! I... I don't even know what to say right now."
+      setDaterBubble(fallback)
+      setDaterBubbleReady(true)
+      await new Promise(resolve => setTimeout(resolve, 5000))
     }
     
     setIsGenerating(false)
@@ -3541,13 +3532,14 @@ Generate ${daterName}'s final verdict:`
                     <motion.button
                       className="plot-twist-continue-btn"
                       onClick={advanceFromPlotTwistSummary}
+                      disabled={!plotTwistNarratorDone}
                       initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 1.5 }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      animate={{ opacity: plotTwistNarratorDone ? 1 : 0.4, scale: 1 }}
+                      transition={{ delay: 0.5 }}
+                      whileHover={plotTwistNarratorDone ? { scale: 1.05 } : {}}
+                      whileTap={plotTwistNarratorDone ? { scale: 0.95 } : {}}
                     >
-                      Continue
+                      {plotTwistNarratorDone ? 'Continue' : 'Listening...'}
                     </motion.button>
                   ) : (
                     <span>Waiting for host to continue...</span>
