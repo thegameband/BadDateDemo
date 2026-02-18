@@ -1331,53 +1331,9 @@ RULES:
         }
       }
 
-      await syncConversationToPartyKit(undefined, undefined, true)
-      await waitForAllAudio()
-      await new Promise(resolve => setTimeout(resolve, 900))
-
-      // === COMMENT 2: Dater factors in appearance + emotional state → prediction about the date ===
-      const daterSelfLook = selectedDater?.archetype || selectedDater?.description?.split('.')[0] || 'your own appearance and vibe'
-      const daterSelfValues = (selectedDater?.values || 'authenticity, kindness, and honesty').slice(0, 280)
-      const followupInstruction = `You (the Dater) have just seen ${avatarDisplayName}. You already commented on their appearance. Now take in the FULL picture.
-
-Their appearance: ${physicalList}.
-Their emotional state: ${emotionalList}.
-Your own appearance/vibe: ${daterSelfLook}.
-Your current emotional state right now: ${firstImpressionMood}.
-Your core values: ${daterSelfValues}.
-
-YOUR TASK: Speak directly to ${avatarDisplayName} about your overall first impression — combining what they look like and the vibe they're giving off, then compare that against YOUR own look/vibe, emotional state, and values. End with a quick prediction about how you think this date is going to go.
-
-RULES:
-- Speak as YOURSELF (the Dater), directly to your date. This is YOU talking TO THEM.
-- DO NOT ask any questions. This is a statement, not a conversation starter.
-- Have a clear opinion — do you think this date has potential, or are you already worried?
-- Ground it in what you see (their looks) and what you sense (their mood/energy).
-- ABSOLUTELY FORBIDDEN: any reference to them being silent, quiet, not talking, waiting to hear them speak, or not having heard their voice yet.
-- Do NOT mention conversation volume, silence, or "you haven't said much" in any wording.
-- Exactly 2 sentences, dialogue only. No actions or asterisks.`
-      const daterReaction2 = await getDaterDateResponse(
-        selectedDater,
-        currentAvatar,
-        daterReaction1 ? [{ speaker: 'dater', message: daterReaction1 }] : [],
-        null,
-        null,
-        reactionStreak,
-        false,
-        true,
-        useGameStore.getState().compatibility,
-        followupInstruction
-      )
-
-      if (daterReaction2) {
-        setDaterEmotion(getDaterEmotionFromSentiment(null, useGameStore.getState().compatibility))
-        setDaterBubble(daterReaction2)
-        addDateMessage('dater', daterReaction2)
-        await syncConversationToPartyKit(undefined, daterReaction2, false)
-      }
-
+      // Also check emotional attributes against the single first impression comment
       for (const attr of emotionalAttrs) {
-        const matchResult = await checkAttributeMatch(`emotionally ${attr}`, daterValues, selectedDater, daterReaction2, useGameStore.getState().compatibility)
+        const matchResult = await checkAttributeMatch(`emotionally ${attr}`, daterValues, selectedDater, daterReaction1, useGameStore.getState().compatibility)
         if (matchResult.category) {
           const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
           if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
