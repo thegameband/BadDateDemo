@@ -1296,8 +1296,9 @@ RULES:
         firstImpressionInstruction
       )
 
+      let firstImpressionMood = 'neutral'
       if (daterReaction1) {
-        const firstImpressionMood = physicalList.toLowerCase().includes('attractive') ||
+        firstImpressionMood = physicalList.toLowerCase().includes('attractive') ||
           physicalList.toLowerCase().includes('handsome') ||
           physicalList.toLowerCase().includes('beautiful') ||
           physicalList.toLowerCase().includes('cute') ? 'attracted'
@@ -1335,19 +1336,25 @@ RULES:
       await new Promise(resolve => setTimeout(resolve, 900))
 
       // === COMMENT 2: Dater factors in appearance + emotional state → prediction about the date ===
+      const daterSelfLook = selectedDater?.archetype || selectedDater?.description?.split('.')[0] || 'your own appearance and vibe'
+      const daterSelfValues = (selectedDater?.values || 'authenticity, kindness, and honesty').slice(0, 280)
       const followupInstruction = `You (the Dater) have just seen ${avatarDisplayName}. You already commented on their appearance. Now take in the FULL picture.
 
 Their appearance: ${physicalList}.
 Their emotional state: ${emotionalList}.
+Your own appearance/vibe: ${daterSelfLook}.
+Your current emotional state right now: ${firstImpressionMood}.
+Your core values: ${daterSelfValues}.
 
-YOUR TASK: Speak directly to ${avatarDisplayName} about your overall first impression — combining what they look like AND the vibe they're giving off. Then make a quick prediction or gut feeling about how you think this date is going to go.
+YOUR TASK: Speak directly to ${avatarDisplayName} about your overall first impression — combining what they look like and the vibe they're giving off, then compare that against YOUR own look/vibe, emotional state, and values. End with a quick prediction about how you think this date is going to go.
 
 RULES:
 - Speak as YOURSELF (the Dater), directly to your date. This is YOU talking TO THEM.
 - DO NOT ask any questions. This is a statement, not a conversation starter.
 - Have a clear opinion — do you think this date has potential, or are you already worried?
 - Ground it in what you see (their looks) and what you sense (their mood/energy).
-- NEVER mention that they haven't spoken yet, are being quiet, or are silent. This is your opening — they'll talk soon.
+- ABSOLUTELY FORBIDDEN: any reference to them being silent, quiet, not talking, waiting to hear them speak, or not having heard their voice yet.
+- Do NOT mention conversation volume, silence, or "you haven't said much" in any wording.
 - Exactly 2 sentences, dialogue only. No actions or asterisks.`
       const daterReaction2 = await getDaterDateResponse(
         selectedDater,
