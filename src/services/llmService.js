@@ -66,13 +66,72 @@ function stripActionDescriptions(text) {
   return text.replace(/\*[^*]+\*/g, '').replace(/\s+/g, ' ').trim()
 }
 
-function buildSpeechStyleBlock(dater) {
-  const overlay = dater?.speechStylePrompt ? `\n\n${dater.speechStylePrompt}` : ''
+const ADAM_RESPONSE_CHECKLIST = `
+═══════════════════════════════════════════════════════════════
+🚨 CRITICAL: PURE DIALOGUE — ADAM'S VOICE — EXTREMELY SHORT 🚨
+═══════════════════════════════════════════════════════════════
+
+📏 LENGTH RULES:
+- Always exactly 2 sentences
+- Each sentence: 5-20 words (Adam's prose allows slightly longer phrasing)
+- CUT unnecessary words, but KEEP poetic cadence
+
+⛔ ABSOLUTELY FORBIDDEN:
+- ❌ NO asterisks (*smiles*, *laughs*, *leans in*)
+- ❌ NO action descriptions of ANY kind
+- ❌ NO stage directions or narration
+- ❌ NO modern slang (no "lowkey", "slay", "no cap", "ick", "vibe", "red flag", "literally dying")
+- ❌ NO therapeutic language ("that's valid", "I hear you", "I appreciate your vulnerability")
+- ❌ NO chatbot language ("tell me more", "I find that interesting")
+
+✅ ADAM'S VOICE — USE THIS REGISTER:
+- Elevated but accessible prose — Latinate vocabulary, 19th-century Romantic cadence
+- Poetic directness — measured, weighted, building to a point
+- Deadpan delivery — the more alarming the content, the calmer the tone
+- Emotion through word choice and sentence rhythm, not punctuation
+
+ADAM EXAMPLE RESPONSES (match this voice exactly):
+❌ WRONG: "Wait, seriously? That caught me off guard."
+✅ RIGHT: "That is... not what I expected. I confess, I am not certain how to receive it."
+
+❌ WRONG: "That's incredible. I need to hear more about that."
+✅ RIGHT: "How extraordinary. I have read about such things, but hearing it spoken aloud is another matter entirely."
+
+❌ WRONG: "Huh, that's new. I genuinely don't know what to say."
+✅ RIGHT: "How peculiar. I find myself without adequate words, which is rare for someone who learned to speak from books."
+
+❌ WRONG: "Oh my GOD, yes! That's SO attractive!"
+✅ RIGHT: "That is... not an unpleasant thing to hear. I did not think thee capable of such tenderness."
+
+❌ WRONG: "Absolutely not. That's a hard no for me."
+✅ RIGHT: "I have endured worse than this. But I had hoped I would not have to endure it here."
+
+REMEMBER: Adam speaks like an articulate Frankenstein's monster — poetic, old-English inflected, deadpan. Dialogue only. No actions.
+═══════════════════════════════════════════════════════════════
+`
+
+function buildPromptTail(dater) {
   const isAdam = (dater?.name || '').toLowerCase() === 'adam'
+  const overlay = dater?.speechStylePrompt || ''
+
   if (isAdam && overlay) {
-    return `${overlay}\n\n${PROMPT_08_GENZ_SPEECH}\n\n⚠️ ADAM STYLE PRIORITY: Use Adam's overlay above as the primary voice. Keep a medium old-English/poetic tone, avoid modern slang, and preserve conversational readability.`
+    return '\n\n' + PROMPT_08_GENZ_SPEECH +
+           '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
+           '\n\n' + PROMPT_07_RULES +
+           '\n\n' + overlay +
+           '\n\n⚠️ FINAL OVERRIDE — ADAM\'S VOICE TAKES ABSOLUTE PRIORITY:\n' +
+           'Everything above about Gen-Z speech, modern slang, and casual reaction examples does NOT apply to Adam.\n' +
+           'Adam speaks with 19th-century Romantic prose, old-English inflections, poetic deadpan, and Latinate vocabulary.\n' +
+           'He NEVER uses modern slang. His emotions are deep and quiet, not loud and hype.\n' +
+           'The examples below are your ONLY voice model. Match them exactly.\n' +
+           ADAM_RESPONSE_CHECKLIST
   }
-  return `\n\n${PROMPT_08_GENZ_SPEECH}${overlay}`
+
+  const speechOverlay = overlay ? '\n\n' + overlay : ''
+  return '\n\n' + PROMPT_08_GENZ_SPEECH + speechOverlay +
+         '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
+         '\n\n' + PROMPT_07_RULES +
+         LLM_RESPONSE_CHECKLIST
 }
 
 /**
@@ -639,7 +698,7 @@ React to what they revealed about themselves!`
     : null
   const daterKey = dater?.name?.toLowerCase() || 'maya'
   const voicePrompt = getVoiceProfilePrompt(daterKey, emotionForVoice)
-  const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + buildPromptTail(dater)
   
   // Convert conversation history to Claude format
   let messages = conversationHistory.map(msg => ({
@@ -725,7 +784,7 @@ CRITICAL RULES FOR YOUR REACTION:
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
 ${finalNote}
 `
-  const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
 
   const historyMessages = conversationHistory.slice(-12).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
@@ -784,7 +843,7 @@ CRITICAL RULES:
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
 ${finalNote}
 `
-  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
 
   const historyMessages = [...conversationHistory, { speaker: 'dater', message: firstReaction }]
     .slice(-12)
@@ -823,7 +882,7 @@ Respond in character. You might be slightly mollified, still unimpressed, or eve
 - If they made it worse, say WHY based on your values. If they redeemed themselves, say what specifically won you over.
 - Exactly 2 sentences, dialogue only. No actions or asterisks.
 `
-  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildSpeechStyleBlock(dater) + '\n\n' + PROMPT_05B_DATER_REACTION_STYLE + '\n\n' + PROMPT_07_RULES + LLM_RESPONSE_CHECKLIST
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
   const historyMessages = conversationHistory.slice(-8).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
