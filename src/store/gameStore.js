@@ -78,6 +78,8 @@ const initialLiveState = {
   plotTwistCompleted: false,
   // Game settings (set from lobby)
   showAttributesByDefault: false, // Whether to show sentiment categories by default
+  // Quality-based scoring state
+  qualityHits: [], // { id, name, rank, type: 'positive'|'dealbreaker', points, roundNumber }
 }
 
 /**
@@ -500,6 +502,7 @@ export const useGameStore = create((set, get) => ({
       playerChat: [],
       // Reset compatibility
       compatibility: 50,
+      qualityHits: [],
       // Reset sentiment
       sentimentCategories: {
         loves: [],
@@ -543,6 +546,7 @@ export const useGameStore = create((set, get) => ({
         appliedAttributes: [],
         dateConversation: [],
         compatibility: 50,
+        qualityHits: [],
       })
       return true
     }
@@ -558,6 +562,7 @@ export const useGameStore = create((set, get) => ({
       appliedAttributes: [],
       dateConversation: [],
       compatibility: 50,
+      qualityHits: [],
     })
     return true
   },
@@ -611,6 +616,7 @@ export const useGameStore = create((set, get) => ({
       suggestedAttributes: [],
       numberedAttributes: [],
       compatibility: 50,
+      qualityHits: [],
       daterValues: daterValues || {
         loves: [],
         likes: [],
@@ -688,6 +694,35 @@ export const useGameStore = create((set, get) => ({
   
   // Set compatibility directly (for syncing from PartyKit)
   setCompatibility: (value) => set({ compatibility: Math.min(100, Math.max(0, value)) }),
+
+  // ============================================
+  // QUALITY-BASED SCORING ACTIONS
+  // ============================================
+  addQualityHit: (hit) => {
+    if (!hit || !hit.id) return false
+    const { qualityHits } = get()
+    if (qualityHits.some((existing) => existing.id === hit.id)) {
+      return false
+    }
+    set({ qualityHits: [...qualityHits, hit] })
+    return true
+  },
+  setQualityHits: (hits) => set({ qualityHits: Array.isArray(hits) ? hits : [] }),
+  resetQualityHits: () => set({ qualityHits: [] }),
+  getQualityScore: () => {
+    const { qualityHits } = get()
+    const totalPoints = qualityHits.reduce((sum, hit) => sum + (Number(hit.points) || 0), 0)
+    const percentage = Math.min(100, Math.max(0, Math.round((totalPoints / 140) * 100)))
+    const positiveHits = qualityHits.filter((hit) => hit.type === 'positive')
+    const dealbreakerHits = qualityHits.filter((hit) => hit.type === 'dealbreaker')
+    return {
+      totalPoints,
+      percentage,
+      positiveHits,
+      dealbreakerHits,
+      maxPositivePoints: 140,
+    }
+  },
   
   // Set the current live phase
   setLivePhase: (livePhase) => set({ livePhase }),

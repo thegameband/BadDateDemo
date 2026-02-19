@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterFollowupComment, getDaterResponseToJustification, generateDaterValues, checkAttributeMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterFollowupComment, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
+import { adamScoring, getDefaultScoringProfileForDater } from '../data/scoring/adamScoring'
 import AnimatedText from './AnimatedText'
 import './LiveDateScene.css'
 
@@ -30,12 +31,11 @@ function LiveDateScene() {
   const suggestedAttributes = useGameStore((state) => state.suggestedAttributes)
   const numberedAttributes = useGameStore((state) => state.numberedAttributes)
   const playerChat = useGameStore((state) => state.playerChat)
-  const sentimentCategories = useGameStore((state) => state.sentimentCategories)
   const username = useGameStore((state) => state.username)
   const dateConversation = useGameStore((state) => state.dateConversation)
   const latestAttribute = useGameStore((state) => state.latestAttribute)
   const daterValues = useGameStore((state) => state.daterValues)
-  const glowingValues = useGameStore((state) => state.glowingValues)
+  const qualityHits = useGameStore((state) => state.qualityHits)
   const roomCode = useGameStore((state) => state.roomCode)
   const playerId = useGameStore((state) => state.playerId)
   const isHost = useGameStore((state) => state.isHost)
@@ -51,14 +51,14 @@ function LiveDateScene() {
   const addDateMessage = useGameStore((state) => state.addDateMessage)
   const setPhase = useGameStore((state) => state.setPhase)
   const setDaterValues = useGameStore((state) => state.setDaterValues)
-  const exposeValue = useGameStore((state) => state.exposeValue)
-  const triggerGlow = useGameStore((state) => state.triggerGlow)
-  const adjustCompatibility = useGameStore((state) => state.adjustCompatibility)
   const setSuggestedAttributes = useGameStore((state) => state.setSuggestedAttributes)
   const setSentimentCategories = useGameStore((state) => state.setSentimentCategories)
   const setPlayerChat = useGameStore((state) => state.setPlayerChat)
   const setCompatibility = useGameStore((state) => state.setCompatibility)
   const setNumberedAttributes = useGameStore((state) => state.setNumberedAttributes)
+  const addQualityHit = useGameStore((state) => state.addQualityHit)
+  const resetQualityHits = useGameStore((state) => state.resetQualityHits)
+  const getQualityScore = useGameStore((state) => state.getQualityScore)
   const showTutorial = useGameStore((state) => state.showTutorial)
   const tutorialStep = useGameStore((state) => state.tutorialStep)
   const setShowTutorial = useGameStore((state) => state.setShowTutorial)
@@ -85,14 +85,15 @@ function LiveDateScene() {
   const [isPreGenerating, setIsPreGenerating] = useState(false) // eslint-disable-line no-unused-vars -- used in JSX (pre-generating indicator)
   const [usingFallback, setUsingFallback] = useState(false)
   
-  // Track compatibility changes for end-of-game breakdown
-  const [compatibilityHistory, setCompatibilityHistory] = useState([])
   const [breakdownSentences, setBreakdownSentences] = useState([])
   const [isGeneratingBreakdown, setIsGeneratingBreakdown] = useState(false)
+  const [qualityScoreSummary, setQualityScoreSummary] = useState(() => getQualityScore())
   
   // Reaction feedback - shows temporarily when date reacts to an attribute
   const [reactionFeedback, setReactionFeedback] = useState(null)
   const reactionFeedbackTimeout = useRef(null)
+  const [qualityHitPopup, setQualityHitPopup] = useState(null)
+  const qualityHitPopupTimeout = useRef(null)
   const [showDateBeginsOverlay, setShowDateBeginsOverlay] = useState(false)
   const [questionNarrationComplete, setQuestionNarrationComplete] = useState(true)
   const [ttsStatusNote, setTtsStatusNote] = useState('')
@@ -165,6 +166,7 @@ function LiveDateScene() {
     { type: 'name', question: 'What is your name?' },
   ]
   const STARTING_STATS_QUESTIONS = CREATE_YOUR_DATER_QUESTIONS
+  const scoringProfile = selectedDater?.scoringProfile || getDefaultScoringProfileForDater(selectedDater) || adamScoring
   
   // Helper to sync conversation state via PartyKit (host only)
   const syncConversationToPartyKit = async (avatarText, daterText, syncSentiments = false) => {
@@ -188,10 +190,12 @@ function LiveDateScene() {
       const currentSentiments = useGameStore.getState().sentimentCategories
       const currentExposed = useGameStore.getState().exposedValues
       const currentGlowing = useGameStore.getState().glowingValues
+      const currentQualityHits = useGameStore.getState().qualityHits
       partyClient.syncState({
         sentimentCategories: currentSentiments,
         exposedValues: currentExposed,
         glowingValues: currentGlowing,
+        qualityHits: currentQualityHits,
       })
     }
   }
@@ -253,100 +257,69 @@ function LiveDateScene() {
     return baseEmotionMap[sentiment] || 'neutral'
   }
   
-  // Show reaction feedback temporarily (auto-clears after 6 seconds — 50% longer for readability)
+  // Show reaction feedback temporarily (auto-clears after 6 seconds)
   const REACTION_FEEDBACK_DURATION_MS = 6000
-  const showReactionFeedback = (category, matchedValue = null, shortLabel = null) => {
+  const showReactionFeedback = (sentiment = 'liked', reason = '') => {
     const daterName = selectedDater?.name || 'Maya'
-    const topic = shortLabel || matchedValue || ''
-    
-    // Generate specific reactions that explain WHY based on the matched value
-    let reactionText = ''
-    
-    if (topic) {
-      // Topic-specific reactions that explain the WHY
-      const specificReactions = {
-        loves: [
-          `${daterName} LOVES ${topic}!`,
-          `${topic} is exactly what ${daterName} looks for!`,
-          `${daterName} is super into ${topic}!`,
-          `That ${topic} vibe? ${daterName} is HERE for it!`,
-          `${daterName}'s heart skipped a beat - she loves ${topic}!`
-        ],
-        likes: [
-          `${daterName} appreciates ${topic}.`,
-          `${topic}? ${daterName} can get behind that.`,
-          `${daterName} thinks ${topic} is pretty nice.`,
-          `${daterName} liked the ${topic} energy.`,
-          `Points for ${topic}!`
-        ],
-        dislikes: [
-          `${daterName} isn't a fan of ${topic}...`,
-          `${topic}? Not really ${daterName}'s thing.`,
-          `${daterName} dislikes ${topic}.`,
-          `${topic} is kind of a turn-off for ${daterName}.`,
-          `That ${topic} thing made ${daterName} uncomfortable.`
-        ],
-        dealbreakers: [
-          `${daterName} can't handle ${topic}!`,
-          `${topic} is a DEALBREAKER for ${daterName}!`,
-          `${daterName} is horrified by ${topic}!`,
-          `${topic}?! ${daterName} wants to RUN!`,
-          `NOPE! ${daterName} can't do ${topic}!`
-        ]
-      }
-      
-      const categoryReactions = specificReactions[category] || specificReactions.dislikes
-      // Picked when feedback is shown (async/event), not during render
-      reactionText = categoryReactions[Math.floor(Math.random() * categoryReactions.length)]
-    } else {
-      // Fallback generic reactions if no topic provided
-      const genericReactions = {
-        loves: [
-          `${daterName} is INTO this!`,
-          `This really got ${daterName} excited!`,
-          `${daterName} absolutely loved that!`
-        ],
-        likes: [
-          `${daterName} thought that was sweet.`,
-          `${daterName} liked that!`,
-          `${daterName} found that charming.`
-        ],
-        dislikes: [
-          `${daterName} didn't love that...`,
-          `${daterName} cringed a little.`,
-          `${daterName} was not impressed.`
-        ],
-        dealbreakers: [
-          `${daterName} is horrified!`,
-          `This is a HUGE red flag for ${daterName}!`,
-          `DEALBREAKER for ${daterName}!`
-        ]
-      }
-      
-      const categoryReactions = genericReactions[category] || genericReactions.dislikes
-      reactionText = categoryReactions[Math.floor(Math.random() * categoryReactions.length)]
-    }
-    
-    const randomReaction = reactionText
-    
-    // Clear any existing timeout
-    if (reactionFeedbackTimeout.current) {
-      clearTimeout(reactionFeedbackTimeout.current)
-    }
-    
-    setReactionFeedback({ text: randomReaction, category })
-    
-    // Set dater emotion based on reaction category for speech animation speed
-    setDaterEmotion(category)
-    
+    const cleanReason = (reason || '').trim()
+    const topic = cleanReason || 'what you said'
+    const isPositive = sentiment !== 'disliked'
+    const feedbackType = isPositive ? 'liked' : 'disliked'
+
+    const positive = [
+      `${daterName} liked ${topic}.`,
+      `${daterName} is into ${topic}.`,
+      `${daterName} felt good about ${topic}.`,
+    ]
+    const negative = [
+      `${daterName} did not like ${topic}.`,
+      `${topic} rubbed ${daterName} the wrong way.`,
+      `${daterName} felt uneasy about ${topic}.`,
+    ]
+    const pool = isPositive ? positive : negative
+    const text = pool[Math.floor(Math.random() * pool.length)]
+
+    if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
+
+    setReactionFeedback({ text, category: feedbackType })
+    setDaterEmotion(isPositive ? 'happy' : 'uncomfortable')
+
     reactionFeedbackTimeout.current = setTimeout(() => {
       setReactionFeedback(null)
     }, REACTION_FEEDBACK_DURATION_MS)
-    
-    // Sync to other players
+
     if (partyClient && isHost) {
-      partyClient.syncState({ reactionFeedback: { text: randomReaction, category }, daterEmotion: category })
+      partyClient.syncState({ reactionFeedback: { text, category: feedbackType } })
     }
+  }
+
+  const showQualityMatchPopup = (qualityHit) => {
+    if (!qualityHit) return
+    if (qualityHitPopupTimeout.current) clearTimeout(qualityHitPopupTimeout.current)
+
+    const daterName = selectedDater?.name || 'Your date'
+    const positiveTemplates = [
+      `${qualityHit.name} is exactly what ${daterName} wants in a partner.`,
+      `${daterName} values ${qualityHit.name} in a relationship.`,
+      `${qualityHit.name} is a major green flag for ${daterName}.`,
+    ]
+    const negativeTemplates = [
+      `${qualityHit.name} is a dealbreaker for ${daterName}.`,
+      `${daterName} sees ${qualityHit.name} as a hard no.`,
+      `${qualityHit.name} crosses a line for ${daterName}.`,
+    ]
+    const options = qualityHit.type === 'dealbreaker' ? negativeTemplates : positiveTemplates
+    const text = options[Math.floor(Math.random() * options.length)]
+
+    setQualityHitPopup({
+      id: `${qualityHit.id}-${Date.now()}`,
+      text,
+      type: qualityHit.type,
+    })
+
+    qualityHitPopupTimeout.current = setTimeout(() => {
+      setQualityHitPopup(null)
+    }, 4200)
   }
   
   // Handle tutorial advancement (host only, syncs to PartyKit)
@@ -570,6 +543,9 @@ function LiveDateScene() {
       // Sync sentiment categories (loves, likes, dislikes, dealbreakers)
       if (state.sentimentCategories) {
         setSentimentCategories(state.sentimentCategories)
+      }
+      if (state.qualityHits && Array.isArray(state.qualityHits)) {
+        useGameStore.getState().setQualityHits(state.qualityHits)
       }
       
       // Sync reaction feedback (non-host only)
@@ -809,12 +785,14 @@ function LiveDateScene() {
   
   // Generate LLM breakdown sentences when game ends
   useEffect(() => {
-    if (livePhase === 'ended' && compatibilityHistory.length > 0 && !isGeneratingBreakdown && breakdownSentences.length === 0) {
+    const hasHits = (qualityHits || []).length > 0
+    if (livePhase === 'ended' && hasHits && !isGeneratingBreakdown && breakdownSentences.length === 0) {
       setIsGeneratingBreakdown(true)
       const daterName = selectedDater?.name || 'Maya'
       const avatarName = avatar?.name || 'your date'
+      const scorePct = qualityScoreSummary?.percentage ?? 0
       
-      generateBreakdownSentences(daterName, avatarName, compatibilityHistory, compatibility)
+      generateBreakdownSentences(daterName, avatarName, qualityHits, scorePct)
         .then(sentences => {
           setBreakdownSentences(sentences)
           setIsGeneratingBreakdown(false)
@@ -824,7 +802,11 @@ function LiveDateScene() {
           setIsGeneratingBreakdown(false)
         })
     }
-  }, [livePhase, compatibilityHistory, compatibility, selectedDater, avatar, isGeneratingBreakdown, breakdownSentences.length])
+  }, [livePhase, qualityHits, qualityScoreSummary, selectedDater, avatar, isGeneratingBreakdown, breakdownSentences.length])
+
+  useEffect(() => {
+    setQualityScoreSummary(getQualityScore())
+  }, [qualityHits, getQualityScore])
   
   // No phase timer: progression is turn-based (player submits → dater reacts → advance).
   
@@ -1248,9 +1230,10 @@ function LiveDateScene() {
     // IMPORTANT: Clear conversation history for fresh start
     // This ensures the avatar doesn't "remember" previous games
     useGameStore.setState({ dateConversation: [] })
-    setCompatibilityHistory([]) // Reset end-of-game breakdown tracking
     setBreakdownSentences([]) // Reset LLM-generated breakdown
     setIsGeneratingBreakdown(false)
+    resetQualityHits()
+    setQualityHitPopup(null)
     console.log('🧹 Cleared conversation history for fresh reaction round')
     
     const currentAvatar = useGameStore.getState().avatar
@@ -1323,33 +1306,26 @@ RULES:
           partyClient.syncState({ daterEmotion: firstImpressionMood })
         }
 
-        for (const attr of physicalAttrs) {
-          const matchResult = await checkAttributeMatch(attr, daterValues, selectedDater, daterReaction1, useGameStore.getState().compatibility)
-          if (matchResult.category) {
-            const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
-            if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-            const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
-            const change = baseChanges[matchResult.category]
-            if (change !== 0) {
-              const newCompat = adjustCompatibility(change)
-              if (partyClient) partyClient.syncState({ compatibility: newCompat })
-            }
+        const firstImpressionInput = `Appearance: ${physicalList}. Emotional state: ${emotionalList}.`
+        const qualityResult = await checkQualityMatch(
+          firstImpressionInput,
+          'First impression of the avatar',
+          scoringProfile,
+          selectedDater?.name || 'the dater',
+          daterReaction1
+        )
+        const hit = qualityResult?.qualityHit || null
+        if (hit) {
+          const wasAdded = addQualityHit({
+            ...hit,
+            roundNumber: 0,
+            attribute: firstImpressionInput,
+          })
+          if (wasAdded) {
+            showQualityMatchPopup(hit)
           }
-        }
-      }
-
-      // Also check emotional attributes against the single first impression comment
-      for (const attr of emotionalAttrs) {
-        const matchResult = await checkAttributeMatch(`emotionally ${attr}`, daterValues, selectedDater, daterReaction1, useGameStore.getState().compatibility)
-        if (matchResult.category) {
-          const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
-          if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-          const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
-          const change = baseChanges[matchResult.category]
-          if (change !== 0) {
-            const newCompat = adjustCompatibility(change)
-            if (partyClient) partyClient.syncState({ compatibility: newCompat })
-          }
+        } else if (qualityResult) {
+          showReactionFeedback(qualityResult.sentiment, qualityResult.sentimentReason)
         }
       }
 
@@ -1739,10 +1715,16 @@ RULES:
         selectedDater, question, playerAnswer, daterReaction, priorAnswers, conversationHistory, isFinalRound
       )
 
-      const matchResult = await checkAttributeMatch(playerAnswer, daterValues, selectedDater, daterReaction, currentCompat)
-      const sentimentHit = matchResult?.category || null
-      const daterMood = getDaterEmotionFromSentiment(sentimentHit, currentCompat)
-      const needsJustify = sentimentHit === 'dealbreakers'
+      const qualityResult = await checkQualityMatch(
+        playerAnswer,
+        question,
+        scoringProfile,
+        selectedDater?.name || 'the dater',
+        daterReaction
+      )
+      const sentimentHit = qualityResult?.sentiment === 'disliked' ? 'disliked' : 'liked'
+      const daterMood = sentimentHit === 'disliked' ? 'uncomfortable' : 'happy'
+      const needsJustify = qualityResult?.qualityHit?.type === 'dealbreaker'
 
       const preGenData = {
         attribute: playerAnswer,
@@ -1752,7 +1734,7 @@ RULES:
             avatarResponse: null,
             daterReaction,
             daterMood,
-            matchResult,
+            qualityResult,
             sentimentHit,
             scoringMultiplier: 1.0,
             needsJustify
@@ -1761,7 +1743,7 @@ RULES:
             avatarResponse: null,
             daterReaction: daterFollowup || '',
             daterMood: getDaterEmotionFromSentiment(null, currentCompat),
-            matchResult: null,
+            qualityResult: null,
             sentimentHit: null,
             scoringMultiplier: 0,
             needsJustify: false
@@ -1805,30 +1787,31 @@ RULES:
         await syncConversationToPartyKit(undefined, exchange.daterReaction, undefined)
         if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterMood || 'neutral' })
 
-        // On the FIRST comment: store the reaction data but don't show it yet
-        if (exchange.sentimentHit && exchange.matchResult) {
-          deferredFeedback = { sentimentHit: exchange.sentimentHit, matchResult: exchange.matchResult, scoringMultiplier: exchange.scoringMultiplier || 1 }
+        // On the FIRST comment: store reaction scoring data but don't show it yet
+        if (exchange.qualityResult) {
+          deferredFeedback = {
+            qualityResult: exchange.qualityResult,
+            scoringMultiplier: exchange.scoringMultiplier || 1,
+            roundNumber: useGameStore.getState().cycleCount + 1,
+          }
         }
 
         // On the SECOND comment (i > 0): now show the deferred reaction feedback
         if (i > 0 && deferredFeedback) {
-          const { sentimentHit, matchResult } = deferredFeedback
-          showReactionFeedback(sentimentHit, matchResult.matchedValue, matchResult.shortLabel)
-          const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
-          if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-          const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
-          const change = baseChanges[sentimentHit]
-          if (change !== 0) {
-            const newCompat = adjustCompatibility(change)
-            if (partyClient) partyClient.syncState({ compatibility: newCompat })
-            setCompatibilityHistory(prev => [...prev, {
+          const { qualityResult, roundNumber } = deferredFeedback
+          const hit = qualityResult?.qualityHit || null
+
+          if (hit) {
+            const wasAdded = addQualityHit({
+              ...hit,
+              roundNumber,
               attribute,
-              topic: matchResult.shortLabel || matchResult.matchedValue,
-              category: sentimentHit,
-              change,
-              daterValue: matchResult.matchedValue,
-              reason: matchResult.reason || ''
-            }])
+            })
+            if (wasAdded) {
+              showQualityMatchPopup(hit)
+            }
+          } else if (qualityResult) {
+            showReactionFeedback(qualityResult.sentiment, qualityResult.sentimentReason)
           }
           deferredFeedback = null
         }
@@ -1844,23 +1827,19 @@ RULES:
 
     // Safety: if there was only one exchange, show the deferred feedback now
     if (deferredFeedback) {
-      const { sentimentHit, matchResult } = deferredFeedback
-      showReactionFeedback(sentimentHit, matchResult.matchedValue, matchResult.shortLabel)
-      const wasAlreadyExposed = exposeValue(matchResult.category, matchResult.matchedValue, matchResult.shortLabel)
-      if (wasAlreadyExposed) triggerGlow(matchResult.shortLabel)
-      const baseChanges = { loves: 10, likes: 5, dislikes: -5, dealbreakers: -20 }
-      const change = baseChanges[sentimentHit]
-      if (change !== 0) {
-        const newCompat = adjustCompatibility(change)
-        if (partyClient) partyClient.syncState({ compatibility: newCompat })
-        setCompatibilityHistory(prev => [...prev, {
+      const { qualityResult, roundNumber } = deferredFeedback
+      const hit = qualityResult?.qualityHit || null
+      if (hit) {
+        const wasAdded = addQualityHit({
+          ...hit,
+          roundNumber,
           attribute,
-          topic: matchResult.shortLabel || matchResult.matchedValue,
-          category: sentimentHit,
-          change,
-          daterValue: matchResult.matchedValue,
-          reason: matchResult.reason || ''
-        }])
+        })
+        if (wasAdded) {
+          showQualityMatchPopup(hit)
+        }
+      } else if (qualityResult) {
+        showReactionFeedback(qualityResult.sentiment, qualityResult.sentimentReason)
       }
     }
     
@@ -1960,25 +1939,27 @@ RULES:
   const waitForAudioOrTimeout = (maxMs = 12000) =>
     Promise.race([waitForAllAudio(), new Promise(r => setTimeout(r, maxMs))])
 
-  const generateWrapUpRound = async (compatibilityScore) => {
+  const generateWrapUpRound = async (qualitySummary) => {
     const daterName = selectedDater?.name || 'Maya'
     const avatarName = avatar?.name || 'you'
     const avatarAttributes = avatar?.attributes || []
+    const hitQualities = useGameStore.getState().qualityHits || []
+    const scorePercentage = qualitySummary?.percentage ?? Math.min(100, Math.max(0, Math.round(((qualitySummary?.totalPoints || 0) / 140) * 100)))
     const LLM_TIMEOUT_MS = 25000
 
     console.log('🎬 Starting Phase 9: Wrap Up')
 
     let sentimentTier, daterMood
-    if (compatibilityScore >= 80) {
+    if (scorePercentage >= 80) {
       sentimentTier = 'falling_in_love'
       daterMood = 'excited'
-    } else if (compatibilityScore >= 60) {
+    } else if (scorePercentage >= 60) {
       sentimentTier = 'want_another_date'
       daterMood = 'happy'
-    } else if (compatibilityScore >= 40) {
+    } else if (scorePercentage >= 40) {
       sentimentTier = 'uncertain'
       daterMood = 'neutral'
-    } else if (compatibilityScore >= 20) {
+    } else if (scorePercentage >= 20) {
       sentimentTier = 'no_second_date'
       daterMood = 'uncomfortable'
     } else {
@@ -1992,10 +1973,13 @@ RULES:
 
       const conversationAfterAvatar = useGameStore.getState().dateConversation
       const recentConvo = conversationAfterAvatar.slice(-12).map(m => `${m.speaker}: ${m.message}`).join('\n')
+      const qualityHitLines = hitQualities.length > 0
+        ? hitQualities.map((hit) => `- ${hit.name} (${hit.type}, rank ${hit.rank})`).join('\n')
+        : '- No major qualities were clearly hit.'
 
       const daterAssessmentPrompt = `You are ${daterName} at the end of a first date with ${avatarName}.
 
-CURRENT COMPATIBILITY SCORE: ${compatibilityScore}% (this reflects how well your values and reactions matched during the date.)
+QUALITY SCORE: ${scorePercentage}% (based on ranked qualities and dealbreakers hit during the date).
 
 WHAT WAS SAID DURING THE DATE (recent conversation):
 ${recentConvo}
@@ -2003,11 +1987,14 @@ ${recentConvo}
 THINGS ${avatarName.toUpperCase()} REVEALED ABOUT THEMSELVES:
 ${avatarAttributes.map(a => `- ${a}`).join('\n')}
 
+QUALITIES HIT DURING THE DATE:
+${qualityHitLines}
+
 🎯 YOUR TASK: Tell ${avatarName} what you thought of how the date went and what you think of them as a person. Be honest and in character.
 
 RULES:
 - Comment on how the date went overall AND your impression of ${avatarName} as a person.
-- Your tone should match ${compatibilityScore}%: ${sentimentTier.replace(/_/g, ' ')}
+- Your tone should match ${scorePercentage}%: ${sentimentTier.replace(/_/g, ' ')}
 - Reference one specific thing they said or did if you can, briefly.
 - Exactly 2 sentences. NO action descriptors - dialogue only. Don't mention percentages. Cut filler.
 
@@ -2054,7 +2041,7 @@ Generate ${daterName}'s assessment:`
 
       const daterVerdictPrompt = `You are ${daterName}. You just told ${avatarName} what you thought of the date. Now tell them whether you would want a second date.
 
-COMPATIBILITY: ${compatibilityScore}%
+QUALITY SCORE: ${scorePercentage}%
 YOUR DECISION: ${sentimentTier.replace(/_/g, ' ').toUpperCase()}
 
 ${verdictInstructions[sentimentTier]}
@@ -2107,9 +2094,10 @@ Generate ${daterName}'s final verdict:`
     const newRoundCount = currentCycleCount + 1
     incrementCycle()
     
-    // IMPORTANT: Get CURRENT compatibility from store (not closure value!)
+    // Keep compatibility around for legacy systems, but scoring now uses quality hits.
     const currentCompatibility = useGameStore.getState().compatibility
-    console.log(`Round ${newRoundCount}/${currentMaxCycles} complete, compatibility: ${currentCompatibility}, cycleCount: ${currentCycleCount} -> ${newRoundCount}`)
+    const qualitySummary = useGameStore.getState().getQualityScore()
+    console.log(`Round ${newRoundCount}/${currentMaxCycles} complete, qualityScore: ${qualitySummary.percentage}%, cycleCount: ${currentCycleCount} -> ${newRoundCount}`)
     
     // Check if we should trigger Plot Twist (after Round 3, i.e., newRoundCount === 3)
     if (newRoundCount === 3 && !currentPlotTwistCompleted) {
@@ -2141,7 +2129,7 @@ Generate ${daterName}'s final verdict:`
         })
       }
       
-      await generateWrapUpRound(currentCompatibility)
+      await generateWrapUpRound(qualitySummary)
       
       // Date ends ONLY after wrap-up conversation finishes
       const finalCycleCount = newRoundCount + 1
@@ -3671,18 +3659,42 @@ EXAMPLES of strong follow-ups:
               transition={{ delay: 0.3 }}
             >
               <h1 className="end-game-title">
-                {compatibility >= 70 ? '💕 Great Date!' : 
-                 compatibility >= 40 ? '😐 It Was... Okay' : 
+                {(qualityScoreSummary?.percentage ?? 0) >= 70 ? '💕 Great Date!' : 
+                 (qualityScoreSummary?.percentage ?? 0) >= 40 ? '😐 It Was... Okay' : 
                  '💔 Total Disaster'}
               </h1>
               <div className="end-game-compatibility">
-                <span className="compat-final">{compatibility}%</span>
-                <span className="compat-label">Compatibility</span>
+                <span className="compat-final">{qualityScoreSummary?.percentage ?? 0}%</span>
+                <span className="compat-label">Quality Match</span>
               </div>
               
-              {/* Breakdown of what happened */}
+              {/* Breakdown of quality hits */}
               <div className="end-game-breakdown">
-                <h2>What Happened:</h2>
+                <h2>Qualities Hit:</h2>
+                <div className="breakdown-list">
+                  {(qualityHits || []).length > 0 ? (
+                    (qualityHits || []).map((hit, index) => (
+                      <motion.div
+                        key={`${hit.id}-${index}`}
+                        className="breakdown-item conversational"
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.35 + (index * 0.2) }}
+                      >
+                        <span className="breakdown-text">
+                          {hit.type === 'dealbreaker' ? 'Dealbreaker' : 'Quality'}: {hit.name}
+                        </span>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="no-impacts">No major quality matches were detected.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* LLM recap */}
+              <div className="end-game-breakdown">
+                <h2>Date Recap:</h2>
                 <div className="breakdown-list">
                   {isGeneratingBreakdown ? (
                     <p className="no-impacts">Recapping the date...</p>
@@ -3698,8 +3710,8 @@ EXAMPLES of strong follow-ups:
                         <span className="breakdown-text">{sentence}</span>
                       </motion.div>
                     ))
-                  ) : compatibilityHistory.length === 0 ? (
-                    <p className="no-impacts">The date was uneventful...</p>
+                  ) : (qualityHits || []).length === 0 ? (
+                    <p className="no-impacts">No recap available for this date.</p>
                   ) : (
                     <p className="no-impacts">Loading recap...</p>
                   )}
@@ -3873,64 +3885,20 @@ EXAMPLES of strong follow-ups:
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {/* Sentiment Categories - Hidden by default, shown via phase label toggle */}
-      {showSentimentDebug && (
-        <div className="sentiment-bar">
-          <div className="sentiment-category loves">
-            <span className="category-label">✨ Loves</span>
-            <div className="category-items">
-              {(sentimentCategories?.loves || []).map((item, i) => (
-                <span 
-                  key={i} 
-                  className={`sentiment-item ${glowingValues?.includes(item) ? 'glowing glowing-love' : ''}`}
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="sentiment-category likes">
-            <span className="category-label">💛 Likes</span>
-            <div className="category-items">
-              {(sentimentCategories?.likes || []).map((item, i) => (
-                <span 
-                  key={i} 
-                  className={`sentiment-item ${glowingValues?.includes(item) ? 'glowing glowing-like' : ''}`}
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="sentiment-category dislikes">
-            <span className="category-label">😬 Dislikes</span>
-            <div className="category-items">
-              {(sentimentCategories?.dislikes || []).map((item, i) => (
-                <span 
-                  key={i} 
-                  className={`sentiment-item ${glowingValues?.includes(item) ? 'glowing glowing-dislike' : ''}`}
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="sentiment-category dealbreakers">
-            <span className="category-label">💔 Nope</span>
-            <div className="category-items">
-              {(sentimentCategories?.dealbreakers || []).map((item, i) => (
-                <span 
-                  key={i} 
-                  className={`sentiment-item ${glowingValues?.includes(item) ? 'glowing glowing-dealbreaker' : ''}`}
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
+      <AnimatePresence>
+        {qualityHitPopup && (
+          <motion.div
+            className={`quality-hit-popup ${qualityHitPopup.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.98 }}
+            transition={{ duration: 0.25 }}
+          >
+            {qualityHitPopup.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Date Screen - Characters with Speech Bubbles */}
       <div
@@ -4167,6 +4135,21 @@ EXAMPLES of strong follow-ups:
           )}
         </AnimatePresence>
         
+        {(qualityHits || []).length > 0 && (
+          <div className="quality-tracker">
+            {(qualityHits || []).map((hit) => (
+              <motion.span
+                key={hit.id}
+                className={`quality-chip ${hit.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {hit.name}
+              </motion.span>
+            ))}
+          </div>
+        )}
+
         {/* Conversation Bubbles Area - dater speech text (always readable) */}
         <div className="conversation-bubbles">
           <div className="bubble-column dater-column">

@@ -1449,9 +1449,49 @@
   animation: pulse-danger 0.5s ease-in-out 2;
 }
 
+.reaction-feedback.liked {
+  color: #fbbf24;
+  border-color: #fbbf24;
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+}
+
+.reaction-feedback.disliked {
+  color: #ef4444;
+  border-color: #ef4444;
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+}
+
 @keyframes pulse-danger {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.02); }
+}
+
+.quality-hit-popup {
+  position: fixed;
+  top: 108px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2200;
+  max-width: 92vw;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: center;
+  border: 2px solid transparent;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.quality-hit-popup.positive {
+  color: #fef3c7;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(245, 158, 11, 0.92));
+  border-color: rgba(252, 211, 77, 0.9);
+}
+
+.quality-hit-popup.dealbreaker {
+  color: #fee2e2;
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.95), rgba(185, 28, 28, 0.9));
+  border-color: rgba(252, 165, 165, 0.95);
 }
 
 /* Sentiment Bar */
@@ -1693,6 +1733,40 @@
   min-height: 80px;
   margin-top: auto;
   margin-bottom: 15px;
+}
+
+.quality-tracker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px 6px;
+  z-index: 3;
+}
+
+.quality-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  backdrop-filter: blur(4px);
+}
+
+.quality-chip.positive {
+  color: #fef3c7;
+  background: rgba(180, 83, 9, 0.36);
+  border-color: rgba(252, 211, 77, 0.9);
+}
+
+.quality-chip.dealbreaker {
+  color: #fecaca;
+  background: rgba(153, 27, 27, 0.45);
+  border-color: rgba(248, 113, 113, 0.95);
 }
 
 .bubble-column {

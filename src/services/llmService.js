@@ -2179,6 +2179,200 @@ Return ONLY valid JSON:
   }
 }
 
+function inferSimpleSentimentFromReaction(reaction = '') {
+  const lower = (reaction || '').toLowerCase()
+  const negativeSignals = [
+    'horrified', 'dealbreaker', 'run', 'cannot', 'can\'t', 'awful', 'hate',
+    'disgust', 'furious', 'uncomfortable', 'concerned', 'worried', 'nervous',
+    'upset', 'red flag', 'not okay', 'not into', 'didn\'t like'
+  ]
+  const isNegative = negativeSignals.some((word) => lower.includes(word))
+  return isNegative ? 'disliked' : 'liked'
+}
+
+function detectFireOverrideHit(answer, scoringData) {
+  const override = scoringData?.fireOverride
+  if (!override) return null
+  const lower = (answer || '').toLowerCase()
+  const hasFire = (override.keywords || []).some((keyword) => lower.includes(keyword.toLowerCase()))
+  if (!hasFire) return null
+  return {
+    id: override.id || 'dealbreaker:fire_override',
+    name: override.name || 'Fire',
+    rank: override.rank || 1,
+    type: 'dealbreaker',
+    points: override.points ?? -50,
+  }
+}
+
+function coerceQualityHit(rawHit, scoringData) {
+  if (!rawHit || typeof rawHit !== 'object') return null
+  const positives = scoringData?.positiveQualities || []
+  const negatives = scoringData?.dealbreakers || []
+  const catalog = [...positives.map((q) => ({ ...q, type: 'positive' })), ...negatives.map((q) => ({ ...q, type: 'dealbreaker' }))]
+
+  const idLookup = new Map(catalog.map((q) => [String(q.id || '').toLowerCase(), q]))
+  const nameLookup = new Map(catalog.map((q) => [String(q.name || '').toLowerCase(), q]))
+
+  const idMatch = rawHit.id ? idLookup.get(String(rawHit.id).toLowerCase()) : null
+  const nameMatch = rawHit.name ? nameLookup.get(String(rawHit.name).toLowerCase()) : null
+  const matched = idMatch || nameMatch
+  if (!matched) return null
+
+  return {
+    id: matched.id,
+    name: matched.name,
+    rank: matched.rank,
+    type: matched.type,
+    points: matched.points,
+  }
+}
+
+/**
+ * Checks if a player's answer maps to dater-scoring qualities.
+ * Returns a quality hit when confidence is high enough, plus a lightweight liked/disliked sentiment.
+ */
+export async function checkQualityMatch(playerAnswer, question, scoringData, daterName = 'the dater', daterReaction = '') {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+
+  const fireOverrideHit = detectFireOverrideHit(playerAnswer, scoringData)
+  if (fireOverrideHit) {
+    return {
+      qualityHit: fireOverrideHit,
+      sentiment: 'disliked',
+      sentimentReason: 'fire mention',
+      commonality: 1,
+      source: 'fire_override',
+    }
+  }
+
+  const fallbackSentiment = inferSimpleSentimentFromReaction(daterReaction)
+  const fallbackReason = fallbackSentiment === 'liked' ? 'what you said' : 'that answer'
+
+  const positiveQualities = scoringData?.positiveQualities || []
+  const dealbreakers = scoringData?.dealbreakers || []
+  const qualityCatalog = [
+    ...positiveQualities.map((q) => ({ ...q, type: 'positive' })),
+    ...dealbreakers.map((q) => ({ ...q, type: 'dealbreaker' })),
+  ]
+
+  if (!apiKey || qualityCatalog.length === 0) {
+    return {
+      qualityHit: null,
+      sentiment: fallbackSentiment,
+      sentimentReason: fallbackReason,
+      commonality: 0,
+      source: 'fallback',
+    }
+  }
+
+  const qualitiesPrompt = qualityCatalog
+    .map((q) => `- id: ${q.id} | name: ${q.name} | type: ${q.type} | rank: ${q.rank} | points: ${q.points} | description: ${q.description}`)
+    .join('\n')
+
+  const systemPrompt = `You evaluate answers in a dating game for ${daterName}.
+
+QUESTION ASKED:
+"${question || 'No specific question provided'}"
+
+PLAYER ANSWER:
+"${playerAnswer || ''}"
+
+DATER'S REACTION LINE (context only):
+"${daterReaction || ''}"
+
+AVAILABLE QUALITIES:
+${qualitiesPrompt}
+
+FIRE OVERRIDE RULE:
+- Any clear mention of fire/flames/burning/torches/campfires/fireworks/candles/matches is an automatic dealbreaker.
+
+TASK:
+1) Decide if the answer hits ONE quality at about 70% commonality or higher.
+2) It is valid to return NO quality hit if there is not a clear match.
+3) Do NOT force a match.
+4) Also return a lightweight sentiment ("liked" or "disliked") for top-of-screen feedback.
+5) sentimentReason must be 1-4 words max.
+
+OUTPUT JSON ONLY:
+{
+  "qualityHit": null | {
+    "id": "exact id from list",
+    "name": "exact quality name",
+    "rank": 1,
+    "type": "positive" | "dealbreaker",
+    "points": 0
+  },
+  "commonality": 0.0,
+  "sentiment": "liked" | "disliked",
+  "sentimentReason": "short reason"
+}`
+
+  try {
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 220,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: 'Return only the JSON result.' }],
+      }),
+    })
+
+    if (!response.ok) {
+      return {
+        qualityHit: null,
+        sentiment: fallbackSentiment,
+        sentimentReason: fallbackReason,
+        commonality: 0,
+        source: 'fallback',
+      }
+    }
+
+    const data = await response.json()
+    const text = data?.content?.[0]?.text || ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      return {
+        qualityHit: null,
+        sentiment: fallbackSentiment,
+        sentimentReason: fallbackReason,
+        commonality: 0,
+        source: 'fallback',
+      }
+    }
+
+    const parsed = JSON.parse(jsonMatch[0])
+    const commonality = Number(parsed.commonality || 0)
+    const qualityHit = commonality >= 0.7 ? coerceQualityHit(parsed.qualityHit, scoringData) : null
+    const sentiment = parsed.sentiment === 'disliked' ? 'disliked' : 'liked'
+    const sentimentReason = String(parsed.sentimentReason || fallbackReason).trim().slice(0, 60) || fallbackReason
+
+    return {
+      qualityHit,
+      sentiment,
+      sentimentReason,
+      commonality: Number.isFinite(commonality) ? commonality : 0,
+      source: 'llm',
+    }
+  } catch (error) {
+    console.error('Error in checkQualityMatch:', error)
+    return {
+      qualityHit: null,
+      sentiment: fallbackSentiment,
+      sentimentReason: fallbackReason,
+      commonality: 0,
+      source: 'fallback',
+    }
+  }
+}
+
 /**
  * Fallback dater values if API is unavailable
  * Includes both normal AND extreme categories for wild attributes
@@ -2362,45 +2556,44 @@ RULES FOR JSON:
  * @param {number} finalCompatibility - The final compatibility percentage
  * @returns {Array} - Array of conversational sentences to display
  */
-export async function generateBreakdownSentences(daterName, avatarName, impacts, finalCompatibility) {
+export async function generateBreakdownSentences(daterName, avatarName, qualityHits, finalScorePercent) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   
-  if (!apiKey || impacts.length === 0) {
-    console.log('⚠️ No API key or no impacts - skipping breakdown generation')
+  if (!apiKey || qualityHits.length === 0) {
+    console.log('⚠️ No API key or no quality hits - skipping breakdown generation')
     return []
   }
   
-  // Sort by absolute change and take top impacts
-  const sortedImpacts = [...impacts]
-    .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
-    .slice(0, 6) // Take a few extra for combining
+  const topHits = [...qualityHits]
+    .sort((a, b) => Math.abs((b.points || 0)) - Math.abs((a.points || 0)))
+    .slice(0, 8)
   
   // Create a summary for the LLM
-  const impactSummary = sortedImpacts.map(i => 
-    `- ${i.topic || i.attribute}: ${i.category} (${i.change > 0 ? 'positive' : 'negative'})`
+  const hitSummary = topHits.map((hit) =>
+    `- ${hit.name}: ${hit.type} (rank ${hit.rank})`
   ).join('\n')
   
   const prompt = `You are writing a short, punchy end-of-date recap for a dating game.
 
 The dater's name is ${daterName}. The avatar's name is ${avatarName}.
-Final compatibility: ${finalCompatibility}%
+Final quality score: ${finalScorePercent}%
 
-Here are the key moments that affected their chemistry:
-${impactSummary}
+Here are the key qualities that were hit during the date:
+${hitSummary}
 
 Write 3-5 SHORT, conversational sentences summarizing what happened. Rules:
 - Be concise and punchy - each sentence should be 10-20 words max
 - You can combine positive and negative things in one sentence with "but" or "however"
 - Use varied sentence structures - don't start every sentence the same way
 - Match the tone to the outcome (playful if good, sympathetic if bad)
-- Reference ${daterName}'s reactions naturally
+- Reference the hit qualities naturally
 - Don't use percentages or numbers
 - Make it sound like a friend recapping the date
 
 Example good outputs:
-- "${daterName} was totally into ${avatarName}'s sense of humor, but the murder confession was a dealbreaker."
-- "The skiing thing? ${daterName} loved that. The skinning people? Not so much."
-- "${daterName} thought ${avatarName} was cute, right up until things got weird."
+- "${daterName} loved ${avatarName}'s self-awareness, but cruelty talk killed the vibe fast."
+- "${daterName} was impressed by daring energy, then got worried about shallow vanity."
+- "${avatarName} hit kindness in a real way, and ${daterName} visibly softened."
 
 Return ONLY a JSON array of strings, like:
 ["First sentence.", "Second sentence.", "Third sentence."]`
