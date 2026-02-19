@@ -2544,8 +2544,36 @@ Generate ${daterName}'s final verdict:`
                                  winnerTextLower.includes('kiss') ? 'attracted' : 'excited'
       setDaterEmotion(plotTwistDaterMood)
 
-      // ===== COMMENT 1: Dater's immediate gut reaction to what the Avatar did =====
-      const comment1Prompt = `PLOT TWIST — HERE IS WHAT JUST HAPPENED ON YOUR DATE:\n\n"${narrativeText}"\n\nThe Avatar (${avatarName}) chose to: "${winnerText || 'stay calm and handle it politely'}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.${daterBackstoryNote ? ` BACKSTORY: ${daterBackstoryNote}` : ''}\n\n🎯 YOUR TASK: Give your IMMEDIATE gut reaction to what ${avatarName} did. Focus on THEIR ACTION — were you impressed, horrified, turned on, embarrassed by what they chose to do?\n\nRULES:\n- React to the AVATAR'S CHOICE, not the overall situation.\n- Have a strong OPINION grounded in your personality and values.\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
+      // ===== COMMENT 1: Dater's gut reaction to what the Avatar DID =====
+      const comment1Prompt = `PLOT TWIST — You just witnessed something on your date.
+
+WHAT HAPPENED:
+"${narrativeText}"
+
+THE KEY THING: ${avatarName} chose to "${winnerText || 'stay calm and handle it politely'}". That was THEIR decision.
+
+YOU ARE ${daterName}.
+YOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.${daterBackstoryNote ? ` BACKSTORY: ${daterBackstoryNote}` : ''}
+
+🎯 YOUR TASK: React to what ${avatarName} DID. You have a STRONG OPINION about their choice. Were you impressed? Disgusted? Turned on? Horrified? Tell them.
+
+RULES:
+- You are talking TO ${avatarName}. Address them directly.
+- React to THEIR ACTION, not the overall situation. What did THEY choose to do, and how does that make you feel?
+- Do NOT summarize what happened. Do NOT describe the scene. You WITNESSED it — now give your OPINION.
+- Have an OPINION — "I didn't expect that" is NOT an opinion. "That was the hottest thing I've ever seen" IS an opinion.
+- Ground your reaction in your personality, values, and backstory.
+- Exactly 2 sentences, dialogue only. No actions or asterisks.
+
+EXAMPLES of strong opinions (match this energy):
+- "Watching you throw a punch for me was either the sweetest or dumbest thing I have ever seen. I have not decided which."
+- "You ignored them entirely and kept talking to me. That is worth more than any grand gesture."
+- "You flirted with the person hitting on me. While I was sitting right here."
+
+BAD examples (do NOT do this):
+- "That was unexpected." (too vague, no opinion)
+- "The stranger left after that happened." (summarizing the scene, not reacting)
+- "I can't believe that just happened." (no actual opinion about what THEY did)`
 
       console.log('🎭 Plot Twist Comment 1: Dater gut reaction to Avatar action')
       const daterReaction1 = await getDaterDateResponse(
@@ -2570,8 +2598,27 @@ Generate ${daterName}'s final verdict:`
       await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
       await new Promise(resolve => setTimeout(resolve, 1500))
 
-      // ===== COMMENT 2: Dater speaks directly to Avatar about how their action affects the date =====
-      const comment2Prompt = `PLOT TWIST FOLLOW-UP — You just reacted to what happened:\n"${narrativeText}"\n\nThe Avatar (${avatarName}) chose to: "${winnerText}"\nYour first reaction was: "${safeReaction1}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.\n\n🎯 YOUR TASK: Now speak DIRECTLY to ${avatarName} about how what they did changes how you see them. Does it make you more attracted, more nervous, more skeptical? Tell them to their face.\n\nRULES:\n- Address ${avatarName} directly — this is you talking TO them.\n- Connect their action to how you feel about them and the date going forward.\n- Have a clear opinion — impressed? Worried? Falling harder?\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
+      // ===== COMMENT 2: What the Avatar's action says about them + how it affects the dater's interest =====
+      const comment2Prompt = `PLOT TWIST FOLLOW-UP — You already gave your gut reaction. Now go deeper.
+
+${avatarName} chose to "${winnerText}". Your first reaction was: "${safeReaction1}"
+
+YOU ARE ${daterName}.
+YOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.
+
+🎯 YOUR TASK: Tell ${avatarName} what their action says about them AS A PERSON, and whether it makes you more or less interested in them. This is about THEM, not the event.
+
+RULES:
+- You are talking TO ${avatarName}. Address them directly.
+- Say what their choice REVEALS about who they are — and whether you like what you see.
+- Do NOT repeat your first comment. Do NOT re-describe the event.
+- Have a clear verdict: are you more attracted? Less? Reconsidering? Say it plainly.
+- Exactly 2 sentences, dialogue only. No actions or asterisks.
+
+EXAMPLES of strong follow-ups:
+- "That tells me you're the kind of person who acts before they think. I'm not sure if that terrifies me or thrills me."
+- "You chose me over the easy option. That says more about you than anything you've said tonight."
+- "I think you just showed me exactly who you are. And I do not like what I saw."`
 
       console.log('🎭 Plot Twist Comment 2: Dater tells Avatar how action affects the date')
       const daterReaction2 = await getDaterDateResponse(
