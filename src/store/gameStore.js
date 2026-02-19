@@ -25,7 +25,7 @@ const initialLiveState = {
   livePhase: 'waiting', // 'waiting' | 'starting-stats' | 'phase1' | 'phase2' | 'phase3' | 'ended'
   phaseTimer: 0,
   cycleCount: 0,
-  maxCycles: 6, // 5 question rounds + 1 wrap-up round
+  maxCycles: 7, // 6 question rounds + 1 wrap-up round
   // Tutorial state
   showTutorial: false,
   tutorialStep: 0, // 0 = not started, 1-3 = tutorial steps

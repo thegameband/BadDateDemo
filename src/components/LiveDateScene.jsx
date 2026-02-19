@@ -1469,24 +1469,54 @@ RULES:
   }, [livePhase])
   
   // Get phase announcement content
+  // Compute the user-facing phase number (Phase 1-9) from game state
+  const getGamePhaseNumber = () => {
+    if (livePhase === 'reaction') return 1
+    if (livePhase === 'plot-twist' || livePhase === 'plot-twist-reaction') return 5
+    if (livePhase === 'ended') return 10
+    const cc = useGameStore.getState().cycleCount
+    const mc = useGameStore.getState().maxCycles
+    if (cc >= mc - 1) return 9 // Wrap Up
+    return cc < 3 ? cc + 2 : cc + 3 // Q1-3 → Phase 2-4, Q4-6 → Phase 6-8
+  }
+
+  const getQuestionNumber = () => {
+    const cc = useGameStore.getState().cycleCount
+    return cc + 1
+  }
+
   const getPhaseAnnouncement = () => {
     const daterName = selectedDater?.name || 'Maya'
+    const phaseNum = getGamePhaseNumber()
+    const qNum = getQuestionNumber()
     switch (announcementPhase) {
       case 'reaction':
-        return { title: 'FIRST IMPRESSIONS', subtitle: `Meeting ${daterName}`, icon: '👋', description: 'Watch them meet for the first time!' }
-      case 'phase1':
+        return { title: `Phase ${phaseNum}: First Impressions`, subtitle: `Meeting ${daterName}`, icon: '👋', description: 'Watch them meet for the first time!' }
+      case 'phase1': {
+        const cc = useGameStore.getState().cycleCount
+        const mc = useGameStore.getState().maxCycles
+        if (cc >= mc - 1) {
+          return { title: `Phase 9: Wrap Up`, subtitle: 'The date is ending...', icon: '🎬', description: `${daterName} shares final thoughts.` }
+        }
         return { 
-          title: currentRoundPrompt.title || 'ROUND ' + (cycleCount + 1), 
+          title: currentRoundPrompt.title || `Phase ${phaseNum}: Date Question ${qNum}`, 
           subtitle: '', 
           icon: '✨', 
           description: currentRoundPrompt.subtitle || 'Submit your answer!' 
         }
+      }
       case 'answer-selection':
         return { title: 'SELECTING', subtitle: 'Answer', icon: '🎲', description: 'Picking an answer...' }
-      case 'phase3':
-        return { title: 'PHASE 3', subtitle: 'Watch the Date', icon: '👀', description: 'See how they react!' }
+      case 'phase3': {
+        const cc = useGameStore.getState().cycleCount
+        const mc = useGameStore.getState().maxCycles
+        if (cc >= mc - 1) {
+          return { title: `Phase 9: Wrap Up`, subtitle: `${daterName}'s final thoughts`, icon: '🎬', description: `See what ${daterName} thinks!` }
+        }
+        return { title: `Phase ${phaseNum}`, subtitle: `${daterName} reacts`, icon: '👀', description: 'See how they react!' }
+      }
       case 'plot-twist-reaction':
-        return { title: 'Plot Twist', subtitle: `${daterName}'s reaction`, icon: '🎭', description: "Watch the date react to what happened!" }
+        return { title: 'Phase 5: Plot Twist', subtitle: `${daterName}'s reaction`, icon: '🎭', description: "Watch the date react to what happened!" }
       default:
         return { title: '', subtitle: '', icon: '', description: '' }
     }
@@ -1923,10 +1953,10 @@ RULES:
   }
   
   // ============================================
-  // ROUND 6: WRAP-UP ROUND
-  // No questions - just final conversation
+  // PHASE 9: WRAP UP
+  // Comment 1: What the dater thought of the date and the avatar
+  // Comment 2: Whether they want a second date
   // ============================================
-  // Wait for audio with a max delay so we never hang forever
   const waitForAudioOrTimeout = (maxMs = 12000) =>
     Promise.race([waitForAllAudio(), new Promise(r => setTimeout(r, maxMs))])
 
@@ -1936,7 +1966,7 @@ RULES:
     const avatarAttributes = avatar?.attributes || []
     const LLM_TIMEOUT_MS = 25000
 
-    console.log('🎬 Starting Wrap-Up Round (Round 6)')
+    console.log('🎬 Starting Phase 9: Wrap Up')
 
     let sentimentTier, daterMood
     if (compatibilityScore >= 80) {
@@ -1957,8 +1987,8 @@ RULES:
     }
 
     try {
-      // ===== DATER WRAP-UP: Dater sums up feelings about the date and the avatar =====
-      console.log('🎭 Wrap-Up: Dater sums up feelings (conversation + compatibility)')
+      // ===== COMMENT 1: What the dater thought of how the date went and what they think about the avatar =====
+      console.log('🎭 Wrap-Up Comment 1: How the date went + opinion of the avatar')
 
       const conversationAfterAvatar = useGameStore.getState().dateConversation
       const recentConvo = conversationAfterAvatar.slice(-12).map(m => `${m.speaker}: ${m.message}`).join('\n')
@@ -1973,20 +2003,21 @@ ${recentConvo}
 THINGS ${avatarName.toUpperCase()} REVEALED ABOUT THEMSELVES:
 ${avatarAttributes.map(a => `- ${a}`).join('\n')}
 
-🎯 YOUR TASK: Sum up your feelings in exactly 2 sentences. Be concise.
+🎯 YOUR TASK: Tell ${avatarName} what you thought of how the date went and what you think of them as a person. Be honest and in character.
 
 RULES:
-- Base your summary on what was said and how you felt. Your tone should match ${compatibilityScore}%: ${sentimentTier.replace(/_/g, ' ')}
-- Reference one specific thing they said or revealed if you can, briefly
+- Comment on how the date went overall AND your impression of ${avatarName} as a person.
+- Your tone should match ${compatibilityScore}%: ${sentimentTier.replace(/_/g, ' ')}
+- Reference one specific thing they said or did if you can, briefly.
 - Exactly 2 sentences. NO action descriptors - dialogue only. Don't mention percentages. Cut filler.
 
-${sentimentTier === 'falling_in_love' ? 'You are TOTALLY SMITTEN. Sum up why you loved the date and them.' :
-  sentimentTier === 'want_another_date' ? 'You had a great time. Sum up what you liked and that you\'d see them again.' :
-  sentimentTier === 'uncertain' ? 'You have mixed feelings. Sum up the good and the concerning.' :
-  sentimentTier === 'no_second_date' ? 'You are NOT feeling it. Sum up why it didn\'t work for you.' :
-  'This was a disaster. Sum up why you\'re done.'}
+${sentimentTier === 'falling_in_love' ? 'You are TOTALLY SMITTEN. Tell them why this date was amazing and what you love about them.' :
+  sentimentTier === 'want_another_date' ? 'You had a great time. Tell them what you liked about the date and about them.' :
+  sentimentTier === 'uncertain' ? 'You have mixed feelings. Share what worked and what concerned you about them.' :
+  sentimentTier === 'no_second_date' ? 'You are NOT feeling it. Tell them honestly why the date didn\'t work for you.' :
+  'This was a disaster. Tell them plainly why you\'re done.'}
 
-Generate ${daterName}'s brief summary:`
+Generate ${daterName}'s assessment:`
 
       const daterAssessment = await getSingleResponseWithTimeout(daterAssessmentPrompt, { maxTokens: 120, timeoutMs: LLM_TIMEOUT_MS })
         || "Well... that was certainly something."
@@ -2002,8 +2033,8 @@ Generate ${daterName}'s brief summary:`
       await waitForAudioOrTimeout()
       await new Promise(r => setTimeout(r, 1000))
 
-      // ===== DATER FINAL VERDICT =====
-      console.log('🎭 Wrap-Up: Dater gives final verdict')
+      // ===== COMMENT 2: Whether they want a second date =====
+      console.log('🎭 Wrap-Up Comment 2: Second date decision')
 
       const verdictInstructions = {
         falling_in_love: `Say something short and enthusiastic about seeing them again soon. Be flirty, one short line.`,
@@ -2021,14 +2052,14 @@ Generate ${daterName}'s brief summary:`
         deleting_number: '"I\'m gonna go. Don\'t call me."'
       }
 
-      const daterVerdictPrompt = `You are ${daterName} giving your FINAL answer about seeing ${avatarName} again.
+      const daterVerdictPrompt = `You are ${daterName}. You just told ${avatarName} what you thought of the date. Now tell them whether you would want a second date.
 
 COMPATIBILITY: ${compatibilityScore}%
 YOUR DECISION: ${sentimentTier.replace(/_/g, ' ').toUpperCase()}
 
 ${verdictInstructions[sentimentTier]}
 
-🎯 ONE short sentence only (~8-15 words). NO action descriptors - dialogue only.
+🎯 Exactly 2 sentences. Tell them your decision about a second date and why. NO action descriptors - dialogue only.
 
 EXAMPLE: ${verdictExamples[sentimentTier]}
 
@@ -2089,13 +2120,13 @@ Generate ${daterName}'s final verdict:`
     
     // With maxCycles=6: Rounds 1-5 are question rounds; Round 6 is wrap-up. Date ends ONLY after wrap-up.
     if (newRoundCount === currentMaxCycles - 1) {
-      // ROUND 6: WRAP-UP ROUND (no questions, just final conversation)
+      // PHASE 9: WRAP-UP (no questions, just final conversation)
       // Date must run this before ending — we never skip to "ended" before wrap-up
-      console.log('🎬 Starting Round 6: Wrap-Up Round')
+      console.log('🎬 Starting Phase 9: Wrap Up')
       
       setSubmittedAnswer('') // Clear answer oval
       setLivePhase('phase3')
-      setCurrentRoundPrompt({ title: 'WRAP UP', subtitle: 'The date is ending...' })
+      setCurrentRoundPrompt({ title: 'Phase 9: Wrap Up', subtitle: 'The date is ending...' })
       setDaterBubble('')
       setAvatarBubble('')
       
@@ -2466,7 +2497,7 @@ Generate ${daterName}'s final verdict:`
     generatePlotTwistReaction(safeWinner, currentPlotTwist?.summary)
   }
   
-  // Generate LLM reaction to the plot twist - single comment about what the Avatar did
+  // Generate LLM reaction to the plot twist — 2 comments about what the Avatar did
   // whatHappenedStory = the LLM-generated "What happened" narrative; Dater responds to the Avatar's action.
   const generatePlotTwistReaction = async (winner, whatHappenedStory) => {
     if (!isHost) return
@@ -2474,7 +2505,7 @@ Generate ${daterName}'s final verdict:`
     // Close overlay and show date window in plot-twist-reaction
     setLivePhase('plot-twist-reaction')
     setDaterBubble('')
-    setDaterBubbleReady(true) // Start ready so bubble shows as soon as text arrives
+    setDaterBubbleReady(true)
     setPhaseTimer(0)
     
     const currentCompatibility = useGameStore.getState().compatibility
@@ -2501,25 +2532,8 @@ Generate ${daterName}'s final verdict:`
       const daterDealbreakers = Array.isArray(selectedDater?.dealbreakers) ? selectedDater.dealbreakers.join(', ') : (selectedDater?.dealbreakers || '')
       const daterBackstoryNote = selectedDater?.backstory ? selectedDater.backstory.slice(0, 200) + '...' : ''
       const narrativeText = whatHappenedStory || `Someone else hit on ${daterName}. ${avatarName}'s response: "${winnerText || 'Stayed calm and polite'}".`
-
-      // Single comment: Dater reacts to what the AVATAR did during the plot twist
-      const reactionPrompt = `PLOT TWIST — HERE IS WHAT JUST HAPPENED ON YOUR DATE:\n\n"${narrativeText}"\n\nThe Avatar (${avatarName}) chose to: "${winnerText || 'stay calm and handle it politely'}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.${daterBackstoryNote ? ` BACKSTORY: ${daterBackstoryNote}` : ''}\n\n🎯 YOUR TASK: React SPECIFICALLY to what ${avatarName} did during the plot twist. Were you impressed by their action? Disgusted? Turned on? Tell them directly how their choice made you feel.\n\nRULES:\n- Focus on the AVATAR'S ACTION, not the overall situation.\n- Speak directly to ${avatarName} — this is you talking TO them.\n- Have a STRONG opinion grounded in your personality and values.\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
-
-      console.log('🎭 Plot Twist Reaction: Dater reacts to Avatar action')
       const plotTwistCompat = useGameStore.getState().compatibility
-      const daterReaction = await getDaterDateResponse(
-        selectedDater,
-        avatar,
-        useGameStore.getState().dateConversation || [],
-        null,
-        null,
-        { positive: 0, negative: 0 },
-        false,
-        false,
-        plotTwistCompat,
-        reactionPrompt
-      )
-      
+
       // Determine dater mood from player action context
       const plotTwistDaterMood = winnerTextLower.includes('punch') ||
                                  winnerTextLower.includes('fight') ||
@@ -2529,24 +2543,53 @@ Generate ${daterName}'s final verdict:`
                                  winnerTextLower.includes('flirt') ||
                                  winnerTextLower.includes('kiss') ? 'attracted' : 'excited'
       setDaterEmotion(plotTwistDaterMood)
+
+      // ===== COMMENT 1: Dater's immediate gut reaction to what the Avatar did =====
+      const comment1Prompt = `PLOT TWIST — HERE IS WHAT JUST HAPPENED ON YOUR DATE:\n\n"${narrativeText}"\n\nThe Avatar (${avatarName}) chose to: "${winnerText || 'stay calm and handle it politely'}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.${daterBackstoryNote ? ` BACKSTORY: ${daterBackstoryNote}` : ''}\n\n🎯 YOUR TASK: Give your IMMEDIATE gut reaction to what ${avatarName} did. Focus on THEIR ACTION — were you impressed, horrified, turned on, embarrassed by what they chose to do?\n\nRULES:\n- React to the AVATAR'S CHOICE, not the overall situation.\n- Have a strong OPINION grounded in your personality and values.\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
+
+      console.log('🎭 Plot Twist Comment 1: Dater gut reaction to Avatar action')
+      const daterReaction1 = await getDaterDateResponse(
+        selectedDater,
+        avatar,
+        useGameStore.getState().dateConversation || [],
+        null, null, { positive: 0, negative: 0 }, false, false,
+        plotTwistCompat, comment1Prompt
+      )
       
-      const safeReaction = daterReaction || `Well, ${avatarName}... that was really something. I'm still processing what you just did.`
-      console.log('🎭 Plot Twist Dater Reaction:', safeReaction)
+      const safeReaction1 = daterReaction1 || `Well, ${avatarName}... that was really something. I'm still processing what you just did.`
+      console.log('🎭 Plot Twist Reaction 1:', safeReaction1)
       
-      // Show the bubble immediately (daterBubbleReady is already true)
-      setDaterBubble(safeReaction)
-      // Force bubble visible in case useEffect toggles daterBubbleReady off for TTS
+      setDaterBubble(safeReaction1)
       setTimeout(() => setDaterBubbleReady(true), 500)
-      
-      addDateMessage('dater', safeReaction)
-      syncConversationToPartyKit(undefined, safeReaction)
+      addDateMessage('dater', safeReaction1)
+      syncConversationToPartyKit(undefined, safeReaction1)
       if (partyClient && isHost) {
         partyClient.syncState({ daterEmotion: plotTwistDaterMood })
       }
       
-      // Wait for audio to finish, then pause before continuing
       await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
-      await new Promise(resolve => setTimeout(resolve, 4000))
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      // ===== COMMENT 2: Dater speaks directly to Avatar about how their action affects the date =====
+      const comment2Prompt = `PLOT TWIST FOLLOW-UP — You just reacted to what happened:\n"${narrativeText}"\n\nThe Avatar (${avatarName}) chose to: "${winnerText}"\nYour first reaction was: "${safeReaction1}"\n\nYOU ARE ${daterName}.\nYOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.\n\n🎯 YOUR TASK: Now speak DIRECTLY to ${avatarName} about how what they did changes how you see them. Does it make you more attracted, more nervous, more skeptical? Tell them to their face.\n\nRULES:\n- Address ${avatarName} directly — this is you talking TO them.\n- Connect their action to how you feel about them and the date going forward.\n- Have a clear opinion — impressed? Worried? Falling harder?\n- Exactly 2 sentences, dialogue only. No actions or asterisks.`
+
+      console.log('🎭 Plot Twist Comment 2: Dater tells Avatar how action affects the date')
+      const daterReaction2 = await getDaterDateResponse(
+        selectedDater,
+        avatar,
+        [...(useGameStore.getState().dateConversation || [])],
+        null, null, { positive: 0, negative: 0 }, false, false,
+        plotTwistCompat, comment2Prompt
+      )
+
+      if (daterReaction2) {
+        setDaterBubble(daterReaction2)
+        setTimeout(() => setDaterBubbleReady(true), 500)
+        addDateMessage('dater', daterReaction2)
+        syncConversationToPartyKit(undefined, daterReaction2)
+        await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
+        await new Promise(resolve => setTimeout(resolve, 3000))
+      }
 
     } catch (error) {
       console.error('Error generating plot twist reaction:', error)
@@ -2564,7 +2607,7 @@ Generate ${daterName}'s final verdict:`
   const finishPlotTwist = () => {
     if (!isHost) return
     
-    console.log('🎭 Plot Twist complete - continuing to Round 4')
+    console.log('🎭 Phase 5 (Plot Twist) complete - continuing to Phase 6 (Date Question 4)')
     
     // Mark plot twist as completed
     useGameStore.setState({ plotTwistCompleted: true })
@@ -3102,26 +3145,38 @@ Generate ${daterName}'s final verdict:`
   
   const getPhaseTitle = () => {
     const daterName = selectedDater?.name || 'Maya'
+    const phaseNum = getGamePhaseNumber()
+    const qNum = getQuestionNumber()
     switch (livePhase) {
-      case 'reaction': return { line1: '👋 FIRST', line2: 'Impressions', line3: '' }
-      case 'phase1': return { line1: 'PHASE 1', line2: 'Submit', line3: 'Answers' }
+      case 'reaction': return { line1: `Phase ${phaseNum}`, line2: 'First', line3: 'Impressions' }
+      case 'phase1': {
+        const cc = useGameStore.getState().cycleCount
+        const mc = useGameStore.getState().maxCycles
+        if (cc >= mc - 1) return { line1: 'Phase 9', line2: 'Wrap', line3: 'Up' }
+        return { line1: `Phase ${phaseNum}`, line2: `Question ${qNum}`, line3: '' }
+      }
       case 'answer-selection': return { line1: '🎲', line2: 'Selecting', line3: 'Answer' }
-      case 'phase3': return { line1: 'PHASE 3', line2: 'Watch', line3: 'the Date' }
-      case 'plot-twist': return { line1: '🎭 PLOT', line2: 'Twist!', line3: '' }
-      case 'plot-twist-reaction': return { line1: 'Plot Twist', line2: `${daterName}'s reaction`, line3: '' }
-      case 'ended': return { line1: 'DONE', line2: 'Date', line3: 'Over' }
+      case 'phase3': {
+        const cc = useGameStore.getState().cycleCount
+        const mc = useGameStore.getState().maxCycles
+        if (cc >= mc - 1) return { line1: 'Phase 9', line2: 'Wrap', line3: 'Up' }
+        return { line1: `Phase ${phaseNum}`, line2: `${daterName}`, line3: 'Reacts' }
+      }
+      case 'plot-twist': return { line1: 'Phase 5', line2: 'Plot', line3: 'Twist!' }
+      case 'plot-twist-reaction': return { line1: 'Phase 5', line2: `${daterName}'s`, line3: 'Reaction' }
+      case 'ended': return { line1: 'The', line2: 'End', line3: '' }
       default: return { line1: '', line2: '', line3: '' }
     }
   }
   
   const getPhaseInstructions = () => {
     switch (livePhase) {
-      case 'reaction': return 'Watch them meet!'
+      case 'reaction': return 'First Impressions'
       case 'phase1': return 'Type your answer and press Enter (or tap ✨)'
       case 'answer-selection': return 'Selecting an answer...'
-      case 'phase3': return 'Watch the date'
+      case 'phase3': return `${selectedDater?.name || 'The dater'} reacts`
       case 'plot-twist': return 'What do you do?'
-      case 'plot-twist-reaction': return "Watch the reaction"
+      case 'plot-twist-reaction': return `${selectedDater?.name || 'The dater'} reacts to what happened`
       default: return ''
     }
   }
@@ -3638,9 +3693,9 @@ Generate ${daterName}'s final verdict:`
             title="Tap to toggle debug info"
           >
             <div className="round-indicator">
-              <span className="round-label">{livePhase === 'reaction' ? 'Intro' : (livePhase === 'plot-twist' || livePhase === 'plot-twist-reaction') ? 'Plot Twist' : 'Round'}</span>
+              <span className="round-label">Phase</span>
               <span className="round-value">
-                {livePhase === 'reaction' ? '👋' : (livePhase === 'plot-twist' || livePhase === 'plot-twist-reaction') ? '🎭' : `${cycleCount + 1}/${maxCycles}`}
+                {getGamePhaseNumber()}
               </span>
             </div>
             <div className="header-cta">
@@ -3662,7 +3717,7 @@ Generate ${daterName}'s final verdict:`
               onClick={() => setShowDaterValuesPopup(false)}
             >
               <div className="popup-round-info">
-                📊 Round {cycleCount + 1} of {maxCycles}
+                📊 Phase {getGamePhaseNumber()} — Question {getQuestionNumber()} of 6
               </div>
               <h4>🕵️ {selectedDater?.name}'s Hidden Values</h4>
               <div className="values-grid">
