@@ -78,7 +78,7 @@ function LiveDateScene() {
   const [daterEmotion, setDaterEmotion] = useState('neutral') // Dater's current emotional state
   const [isGenerating, setIsGenerating] = useState(false)
   const [_userVote, setUserVote] = useState(null)
-  const [showDaterValuesPopup, setShowDaterValuesPopup] = useState(false)
+  const [showQualitiesPanel, setShowQualitiesPanel] = useState(false)
   const showAttributesByDefault = useGameStore((state) => state.showAttributesByDefault)
   const [showSentimentDebug, setShowSentimentDebug] = useState(showAttributesByDefault) // Phase label shows attributes
   const [_preGeneratedConvo, _setPreGeneratedConvo] = useState(null)
@@ -151,6 +151,7 @@ function LiveDateScene() {
   const startingStatsTimerRef = useRef(null)
   const lastActivePlayerRef = useRef(null)
   const lastAnswerCountRef = useRef(0)
+  const selfAnswerBudgetRef = useRef(2)
   
   const chatEndRef = useRef(null)
   const phaseTimerRef = useRef(null)
@@ -1700,7 +1701,7 @@ RULES:
 
     try {
       const daterReaction = await getDaterResponseToPlayerAnswer(
-        selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound, daterValues
+        selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound, daterValues, currentCycleForCheck
       )
       if (!daterReaction) {
         setIsPreGenerating(false)
@@ -1712,8 +1713,12 @@ RULES:
         .filter((a) => a && a !== playerAnswer)
         .slice(-5)
       const daterFollowup = await getDaterFollowupComment(
-        selectedDater, question, playerAnswer, daterReaction, priorAnswers, conversationHistory, isFinalRound
+        selectedDater, question, playerAnswer, daterReaction, priorAnswers, conversationHistory, isFinalRound,
+        selfAnswerBudgetRef.current > 0, currentCycleForCheck
       )
+      if (selfAnswerBudgetRef.current > 0) {
+        selfAnswerBudgetRef.current = Math.max(0, selfAnswerBudgetRef.current - (Math.random() < 0.20 ? 1 : 0))
+      }
 
       const qualityResult = await checkQualityMatch(
         playerAnswer,
@@ -2009,9 +2014,9 @@ Generate ${daterName}'s assessment:`
       const daterAssessment = await getSingleResponseWithTimeout(daterAssessmentPrompt, { maxTokens: 120, timeoutMs: LLM_TIMEOUT_MS })
         || "Well... that was certainly something."
 
-      if (ttsEnabled) setDaterBubbleReady(false)
       setDaterEmotion(daterMood)
       setDaterBubble(daterAssessment)
+      setDaterBubbleReady(true)
       addDateMessage('dater', daterAssessment)
       await syncConversationToPartyKit(undefined, daterAssessment, undefined)
       if (partyClient) partyClient.syncState({ daterEmotion: daterMood })
@@ -2060,9 +2065,9 @@ Generate ${daterName}'s final verdict:`
                           sentimentTier === 'uncertain' ? 'neutral' :
                           sentimentTier === 'no_second_date' ? 'uncomfortable' : 'horrified'
 
-      if (ttsEnabled) setDaterBubbleReady(false)
       setDaterEmotion(verdictMood)
       setDaterBubble(daterVerdict)
+      setDaterBubbleReady(true)
       addDateMessage('dater', daterVerdict)
       await syncConversationToPartyKit(undefined, daterVerdict, undefined)
       if (partyClient) partyClient.syncState({ daterEmotion: verdictMood })
@@ -2533,7 +2538,9 @@ Generate ${daterName}'s final verdict:`
       setDaterEmotion(plotTwistDaterMood)
 
       // ===== COMMENT 1: Dater's gut reaction to what the Avatar DID =====
-      const comment1Prompt = `PLOT TWIST — You just witnessed something on your date.
+      const comment1Prompt = `You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
+
+PLOT TWIST — You just witnessed something on your date.
 
 WHAT HAPPENED:
 "${narrativeText}"
@@ -2587,7 +2594,9 @@ BAD examples (do NOT do this):
       await new Promise(resolve => setTimeout(resolve, 1500))
 
       // ===== COMMENT 2: What the Avatar's action says about them + how it affects the dater's interest =====
-      const comment2Prompt = `PLOT TWIST FOLLOW-UP — You already gave your gut reaction. Now go deeper.
+      const comment2Prompt = `You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
+
+PLOT TWIST FOLLOW-UP — You already gave your gut reaction. Now go deeper.
 
 ${avatarName} chose to "${winnerText}". Your first reaction was: "${safeReaction1}"
 
@@ -3744,12 +3753,9 @@ EXAMPLES of strong follow-ups:
           {/* Centered: Round indicator + Phase description */}
           <div 
             className="header-center-content"
-            onClick={() => {
-              if (isHost) setShowLLMDebug(!showLLMDebug)
-              setShowSentimentDebug(!showSentimentDebug)
-            }}
+            onClick={() => setShowQualitiesPanel(prev => !prev)}
             style={{ cursor: 'pointer' }}
-            title="Tap to toggle debug info"
+            title="Tap to see qualities"
           >
             <div className="round-indicator">
               <span className="round-label">Phase</span>
@@ -3765,41 +3771,44 @@ EXAMPLES of strong follow-ups:
           </div>
         </div>
         
-        {/* Hidden Info Popup (Round count + Dater Values) */}
-        <AnimatePresence>
-          {showDaterValuesPopup && (
-            <motion.div 
-              className="dater-values-popup"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              onClick={() => setShowDaterValuesPopup(false)}
-            >
-              <div className="popup-round-info">
-                📊 Phase {getGamePhaseNumber()} — Question {getQuestionNumber()} of 6
+        {/* Qualities Panel Overlay */}
+        {showQualitiesPanel && (
+          <div className="qualities-panel-overlay" onClick={() => setShowQualitiesPanel(false)}>
+            <div className="qualities-panel" onClick={e => e.stopPropagation()}>
+              <h3 className="qualities-panel-title">{selectedDater?.name || 'Dater'}'s Qualities</h3>
+
+              <div className="qualities-panel-section">
+                <span className="qualities-panel-section-label">Looking For</span>
+                {(scoringProfile?.positiveQualities || []).map(q => {
+                  const hit = (qualityHits || []).find(h => h.id === q.id)
+                  return (
+                    <div key={q.id} className={`qualities-panel-item ${hit ? 'hit' : 'unmet'}`}>
+                      <span className="qualities-panel-rank">#{q.rank}</span>
+                      <span className="qualities-panel-name">{q.name}</span>
+                      {hit && <span className="qualities-panel-hit-badge">✓</span>}
+                    </div>
+                  )
+                })}
               </div>
-              <h4>🕵️ {selectedDater?.name}'s Hidden Values</h4>
-              <div className="values-grid">
-                <div className="value-column loves">
-                  <span className="value-header">❤️ Loves</span>
-                  {(daterValues?.loves || []).map((v, i) => <span key={i}>{v}</span>)}
-                </div>
-                <div className="value-column likes">
-                  <span className="value-header">👍 Likes</span>
-                  {(daterValues?.likes || []).map((v, i) => <span key={i}>{v}</span>)}
-                </div>
-                <div className="value-column dislikes">
-                  <span className="value-header">👎 Dislikes</span>
-                  {(daterValues?.dislikes || []).map((v, i) => <span key={i}>{v}</span>)}
-                </div>
-                <div className="value-column dealbreakers">
-                  <span className="value-header">💀 Dealbreakers</span>
-                  {(daterValues?.dealbreakers || []).map((v, i) => <span key={i}>{v}</span>)}
-                </div>
+
+              <div className="qualities-panel-section">
+                <span className="qualities-panel-section-label">Dealbreakers</span>
+                {(scoringProfile?.dealbreakers || []).map(q => {
+                  const hit = (qualityHits || []).find(h => h.id === q.id)
+                  return (
+                    <div key={q.id} className={`qualities-panel-item dealbreaker ${hit ? 'hit' : 'unmet'}`}>
+                      <span className="qualities-panel-rank">#{q.rank}</span>
+                      <span className="qualities-panel-name">{q.name}</span>
+                      {hit && <span className="qualities-panel-hit-badge">✗</span>}
+                    </div>
+                  )
+                })}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+              <button className="qualities-panel-close" onClick={() => setShowQualitiesPanel(false)}>Close</button>
+            </div>
+          </div>
+        )}
         
         {/* LLM Debug Panel (Host only) */}
         <AnimatePresence>
@@ -3871,34 +3880,6 @@ EXAMPLES of strong follow-ups:
         </AnimatePresence>
       </div>
       
-      {/* Reaction Feedback - Shows when date reacts to something */}
-      <AnimatePresence>
-        {reactionFeedback && (
-          <motion.div 
-            className={`reaction-feedback ${reactionFeedback.category}`}
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {reactionFeedback.text}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {qualityHitPopup && (
-          <motion.div
-            className={`quality-hit-popup ${qualityHitPopup.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.98 }}
-            transition={{ duration: 0.25 }}
-          >
-            {qualityHitPopup.text}
-          </motion.div>
-        )}
-      </AnimatePresence>
       
       {/* Date Screen - Characters with Speech Bubbles */}
       <div
@@ -4135,20 +4116,48 @@ EXAMPLES of strong follow-ups:
           )}
         </AnimatePresence>
         
-        {(qualityHits || []).length > 0 && (
-          <div className="quality-tracker">
-            {(qualityHits || []).map((hit) => (
-              <motion.span
-                key={hit.id}
-                className={`quality-chip ${hit.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {hit.name}
-              </motion.span>
-            ))}
-          </div>
-        )}
+        {/* Shared zone: quality popup → reaction feedback → quality tracker chips */}
+        <AnimatePresence mode="wait">
+          {qualityHitPopup ? (
+            <motion.div
+              key="quality-hit-popup"
+              className={`quality-zone quality-hit-popup ${qualityHitPopup.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.98 }}
+              transition={{ duration: 0.25 }}
+            >
+              {qualityHitPopup.text}
+            </motion.div>
+          ) : reactionFeedback ? (
+            <motion.div
+              key="reaction-feedback"
+              className={`quality-zone reaction-feedback ${reactionFeedback.category}`}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {reactionFeedback.text}
+            </motion.div>
+          ) : (qualityHits || []).length > 0 ? (
+            <div key="quality-tracker" className="quality-tracker-container">
+              <span className="quality-tracker-label">Qualities Spotted</span>
+              <div className="quality-tracker">
+                {(qualityHits || []).map((hit) => (
+                  <motion.span
+                    key={hit.id}
+                    className={`quality-chip ${hit.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    {hit.name}
+                  </motion.span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </AnimatePresence>
 
         {/* Conversation Bubbles Area - dater speech text (always readable) */}
         <div className="conversation-bubbles">

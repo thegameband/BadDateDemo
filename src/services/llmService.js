@@ -747,11 +747,14 @@ React to what they revealed about themselves!`
  * Call this with the round question and the player's answer so the LLM has full context.
  * @returns {Promise<string|null>} The dater's reaction line (dialogue only).
  */
-export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null) {
+export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null, cycleNumber = 0) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const finalNote = isFinalRound
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
+    : ''
+  const wordLimitReminder = cycleNumber >= 4
+    ? '\nREMINDER — WORD LIMIT: Exactly 2 sentences. Each sentence: 5-12 words max. No exceptions.'
     : ''
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
@@ -788,7 +791,7 @@ CRITICAL RULES FOR YOUR REACTION:
 - React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
 - Be SPECIFIC. Reference what they actually said and connect it to something about yourself — your values, your past, your dealbreakers, what you find attractive.
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
-${finalNote}
+${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
 
@@ -820,34 +823,70 @@ ${finalNote}
  * @param {boolean} isFinalRound
  * @returns {Promise<string|null>}
  */
-export async function getDaterFollowupComment(dater, question, playerAnswer, firstReaction, priorAnswers = [], conversationHistory = [], isFinalRound = false) {
+export async function getDaterFollowupComment(dater, question, playerAnswer, firstReaction, priorAnswers = [], conversationHistory = [], isFinalRound = false, allowSelfAnswer = false, cycleNumber = 0, avatarName = 'your date') {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const finalNote = isFinalRound
     ? '\n\n🏁 This is the final round — your follow-up should have a sense of conclusion.'
     : ''
-
-  const priorContext = priorAnswers.length > 0
-    ? `Earlier in the date, they also said these things about themselves:\n${priorAnswers.map((a, i) => `${i + 1}. "${a}"`).join('\n')}`
+  const wordLimitReminder = cycleNumber >= 4
+    ? '\nREMINDER — WORD LIMIT: Exactly 2 sentences. Each sentence: 5-12 words max. No exceptions.'
     : ''
 
+  // Fix B: 20% chance to answer the question as themselves when allowSelfAnswer is enabled
+  if (allowSelfAnswer && Math.random() < 0.20) {
+    const daterName = dater?.name || 'the dater'
+    const selfAnswerTaskPrompt = `
+🎯 YOUR TASK: Instead of commenting on ${avatarName}'s answer, answer the question yourself, in character as ${daterName}.
+
+📋 THE QUESTION: "${question}"
+
+Be genuine and personal. Draw from your own personality, values, and life experience — not theirs.
+Keep to exactly 2 sentences, 5-12 words each.
+After your answer, briefly relate it back to what ${avatarName} said — do you see yourself in them, or is there a contrast?
+
+CRITICAL RULES:
+- Answer as YOURSELF. Do not analyze their answer — give YOUR answer.
+- Be revealing and authentic about who you are.
+- Exactly 2 sentences. Dialogue only, no actions or asterisks.${wordLimitReminder}
+`
+    const selfAnswerFullPrompt = systemPrompt + voicePrompt + selfAnswerTaskPrompt + buildPromptTail(dater)
+    const selfAnswerHistory = [...conversationHistory, { speaker: 'dater', message: firstReaction }]
+      .slice(-12)
+      .map(msg => ({
+        role: msg.speaker === 'dater' ? 'assistant' : 'user',
+        content: msg.message
+      }))
+    const selfAnswerUserContent = `[Answer the question "${question}" yourself, in character. Then briefly relate your answer back to what ${avatarName} said.]`
+    const selfAnswerMessages = selfAnswerHistory.length
+      ? [...selfAnswerHistory, { role: 'user', content: selfAnswerUserContent }]
+      : [{ role: 'user', content: selfAnswerUserContent }]
+    if (selfAnswerMessages[selfAnswerMessages.length - 1]?.role === 'assistant') {
+      selfAnswerMessages.push({ role: 'user', content: selfAnswerUserContent })
+    }
+    const selfAnswerResponse = await getChatResponse(selfAnswerMessages, selfAnswerFullPrompt)
+    return selfAnswerResponse ? stripActionDescriptions(selfAnswerResponse) : null
+  }
+
+  // Fix A: Ground the follow-up in the dater's own personality/values/backstory; do NOT hunt for prior answer links
   const taskPrompt = `
-🎯 YOUR TASK: Give a FOLLOW-UP comment. You already reacted to their answer; now go deeper with your opinion.
+🎯 YOUR TASK: Give a FOLLOW-UP comment. You already reacted to their answer; now explain WHY you feel the way you feel.
 
 📋 THE QUESTION WAS: "${question}"
 💬 THEY ANSWERED: "${playerAnswer}"
 💭 YOUR FIRST REACTION WAS: "${firstReaction}"
 
-${priorContext ? `${priorContext}\n\nScan the list above. Is there ONE previous thing they said that NATURALLY connects to "${playerAnswer}"? If so, mention it briefly — "Earlier you said X, and now this..." — to show you're paying attention. If NOTHING relates, don't force a connection. Instead, just share more of YOUR opinion on what they just said.` : `This is early in the date, so you don't have much history yet. Just share more of your opinion on what they said — why it matters to you, what it tells you about them.`}
+Your job is to go deeper into YOUR OWN reasoning. Why does this matter to you? What does it say about your values, your past, your personality? What does it make you feel about this person, and why?
+
+Do NOT reference any prior answers unless what they said DIRECTLY contradicts or extends something specific. If there is any doubt, do not reference it at all.
 
 CRITICAL RULES:
-- Do NOT try to combine everything they've said. At most, reference ONE prior answer — and only if it genuinely relates.
-- If nothing connects, just offer MORE of your opinion on the current answer. Go deeper into why you feel the way you do.
-- Have a CLEAR OPINION. Do you like this person more now? Less? Are you seeing a pattern you love or a red flag forming? SAY IT.
-- Never just observe that something is "weird" or "interesting" — explain WHY it matters to you personally based on your values and personality.
+- The main purpose of this comment is to elaborate on YOUR reaction using YOUR OWN reasoning — your personality, your values, your backstory.
+- Have a CLEAR OPINION. Do you like this person more now? Less? Are you sensing something you love or a red flag forming? SAY IT and explain why it hits you that way.
+- Never just observe that something is "weird" or "interesting" — explain WHY it matters to you personally.
 - Be honest and in character. If you're starting to fall for them, show it. If you're getting worried, say why.
 - Exactly 2 sentences. Dialogue only, no actions or asterisks.
-${finalNote}
+${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
 
@@ -857,7 +896,7 @@ ${finalNote}
       role: msg.speaker === 'dater' ? 'assistant' : 'user',
       content: msg.message
     }))
-  const userContent = `[Follow up on your reaction to "${playerAnswer}". If one previous thing they said relates, mention it. Otherwise, just share more of your opinion.]`
+  const userContent = `[Follow up on your reaction to "${playerAnswer}". Explain WHY you feel the way you do — ground it in your own personality, values, and backstory.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]

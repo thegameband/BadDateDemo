@@ -135,7 +135,7 @@
   background: linear-gradient(145deg, #2d1f3d 0%, #1a1225 100%);
   border: 2px solid rgba(255, 215, 0, 0.5);
   border-radius: 16px;
-  padding: 16px 32px;
+  padding: 10px 20px;
   text-align: center;
   box-shadow: 
     0 4px 20px rgba(0, 0, 0, 0.5),
@@ -157,7 +157,7 @@
 
 .round-prompt-subtitle {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: #fff;
   margin: 0;
@@ -1466,12 +1466,34 @@
   50% { transform: scale(1.02); }
 }
 
+/* Shared zone: quality popup / reaction feedback / tracker chips — in-flow at top of date-screen */
+.quality-zone {
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  z-index: 3;
+  flex-shrink: 0;
+}
+
+.quality-tracker-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.quality-tracker-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 215, 0, 0.7);
+  margin-bottom: 4px;
+}
+
 .quality-hit-popup {
-  position: fixed;
-  top: 108px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2200;
   max-width: 92vw;
   padding: 10px 14px;
   border-radius: 12px;
@@ -1706,7 +1728,7 @@
 
 /* When round prompt banner is visible, reserve space so submitted answers and content are not covered */
 .date-screen.has-round-prompt-banner {
-  padding-top: 170px;
+  padding-top: 120px;
 }
 
 /* Subtle romantic pattern overlay */
@@ -1726,11 +1748,11 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 10px 20px;
+  padding: 6px 16px;
   gap: 15px;
   position: relative;
   z-index: 2;
-  min-height: 80px;
+  min-height: 60px;
   margin-top: auto;
   margin-bottom: 15px;
 }
@@ -1828,7 +1850,7 @@
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  margin-bottom: 50px;
+  margin-bottom: 8px;
 }
 
 .character {
@@ -1838,8 +1860,8 @@
 }
 
 .character-image {
-  width: 240px;
-  height: 210px;
+  width: 160px;
+  height: 140px;
   border-radius: 16px;
   background: var(--bg-card);
   border: 4px solid var(--accent-pink);
@@ -2716,4 +2738,123 @@
 
 .chat-module.chat-module-single-input .chat-input-form {
   margin-top: 0;
+}
+
+/* ============================================
+   QUALITIES PANEL OVERLAY (Fix C)
+   ============================================ */
+
+.qualities-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(6px);
+}
+
+.qualities-panel {
+  background: linear-gradient(145deg, #2d1f26 0%, #3d2233 100%);
+  border: 2px solid rgba(255, 77, 109, 0.4);
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 360px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.qualities-panel-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin: 0 0 16px 0;
+  text-align: center;
+}
+
+.qualities-panel-section {
+  margin-bottom: 16px;
+}
+
+.qualities-panel-section-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.qualities-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+}
+
+.qualities-panel-item.hit {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: rgba(255, 215, 0, 0.4);
+}
+
+.qualities-panel-item.unmet {
+  opacity: 0.5;
+}
+
+.qualities-panel-item.dealbreaker.hit {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+.qualities-panel-rank {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'Space Mono', monospace;
+  min-width: 28px;
+}
+
+.qualities-panel-name {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.qualities-panel-hit-badge {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.qualities-panel-item.hit .qualities-panel-hit-badge {
+  color: #ffd166;
+}
+
+.qualities-panel-item.dealbreaker.hit .qualities-panel-hit-badge {
+  color: #ef4444;
+}
+
+.qualities-panel-close {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255, 77, 109, 0.3);
+  border: 2px solid rgba(255, 77, 109, 0.5);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.qualities-panel-close:hover {
+  background: rgba(255, 77, 109, 0.5);
 }

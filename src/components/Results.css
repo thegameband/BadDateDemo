@@ -235,6 +235,17 @@
   padding: 16px 40px;
 }
 
+/* Quality Report */
+.quality-report { margin: 16px 0; }
+.quality-report-title { font-size: 1.1rem; font-weight: 700; color: #fcd34d; margin-bottom: 12px; text-align: center; }
+.quality-report-section { margin-bottom: 10px; }
+.quality-report-section-label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+.quality-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.quality-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px; font-size: 0.72rem; font-weight: 700; border: 1px solid transparent; }
+.quality-chip.positive { color: #fef3c7; background: rgba(180,83,9,0.36); border-color: rgba(252,211,77,0.9); }
+.quality-chip.dealbreaker { color: #fecaca; background: rgba(153,27,27,0.45); border-color: rgba(248,113,113,0.95); }
+.quality-report-empty { color: rgba(255,255,255,0.5); font-size: 0.85rem; text-align: center; }
+
 /* Results buttons */
 .results-buttons {
   display: flex;
