@@ -813,6 +813,13 @@ function LiveDateScene() {
   
   // ============ STARTING STATS MODE LOGIC ============
   
+  // Reset narrator ref at game start so each new game reads its own plot twist summary
+  useEffect(() => {
+    if (livePhase === 'starting-stats') {
+      narratorSummarySpokenRef.current = null
+    }
+  }, [livePhase])
+
   // Initialize Starting Stats phase (host only)
   useEffect(() => {
     console.log('🎲 Starting Stats useEffect check:', {
@@ -1391,9 +1398,32 @@ RULES:
   
   // ============ END STARTING STATS MODE LOGIC ============
   
+  // Debug: skip first impressions + all questions and jump straight to plot twist
+  useEffect(() => {
+    if (livePhase === 'reaction' && isHost && useGameStore.getState().debugSkipToPlotTwist) {
+      useGameStore.setState({ debugSkipToPlotTwist: false })
+      console.log('🎭 DEBUG: Skipping to Plot Twist')
+      // Set avatar defaults so the plot twist has a name to work with
+      const avatarState = useGameStore.getState().avatar
+      if (!avatarState?.name || avatarState.name === 'Avatar') {
+        useGameStore.setState({
+          avatar: {
+            ...avatarState,
+            name: 'Test Player',
+            attributes: ['looks intriguing', 'seems adventurous', 'appears confident'],
+            personality: 'A test player jumping straight to the plot twist.',
+          }
+        })
+      }
+      const timer = setTimeout(() => startPlotTwist(), 500)
+      return () => clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePhase, isHost])
+
   // Trigger reaction round when phase changes to 'reaction'
   useEffect(() => {
-    if (livePhase === 'reaction' && isHost && !isGenerating) {
+    if (livePhase === 'reaction' && isHost && !isGenerating && !useGameStore.getState().debugSkipToPlotTwist) {
       // Small delay to let the UI update
       const timer = setTimeout(() => {
         runReactionRound()
@@ -2537,8 +2567,13 @@ Generate ${daterName}'s final verdict:`
                                  winnerTextLower.includes('kiss') ? 'attracted' : 'excited'
       setDaterEmotion(plotTwistDaterMood)
 
+      // Use only the last 4 messages so the LLM doesn't misread the conversation gap as silence
+      const trimmedHistory = (useGameStore.getState().dateConversation || []).slice(-4)
+
       // ===== COMMENT 1: Dater's gut reaction to what the Avatar DID =====
-      const comment1Prompt = `You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
+      const comment1Prompt = `CRITICAL: ${avatarName} was ACTIVELY engaged in this situation. They made a deliberate, conscious choice to "${winnerText || 'stay calm and handle it politely'}". Do NOT comment on them being quiet, silent, hesitant, or passive. They ACTED. React to that action.
+
+You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
 
 PLOT TWIST — You just witnessed something on your date.
 
@@ -2568,13 +2603,14 @@ EXAMPLES of strong opinions (match this energy):
 BAD examples (do NOT do this):
 - "That was unexpected." (too vague, no opinion)
 - "The stranger left after that happened." (summarizing the scene, not reacting)
-- "I can't believe that just happened." (no actual opinion about what THEY did)`
+- "I can't believe that just happened." (no actual opinion about what THEY did)
+- "You've been so quiet..." (they were NOT quiet — they actively chose to "${winnerText}")`
 
       console.log('🎭 Plot Twist Comment 1: Dater gut reaction to Avatar action')
       const daterReaction1 = await getDaterDateResponse(
         selectedDater,
         avatar,
-        useGameStore.getState().dateConversation || [],
+        trimmedHistory,
         null, null, { positive: 0, negative: 0 }, false, false,
         plotTwistCompat, comment1Prompt
       )
@@ -2582,8 +2618,11 @@ BAD examples (do NOT do this):
       const safeReaction1 = daterReaction1 || `Well, ${avatarName}... that was really something. I'm still processing what you just did.`
       console.log('🎭 Plot Twist Reaction 1:', safeReaction1)
       
+      // Bypass auto-TTS effect: pre-set ref so the effect skips, then manually control speak + visibility
+      lastSpokenDater.current = safeReaction1
       setDaterBubble(safeReaction1)
-      setTimeout(() => setDaterBubbleReady(true), 500)
+      setDaterBubbleReady(true)
+      if (ttsEnabled) speak(safeReaction1, 'dater')
       addDateMessage('dater', safeReaction1)
       syncConversationToPartyKit(undefined, safeReaction1)
       if (partyClient && isHost) {
@@ -2594,7 +2633,9 @@ BAD examples (do NOT do this):
       await new Promise(resolve => setTimeout(resolve, 1500))
 
       // ===== COMMENT 2: What the Avatar's action says about them + how it affects the dater's interest =====
-      const comment2Prompt = `You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
+      const comment2Prompt = `CRITICAL: ${avatarName} was ACTIVELY engaged in this situation. They chose to "${winnerText}". Do NOT comment on them being quiet, silent, hesitant, or passive. React only to what they DID.
+
+You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
 
 PLOT TWIST FOLLOW-UP — You already gave your gut reaction. Now go deeper.
 
@@ -2621,14 +2662,17 @@ EXAMPLES of strong follow-ups:
       const daterReaction2 = await getDaterDateResponse(
         selectedDater,
         avatar,
-        [...(useGameStore.getState().dateConversation || [])],
+        trimmedHistory,
         null, null, { positive: 0, negative: 0 }, false, false,
         plotTwistCompat, comment2Prompt
       )
 
       if (daterReaction2) {
+        // Bypass auto-TTS effect for comment 2 as well
+        lastSpokenDater.current = daterReaction2
         setDaterBubble(daterReaction2)
-        setTimeout(() => setDaterBubbleReady(true), 500)
+        setDaterBubbleReady(true)
+        if (ttsEnabled) speak(daterReaction2, 'dater')
         addDateMessage('dater', daterReaction2)
         syncConversationToPartyKit(undefined, daterReaction2)
         await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
@@ -2675,6 +2719,13 @@ EXAMPLES of strong follow-ups:
     setQuestionNarrationComplete(false)
     lastNarratedQuestionRef.current = ''
     
+    // Clear answer oval and input so they don't carry over into Phase 5
+    setSubmittedAnswer('')
+    setChatInput('')
+
+    // Reset narrator ref so the next game's plot twist VO always plays fresh
+    narratorSummarySpokenRef.current = null
+
     // Don't set dater bubble - the prompt is shown as interstitial
     setDaterBubble('')
     setAvatarBubble('')

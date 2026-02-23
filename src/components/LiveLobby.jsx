@@ -10,7 +10,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.02.75'
+const GAME_VERSION = '0.02.76'
 
 // Main game entry screen - Bad Date
 
@@ -591,6 +591,25 @@ function LiveLobby() {
                       </motion.button>
                     </div>
                     
+                    {/* Section: Skip To */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Skip To</div>
+                      <motion.button
+                        className="debug-action-btn"
+                        onClick={() => {
+                          setShowAdminModal(false)
+                          setShowDaterPicker(false)
+                          useGameStore.setState({ debugSkipToPlotTwist: true })
+                          handlePlayNow()
+                        }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="btn-icon">🎭</span>
+                        <span>Test: Jump to Plot Twist</span>
+                      </motion.button>
+                    </div>
+
                     {/* Section: Admin Actions */}
                     <div className="debug-section">
                       <div className="debug-section-label">Admin</div>

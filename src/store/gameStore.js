@@ -80,6 +80,8 @@ const initialLiveState = {
   showAttributesByDefault: false, // Whether to show sentiment categories by default
   // Quality-based scoring state
   qualityHits: [], // { id, name, rank, type: 'positive'|'dealbreaker', points, roundNumber }
+  // Debug flag: skip straight to plot twist phase
+  debugSkipToPlotTwist: false,
 }
 
 /**
