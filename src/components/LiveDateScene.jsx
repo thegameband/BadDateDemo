@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterFollowupComment, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import { adamScoring, getDefaultScoringProfileForDater } from '../data/scoring/adamScoring'
@@ -96,6 +96,7 @@ function LiveDateScene() {
   const qualityHitPopupTimeout = useRef(null)
   const [showDateBeginsOverlay, setShowDateBeginsOverlay] = useState(false)
   const [questionNarrationComplete, setQuestionNarrationComplete] = useState(true)
+  const [daterOpeningAnswerDone, setDaterOpeningAnswerDone] = useState(true)
   const [ttsStatusNote, setTtsStatusNote] = useState('')
   const [submittedAnswer, setSubmittedAnswer] = useState('') // Shown in oval beneath the question
   // Timer starts immediately when phase begins (no waiting for submissions)
@@ -116,6 +117,7 @@ function LiveDateScene() {
   const [ttsEnabled] = useState(true) // Enabled by default
   const lastSpokenDater = useRef('')
   const [hasSubmittedPlotTwist, setHasSubmittedPlotTwist] = useState(false)
+  const [plotTwistDaterAnswerDone, setPlotTwistDaterAnswerDone] = useState(false)
   const [plotTwistNarratorDone, setPlotTwistNarratorDone] = useState(false)
   const plotTwistTimerRef = useRef(null)
   const plotTwistAnimationRef = useRef(null)
@@ -151,8 +153,6 @@ function LiveDateScene() {
   const startingStatsTimerRef = useRef(null)
   const lastActivePlayerRef = useRef(null)
   const lastAnswerCountRef = useRef(0)
-  const selfAnswerBudgetRef = useRef(2)
-  
   const chatEndRef = useRef(null)
   const phaseTimerRef = useRef(null)
   const lastPhaseRef = useRef('')
@@ -715,6 +715,46 @@ function LiveDateScene() {
     narrateQuestion()
     return () => { cancelled = true }
   }, [livePhase, currentRoundPrompt?.subtitle])
+
+  // Phase 3 (Date Question 2): dater answers first in one sentence before player can type.
+  useEffect(() => {
+    if (livePhase !== 'phase1') return
+    setDaterOpeningAnswerDone(cycleCount !== 1)
+  }, [livePhase, cycleCount])
+
+  useEffect(() => {
+    if (!isHost || livePhase !== 'phase1' || cycleCount !== 1) return
+    if (!questionNarrationComplete || daterOpeningAnswerDone || !selectedDater) return
+
+    let cancelled = false
+    const runDaterOpener = async () => {
+      try {
+        const opener = await getDaterQuestionOpener(
+          selectedDater,
+          currentRoundPrompt?.subtitle || 'Tell me about yourself',
+          useGameStore.getState().dateConversation || []
+        )
+        if (cancelled) return
+        if (opener) {
+          if (ttsEnabled) setDaterBubbleReady(false)
+          setDaterBubble(opener)
+          addDateMessage('dater', opener)
+          await syncConversationToPartyKit(undefined, opener, undefined)
+          await waitForAllAudio()
+        }
+      } catch (err) {
+        console.error('Phase 3 opener error:', err)
+      } finally {
+        if (!cancelled) {
+          setDaterOpeningAnswerDone(true)
+        }
+      }
+    }
+
+    runDaterOpener()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- syncConversationToPartyKit is stable enough for this one-shot gating
+  }, [isHost, livePhase, cycleCount, questionNarrationComplete, daterOpeningAnswerDone, selectedDater, currentRoundPrompt?.subtitle, ttsEnabled])
 
   // Track timer value in a ref for the interval to access
   const phaseTimerValueRef = useRef(phaseTimer)
@@ -1739,17 +1779,6 @@ RULES:
         return null
       }
 
-      const priorAnswers = (useGameStore.getState().appliedAttributes || [])
-        .filter((a) => a && a !== playerAnswer)
-        .slice(-5)
-      const daterFollowup = await getDaterFollowupComment(
-        selectedDater, question, playerAnswer, daterReaction, priorAnswers, conversationHistory, isFinalRound,
-        selfAnswerBudgetRef.current > 0, currentCycleForCheck
-      )
-      if (selfAnswerBudgetRef.current > 0) {
-        selfAnswerBudgetRef.current = Math.max(0, selfAnswerBudgetRef.current - (Math.random() < 0.20 ? 1 : 0))
-      }
-
       const qualityResult = await checkQualityMatch(
         playerAnswer,
         question,
@@ -1773,15 +1802,6 @@ RULES:
             sentimentHit,
             scoringMultiplier: 1.0,
             needsJustify
-          },
-          {
-            avatarResponse: null,
-            daterReaction: daterFollowup || '',
-            daterMood: getDaterEmotionFromSentiment(null, currentCompat),
-            qualityResult: null,
-            sentimentHit: null,
-            scoringMultiplier: 0,
-            needsJustify: false
           }
         ].filter(e => e.daterReaction),
         avatarWithNewAttr: { ...avatar, attributes: avatar.attributes.includes(playerAnswer) ? avatar.attributes : [...avatar.attributes, playerAnswer] }
@@ -2251,6 +2271,7 @@ Generate ${daterName}'s final verdict:`
     }
     setPlotTwist(initialPlotTwist)
     setHasSubmittedPlotTwist(false)
+    setPlotTwistDaterAnswerDone(false)
     setPlotTwistInput('')
     allPlotTwistAnsweredRef.current = false // Reset auto-advance flag
     
@@ -2276,7 +2297,7 @@ Generate ${daterName}'s final verdict:`
   }
   
   // Move from interstitial to input phase
-  const advancePlotTwistToInput = () => {
+  const advancePlotTwistToInput = async () => {
     if (!isHost) return
     
     const newPlotTwist = {
@@ -2290,8 +2311,28 @@ Generate ${daterName}'s final verdict:`
     if (partyClient) {
       partyClient.syncState({ plotTwist: newPlotTwist })
     }
-    
-    // No plot twist timer: advance via Continue button (advancePlotTwistToReveal)
+
+    try {
+      const opener = await getDaterQuestionOpener(
+        selectedDater,
+        'Another person just hit on me. What would you do?',
+        useGameStore.getState().dateConversation || []
+      )
+      if (opener) {
+        if (ttsEnabled) setDaterBubbleReady(false)
+        setDaterBubble(opener)
+        addDateMessage('dater', opener)
+        await syncConversationToPartyKit(undefined, opener, undefined)
+        await waitForAllAudio()
+      }
+    } catch (err) {
+      console.error('Plot twist opener error:', err)
+    } finally {
+      setPlotTwistDaterAnswerDone(true)
+      if (partyClient) {
+        partyClient.syncState({ plotTwistDaterAnswerDone: true })
+      }
+    }
   }
   
   // Submit a plot twist answer (any player)
@@ -2722,6 +2763,7 @@ EXAMPLES of strong follow-ups:
     // Clear answer oval and input so they don't carry over into Phase 5
     setSubmittedAnswer('')
     setChatInput('')
+    setPlotTwistDaterAnswerDone(false)
 
     // Reset narrator ref so the next game's plot twist VO always plays fresh
     narratorSummarySpokenRef.current = null
@@ -3185,6 +3227,7 @@ EXAMPLES of strong follow-ups:
     // In Phase 1, player's message is the answer for this round (no wheel)
     if (livePhase === 'phase1') {
       if (!questionNarrationComplete) return
+      if (cycleCount === 1 && !daterOpeningAnswerDone) return
       if (partyClient) {
         partyClient.submitAttribute(message, username, playerId)
         addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
@@ -3511,6 +3554,9 @@ EXAMPLES of strong follow-ups:
                 
                 {!hasSubmittedPlotTwist ? (
                   <div className="plot-twist-input-area">
+                    {!plotTwistDaterAnswerDone && (
+                      <p className="plot-twist-submitted-note">Let {selectedDater?.name || 'your date'} answer first...</p>
+                    )}
                     <form onSubmit={(e) => {
                       e.preventDefault()
                       submitPlotTwistAnswer(plotTwistInput)
@@ -3520,13 +3566,14 @@ EXAMPLES of strong follow-ups:
                         className="plot-twist-input"
                         value={plotTwistInput}
                         onChange={(e) => setPlotTwistInput(e.target.value)}
-                        placeholder="e.g., 'Challenge them to a dance-off'"
+                        placeholder={plotTwistDaterAnswerDone ? "e.g., 'Challenge them to a dance-off'" : "Listen to your date first..."}
                         autoFocus
+                        disabled={!plotTwistDaterAnswerDone}
                       />
                       <button 
                         type="submit" 
                         className="plot-twist-submit-btn"
-                        disabled={!plotTwistInput.trim()}
+                        disabled={!plotTwistInput.trim() || !plotTwistDaterAnswerDone}
                       >
                         Submit
                       </button>
@@ -4281,14 +4328,21 @@ EXAMPLES of strong follow-ups:
                   type="text"
                   className="chat-input"
                   placeholder={livePhase === 'phase1'
-                    ? (questionNarrationComplete ? 'Type your answer...' : 'Listen to the question...')
+                    ? (!questionNarrationComplete
+                      ? 'Listen to the question...'
+                      : (cycleCount === 1 && !daterOpeningAnswerDone)
+                        ? `Listen to ${selectedDater?.name || 'your date'}...`
+                        : 'Type your answer...')
                     : livePhase === 'plot-twist'
                       ? 'What do you do?'
                       : 'Type your answer...'}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   maxLength={100}
-                  disabled={livePhase === 'phase1' && !questionNarrationComplete}
+                  disabled={
+                    (livePhase === 'phase1' && !questionNarrationComplete) ||
+                    (livePhase === 'phase1' && cycleCount === 1 && !daterOpeningAnswerDone)
+                  }
                 />
                 <button type="submit" className="chat-send-btn">✨</button>
               </form>

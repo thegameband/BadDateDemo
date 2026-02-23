@@ -754,7 +754,7 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? '\nREMINDER — WORD LIMIT: Exactly 2 sentences. Each sentence: 5-12 words max. No exceptions.'
+    ? '\nREMINDER — WORD LIMIT: 1-2 sentences. Each sentence: 5-15 words max. No exceptions.'
     : ''
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
@@ -790,7 +790,7 @@ CRITICAL RULES FOR YOUR REACTION:
 - You MUST have an OPINION. Never just say something is "weird" or "strange" or "interesting" without explaining WHY you feel that way based on your personality, your values, and your life experience.
 - React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
 - Be SPECIFIC. Reference what they actually said and connect it to something about yourself — your values, your past, your dealbreakers, what you find attractive.
-- Exactly 2 sentences. Dialogue only, no actions or asterisks.
+- 1-2 sentences. Dialogue only, no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
@@ -807,6 +807,41 @@ ${finalNote}${wordLimitReminder}
     messages.push({ role: 'user', content: userContent })
   }
 
+  const response = await getChatResponse(messages, fullPrompt)
+  return response ? stripActionDescriptions(response) : null
+}
+
+/**
+ * Dater gives a short, in-character answer to a prompt before the player responds.
+ * Used for "dater answers first" moments in specific phases.
+ * @returns {Promise<string|null>} One-sentence opener.
+ */
+export async function getDaterQuestionOpener(dater, question, conversationHistory = []) {
+  const systemPrompt = buildDaterAgentPrompt(dater, 'date')
+  const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
+  const taskPrompt = `
+🎯 YOUR TASK: Answer this question as yourself, in character.
+
+📋 QUESTION: "${question}"
+
+CRITICAL RULES:
+- Exactly 1 sentence.
+- 8-15 words.
+- Give a clear opinion grounded in your personality/values.
+- Dialogue only, no actions or asterisks.
+`
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
+  const historyMessages = conversationHistory.slice(-8).map(msg => ({
+    role: msg.speaker === 'dater' ? 'assistant' : 'user',
+    content: msg.message
+  }))
+  const userContent = `[Answer the question "${question}" in exactly one sentence, in character.]`
+  const messages = historyMessages.length
+    ? [...historyMessages, { role: 'user', content: userContent }]
+    : [{ role: 'user', content: userContent }]
+  if (messages[messages.length - 1]?.role === 'assistant') {
+    messages.push({ role: 'user', content: userContent })
+  }
   const response = await getChatResponse(messages, fullPrompt)
   return response ? stripActionDescriptions(response) : null
 }
