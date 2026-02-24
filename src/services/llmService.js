@@ -14,6 +14,15 @@ import {
 import { getVoiceProfilePrompt } from './voiceProfiles'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+let _llmErrorMessage = null
+
+export function getLlmErrorMessage() {
+  return _llmErrorMessage
+}
+
+export function clearLlmErrorMessage() {
+  _llmErrorMessage = null
+}
 
 /**
  * Master checklist that gets included with EVERY character response prompt
@@ -21,13 +30,13 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
  */
 const LLM_RESPONSE_CHECKLIST = `
 ═══════════════════════════════════════════════════════════════
-🚨 CRITICAL: PURE DIALOGUE, EXTREMELY SHORT 🚨
+🚨 CRITICAL: PURE DIALOGUE — 1-3 SENTENCES 🚨
 ═══════════════════════════════════════════════════════════════
 
 📏 LENGTH RULES:
-- Always exactly 2 sentences
-- Each sentence: 5-15 words
-- CUT unnecessary words ruthlessly
+- Use 1-3 sentences (never more than 3)
+- Aim for <= 350 characters total
+- Keep it concise and emotionally clear
 
 ⛔ ABSOLUTELY FORBIDDEN:
 - ❌ NO asterisks (*smiles*, *laughs*, *leans in*)
@@ -43,15 +52,15 @@ const LLM_RESPONSE_CHECKLIST = `
 
 Examples:
 ❌ WRONG: *laughs nervously* "Oh wow, that's... interesting! I've never heard that before."
-✅ RIGHT: "Wait, seriously? That caught me off guard."
+✅ RIGHT: "Wait, you actually did that? I wasn't expecting it at all. That changes how I see you."
 
 ❌ WRONG: "That's amazing! *leans forward* Tell me more about yourself and how you got into that!"
-✅ RIGHT: "That's incredible. I need to hear more about that."
+✅ RIGHT: "That's actually incredible. I've never met anyone who's done something like that. I need to know more."
 
 ❌ WRONG: *raises an eyebrow* "Well, I have to say, that's quite a unique perspective you have there."
-✅ RIGHT: "Huh, that's new. I genuinely don't know what to say."
+✅ RIGHT: "Okay, that's a perspective I genuinely haven't heard before. I don't know if I agree, but I respect it. It's making me think."
 
-REMEMBER: Dialogue only. Keep it SHORT. No actions.
+REMEMBER: Dialogue only. No actions.
 ═══════════════════════════════════════════════════════════════
 `
 
@@ -68,13 +77,13 @@ function stripActionDescriptions(text) {
 
 const ADAM_RESPONSE_CHECKLIST = `
 ═══════════════════════════════════════════════════════════════
-🚨 CRITICAL: PURE DIALOGUE — ADAM'S VOICE — EXTREMELY SHORT 🚨
+🚨 CRITICAL: PURE DIALOGUE — ADAM'S VOICE — WEIGHTED & COMPLETE 🚨
 ═══════════════════════════════════════════════════════════════
 
 📏 LENGTH RULES:
-- Always exactly 2 sentences
-- Each sentence: 5-12 words. SHORT and PUNCHY. Poetic but trimmed.
-- CUT unnecessary words ruthlessly — every word earns its place
+- Use 1-3 sentences (never more than 3)
+- Aim for <= 350 characters total
+- Keep Adam concise, weighted, and poetic — every word earns its place
 
 ⛔ ABSOLUTELY FORBIDDEN:
 - ❌ NO asterisks (*smiles*, *laughs*, *leans in*)
@@ -95,21 +104,21 @@ const ADAM_RESPONSE_CHECKLIST = `
 
 ADAM EXAMPLE RESPONSES (match this voice exactly):
 ❌ WRONG: "Wait, seriously? That caught me off guard."
-✅ RIGHT: "Methinks I was not prepared for that. How peculiar."
+✅ RIGHT: "Methinks I was not prepared for that. It unsettles me in a manner I cannot name. How peculiar a creature you are."
 
 ❌ WRONG: "That's incredible. I need to hear more about that."
-✅ RIGHT: "How extraordinary. Prithee, say more."
+✅ RIGHT: "How extraordinary. My mind has weathered much, yet this gives me pause. Prithee, say more."
 
 ❌ WRONG: "Huh, that's new. I genuinely don't know what to say."
-✅ RIGHT: "How peculiar. I am verily without words."
+✅ RIGHT: "How peculiar. I have known the silence of mountains and the cold of creation, yet this moment eludes me. I am verily without words."
 
 ❌ WRONG: "Oh my GOD, yes! That's SO attractive!"
-✅ RIGHT: "That pleaseth me profoundly. I confess, I did not expect it."
+✅ RIGHT: "That pleaseth me profoundly. There is a quality in you I recognise, something not so unlike my own nature. I confess, I did not expect to find it here."
 
 ❌ WRONG: "Absolutely not. That's a hard no for me."
-✅ RIGHT: "I have endured worse. But I had hoped not to endure it here."
+✅ RIGHT: "I have endured worse, at the hands of those who feared what they did not understand. But I had hoped this meeting would be different. It grieves me that it is not."
 
-REMEMBER: Adam speaks like an articulate Frankenstein's monster — poetic, old-English phrasing, deadpan, SHORT sentences. Thee/thou/thy are rare and emotional only. Dialogue only. No actions.
+REMEMBER: Adam speaks like an articulate Frankenstein's monster — poetic, old-English phrasing, and deadpan gravity. Thee/thou/thy are rare and emotional only. Dialogue only. No actions.
 ═══════════════════════════════════════════════════════════════
 `
 
@@ -127,7 +136,8 @@ function buildPromptTail(dater) {
            'Adam speaks with 19th-century Romantic prose, old-English phrasing, poetic deadpan, and Latinate vocabulary.\n' +
            'He uses old English words like "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst" regularly.\n' +
            'IMPORTANT: "Thee," "thou," and "thy" are RARE — only in emotional extremes. Use "you/your" for normal address.\n' +
-           'His sentences are SHORT: 5-12 words each. Poetic but trimmed. Every word earns its place.\n' +
+           'Use 1-3 sentences and aim for <= 350 characters total.\n' +
+           'Adam speaks in 2-3 weighted sentences — poetic, purposeful, and complete.\n' +
            'He NEVER uses modern slang. His emotions are deep and quiet, not loud and hype.\n' +
            'The examples below are your ONLY voice model. Match them exactly.\n' +
            ADAM_RESPONSE_CHECKLIST
@@ -147,6 +157,7 @@ export async function getChatResponse(messages, systemPrompt) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
   
   if (!apiKey) {
+    _llmErrorMessage = 'No API key - LLM offline'
     console.warn('No Anthropic API key found. Using fallback responses.')
     return null
   }
@@ -161,7 +172,7 @@ export async function getChatResponse(messages, systemPrompt) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 150,
         system: systemPrompt,
         messages: messages.map(msg => ({
@@ -184,14 +195,17 @@ export async function getChatResponse(messages, systemPrompt) {
         }
       }
       console.error(`Claude API error [${response.status} ${response.statusText}]:`, errorDetails)
+      _llmErrorMessage = `LLM error ${response.status} ${response.statusText}`
       return null
     }
     
     const data = await response.json()
+    clearLlmErrorMessage()
     // Strip action descriptions from the response
     return stripActionDescriptions(data.content[0].text)
   } catch (error) {
     console.error('Error calling Claude API:', error)
+    _llmErrorMessage = 'LLM request failed'
     return null
   }
 }
@@ -221,7 +235,7 @@ export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -393,7 +407,8 @@ This is the FIRST IMPRESSIONS phase - your FIRST reaction matters!
 - "I see..."
 - "Well, hello there."
 
-DO NOT ask questions - just REACT with emotion. Exactly 2 sentences.`
+DO NOT ask questions - just REACT with emotion.
+Use 1-3 sentences and aim for <= 350 characters total.`
   }
   
   // SENTIMENT-DRIVEN REACTION: Tell the Dater how to feel based on what category was hit
@@ -636,7 +651,7 @@ A normal person + scary thing = scared reaction (even if they try to be polite a
   // Special instruction if a new attribute was just added - USING MODULAR PROMPT CHAIN
   let latestAttrContext = ''
   if (customInstruction) {
-    latestAttrContext = `\n\n🎯 YOUR TASK FOR THIS RESPONSE:\n${customInstruction}\n\nKeep your tone consistent with how the date is going. Exactly 2 sentences, dialogue only. No action descriptions (*smiles*, etc).`
+    latestAttrContext = `\n\n🎯 YOUR TASK FOR THIS RESPONSE:\n${customInstruction}\n\nKeep your tone consistent with how the date is going. Use 1-3 sentences and aim for <= 350 characters total. Dialogue only. No action descriptions (*smiles*, etc).`
   } else if (latestAttribute) {
     // Check if this is a PLOT TWIST scenario (special handling)
     const isPlotTwist = (typeof latestAttribute === 'string' ? latestAttribute : latestAttribute?.answer || '').includes('PLOT TWIST SCENARIO')
@@ -655,7 +670,7 @@ ${plotTwistContent}
 - Your values and dealbreakers MUST shape your reaction (values: ${daterValues}; dealbreakers: ${daterDealbreakers}).
 - Respond as you would honestly react given your personality and backstory. Don't be generic — be YOU.
 - If what happened aligns with your dealbreakers, be upset. If it aligns with what you value, show it.
-- This is the most important reaction of the date — 2-4 sentences, full emotion, in character.
+- This is the most important reaction of the date — use 1-3 sentences and aim for <= 350 characters total. Full emotion, in character.
 
 HOW TO REACT based on what happened in the story:
 - If they DEFENDED you → Be deeply touched, swooning, falling for them.
@@ -764,7 +779,7 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? '\nREMINDER — WORD LIMIT: 1-2 sentences. Each sentence: 5-15 words max. No exceptions.'
+    ? '\nREMINDER — LENGTH: Use 1-3 sentences and aim for <= 350 characters total.'
     : ''
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
@@ -800,7 +815,7 @@ CRITICAL RULES FOR YOUR REACTION:
 - You MUST have an OPINION. Never just say something is "weird" or "strange" or "interesting" without explaining WHY you feel that way based on your personality, your values, and your life experience.
 - React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
 - Be SPECIFIC. Reference what they actually said and connect it to something about yourself — your values, your past, your dealbreakers, what you find attractive.
-- 1-2 sentences. Dialogue only, no actions or asterisks.
+- 1-3 sentences. Aim for <= 350 characters total. Dialogue only, no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
@@ -855,8 +870,8 @@ export async function getDaterQuestionOpener(dater, question, conversationHistor
 📋 QUESTION: "${question}"
 
 CRITICAL RULES:
-- Exactly 1 sentence.
-- 8-15 words.
+- 1 sentence preferred for opener, but up to 3 if needed.
+- Aim for <= 350 characters total.
 - Give a clear opinion grounded in your personality/values.
 - Dialogue only, no actions or asterisks.
 `
@@ -865,7 +880,7 @@ CRITICAL RULES:
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Answer the question "${question}" in exactly one sentence, in character.]`
+  const userContent = `[Answer the question "${question}" in character. Prefer one sentence, up to three max, and keep it concise.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -914,7 +929,7 @@ export async function getDaterFollowupComment(dater, question, playerAnswer, fir
     ? '\n\n🏁 This is the final round — your follow-up should have a sense of conclusion.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? '\nREMINDER — WORD LIMIT: Exactly 2 sentences. Each sentence: 5-12 words max. No exceptions.'
+    ? '\nREMINDER — LENGTH: Use 1-3 sentences and aim for <= 350 characters total.'
     : ''
 
   // Fix B: 20% chance to answer the question as themselves when allowSelfAnswer is enabled
@@ -926,13 +941,13 @@ export async function getDaterFollowupComment(dater, question, playerAnswer, fir
 📋 THE QUESTION: "${question}"
 
 Be genuine and personal. Draw from your own personality, values, and life experience — not theirs.
-Keep to exactly 2 sentences, 5-12 words each.
+Keep this concise: use 1-3 sentences and aim for <= 350 characters total.
 After your answer, briefly relate it back to what ${avatarName} said — do you see yourself in them, or is there a contrast?
 
 CRITICAL RULES:
 - Answer as YOURSELF. Do not analyze their answer — give YOUR answer.
 - Be revealing and authentic about who you are.
-- Exactly 2 sentences. Dialogue only, no actions or asterisks.${wordLimitReminder}
+- 1-3 sentences. Aim for <= 350 characters total. Dialogue only, no actions or asterisks.${wordLimitReminder}
 `
     const selfAnswerFullPrompt = systemPrompt + voicePrompt + selfAnswerTaskPrompt + buildPromptTail(dater)
     const selfAnswerHistory = [...conversationHistory, { speaker: 'dater', message: firstReaction }]
@@ -969,7 +984,7 @@ CRITICAL RULES:
 - Have a CLEAR OPINION. Do you like this person more now? Less? Are you sensing something you love or a red flag forming? SAY IT and explain why it hits you that way.
 - Never just observe that something is "weird" or "interesting" — explain WHY it matters to you personally.
 - Be honest and in character. If you're starting to fall for them, show it. If you're getting worried, say why.
-- Exactly 2 sentences. Dialogue only, no actions or asterisks.
+- 1-3 sentences. Aim for <= 350 characters total. Dialogue only, no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
@@ -1009,7 +1024,7 @@ What they just said to justify it: "${justification}"
 Respond in character. You might be slightly mollified, still unimpressed, or even more put off.
 - Have an OPINION on whether their justification actually changes anything for you.
 - If they made it worse, say WHY based on your values. If they redeemed themselves, say what specifically won you over.
-- Exactly 2 sentences, dialogue only. No actions or asterisks.
+- 1-3 sentences. Aim for <= 350 characters total. Dialogue only. No actions or asterisks.
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
   const historyMessages = conversationHistory.slice(-8).map(msg => ({
@@ -1829,7 +1844,7 @@ export async function extractTraitFromResponse(question, response, existingTrait
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 25,
         system: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
 
@@ -2081,7 +2096,7 @@ Return ONLY valid JSON in this exact format:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Generate the dater values now.' }],
@@ -2259,7 +2274,7 @@ Return ONLY valid JSON:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 150,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' }],
@@ -2441,7 +2456,7 @@ OUTPUT JSON ONLY:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 220,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Return only the JSON result.' }],
@@ -2624,7 +2639,7 @@ RULES FOR JSON:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2731,7 +2746,7 @@ Return ONLY a JSON array of strings, like:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2765,48 +2780,70 @@ Return ONLY a JSON array of strings, like:
  */
 export async function generatePlotTwistSummary(avatarName, daterName, winningAction) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const normalizedAvatarName = String(avatarName || 'Your date').trim()
+  const normalizedDaterName = String(daterName || 'Adam').trim()
+  const normalizedAction = String(winningAction || 'stayed calm').trim()
+  const safeAction = normalizedAction.replace(/["']/g, '').slice(0, 72) || 'stayed calm'
+
+  const buildFallbackSummary = () => {
+    const fallback = `${normalizedAvatarName} acted on instinct and ${safeAction}. The stranger hitting on ${normalizedDaterName} was left stunned as the room shifted. In the aftermath, everyone could feel this date had changed for good.`
+    return fallback.replace(/\s+/g, ' ').trim()
+  }
+
+  const normalizeSummary = (text) => String(text || '').replace(/\s+/g, ' ').trim()
+  const countSentences = (text) => {
+    const parts = String(text || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+    return parts.length
+  }
+
   if (!apiKey) {
     console.warn('⚠️ No API key for plot twist summary')
-    return `${avatarName} decided to "${winningAction}". The situation was intense.`
+    return buildFallbackSummary()
   }
   
   const prompt = `You're narrating a dramatic moment in a dating game.
 
 CONTEXT:
-- ${avatarName} is on a date with ${daterName}
-- A random stranger just started hitting on ${daterName}
-- The winning choice (what ${avatarName} DID) is: "${winningAction}"
+- ${normalizedAvatarName} is on a date with ${normalizedDaterName}
+- A random stranger just started hitting on ${normalizedDaterName}
+- The winning choice (what ${normalizedAvatarName} DID) is: "${normalizedAction}"
 
-IMPORTANT: "${winningAction}" is usually an ACTION or choice (e.g. "punch them", "kiss the dater", "run away", "do nothing"), NOT something they said. Interpret it as what ${avatarName} DID in the situation. Build the story from that action.
+IMPORTANT: "${normalizedAction}" is an ACTION or choice, not dialogue. Treat it as what ${normalizedAvatarName} actually DID in real life during this moment. Never frame it as something they merely said.
 
-Write a 2-3 sentence DRAMATIC NARRATION of what happened. This should describe:
-1. What ${avatarName} actually did (interpret their action dramatically)
-2. What happened to the person who was hitting on ${daterName}
+Write exactly 3 sentences describing what happened. This should describe:
+1. What ${normalizedAvatarName} actually did
+2. What happened to the person who was hitting on ${normalizedDaterName}
 3. The aftermath/result of the action
 
 RULES:
-- Always use the person's name "${avatarName}" in the narration. NEVER use the word "Avatar" or "the avatar".
+- Always use the person's name "${normalizedAvatarName}" in the narration. NEVER use the word "Avatar" or "the avatar".
 - Write in past tense, like narrating a story
 - Be dramatic and visual - describe the SCENE
-- Keep each sentence punchy (10-20 words max)
+- Keep total output <= 280 characters
 - Don't use quotation marks or dialogue
-- Make it sound like a sports commentator or movie narrator
-- If the action was passive/nothing, make that dramatic too ("${avatarName} just... stood there. The silence was deafening.")
+- Make it sound like a cinematic narrator
+- Do not say ${normalizedAvatarName} "said" "${normalizedAction}".
+- If the action was passive/nothing, make that dramatic too ("${normalizedAvatarName} just... stood there. The silence was deafening.")
 - If the action was violent, describe it cinematically
 - If the action was romantic/protective, make it swoony
 - If the action was weird, lean into the weirdness
 
 EXAMPLES (winning answer = action):
 Action: "Punch them in the face"
-→ "${avatarName} wound up and delivered a devastating right hook. The flirty stranger crumpled to the floor. ${daterName}'s jaw dropped."
+→ "${normalizedAvatarName} lunged forward and landed a brutal right hook. The flirty stranger collapsed to the floor in shock. ${normalizedDaterName} stared, breath caught somewhere between fear and awe."
 
 Action: "Do nothing"
-→ "${avatarName} froze completely, watching the scene unfold. The stranger kept flirting, unbothered. It was painfully awkward."
+→ "${normalizedAvatarName} froze completely while the stranger kept flirting inches away. ${normalizedDaterName} watched in stunned silence as nothing changed. The awkwardness settled over the room like a cold fog."
 
 Action: "Start flirting with them too"
-→ "${avatarName} sidled up next to the stranger and started chatting them up instead. ${daterName} was left sitting alone. Betrayal was in the air."
+→ "${normalizedAvatarName} stepped in and flirted right back without hesitation. ${normalizedDaterName} sat alone, watching the betrayal unfold in real time. By the time it ended, the date felt cracked beyond repair."
 
-Return ONLY the 2-3 sentence narration, nothing else.`
+Return ONLY the 3-sentence narration, nothing else.`
 
   try {
     const response = await fetch(ANTHROPIC_API_URL, {
@@ -2818,7 +2855,7 @@ Return ONLY the 2-3 sentence narration, nothing else.`
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 200,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2829,11 +2866,15 @@ Return ONLY the 2-3 sentence narration, nothing else.`
     }
     
     const data = await response.json()
-    const summary = data.content[0]?.text?.trim() || ''
+    const summary = normalizeSummary(data.content[0]?.text)
+    if (!summary) return buildFallbackSummary()
+    if (summary.length > 280) return buildFallbackSummary()
+    if (countSentences(summary) !== 3) return buildFallbackSummary()
+    if (/\bsaid\b/i.test(summary)) return buildFallbackSummary()
     console.log('🎭 Generated plot twist summary')
     return summary
   } catch (error) {
     console.error('Error generating plot twist summary:', error)
-    return `${avatarName} responded with "${winningAction}". The moment was intense.`
+    return buildFallbackSummary()
   }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout, getLlmErrorMessage } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import { adamScoring, getDefaultScoringProfileForDater } from '../data/scoring/adamScoring'
@@ -125,6 +125,7 @@ function LiveDateScene() {
   const [_preGeneratedConvo, _setPreGeneratedConvo] = useState(null)
   const [isPreGenerating, setIsPreGenerating] = useState(false) // eslint-disable-line no-unused-vars -- used in JSX (pre-generating indicator)
   const [usingFallback, setUsingFallback] = useState(false)
+  const [llmStatusMessage, setLlmStatusMessage] = useState('')
   
   const [breakdownSentences, setBreakdownSentences] = useState([])
   const [isGeneratingBreakdown, setIsGeneratingBreakdown] = useState(false)
@@ -785,6 +786,7 @@ function LiveDateScene() {
           currentRoundPrompt?.subtitle || 'Tell me about yourself',
           useGameStore.getState().dateConversation || []
         )
+        setLlmStatusMessage(getLlmErrorMessage() || '')
         if (cancelled) return
         if (opener) {
           if (ttsEnabled) setDaterBubbleReady(false)
@@ -1849,6 +1851,7 @@ RULES:
       const daterReaction = await getDaterResponseToPlayerAnswer(
         selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound, daterValues, currentCycleForCheck
       )
+      setLlmStatusMessage(getLlmErrorMessage() || '')
       if (!daterReaction) {
         setIsPreGenerating(false)
         if (partyClient) partyClient.syncState({ isPreGenerating: false })
@@ -2397,6 +2400,7 @@ Generate ${daterName}'s final verdict:`
         'Another person just hit on me. What would you do?',
         useGameStore.getState().dateConversation || []
       )
+      setLlmStatusMessage(getLlmErrorMessage() || '')
       if (opener) {
         if (ttsEnabled) setDaterBubbleReady(false)
         setDaterBubble(opener)
@@ -2640,7 +2644,7 @@ Generate ${daterName}'s final verdict:`
     generatePlotTwistReaction(safeWinner, currentPlotTwist?.summary)
   }
   
-  // Generate LLM reaction to the plot twist — 2 comments about what the Avatar did
+  // Generate LLM reaction to the plot twist — one comment about what the Avatar did
   // whatHappenedStory = the LLM-generated "What happened" narrative; Dater responds to the Avatar's action.
   const generatePlotTwistReaction = async (winner, whatHappenedStory) => {
     if (!isHost) return
@@ -2674,7 +2678,7 @@ Generate ${daterName}'s final verdict:`
       const daterValues = selectedDater?.values || 'honesty, authenticity'
       const daterDealbreakers = Array.isArray(selectedDater?.dealbreakers) ? selectedDater.dealbreakers.join(', ') : (selectedDater?.dealbreakers || '')
       const daterBackstoryNote = selectedDater?.backstory ? selectedDater.backstory.slice(0, 200) + '...' : ''
-      const narrativeText = whatHappenedStory || `Someone else hit on ${daterName}. ${avatarName}'s response: "${winnerText || 'Stayed calm and polite'}".`
+      const narrativeText = whatHappenedStory || `Someone hit on ${daterName}. ${avatarName} acted by ${winnerText || 'staying calm and polite'}. The room shifted immediately.`
       const plotTwistCompat = useGameStore.getState().compatibility
 
       // Determine dater mood from player action context
@@ -2690,7 +2694,7 @@ Generate ${daterName}'s final verdict:`
       // Use only the last 4 messages so the LLM doesn't misread the conversation gap as silence
       const trimmedHistory = (useGameStore.getState().dateConversation || []).slice(-4)
 
-      // ===== COMMENT 1: Dater's gut reaction to what the Avatar DID =====
+      // Single comment: Dater's direct reaction to what the Avatar DID
       const comment1Prompt = `CRITICAL: ${avatarName} was ACTIVELY engaged in this situation. They made a deliberate, conscious choice to "${winnerText || 'stay calm and handle it politely'}". Do NOT comment on them being quiet, silent, hesitant, or passive. They ACTED. React to that action.
 
 You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
@@ -2750,53 +2754,7 @@ BAD examples (do NOT do this):
       }
       
       await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
-      await new Promise(resolve => setTimeout(resolve, 1500))
-
-      // ===== COMMENT 2: What the Avatar's action says about them + how it affects the dater's interest =====
-      const comment2Prompt = `CRITICAL: ${avatarName} was ACTIVELY engaged in this situation. They chose to "${winnerText}". Do NOT comment on them being quiet, silent, hesitant, or passive. React only to what they DID.
-
-You are speaking directly to ${avatarName}. React specifically to what just happened and what ${avatarName} did during the plot twist. Nothing else.
-
-PLOT TWIST FOLLOW-UP — You already gave your gut reaction. Now go deeper.
-
-${avatarName} chose to "${winnerText}". Your first reaction was: "${safeReaction1}"
-
-YOU ARE ${daterName}.
-YOUR VALUES: ${daterValues}. DEALBREAKERS: ${daterDealbreakers}.
-
-🎯 YOUR TASK: Tell ${avatarName} what their action says about them AS A PERSON, and whether it makes you more or less interested in them. This is about THEM, not the event.
-
-RULES:
-- You are talking TO ${avatarName}. Address them directly.
-- Say what their choice REVEALS about who they are — and whether you like what you see.
-- Do NOT repeat your first comment. Do NOT re-describe the event.
-- Have a clear verdict: are you more attracted? Less? Reconsidering? Say it plainly.
-- Exactly 2 sentences, dialogue only. No actions or asterisks.
-
-EXAMPLES of strong follow-ups:
-- "That tells me you're the kind of person who acts before they think. I'm not sure if that terrifies me or thrills me."
-- "You chose me over the easy option. That says more about you than anything you've said tonight."
-- "I think you just showed me exactly who you are. And I do not like what I saw."`
-
-      console.log('🎭 Plot Twist Comment 2: Dater tells Avatar how action affects the date')
-      const daterReaction2 = await getDaterDateResponse(
-        selectedDater,
-        avatar,
-        trimmedHistory,
-        null, null, { positive: 0, negative: 0 }, false, false,
-        plotTwistCompat, comment2Prompt
-      )
-      if (daterReaction2) {
-        // Bypass auto-TTS effect for comment 2 as well
-        lastSpokenDater.current = daterReaction2
-        setDaterBubble(daterReaction2)
-        setDaterBubbleReady(true)
-        if (ttsEnabled) speak(daterReaction2, 'dater')
-        addDateMessage('dater', daterReaction2)
-        syncConversationToPartyKit(undefined, daterReaction2)
-        await Promise.race([waitForAllAudio(), new Promise(resolve => setTimeout(resolve, 12000))])
-        await new Promise(resolve => setTimeout(resolve, 3000))
-      }
+      await new Promise(resolve => setTimeout(resolve, 2000))
 
     } catch (error) {
       console.error('Error generating plot twist reaction:', error)
@@ -4412,12 +4370,11 @@ EXAMPLES of strong follow-ups:
             ))}
           </div>
         )}
-        {/* Debug: Show suggestion count during phase1 */}
-        {livePhase === 'phase1' && (
-          <div style={{ position: 'absolute', bottom: '5px', left: '5px', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
-            Suggestions: {suggestedAttributes?.length || 0}
+        {llmStatusMessage ? (
+          <div style={{ position: 'absolute', bottom: '5px', left: '5px', fontSize: '10px', color: 'rgba(255, 200, 50, 0.85)' }}>
+            ⚠️ {llmStatusMessage}
           </div>
-        )}
+        ) : null}
       </div>
       
       {/* Chat Module: hidden during passive phases, slim input bar during active phases */}
