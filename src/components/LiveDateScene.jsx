@@ -19,6 +19,47 @@ const DATER_INTERRUPTIONS = {
   dealbreakers: ['Wait, what?!', 'Hold on—', "I'm sorry, what?!", 'What?!', 'Excuse me—']
 }
 
+const DEBUG_AUTO_FILL_ANSWERS = {
+  startingStats: {
+    physical: [
+      'Tall with messy hair and a leather jacket',
+      'Short, athletic, and covered in vintage tattoos',
+      'Lanky with glasses and an awkward smile',
+      'Average height with bold makeup and silver rings',
+    ],
+    emotional: [
+      'Nervous but trying to play it cool',
+      'Confident, calm, and ready for chaos',
+      'A little anxious but still excited',
+      'Suspiciously optimistic about this whole thing',
+    ],
+    name: ['Jordan', 'Alex', 'Sam', 'Riley', 'Morgan'],
+  },
+  chat: [
+    'I love chaotic adventures and midnight snacks.',
+    'Honesty matters more to me than being cool.',
+    'I would absolutely sing karaoke on a first date.',
+    'My ideal night is tacos, dancing, and bad decisions.',
+    'I am weirdly competitive about board games.',
+  ],
+  plotTwist: [
+    'I challenge them to an immediate dance-off.',
+    'I laugh, then calmly ask what is going on.',
+    'I lean in and improvise like this was the plan.',
+    'I pretend confidence and commit to the bit.',
+    'I make a joke and try to defuse the chaos.',
+  ],
+  justify: [
+    'It felt right in the moment, even if risky.',
+    'I panicked, trusted my instincts, and doubled down.',
+    'I wanted to be honest instead of playing safe.',
+    'I thought bold was better than boring there.',
+    'That choice matched my personality, for better or worse.',
+  ],
+}
+
+const pickRandom = (items = []) => items[Math.floor(Math.random() * items.length)] || ''
+
 // Phase timers: 30 seconds for Phase 1 and Phase 2
 function LiveDateScene() {
   const selectedDater = useGameStore((state) => state.selectedDater)
@@ -168,6 +209,16 @@ function LiveDateScene() {
   ]
   const STARTING_STATS_QUESTIONS = CREATE_YOUR_DATER_QUESTIONS
   const scoringProfile = selectedDater?.scoringProfile || getDefaultScoringProfileForDater(selectedDater) || adamScoring
+
+  const getRandomTestAnswer = (target) => {
+    if (target === 'starting-stats') {
+      const questionType = startingStats?.currentQuestionType || 'physical'
+      return pickRandom(DEBUG_AUTO_FILL_ANSWERS.startingStats[questionType]) || pickRandom(DEBUG_AUTO_FILL_ANSWERS.chat)
+    }
+    if (target === 'plot-twist') return pickRandom(DEBUG_AUTO_FILL_ANSWERS.plotTwist)
+    if (target === 'justify') return pickRandom(DEBUG_AUTO_FILL_ANSWERS.justify)
+    return pickRandom(DEBUG_AUTO_FILL_ANSWERS.chat)
+  }
   
   // Helper to sync conversation state via PartyKit (host only)
   const syncConversationToPartyKit = async (avatarText, daterText, syncSentiments = false) => {
@@ -1806,7 +1857,6 @@ RULES:
         ].filter(e => e.daterReaction),
         avatarWithNewAttr: { ...avatar, attributes: avatar.attributes.includes(playerAnswer) ? avatar.attributes : [...avatar.attributes, playerAnswer] }
       }
-
       setIsPreGenerating(false)
       if (partyClient) partyClient.syncState({ isPreGenerating: false, preGeneratedConvo: preGenData })
       return preGenData
@@ -1827,7 +1877,6 @@ RULES:
 
     console.log('▶️ PLAYING BACK pre-generated conversation (dater only)...')
     const { attribute, exchanges } = preGenData
-
     // Defer reaction feedback: store from exchange[0], show when exchange[1] starts
     let deferredFeedback = null
 
@@ -2707,7 +2756,6 @@ EXAMPLES of strong follow-ups:
         null, null, { positive: 0, negative: 0 }, false, false,
         plotTwistCompat, comment2Prompt
       )
-
       if (daterReaction2) {
         // Bypass auto-TTS effect for comment 2 as well
         lastSpokenDater.current = daterReaction2
@@ -3346,6 +3394,15 @@ EXAMPLES of strong follow-ups:
                   autoFocus
                 />
                 <button
+                  type="button"
+                  className="debug-autofill-btn"
+                  onClick={() => setJustifyInput(getRandomTestAnswer('justify'))}
+                  title="Debug: fill random test answer"
+                  aria-label="Debug fill random justification"
+                >
+                  🎲
+                </button>
+                <button
                   type="submit"
                   className="justify-fullscreen-submit"
                   disabled={isSubmittingJustify || !justifyInput.trim()}
@@ -3497,6 +3554,16 @@ EXAMPLES of strong follow-ups:
                         disabled={hasSubmittedStartingStat}
                         autoFocus
                       />
+                      <button
+                        type="button"
+                        className="debug-autofill-btn"
+                        onClick={() => setStartingStatsInput(getRandomTestAnswer('starting-stats'))}
+                        title="Debug: fill random test answer"
+                        aria-label="Debug fill random starting stats answer"
+                        disabled={hasSubmittedStartingStat}
+                      >
+                        🎲
+                      </button>
                       <button 
                         type="submit" 
                         className="starting-stats-submit-btn"
@@ -3570,6 +3637,15 @@ EXAMPLES of strong follow-ups:
                         autoFocus
                         disabled={!plotTwistDaterAnswerDone}
                       />
+                      <button
+                        type="button"
+                        className="debug-autofill-btn"
+                        onClick={() => setPlotTwistInput(getRandomTestAnswer('plot-twist'))}
+                        title="Debug: fill random test answer"
+                        aria-label="Debug fill random plot twist answer"
+                      >
+                        🎲
+                      </button>
                       <button 
                         type="submit" 
                         className="plot-twist-submit-btn"
@@ -4344,6 +4420,15 @@ EXAMPLES of strong follow-ups:
                     (livePhase === 'phase1' && cycleCount === 1 && !daterOpeningAnswerDone)
                   }
                 />
+                <button
+                  type="button"
+                  className="debug-autofill-btn"
+                  onClick={() => setChatInput(getRandomTestAnswer(livePhase === 'plot-twist' ? 'plot-twist' : 'chat'))}
+                  title="Debug: fill random test answer"
+                  aria-label="Debug fill random chat answer"
+                >
+                  🎲
+                </button>
                 <button type="submit" className="chat-send-btn">✨</button>
               </form>
             </>
