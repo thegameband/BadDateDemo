@@ -831,20 +831,45 @@ function LiveDateScene() {
   
   // TTS: Handle dater bubble changes - wait for audio to start before showing
   useEffect(() => {
-    if (!daterBubble || daterBubble === lastSpokenDater.current) return
+    if (!daterBubble) {
+      // Reset dedupe key when bubble is cleared so identical text can render in later rounds.
+      lastSpokenDater.current = ''
+      return
+    }
+    if (daterBubble === lastSpokenDater.current) return
     
     lastSpokenDater.current = daterBubble
     
     if (ttsEnabled) {
       // Hide bubble until audio starts
       setDaterBubbleReady(false)
+
+      let released = false
+      const revealBubble = () => {
+        if (released) return
+        released = true
+        setDaterBubbleReady(true)
+      }
+
+      // Fail-safe: never keep text hidden if TTS start callback is delayed/missed.
+      const fallbackRevealTimer = setTimeout(() => {
+        revealBubble()
+      }, 700)
       
       // Start TTS
-      speak(daterBubble, 'dater').then(() => {
-        // Show bubble when audio starts (speak resolves when audio begins)
-        setDaterBubbleReady(true)
-        console.log('▶️ Dater bubble shown - audio started')
-      })
+      speak(daterBubble, 'dater')
+        .then(() => {
+          // Show bubble when audio starts (speak resolves when audio begins)
+          revealBubble()
+          console.log('▶️ Dater bubble shown - audio started')
+        })
+        .catch(() => {
+          revealBubble()
+        })
+
+      return () => {
+        clearTimeout(fallbackRevealTimer)
+      }
     } else {
       // TTS disabled - show immediately
       setDaterBubbleReady(true)
@@ -1884,7 +1909,6 @@ RULES:
       const exchange = exchanges[i]
       // No avatar: only play dater reaction to the player's answer
       if (exchange.daterReaction) {
-        if (ttsEnabled) setDaterBubbleReady(false)
         setDaterEmotion(exchange.daterMood || 'neutral')
         setDaterBubble(exchange.daterReaction)
         addDateMessage('dater', exchange.daterReaction)
@@ -1992,6 +2016,12 @@ RULES:
       if (preGenData) {
         // PHASE 2: Playback smoothly (dater only)
         await playbackConversation(preGenData)
+      } else {
+        const safeAnswer = String(currentAttribute || latestAttribute || 'that').trim()
+        const fallbackReaction = `You gave me "${safeAnswer}"... and yes, I have an opinion.`
+        setDaterBubble(fallbackReaction)
+        addDateMessage('dater', fallbackReaction)
+        await syncConversationToPartyKit(undefined, fallbackReaction, undefined)
       }
 
       // Wait for all audio to finish before ending the round
@@ -2705,7 +2735,7 @@ BAD examples (do NOT do this):
         plotTwistCompat, comment1Prompt
       )
       
-      const safeReaction1 = daterReaction1 || `Well, ${avatarName}... that was really something. I'm still processing what you just did.`
+      const safeReaction1 = daterReaction1 || `You chose "${winnerText}" while I watched. I have very strong feelings about that choice.`
       console.log('🎭 Plot Twist Reaction 1:', safeReaction1)
       
       // Bypass auto-TTS effect: pre-set ref so the effect skips, then manually control speak + visibility
@@ -3314,7 +3344,6 @@ EXAMPLES of strong follow-ups:
       )
       if (daterResponseToJustification) {
         addDateMessage('dater', daterResponseToJustification)
-        if (ttsEnabled) setDaterBubbleReady(false)
         setDaterBubble(daterResponseToJustification)
         await syncConversationToPartyKit(undefined, daterResponseToJustification, undefined)
         if (partyClient) partyClient.syncState({ daterBubble: daterResponseToJustification })

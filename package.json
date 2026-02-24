@@ -1,7 +1,7 @@
 {
   "name": "baddatedemo",
   "private": true,
-  "version": "0.02.78",
+  "version": "0.02.79",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test-agent": "node test-agent.js",
-    "record-playthrough": "RECORD=1 node test-agent.js"
+    "record-playthrough": "RECORD=1 node test-agent.js",
+    "smoke:local": "SMOKE_START_SERVER=1 SMOKE_HEADLESS=0 node scripts/smoke-single-player.js",
+    "smoke:ci": "SMOKE_HEADLESS=1 node scripts/smoke-single-player.js",
+    "smoke:comments": "SMOKE_START_SERVER=1 SMOKE_MODE=comments SMOKE_HEADLESS=0 node scripts/smoke-single-player.js"
   },
   "dependencies": {
     "framer-motion": "^12.25.0",

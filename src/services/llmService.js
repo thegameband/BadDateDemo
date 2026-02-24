@@ -161,7 +161,7 @@ export async function getChatResponse(messages, systemPrompt) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 150,
         system: systemPrompt,
         messages: messages.map(msg => ({
@@ -211,7 +211,7 @@ export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -808,7 +808,16 @@ ${finalNote}${wordLimitReminder}
   }
 
   const response = await getChatResponse(messages, fullPrompt)
-  return response ? stripActionDescriptions(response) : null
+  if (response) {
+    const cleaned = stripActionDescriptions(response)?.trim()
+    if (cleaned) return cleaned
+  }
+
+  // Deterministic fallback so gameplay never advances without a dater comment.
+  const daterName = dater?.name || 'your date'
+  const safeAnswer = String(playerAnswer || 'that answer').trim()
+  const safeQuestion = String(question || 'that question').trim()
+  return `You answered "${safeAnswer}" to "${safeQuestion}". I have thoughts, ${daterName}.`
 }
 
 /**
@@ -843,7 +852,13 @@ CRITICAL RULES:
     messages.push({ role: 'user', content: userContent })
   }
   const response = await getChatResponse(messages, fullPrompt)
-  return response ? stripActionDescriptions(response) : null
+  if (response) {
+    const cleaned = stripActionDescriptions(response)?.trim()
+    if (cleaned) return cleaned
+  }
+
+  const safeQuestion = String(question || 'that').trim()
+  return `For "${safeQuestion}", I would trust instinct first and explain myself after.`
 }
 
 /**
@@ -1780,7 +1795,7 @@ export async function extractTraitFromResponse(question, response, existingTrait
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 25,
         system: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
 
@@ -2032,7 +2047,7 @@ Return ONLY valid JSON in this exact format:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Generate the dater values now.' }],
@@ -2210,7 +2225,7 @@ Return ONLY valid JSON:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 150,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' }],
@@ -2392,7 +2407,7 @@ OUTPUT JSON ONLY:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 220,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Return only the JSON result.' }],
@@ -2575,7 +2590,7 @@ RULES FOR JSON:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2682,7 +2697,7 @@ Return ONLY a JSON array of strings, like:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2769,7 +2784,7 @@ Return ONLY the 2-3 sentence narration, nothing else.`
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 200,
         messages: [{ role: 'user', content: prompt }]
       })
