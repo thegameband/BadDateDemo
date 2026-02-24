@@ -163,6 +163,24 @@ export async function getChatResponse(messages, systemPrompt) {
   }
   
   try {
+    // Normalize outbound messages so Anthropic never receives invalid content payloads.
+    const sanitizedMessages = (Array.isArray(messages) ? messages : [])
+      .map(msg => {
+        const role = msg?.role === 'assistant' ? 'assistant' : 'user'
+        const rawContent = msg?.content
+        const content = typeof rawContent === 'string'
+          ? rawContent.trim()
+          : (rawContent == null ? '' : String(rawContent).trim())
+        return { role, content }
+      })
+      .filter(msg => msg.content.length > 0)
+
+    if (!sanitizedMessages.length) {
+      sanitizedMessages.push({ role: 'user', content: 'Respond in character.' })
+    } else if (!sanitizedMessages.some(msg => msg.role === 'user')) {
+      sanitizedMessages.push({ role: 'user', content: 'Respond to the latest message in character.' })
+    }
+
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
@@ -175,7 +193,7 @@ export async function getChatResponse(messages, systemPrompt) {
         model: 'claude-sonnet-4-6',
         max_tokens: 150,
         system: systemPrompt,
-        messages: messages.map(msg => ({
+        messages: sanitizedMessages.map(msg => ({
           role: msg.role,
           content: msg.content,
         })),
@@ -184,8 +202,10 @@ export async function getChatResponse(messages, systemPrompt) {
     
     if (!response.ok) {
       let errorDetails = ''
+      let parsedError = null
       try {
         const error = await response.json()
+        parsedError = error
         errorDetails = JSON.stringify(error, null, 2)
       } catch {
         try {
@@ -194,8 +214,20 @@ export async function getChatResponse(messages, systemPrompt) {
           errorDetails = 'Unable to parse Claude API error body.'
         }
       }
+      const rawErrorMessage = parsedError?.error?.message || parsedError?.message || ''
+      const normalizedErrorMessage = String(rawErrorMessage).toLowerCase()
+      let shortReason = ''
+      if (normalizedErrorMessage.includes('credit balance is too low')) {
+        shortReason = 'insufficient Anthropic credits'
+      } else if (normalizedErrorMessage.includes('model') && (normalizedErrorMessage.includes('not found') || normalizedErrorMessage.includes('not available') || normalizedErrorMessage.includes('access'))) {
+        shortReason = 'model unavailable for this API key'
+      } else if (normalizedErrorMessage.includes('api key') || normalizedErrorMessage.includes('authentication') || normalizedErrorMessage.includes('unauthorized')) {
+        shortReason = 'API key/authentication issue'
+      } else if (rawErrorMessage) {
+        shortReason = rawErrorMessage
+      }
       console.error(`Claude API error [${response.status} ${response.statusText}]:`, errorDetails)
-      _llmErrorMessage = `LLM error ${response.status} ${response.statusText}`
+      _llmErrorMessage = `LLM error ${response.status}${shortReason ? `: ${shortReason}` : ''}`
       return null
     }
     
