@@ -161,7 +161,7 @@ export async function getChatResponse(messages, systemPrompt) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 150,
         system: systemPrompt,
         messages: messages.map(msg => ({
@@ -172,8 +172,18 @@ export async function getChatResponse(messages, systemPrompt) {
     })
     
     if (!response.ok) {
-      const error = await response.json()
-      console.error('Claude API error:', JSON.stringify(error, null, 2))
+      let errorDetails = ''
+      try {
+        const error = await response.json()
+        errorDetails = JSON.stringify(error, null, 2)
+      } catch {
+        try {
+          errorDetails = await response.text()
+        } catch {
+          errorDetails = 'Unable to parse Claude API error body.'
+        }
+      }
+      console.error(`Claude API error [${response.status} ${response.statusText}]:`, errorDetails)
       return null
     }
     
@@ -211,7 +221,7 @@ export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -814,10 +824,21 @@ ${finalNote}${wordLimitReminder}
   }
 
   // Deterministic fallback so gameplay never advances without a dater comment.
-  const daterName = dater?.name || 'your date'
-  const safeAnswer = String(playerAnswer || 'that answer').trim()
-  const safeQuestion = String(question || 'that question').trim()
-  return `You answered "${safeAnswer}" to "${safeQuestion}". I have thoughts, ${daterName}.`
+  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
+  const adamFallbacks = [
+    'Curious confession. My stitched heart stirs at it.',
+    'That answer lands strangely, but not without intrigue.',
+    'I did not foresee that. It lingers in me.',
+    'A fierce answer. It awakens old thoughts.'
+  ]
+  const genericFallbacks = [
+    'Interesting answer. I need a second to process it.',
+    'I did not expect that, but I hear you.',
+    'That gives me a lot to think about.',
+    'Huh. That says more than you might think.'
+  ]
+  const fallbackPool = isAdam ? adamFallbacks : genericFallbacks
+  return fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
 }
 
 /**
@@ -857,8 +878,21 @@ CRITICAL RULES:
     if (cleaned) return cleaned
   }
 
-  const safeQuestion = String(question || 'that').trim()
-  return `For "${safeQuestion}", I would trust instinct first and explain myself after.`
+  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
+  const adamOpeners = [
+    'I would choose the honest path, though it trembles my soul.',
+    'I answer with feeling first, and reason shortly after.',
+    'I trust what feels true, even when it aches.',
+    'I choose with conscience first, then defend it plainly.'
+  ]
+  const genericOpeners = [
+    'I would go with what feels honest and grounded.',
+    'I trust my instincts, then explain my reasoning clearly.',
+    'I would pick what aligns with my values first.',
+    'I would answer directly, then back it up.'
+  ]
+  const openerPool = isAdam ? adamOpeners : genericOpeners
+  return openerPool[Math.floor(Math.random() * openerPool.length)]
 }
 
 /**
@@ -1795,7 +1829,7 @@ export async function extractTraitFromResponse(question, response, existingTrait
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 25,
         system: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
 
@@ -2047,7 +2081,7 @@ Return ONLY valid JSON in this exact format:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 500,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Generate the dater values now.' }],
@@ -2225,7 +2259,7 @@ Return ONLY valid JSON:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 150,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' }],
@@ -2407,7 +2441,7 @@ OUTPUT JSON ONLY:
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 220,
         system: systemPrompt,
         messages: [{ role: 'user', content: 'Return only the JSON result.' }],
@@ -2590,7 +2624,7 @@ RULES FOR JSON:
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2697,7 +2731,7 @@ Return ONLY a JSON array of strings, like:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2784,7 +2818,7 @@ Return ONLY the 2-3 sentence narration, nothing else.`
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 200,
         messages: [{ role: 'user', content: prompt }]
       })
