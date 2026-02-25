@@ -6,6 +6,7 @@ import './ChatPhase.css'
 
 function ChatPhase() {
   const { selectedDater, chatMessages, addChatMessage, startDate, discoveredTraits, addDiscoveredTrait } = useGameStore()
+  const llmProvider = useGameStore((state) => state.llmProvider)
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef(null)
@@ -84,6 +85,12 @@ function ChatPhase() {
       }, 1000)
     }
   }
+
+  const hasLlmKey = llmProvider === 'anthropic'
+    ? Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
+    : llmProvider === 'auto'
+      ? Boolean(import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_ANTHROPIC_API_KEY)
+      : Boolean(import.meta.env.VITE_OPENAI_API_KEY)
   
   return (
     <div className="chat-phase">
@@ -215,7 +222,7 @@ function ChatPhase() {
         </ul>
         
         <div className="api-status">
-          {import.meta.env.VITE_OPENAI_API_KEY ? (
+          {hasLlmKey ? (
             <span className="status-active">🤖 AI-Powered</span>
           ) : (
             <span className="status-fallback">📝 Demo Mode</span>

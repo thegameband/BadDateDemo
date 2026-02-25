@@ -12,8 +12,12 @@ import {
   PROMPT_08_GENZ_SPEECH
 } from './promptChain'
 import { getVoiceProfilePrompt } from './voiceProfiles'
+import { useGameStore } from '../store/gameStore'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+const OPENAI_MODEL = 'gpt-4o'
+const ANTHROPIC_MODEL = 'claude-3-5-sonnet-20241022'
 let _llmErrorMessage = null
 let _llmDebugSnapshot = null
 
@@ -30,6 +34,111 @@ function getRuntimeContext() {
     host: typeof window !== 'undefined' ? window.location.host : 'unknown',
     path: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
   }
+}
+
+function getLlmProviderPreference() {
+  try {
+    const provider = useGameStore.getState()?.llmProvider
+    if (provider === 'openai' || provider === 'anthropic' || provider === 'auto') return provider
+  } catch {
+    // Fall through to default
+  }
+  return 'openai'
+}
+
+function resolveLlmProviderConfig() {
+  const preference = getLlmProviderPreference()
+  const openaiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const anthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+
+  if (preference === 'openai') {
+    if (!openaiKey) return null
+    return {
+      provider: 'openai',
+      apiUrl: OPENAI_API_URL,
+      apiKey: openaiKey,
+      model: OPENAI_MODEL,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiKey}`,
+      },
+      preference,
+    }
+  }
+
+  if (preference === 'anthropic') {
+    if (!anthropicKey) return null
+    return {
+      provider: 'anthropic',
+      apiUrl: ANTHROPIC_API_URL,
+      apiKey: anthropicKey,
+      model: ANTHROPIC_MODEL,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      preference,
+    }
+  }
+
+  if (openaiKey) {
+    return {
+      provider: 'openai',
+      apiUrl: OPENAI_API_URL,
+      apiKey: openaiKey,
+      model: OPENAI_MODEL,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiKey}`,
+      },
+      preference,
+    }
+  }
+
+  if (anthropicKey) {
+    return {
+      provider: 'anthropic',
+      apiUrl: ANTHROPIC_API_URL,
+      apiKey: anthropicKey,
+      model: ANTHROPIC_MODEL,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      preference,
+    }
+  }
+
+  return null
+}
+
+function buildProviderBody(providerConfig, { maxTokens, systemPrompt, messages }) {
+  if (providerConfig.provider === 'anthropic') {
+    return {
+      model: providerConfig.model,
+      max_tokens: maxTokens,
+      ...(systemPrompt ? { system: systemPrompt } : {}),
+      messages,
+    }
+  }
+
+  return {
+    model: providerConfig.model,
+    max_tokens: maxTokens,
+    messages: [
+      ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+      ...messages,
+    ],
+  }
+}
+
+function extractProviderText(provider, data) {
+  if (provider === 'anthropic') return data?.content?.[0]?.text || ''
+  return data?.choices?.[0]?.message?.content || ''
 }
 
 export function getLlmErrorMessage() {
@@ -175,20 +284,21 @@ function buildPromptTail(dater) {
  * Call OpenAI API for a response
  */
 export async function getChatResponse(messages, systemPrompt) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
   const runtime = getRuntimeContext()
-  const keyFingerprint = getKeyFingerprint(apiKey)
+  const keyFingerprint = getKeyFingerprint(providerConfig?.apiKey)
   
-  if (!apiKey) {
+  if (!providerConfig) {
     _llmErrorMessage = 'No API key - LLM offline'
     _llmDebugSnapshot = {
       source: 'getChatResponse',
       stage: 'preflight',
       reason: 'missing_api_key',
+      provider: getLlmProviderPreference(),
       keyFingerprint,
       runtime,
     }
-    console.warn('No OpenAI API key found. Using fallback responses.')
+    console.warn('No LLM provider API key found. Using fallback responses.')
     return null
   }
   
@@ -211,23 +321,17 @@ export async function getChatResponse(messages, systemPrompt) {
       sanitizedMessages.push({ role: 'user', content: 'Respond to the latest message in character.' })
     }
 
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 150,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...sanitizedMessages.map(msg => ({
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 150,
+        systemPrompt,
+        messages: sanitizedMessages.map(msg => ({
           role: msg.role,
           content: msg.content,
-          })),
-        ],
-      }),
+        })),
+      })),
     })
     
     if (!response.ok) {
@@ -241,7 +345,7 @@ export async function getChatResponse(messages, systemPrompt) {
         try {
           errorDetails = await response.text()
         } catch {
-          errorDetails = 'Unable to parse OpenAI API error body.'
+          errorDetails = 'Unable to parse LLM API error body.'
         }
       }
       const rawErrorMessage = parsedError?.error?.message || parsedError?.message || ''
@@ -257,11 +361,12 @@ export async function getChatResponse(messages, systemPrompt) {
         shortReason = rawErrorMessage
       }
       const requestId = response.headers.get('request-id') || response.headers.get('x-request-id') || ''
-      console.error(`OpenAI API error [${response.status} ${response.statusText}]:`, errorDetails)
+      console.error(`${providerConfig.provider.toUpperCase()} API error [${response.status} ${response.statusText}]:`, errorDetails)
       _llmErrorMessage = `LLM error ${response.status}${shortReason ? `: ${shortReason}` : ''}`
       _llmDebugSnapshot = {
         source: 'getChatResponse',
         stage: 'http_error',
+        provider: providerConfig.provider,
         status: response.status,
         statusText: response.statusText,
         shortReason,
@@ -283,13 +388,14 @@ export async function getChatResponse(messages, systemPrompt) {
       runtime,
     }
     // Strip action descriptions from the response
-    return stripActionDescriptions(data.choices?.[0]?.message?.content || '')
+    return stripActionDescriptions(extractProviderText(providerConfig.provider, data))
   } catch (error) {
-    console.error('Error calling OpenAI API:', error)
+    console.error(`Error calling ${providerConfig.provider.toUpperCase()} API:`, error)
     _llmErrorMessage = 'LLM request failed'
     _llmDebugSnapshot = {
       source: 'getChatResponse',
       stage: 'network_error',
+      provider: providerConfig.provider,
       errorName: error?.name || 'unknown',
       errorMessage: error?.message || String(error),
       keyFingerprint,
@@ -307,30 +413,26 @@ export async function getChatResponse(messages, systemPrompt) {
  */
 export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
   const { maxTokens = 200, timeoutMs = 25000 } = options
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
-  if (!apiKey) return null
+  const providerConfig = resolveLlmProviderConfig()
+  if (!providerConfig) return null
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: maxTokens,
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens,
         messages: [{ role: 'user', content: userPrompt }],
-      }),
+      })),
     })
     clearTimeout(timeoutId)
     if (!response.ok) return null
     const data = await response.json()
-    const text = data.choices?.[0]?.message?.content?.trim()
+    const text = extractProviderText(providerConfig.provider, data).trim()
     return text ? stripActionDescriptions(text) : null
   } catch (err) {
     clearTimeout(timeoutId)
@@ -1910,9 +2012,9 @@ export function getFallbackDaterResponse(dater, playerMessage) {
  * This helps players discover who the Dater is through conversation
  */
 export async function extractTraitFromResponse(question, response, existingTraits = []) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
   
-  if (!apiKey) {
+  if (!providerConfig) {
     // Fallback: simple keyword extraction
     return extractTraitSimple(question, response)
   }
@@ -1922,18 +2024,12 @@ export async function extractTraitFromResponse(question, response, existingTrait
     : ''
   
   try {
-    const result = await fetch(OPENAI_API_URL, {
+    const result = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 25,
-        messages: [{
-          role: 'system',
-          content: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 25,
+        systemPrompt: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
 
 Your job: Find the most interesting, specific detail revealed in the answer.
 
@@ -1958,15 +2054,15 @@ Rules:
 1. Be SPECIFIC - extract the exact detail, not a category
 2. Be DIVERSE - look for values, origins, quirks, fears, influences, not just hobbies
 3. 1-3 words maximum
-4. If nothing specific was revealed, respond with just "NONE"${existingContext}`
-        }, {
+4. If nothing specific was revealed, respond with just "NONE"${existingContext}`,
+        messages: [{
           role: 'user',
           content: `Question asked: "${question}"
 Their answer: "${response}"
 
 What SPECIFIC trait or detail was revealed? (1-3 words only):`
         }],
-      }),
+      })),
     })
     
     if (!result.ok) {
@@ -1974,7 +2070,7 @@ What SPECIFIC trait or detail was revealed? (1-3 words only):`
     }
     
     const data = await result.json()
-    let trait = (data.choices?.[0]?.message?.content || '').trim()
+    let trait = extractProviderText(providerConfig.provider, data).trim()
     
     // Clean up the response
     trait = trait.replace(/^["']|["']$/g, '') // Remove quotes
@@ -2110,9 +2206,9 @@ export function getFallbackDateDialogue(expectedSpeaker, _avatar, _dater) {
  * These are hidden from players and used for scoring
  */
 export async function generateDaterValues(dater) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
   
-  if (!apiKey) {
+  if (!providerConfig) {
     console.warn('No API key - using fallback dater values')
     return getFallbackDaterValues(dater)
   }
@@ -2174,20 +2270,14 @@ Return ONLY valid JSON in this exact format:
 }`
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 500,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate the dater values now.' },
-        ],
-      }),
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 500,
+        systemPrompt,
+        messages: [{ role: 'user', content: 'Generate the dater values now.' }],
+      })),
     })
     
     if (!response.ok) {
@@ -2196,7 +2286,7 @@ Return ONLY valid JSON in this exact format:
     }
     
     const data = await response.json()
-    const text = data.choices?.[0]?.message?.content || ''
+    const text = extractProviderText(providerConfig.provider, data)
     
     // Parse JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -2223,7 +2313,7 @@ Return ONLY valid JSON in this exact format:
  * NOTE: This function ALWAYS returns a match - every attribute affects the score!
  */
 export async function checkAttributeMatch(attribute, daterValues, dater, daterReaction = null, currentCompatibility = 50) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
   const daterName = dater?.name || 'the dater'
   
   // Determine tie-break direction based on compatibility meter
@@ -2289,7 +2379,7 @@ export async function checkAttributeMatch(attribute, daterValues, dater, daterRe
     return { category, matchedValue, shortLabel: matchedValue }
   }
   
-  if (!apiKey) {
+  if (!providerConfig) {
     return getFallbackMatch(daterReaction)
   }
 
@@ -2352,20 +2442,14 @@ Return ONLY valid JSON:
 }`
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 150,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' },
-        ],
-      }),
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 150,
+        systemPrompt,
+        messages: [{ role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' }],
+      })),
     })
     
     if (!response.ok) {
@@ -2374,7 +2458,7 @@ Return ONLY valid JSON:
     }
     
     const data = await response.json()
-    const text = data.choices?.[0]?.message?.content || ''
+    const text = extractProviderText(providerConfig.provider, data)
     
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
@@ -2458,7 +2542,7 @@ function coerceQualityHit(rawHit, scoringData) {
  * Returns a quality hit when confidence is high enough, plus a lightweight liked/disliked sentiment.
  */
 export async function checkQualityMatch(playerAnswer, question, scoringData, daterName = 'the dater', daterReaction = '') {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
 
   const fireOverrideHit = detectFireOverrideHit(playerAnswer, scoringData)
   if (fireOverrideHit) {
@@ -2481,7 +2565,7 @@ export async function checkQualityMatch(playerAnswer, question, scoringData, dat
     ...dealbreakers.map((q) => ({ ...q, type: 'dealbreaker' })),
   ]
 
-  if (!apiKey || qualityCatalog.length === 0) {
+  if (!providerConfig || qualityCatalog.length === 0) {
     return {
       qualityHit: null,
       sentiment: fallbackSentiment,
@@ -2534,20 +2618,14 @@ OUTPUT JSON ONLY:
 }`
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 220,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Return only the JSON result.' },
-        ],
-      }),
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 220,
+        systemPrompt,
+        messages: [{ role: 'user', content: 'Return only the JSON result.' }],
+      })),
     })
 
     if (!response.ok) {
@@ -2561,7 +2639,7 @@ OUTPUT JSON ONLY:
     }
 
     const data = await response.json()
-    const text = data?.choices?.[0]?.message?.content || ''
+    const text = extractProviderText(providerConfig.provider, data)
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       return {
@@ -2655,7 +2733,7 @@ function getFallbackDaterValues(_dater) {
 export async function groupSimilarAnswers(question, answers) {
   console.log('🎯 groupSimilarAnswers called with', answers.length, 'answer(s)')
   
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
   
   // If only 1 or no answers, no grouping needed
   if (answers.length <= 1) {
@@ -2668,7 +2746,7 @@ export async function groupSimilarAnswers(question, answers) {
     }))
   }
   
-  if (!apiKey) {
+  if (!providerConfig) {
     // Fallback: no grouping, each answer is its own slice
     console.log('⚠️ No API key - skipping answer grouping')
     return answers.map(a => ({
@@ -2718,17 +2796,13 @@ RULES FOR JSON:
 - Output ONLY valid JSON, no explanation`
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 500,
+        messages: [{ role: 'user', content: prompt }],
+      })),
     })
     
     if (!response.ok) {
@@ -2736,7 +2810,7 @@ RULES FOR JSON:
     }
     
     const data = await response.json()
-    const text = data.choices?.[0]?.message?.content || ''
+    const text = extractProviderText(providerConfig.provider, data)
     
     // Parse JSON from response
     const jsonMatch = text.match(/\[[\s\S]*\]/)
@@ -2781,9 +2855,9 @@ RULES FOR JSON:
  * @returns {Array} - Array of conversational sentences to display
  */
 export async function generateBreakdownSentences(daterName, avatarName, qualityHits, finalScorePercent) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
   
-  if (!apiKey || qualityHits.length === 0) {
+  if (!providerConfig || qualityHits.length === 0) {
     console.log('⚠️ No API key or no quality hits - skipping breakdown generation')
     return []
   }
@@ -2823,17 +2897,13 @@ Return ONLY a JSON array of strings, like:
 ["First sentence.", "Second sentence.", "Third sentence."]`
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 300,
+        messages: [{ role: 'user', content: prompt }],
+      })),
     })
     
     if (!response.ok) {
@@ -2841,7 +2911,7 @@ Return ONLY a JSON array of strings, like:
     }
     
     const data = await response.json()
-    const content = data.choices?.[0]?.message?.content || ''
+    const content = extractProviderText(providerConfig.provider, data)
     
     // Parse JSON array from response
     const jsonMatch = content.match(/\[[\s\S]*\]/)
@@ -2863,7 +2933,7 @@ Return ONLY a JSON array of strings, like:
  * The winning "answer" is typically an ACTION (what the avatar did), not something they said.
  */
 export async function generatePlotTwistSummary(avatarName, daterName, winningAction) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  const providerConfig = resolveLlmProviderConfig()
   const normalizedAvatarName = String(avatarName || 'Your date').trim()
   const normalizedDaterName = String(daterName || 'Adam').trim()
   const normalizedAction = String(winningAction || 'stayed calm').trim()
@@ -2885,7 +2955,7 @@ export async function generatePlotTwistSummary(avatarName, daterName, winningAct
     return parts.length
   }
 
-  if (!apiKey) {
+  if (!providerConfig) {
     console.warn('⚠️ No API key for plot twist summary')
     return buildFallbackSummary()
   }
@@ -2930,17 +3000,13 @@ Action: "Start flirting with them too"
 Return ONLY the 3-sentence narration, nothing else.`
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(providerConfig.apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      headers: providerConfig.headers,
+      body: JSON.stringify(buildProviderBody(providerConfig, {
+        maxTokens: 200,
+        messages: [{ role: 'user', content: prompt }],
+      })),
     })
     
     if (!response.ok) {
@@ -2948,7 +3014,7 @@ Return ONLY the 3-sentence narration, nothing else.`
     }
     
     const data = await response.json()
-    const summary = normalizeSummary(data.choices?.[0]?.message?.content || '')
+    const summary = normalizeSummary(extractProviderText(providerConfig.provider, data))
     if (!summary) return buildFallbackSummary()
     if (summary.length > 280) return buildFallbackSummary()
     if (countSentences(summary) !== 3) return buildFallbackSummary()

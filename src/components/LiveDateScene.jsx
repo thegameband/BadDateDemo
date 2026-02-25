@@ -80,6 +80,7 @@ function LiveDateScene() {
   const roomCode = useGameStore((state) => state.roomCode)
   const playerId = useGameStore((state) => state.playerId)
   const isHost = useGameStore((state) => state.isHost)
+  const llmProvider = useGameStore((state) => state.llmProvider)
   const players = useGameStore((state) => state.players)
   
   const setLivePhase = useGameStore((state) => state.setLivePhase)
@@ -140,6 +141,7 @@ function LiveDateScene() {
     const req = snapshot.requestId ? `req:${snapshot.requestId}` : ''
     const source = snapshot.source ? `src:${snapshot.source}` : ''
     const stage = snapshot.stage ? `stage:${snapshot.stage}` : ''
+    const provider = snapshot.provider ? `provider:${snapshot.provider}` : ''
     const fp = snapshot.keyFingerprint ? `key:${snapshot.keyFingerprint}` : ''
     const mode = snapshot?.runtime?.mode ? `mode:${snapshot.runtime.mode}` : ''
     const host = snapshot?.runtime?.host ? `host:${snapshot.runtime.host}` : ''
@@ -147,7 +149,7 @@ function LiveDateScene() {
       ? String(snapshot.rawErrorMessage).replace(/\s+/g, ' ').trim().slice(0, 180)
       : ''
     const raw = rawProviderError ? `raw:${rawProviderError}` : ''
-    const extras = [status, req, source, stage, fp, mode, host, raw].filter(Boolean).join(' | ')
+    const extras = [status, req, source, stage, provider, fp, mode, host, raw].filter(Boolean).join(' | ')
 
     setLlmStatusMessage(extras ? `${base} (${extras})` : base)
   }
@@ -458,12 +460,18 @@ function LiveDateScene() {
   
   // Check if API key is available
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+    const apiKey = llmProvider === 'anthropic'
+      ? import.meta.env.VITE_ANTHROPIC_API_KEY
+      : llmProvider === 'auto'
+        ? (import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_ANTHROPIC_API_KEY)
+        : import.meta.env.VITE_OPENAI_API_KEY
     if (!apiKey) {
       setUsingFallback(true)
       console.warn('⚠️ No API key found - using fallback responses')
+      return
     }
-  }, [])
+    setUsingFallback(false)
+  }, [llmProvider])
   
   // PartyKit client from store
   const partyClient = useGameStore((state) => state.partyClient)

@@ -24,6 +24,8 @@ function LiveLobby() {
   const setPlayers = useGameStore((state) => state.setPlayers)
   const setPartyClient = useGameStore((state) => state.setPartyClient)
   const setLiveMode = useGameStore((state) => state.setLiveMode)
+  const llmProvider = useGameStore((state) => state.llmProvider)
+  const setLlmProvider = useGameStore((state) => state.setLlmProvider)
   const daters = useGameStore((state) => state.daters)
   const [view, setView] = useState('main') // 'main', 'multiplayer', 'host', 'join', 'qr-join'
   const [availableRooms, setAvailableRooms] = useState([])
@@ -37,6 +39,8 @@ function LiveLobby() {
   const [selectedDaterName, setSelectedDaterName] = useState('Adam') // Debug: which dater to use
   const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
   const [showDaterPicker, setShowDaterPicker] = useState(false)
+  const hasOpenAiKey = Boolean(import.meta.env.VITE_OPENAI_API_KEY)
+  const hasAnthropicKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
@@ -575,6 +579,36 @@ function LiveLobby() {
                           {voEnabled ? 'ON' : 'OFF'}
                         </span>
                       </button>
+                    </div>
+
+                    {/* Section: LLM Provider */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">LLM Provider</div>
+                      <div className="dater-picker-grid">
+                        {[
+                          { id: 'openai', label: 'OpenAI', available: hasOpenAiKey },
+                          { id: 'anthropic', label: 'Anthropic', available: hasAnthropicKey },
+                          { id: 'auto', label: 'Auto', available: hasOpenAiKey || hasAnthropicKey },
+                        ].map((option) => (
+                          <motion.button
+                            key={option.id}
+                            className={`dater-picker-card ${llmProvider === option.id ? 'selected' : ''}`}
+                            onClick={() => setLlmProvider(option.id)}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                          >
+                            <div className="dater-card-info">
+                              <div className="dater-card-name">{option.label}</div>
+                              <div className="dater-card-archetype">
+                                {option.available ? 'Key detected' : 'No key found'}
+                              </div>
+                            </div>
+                            {llmProvider === option.id && (
+                              <span className="dater-card-check">✓</span>
+                            )}
+                          </motion.button>
+                        ))}
+                      </div>
                     </div>
                     
                     {/* Section: Multiplayer Mode */}

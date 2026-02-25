@@ -78,6 +78,7 @@ const initialLiveState = {
   plotTwistCompleted: false,
   // Game settings (set from lobby)
   showAttributesByDefault: false, // Whether to show sentiment categories by default
+  llmProvider: 'openai', // 'openai' | 'anthropic' | 'auto'
   // Quality-based scoring state
   qualityHits: [], // { id, name, rank, type: 'positive'|'dealbreaker', points, roundNumber }
   // Debug flag: skip straight to plot twist phase
@@ -470,6 +471,7 @@ export const useGameStore = create((set, get) => ({
   setIsHost: (isHost) => set({ isHost }),
   setSelectedDater: (dater) => set({ selectedDater: dater }),
   setShowAttributesByDefault: (show) => set({ showAttributesByDefault: show }),
+  setLlmProvider: (provider) => set({ llmProvider: provider }),
   
   // PartyKit client
   partyClient: null,
