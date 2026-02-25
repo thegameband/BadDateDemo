@@ -143,7 +143,11 @@ function LiveDateScene() {
     const fp = snapshot.keyFingerprint ? `key:${snapshot.keyFingerprint}` : ''
     const mode = snapshot?.runtime?.mode ? `mode:${snapshot.runtime.mode}` : ''
     const host = snapshot?.runtime?.host ? `host:${snapshot.runtime.host}` : ''
-    const extras = [status, req, source, stage, fp, mode, host].filter(Boolean).join(' | ')
+    const rawProviderError = snapshot?.rawErrorMessage
+      ? String(snapshot.rawErrorMessage).replace(/\s+/g, ' ').trim().slice(0, 180)
+      : ''
+    const raw = rawProviderError ? `raw:${rawProviderError}` : ''
+    const extras = [status, req, source, stage, fp, mode, host, raw].filter(Boolean).join(' | ')
 
     setLlmStatusMessage(extras ? `${base} (${extras})` : base)
   }
