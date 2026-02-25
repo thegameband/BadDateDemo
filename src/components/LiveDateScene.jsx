@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout, getLlmErrorMessage } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout, getLlmErrorMessage, getLlmDebugSnapshot } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import { adamScoring, getDefaultScoringProfileForDater } from '../data/scoring/adamScoring'
@@ -126,6 +126,27 @@ function LiveDateScene() {
   const [isPreGenerating, setIsPreGenerating] = useState(false) // eslint-disable-line no-unused-vars -- used in JSX (pre-generating indicator)
   const [usingFallback, setUsingFallback] = useState(false)
   const [llmStatusMessage, setLlmStatusMessage] = useState('')
+
+  const syncLlmStatusMessage = () => {
+    const base = getLlmErrorMessage() || ''
+    const snapshot = getLlmDebugSnapshot()
+
+    if (!base || !snapshot) {
+      setLlmStatusMessage(base)
+      return
+    }
+
+    const status = snapshot.status ? `status:${snapshot.status}` : ''
+    const req = snapshot.requestId ? `req:${snapshot.requestId}` : ''
+    const source = snapshot.source ? `src:${snapshot.source}` : ''
+    const stage = snapshot.stage ? `stage:${snapshot.stage}` : ''
+    const fp = snapshot.keyFingerprint ? `key:${snapshot.keyFingerprint}` : ''
+    const mode = snapshot?.runtime?.mode ? `mode:${snapshot.runtime.mode}` : ''
+    const host = snapshot?.runtime?.host ? `host:${snapshot.runtime.host}` : ''
+    const extras = [status, req, source, stage, fp, mode, host].filter(Boolean).join(' | ')
+
+    setLlmStatusMessage(extras ? `${base} (${extras})` : base)
+  }
   
   const [breakdownSentences, setBreakdownSentences] = useState([])
   const [isGeneratingBreakdown, setIsGeneratingBreakdown] = useState(false)
@@ -786,7 +807,7 @@ function LiveDateScene() {
           currentRoundPrompt?.subtitle || 'Tell me about yourself',
           useGameStore.getState().dateConversation || []
         )
-        setLlmStatusMessage(getLlmErrorMessage() || '')
+        syncLlmStatusMessage()
         if (cancelled) return
         if (opener) {
           if (ttsEnabled) setDaterBubbleReady(false)
@@ -1851,7 +1872,7 @@ RULES:
       const daterReaction = await getDaterResponseToPlayerAnswer(
         selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound, daterValues, currentCycleForCheck
       )
-      setLlmStatusMessage(getLlmErrorMessage() || '')
+      syncLlmStatusMessage()
       if (!daterReaction) {
         setIsPreGenerating(false)
         if (partyClient) partyClient.syncState({ isPreGenerating: false })
@@ -2400,7 +2421,7 @@ Generate ${daterName}'s final verdict:`
         'Another person just hit on me. What would you do?',
         useGameStore.getState().dateConversation || []
       )
-      setLlmStatusMessage(getLlmErrorMessage() || '')
+      syncLlmStatusMessage()
       if (opener) {
         if (ttsEnabled) setDaterBubbleReady(false)
         setDaterBubble(opener)

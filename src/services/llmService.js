@@ -15,13 +15,34 @@ import { getVoiceProfilePrompt } from './voiceProfiles'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 let _llmErrorMessage = null
+let _llmDebugSnapshot = null
+
+function getKeyFingerprint(key) {
+  if (!key || typeof key !== 'string') return 'missing'
+  return `len:${key.length}-sfx:${key.slice(-4)}`
+}
+
+function getRuntimeContext() {
+  return {
+    mode: import.meta.env.MODE,
+    prod: import.meta.env.PROD,
+    dev: import.meta.env.DEV,
+    host: typeof window !== 'undefined' ? window.location.host : 'unknown',
+    path: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
+  }
+}
 
 export function getLlmErrorMessage() {
   return _llmErrorMessage
 }
 
+export function getLlmDebugSnapshot() {
+  return _llmDebugSnapshot
+}
+
 export function clearLlmErrorMessage() {
   _llmErrorMessage = null
+  _llmDebugSnapshot = null
 }
 
 /**
@@ -155,9 +176,18 @@ function buildPromptTail(dater) {
  */
 export async function getChatResponse(messages, systemPrompt) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const runtime = getRuntimeContext()
+  const keyFingerprint = getKeyFingerprint(apiKey)
   
   if (!apiKey) {
     _llmErrorMessage = 'No API key - LLM offline'
+    _llmDebugSnapshot = {
+      source: 'getChatResponse',
+      stage: 'preflight',
+      reason: 'missing_api_key',
+      keyFingerprint,
+      runtime,
+    }
     console.warn('No Anthropic API key found. Using fallback responses.')
     return null
   }
@@ -226,18 +256,45 @@ export async function getChatResponse(messages, systemPrompt) {
       } else if (rawErrorMessage) {
         shortReason = rawErrorMessage
       }
+      const requestId = response.headers.get('request-id') || response.headers.get('x-request-id') || ''
       console.error(`Claude API error [${response.status} ${response.statusText}]:`, errorDetails)
       _llmErrorMessage = `LLM error ${response.status}${shortReason ? `: ${shortReason}` : ''}`
+      _llmDebugSnapshot = {
+        source: 'getChatResponse',
+        stage: 'http_error',
+        status: response.status,
+        statusText: response.statusText,
+        shortReason,
+        rawErrorMessage,
+        requestId,
+        keyFingerprint,
+        runtime,
+      }
       return null
     }
     
     const data = await response.json()
     clearLlmErrorMessage()
+    _llmDebugSnapshot = {
+      source: 'getChatResponse',
+      stage: 'success',
+      status: response.status,
+      keyFingerprint,
+      runtime,
+    }
     // Strip action descriptions from the response
     return stripActionDescriptions(data.content[0].text)
   } catch (error) {
     console.error('Error calling Claude API:', error)
     _llmErrorMessage = 'LLM request failed'
+    _llmDebugSnapshot = {
+      source: 'getChatResponse',
+      stage: 'network_error',
+      errorName: error?.name || 'unknown',
+      errorMessage: error?.message || String(error),
+      keyFingerprint,
+      runtime,
+    }
     return null
   }
 }
