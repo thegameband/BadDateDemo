@@ -1,4 +1,4 @@
-// LLM Service for Claude API integration
+// LLM Service for OpenAI GPT integration
 import { buildDaterAgentPrompt } from '../data/daters'
 import { 
   classifyAttribute, 
@@ -13,7 +13,7 @@ import {
 } from './promptChain'
 import { getVoiceProfilePrompt } from './voiceProfiles'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 let _llmErrorMessage = null
 let _llmDebugSnapshot = null
 
@@ -172,10 +172,10 @@ function buildPromptTail(dater) {
 }
 
 /**
- * Call Claude API for a response
+ * Call OpenAI API for a response
  */
 export async function getChatResponse(messages, systemPrompt) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   const runtime = getRuntimeContext()
   const keyFingerprint = getKeyFingerprint(apiKey)
   
@@ -188,12 +188,12 @@ export async function getChatResponse(messages, systemPrompt) {
       keyFingerprint,
       runtime,
     }
-    console.warn('No Anthropic API key found. Using fallback responses.')
+    console.warn('No OpenAI API key found. Using fallback responses.')
     return null
   }
   
   try {
-    // Normalize outbound messages so Anthropic never receives invalid content payloads.
+    // Normalize outbound messages so OpenAI never receives invalid content payloads.
     const sanitizedMessages = (Array.isArray(messages) ? messages : [])
       .map(msg => {
         const role = msg?.role === 'assistant' ? 'assistant' : 'user'
@@ -211,22 +211,22 @@ export async function getChatResponse(messages, systemPrompt) {
       sanitizedMessages.push({ role: 'user', content: 'Respond to the latest message in character.' })
     }
 
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 150,
-        system: systemPrompt,
-        messages: sanitizedMessages.map(msg => ({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...sanitizedMessages.map(msg => ({
           role: msg.role,
           content: msg.content,
-        })),
+          })),
+        ],
       }),
     })
     
@@ -241,14 +241,14 @@ export async function getChatResponse(messages, systemPrompt) {
         try {
           errorDetails = await response.text()
         } catch {
-          errorDetails = 'Unable to parse Claude API error body.'
+          errorDetails = 'Unable to parse OpenAI API error body.'
         }
       }
       const rawErrorMessage = parsedError?.error?.message || parsedError?.message || ''
       const normalizedErrorMessage = String(rawErrorMessage).toLowerCase()
       let shortReason = ''
-      if (normalizedErrorMessage.includes('credit balance is too low')) {
-        shortReason = 'insufficient Anthropic credits'
+      if (normalizedErrorMessage.includes('credit balance is too low') || normalizedErrorMessage.includes('insufficient_quota') || normalizedErrorMessage.includes('quota') || normalizedErrorMessage.includes('billing')) {
+        shortReason = 'insufficient API credits'
       } else if (normalizedErrorMessage.includes('model') && (normalizedErrorMessage.includes('not found') || normalizedErrorMessage.includes('not available') || normalizedErrorMessage.includes('access'))) {
         shortReason = 'model unavailable for this API key'
       } else if (normalizedErrorMessage.includes('api key') || normalizedErrorMessage.includes('authentication') || normalizedErrorMessage.includes('unauthorized')) {
@@ -257,7 +257,7 @@ export async function getChatResponse(messages, systemPrompt) {
         shortReason = rawErrorMessage
       }
       const requestId = response.headers.get('request-id') || response.headers.get('x-request-id') || ''
-      console.error(`Claude API error [${response.status} ${response.statusText}]:`, errorDetails)
+      console.error(`OpenAI API error [${response.status} ${response.statusText}]:`, errorDetails)
       _llmErrorMessage = `LLM error ${response.status}${shortReason ? `: ${shortReason}` : ''}`
       _llmDebugSnapshot = {
         source: 'getChatResponse',
@@ -283,9 +283,9 @@ export async function getChatResponse(messages, systemPrompt) {
       runtime,
     }
     // Strip action descriptions from the response
-    return stripActionDescriptions(data.content[0].text)
+    return stripActionDescriptions(data.choices?.[0]?.message?.content || '')
   } catch (error) {
-    console.error('Error calling Claude API:', error)
+    console.error('Error calling OpenAI API:', error)
     _llmErrorMessage = 'LLM request failed'
     _llmDebugSnapshot = {
       source: 'getChatResponse',
@@ -307,24 +307,22 @@ export async function getChatResponse(messages, systemPrompt) {
  */
 export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
   const { maxTokens = 200, timeoutMs = 25000 } = options
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   if (!apiKey) return null
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -332,7 +330,7 @@ export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
     clearTimeout(timeoutId)
     if (!response.ok) return null
     const data = await response.json()
-    const text = data.content?.[0]?.text?.trim()
+    const text = data.choices?.[0]?.message?.content?.trim()
     return text ? stripActionDescriptions(text) : null
   } catch (err) {
     clearTimeout(timeoutId)
@@ -348,7 +346,7 @@ export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
 export async function getDaterChatResponse(dater, conversationHistory) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'chat')
   
-  // Convert conversation history to Claude format
+  // Convert conversation history to chat-completions format
   const messages = conversationHistory.map(msg => ({
     role: msg.isPlayer ? 'user' : 'assistant',
     content: msg.text,
@@ -820,13 +818,13 @@ React to what they revealed about themselves!`
   const voicePrompt = getVoiceProfilePrompt(daterKey, emotionForVoice)
   const fullPrompt = systemPrompt + voicePrompt + baselineMorality + avatarContext + knowledgeBoundary + latestAttrContext + sentimentInstruction + firstImpressionsInstruction + buildPromptTail(dater)
   
-  // Convert conversation history to Claude format
+  // Convert conversation history to chat-completions format
   let messages = conversationHistory.map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message,
   }))
   
-  // Claude requires at least one message - add a prompt if empty
+  // The API requires at least one message - add a prompt if empty
   if (messages.length === 0) {
     if (customInstruction) {
       messages = [{
@@ -1627,7 +1625,7 @@ ${rulesPrompt}
     content: msg.message,
   }))
   
-  // Claude requires at least one message - add a prompt if empty
+  // The API requires at least one message - add a prompt if empty
   if (messages.length === 0) {
     messages = [{ role: 'user', content: 'Your date just said hello. Respond warmly!' }]
   }
@@ -1912,7 +1910,7 @@ export function getFallbackDaterResponse(dater, playerMessage) {
  * This helps players discover who the Dater is through conversation
  */
 export async function extractTraitFromResponse(question, response, existingTraits = []) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   
   if (!apiKey) {
     // Fallback: simple keyword extraction
@@ -1924,18 +1922,18 @@ export async function extractTraitFromResponse(question, response, existingTrait
     : ''
   
   try {
-    const result = await fetch(ANTHROPIC_API_URL, {
+    const result = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 25,
-        system: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
+        messages: [{
+          role: 'system',
+          content: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
 
 Your job: Find the most interesting, specific detail revealed in the answer.
 
@@ -1960,8 +1958,8 @@ Rules:
 1. Be SPECIFIC - extract the exact detail, not a category
 2. Be DIVERSE - look for values, origins, quirks, fears, influences, not just hobbies
 3. 1-3 words maximum
-4. If nothing specific was revealed, respond with just "NONE"${existingContext}`,
-        messages: [{
+4. If nothing specific was revealed, respond with just "NONE"${existingContext}`
+        }, {
           role: 'user',
           content: `Question asked: "${question}"
 Their answer: "${response}"
@@ -1976,7 +1974,7 @@ What SPECIFIC trait or detail was revealed? (1-3 words only):`
     }
     
     const data = await result.json()
-    let trait = data.content[0].text.trim()
+    let trait = (data.choices?.[0]?.message?.content || '').trim()
     
     // Clean up the response
     trait = trait.replace(/^["']|["']$/g, '') // Remove quotes
@@ -2112,7 +2110,7 @@ export function getFallbackDateDialogue(expectedSpeaker, _avatar, _dater) {
  * These are hidden from players and used for scoring
  */
 export async function generateDaterValues(dater) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   
   if (!apiKey) {
     console.warn('No API key - using fallback dater values')
@@ -2176,19 +2174,19 @@ Return ONLY valid JSON in this exact format:
 }`
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 500,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: 'Generate the dater values now.' }],
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Generate the dater values now.' },
+        ],
       }),
     })
     
@@ -2198,7 +2196,7 @@ Return ONLY valid JSON in this exact format:
     }
     
     const data = await response.json()
-    const text = data.content[0].text
+    const text = data.choices?.[0]?.message?.content || ''
     
     // Parse JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -2225,7 +2223,7 @@ Return ONLY valid JSON in this exact format:
  * NOTE: This function ALWAYS returns a match - every attribute affects the score!
  */
 export async function checkAttributeMatch(attribute, daterValues, dater, daterReaction = null, currentCompatibility = 50) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   const daterName = dater?.name || 'the dater'
   
   // Determine tie-break direction based on compatibility meter
@@ -2354,19 +2352,19 @@ Return ONLY valid JSON:
 }`
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 150,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' }],
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' },
+        ],
       }),
     })
     
@@ -2376,7 +2374,7 @@ Return ONLY valid JSON:
     }
     
     const data = await response.json()
-    const text = data.content[0].text
+    const text = data.choices?.[0]?.message?.content || ''
     
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
@@ -2460,7 +2458,7 @@ function coerceQualityHit(rawHit, scoringData) {
  * Returns a quality hit when confidence is high enough, plus a lightweight liked/disliked sentiment.
  */
 export async function checkQualityMatch(playerAnswer, question, scoringData, daterName = 'the dater', daterReaction = '') {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
 
   const fireOverrideHit = detectFireOverrideHit(playerAnswer, scoringData)
   if (fireOverrideHit) {
@@ -2536,19 +2534,19 @@ OUTPUT JSON ONLY:
 }`
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 220,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: 'Return only the JSON result.' }],
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Return only the JSON result.' },
+        ],
       }),
     })
 
@@ -2563,7 +2561,7 @@ OUTPUT JSON ONLY:
     }
 
     const data = await response.json()
-    const text = data?.content?.[0]?.text || ''
+    const text = data?.choices?.[0]?.message?.content || ''
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       return {
@@ -2657,7 +2655,7 @@ function getFallbackDaterValues(_dater) {
 export async function groupSimilarAnswers(question, answers) {
   console.log('🎯 groupSimilarAnswers called with', answers.length, 'answer(s)')
   
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   
   // If only 1 or no answers, no grouping needed
   if (answers.length <= 1) {
@@ -2720,15 +2718,14 @@ RULES FOR JSON:
 - Output ONLY valid JSON, no explanation`
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2739,7 +2736,7 @@ RULES FOR JSON:
     }
     
     const data = await response.json()
-    const text = data.content[0].text
+    const text = data.choices?.[0]?.message?.content || ''
     
     // Parse JSON from response
     const jsonMatch = text.match(/\[[\s\S]*\]/)
@@ -2784,7 +2781,7 @@ RULES FOR JSON:
  * @returns {Array} - Array of conversational sentences to display
  */
 export async function generateBreakdownSentences(daterName, avatarName, qualityHits, finalScorePercent) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   
   if (!apiKey || qualityHits.length === 0) {
     console.log('⚠️ No API key or no quality hits - skipping breakdown generation')
@@ -2826,16 +2823,14 @@ Return ONLY a JSON array of strings, like:
 ["First sentence.", "Second sentence.", "Third sentence."]`
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2846,7 +2841,7 @@ Return ONLY a JSON array of strings, like:
     }
     
     const data = await response.json()
-    const content = data.content[0]?.text || ''
+    const content = data.choices?.[0]?.message?.content || ''
     
     // Parse JSON array from response
     const jsonMatch = content.match(/\[[\s\S]*\]/)
@@ -2868,7 +2863,7 @@ Return ONLY a JSON array of strings, like:
  * The winning "answer" is typically an ACTION (what the avatar did), not something they said.
  */
 export async function generatePlotTwistSummary(avatarName, daterName, winningAction) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
   const normalizedAvatarName = String(avatarName || 'Your date').trim()
   const normalizedDaterName = String(daterName || 'Adam').trim()
   const normalizedAction = String(winningAction || 'stayed calm').trim()
@@ -2935,16 +2930,14 @@ Action: "Start flirting with them too"
 Return ONLY the 3-sentence narration, nothing else.`
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
+    const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4o',
         max_tokens: 200,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2955,7 +2948,7 @@ Return ONLY the 3-sentence narration, nothing else.`
     }
     
     const data = await response.json()
-    const summary = normalizeSummary(data.content[0]?.text)
+    const summary = normalizeSummary(data.choices?.[0]?.message?.content || '')
     if (!summary) return buildFallbackSummary()
     if (summary.length > 280) return buildFallbackSummary()
     if (countSentences(summary) !== 3) return buildFallbackSummary()

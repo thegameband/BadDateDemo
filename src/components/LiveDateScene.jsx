@@ -458,7 +458,7 @@ function LiveDateScene() {
   
   // Check if API key is available
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY
     if (!apiKey) {
       setUsingFallback(true)
       console.warn('⚠️ No API key found - using fallback responses')

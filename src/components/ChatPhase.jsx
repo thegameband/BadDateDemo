@@ -215,7 +215,7 @@ function ChatPhase() {
         </ul>
         
         <div className="api-status">
-          {import.meta.env.VITE_ANTHROPIC_API_KEY ? (
+          {import.meta.env.VITE_OPENAI_API_KEY ? (
             <span className="status-active">🤖 AI-Powered</span>
           ) : (
             <span className="status-fallback">📝 Demo Mode</span>
