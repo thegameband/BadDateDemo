@@ -1100,6 +1100,103 @@ CRITICAL RULES:
 }
 
 /**
+ * Build a terse 1-3 word answer for the current question.
+ * Used for banner reveal after the player's answer.
+ * @returns {Promise<string>} 1-3 words, no punctuation.
+ */
+export async function getDaterQuickAnswer(dater, question, conversationHistory = []) {
+  const systemPrompt = buildDaterAgentPrompt(dater, 'date')
+  const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
+  const taskPrompt = `
+🎯 YOUR TASK: Give your own quick answer to the question in 1-3 words.
+
+📋 QUESTION: "${question}"
+
+CRITICAL RULES:
+- Exactly 1-3 words.
+- No punctuation, no quotes, no emojis.
+- No explanation, only the answer.
+`
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
+  const historyMessages = conversationHistory.slice(-8).map(msg => ({
+    role: msg.speaker === 'dater' ? 'assistant' : 'user',
+    content: msg.message
+  }))
+  const userContent = `[Answer "${question}" in 1-3 words only. No punctuation. No explanation.]`
+  const messages = historyMessages.length
+    ? [...historyMessages, { role: 'user', content: userContent }]
+    : [{ role: 'user', content: userContent }]
+  if (messages[messages.length - 1]?.role === 'assistant') {
+    messages.push({ role: 'user', content: userContent })
+  }
+  const response = await getChatResponse(messages, fullPrompt)
+  if (response) {
+    const cleaned = stripActionDescriptions(response)?.trim() || ''
+    const words = cleaned
+      .replace(/[^A-Za-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+    if (words.length >= 1) {
+      return words.join(' ')
+    }
+  }
+
+  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
+  const adamFallbacks = ['Moral courage', 'My conscience', 'Loyal love', 'Earned trust']
+  const genericFallbacks = ['Honest answer', 'My values', 'Calm choice', 'Heart first']
+  const fallbackPool = isAdam ? adamFallbacks : genericFallbacks
+  return fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
+}
+
+/**
+ * Explain the dater's quick answer, then compare it to the player's answer.
+ * @returns {Promise<string|null>} Two short sentences.
+ */
+export async function getDaterAnswerComparison(dater, question, daterAnswer, playerAnswer, conversationHistory = []) {
+  const systemPrompt = buildDaterAgentPrompt(dater, 'date')
+  const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
+  const quickAnswer = String(daterAnswer || '').trim() || 'my gut'
+  const taskPrompt = `
+🎯 YOUR TASK: Give two concise sentences.
+
+📋 QUESTION: "${question}"
+💬 YOUR QUICK ANSWER: "${quickAnswer}"
+💬 PLAYER ANSWER: "${playerAnswer}"
+
+CRITICAL RULES:
+- Sentence 1: Explain why your quick answer fits your values.
+- Sentence 2: Compare your answer with the player's answer.
+- Keep total length concise (aim <= 350 characters).
+- Dialogue only, no actions or asterisks.
+`
+  const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
+  const historyMessages = conversationHistory.slice(-12).map(msg => ({
+    role: msg.speaker === 'dater' ? 'assistant' : 'user',
+    content: msg.message
+  }))
+  const userContent = `[You answered "${quickAnswer}". The player answered "${playerAnswer}". First explain your answer in one sentence, then compare it to theirs in one sentence.]`
+  const messages = historyMessages.length
+    ? [...historyMessages, { role: 'user', content: userContent }]
+    : [{ role: 'user', content: userContent }]
+  if (messages[messages.length - 1]?.role === 'assistant') {
+    messages.push({ role: 'user', content: userContent })
+  }
+
+  const response = await getChatResponse(messages, fullPrompt)
+  if (response) {
+    const cleaned = stripActionDescriptions(response)?.trim()
+    if (cleaned) return cleaned
+  }
+
+  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
+  if (isAdam) {
+    return `I chose ${quickAnswer} because it is what my conscience can live with. Your answer tells me what you prioritize, and I feel both the overlap and the distance between us.`
+  }
+  return `I chose ${quickAnswer} because it matches what matters most to me. Your answer shows your priorities, and I can see where we align and where we differ.`
+}
+
+/**
  * Dater gives a FOLLOW-UP comment that connects the current answer with things the avatar said earlier.
  * This is the second of two comments per round.
  * @param {object} dater - The dater profile

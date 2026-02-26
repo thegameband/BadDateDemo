@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout, getLlmErrorMessage, getLlmDebugSnapshot } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterQuickAnswer, getDaterAnswerComparison, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout, getLlmErrorMessage, getLlmDebugSnapshot } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import { adamScoring, getDefaultScoringProfileForDater } from '../data/scoring/adamScoring'
@@ -165,7 +165,6 @@ function LiveDateScene() {
   const qualityHitPopupTimeout = useRef(null)
   const [showDateBeginsOverlay, setShowDateBeginsOverlay] = useState(false)
   const [questionNarrationComplete, setQuestionNarrationComplete] = useState(true)
-  const [daterOpeningAnswerDone, setDaterOpeningAnswerDone] = useState(true)
   const [ttsStatusNote, setTtsStatusNote] = useState('')
   const [submittedAnswer, setSubmittedAnswer] = useState('') // Shown in oval beneath the question
   // Timer starts immediately when phase begins (no waiting for submissions)
@@ -204,6 +203,8 @@ function LiveDateScene() {
   // Pre-generated conversation data (for early LLM calls)
   const preGenConversationRef = useRef(null)
   const preGenPromiseRef = useRef(null)
+  const daterQuickAnswerRef = useRef('')
+  const lastQuickAnswerQuestionRef = useRef('')
   
   // Starting Stats Mode state
   const [startingStatsInput, setStartingStatsInput] = useState('')
@@ -370,6 +371,29 @@ function LiveDateScene() {
 
     if (partyClient && isHost) {
       partyClient.syncState({ reactionFeedback: { text, category: feedbackType } })
+    }
+  }
+
+  const showDaterAnswerBanner = (answer = '') => {
+    const daterName = selectedDater?.name || 'Your date'
+    const cleanedAnswer = String(answer || '')
+      .replace(/[^A-Za-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(' ')
+      .trim()
+    const bannerAnswer = cleanedAnswer || 'from the heart'
+    const text = `${daterName} answered ${bannerAnswer}!`
+
+    if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
+    setReactionFeedback({ text, category: 'answer-reveal' })
+    reactionFeedbackTimeout.current = setTimeout(() => {
+      setReactionFeedback(null)
+    }, REACTION_FEEDBACK_DURATION_MS)
+
+    if (partyClient && isHost) {
+      partyClient.syncState({ reactionFeedback: { text, category: 'answer-reveal' } })
     }
   }
 
@@ -801,46 +825,35 @@ function LiveDateScene() {
     return () => { cancelled = true }
   }, [livePhase, currentRoundPrompt?.subtitle])
 
-  // Phase 3 (Date Question 2): dater answers first in one sentence before player can type.
+  // Pre-generate the dater's hidden 1-3 word answer for banner reveal.
   useEffect(() => {
-    if (livePhase !== 'phase1') return
-    setDaterOpeningAnswerDone(cycleCount !== 1)
-  }, [livePhase, cycleCount])
+    if (!isHost || livePhase !== 'phase1' || !questionNarrationComplete || !selectedDater) return
 
-  useEffect(() => {
-    if (!isHost || livePhase !== 'phase1' || cycleCount !== 1) return
-    if (!questionNarrationComplete || daterOpeningAnswerDone || !selectedDater) return
+    const question = (currentRoundPrompt?.subtitle || '').trim()
+    if (!question || lastQuickAnswerQuestionRef.current === question) return
+
+    lastQuickAnswerQuestionRef.current = question
+    daterQuickAnswerRef.current = ''
 
     let cancelled = false
-    const runDaterOpener = async () => {
+    const runQuickAnswer = async () => {
       try {
-        const opener = await getDaterQuestionOpener(
+        const answer = await getDaterQuickAnswer(
           selectedDater,
-          currentRoundPrompt?.subtitle || 'Tell me about yourself',
+          question,
           useGameStore.getState().dateConversation || []
         )
         syncLlmStatusMessage()
         if (cancelled) return
-        if (opener) {
-          if (ttsEnabled) setDaterBubbleReady(false)
-          setDaterBubble(opener)
-          addDateMessage('dater', opener)
-          await syncConversationToPartyKit(undefined, opener, undefined)
-          await waitForAllAudio()
-        }
+        daterQuickAnswerRef.current = answer || ''
       } catch (err) {
-        console.error('Phase 3 opener error:', err)
-      } finally {
-        if (!cancelled) {
-          setDaterOpeningAnswerDone(true)
-        }
+        console.error('Quick-answer pregen error:', err)
       }
     }
 
-    runDaterOpener()
+    runQuickAnswer()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- syncConversationToPartyKit is stable enough for this one-shot gating
-  }, [isHost, livePhase, cycleCount, questionNarrationComplete, daterOpeningAnswerDone, selectedDater, currentRoundPrompt?.subtitle, ttsEnabled])
+  }, [isHost, livePhase, questionNarrationComplete, selectedDater, currentRoundPrompt?.subtitle])
 
   // Track timer value in a ref for the interval to access
   const phaseTimerValueRef = useRef(phaseTimer)
@@ -1891,6 +1904,24 @@ RULES:
         return null
       }
 
+      const daterQuickAnswer = String(daterQuickAnswerRef.current || '').trim() || await getDaterQuickAnswer(
+        selectedDater,
+        question,
+        conversationHistory
+      )
+      if (daterQuickAnswer) {
+        daterQuickAnswerRef.current = daterQuickAnswer
+      }
+
+      const daterComparison = await getDaterAnswerComparison(
+        selectedDater,
+        question,
+        daterQuickAnswer || 'my gut',
+        playerAnswer,
+        conversationHistory
+      )
+      syncLlmStatusMessage()
+
       const qualityResult = await checkQualityMatch(
         playerAnswer,
         question,
@@ -1914,6 +1945,16 @@ RULES:
             sentimentHit,
             scoringMultiplier: 1.0,
             needsJustify
+          },
+          {
+            avatarResponse: null,
+            daterReaction: daterComparison,
+            daterMood: 'neutral',
+            qualityResult: null,
+            sentimentHit: null,
+            scoringMultiplier: 1.0,
+            needsJustify: false,
+            daterQuickAnswer
           }
         ].filter(e => e.daterReaction),
         avatarWithNewAttr: { ...avatar, attributes: avatar.attributes.includes(playerAnswer) ? avatar.attributes : [...avatar.attributes, playerAnswer] }
@@ -1960,7 +2001,7 @@ RULES:
           }
         }
 
-        // On the SECOND comment (i > 0): now show the deferred reaction feedback
+        // On the SECOND comment (i > 0): show quality hit popup or answer-reveal banner.
         if (i > 0 && deferredFeedback) {
           const { qualityResult, roundNumber } = deferredFeedback
           const hit = qualityResult?.qualityHit || null
@@ -1974,8 +2015,8 @@ RULES:
             if (wasAdded) {
               showQualityMatchPopup(hit)
             }
-          } else if (qualityResult) {
-            showReactionFeedback(qualityResult.sentiment, qualityResult.sentimentReason)
+          } else {
+            showDaterAnswerBanner(exchange.daterQuickAnswer || daterQuickAnswerRef.current)
           }
           deferredFeedback = null
         }
@@ -2002,8 +2043,8 @@ RULES:
         if (wasAdded) {
           showQualityMatchPopup(hit)
         }
-      } else if (qualityResult) {
-        showReactionFeedback(qualityResult.sentiment, qualityResult.sentimentReason)
+      } else {
+        showDaterAnswerBanner(daterQuickAnswerRef.current)
       }
     }
     
@@ -3296,7 +3337,6 @@ BAD examples (do NOT do this):
     // In Phase 1, player's message is the answer for this round (no wheel)
     if (livePhase === 'phase1') {
       if (!questionNarrationComplete) return
-      if (cycleCount === 1 && !daterOpeningAnswerDone) return
       if (partyClient) {
         partyClient.submitAttribute(message, username, playerId)
         addPlayerChatMessage(username, `💡 ${truncate(message, 35)}`)
@@ -4425,9 +4465,7 @@ BAD examples (do NOT do this):
                   placeholder={livePhase === 'phase1'
                     ? (!questionNarrationComplete
                       ? 'Listen to the question...'
-                      : (cycleCount === 1 && !daterOpeningAnswerDone)
-                        ? `Listen to ${selectedDater?.name || 'your date'}...`
-                        : 'Type your answer...')
+                      : 'Type your answer...')
                     : livePhase === 'plot-twist'
                       ? 'What do you do?'
                       : 'Type your answer...'}
@@ -4435,8 +4473,7 @@ BAD examples (do NOT do this):
                   onChange={(e) => setChatInput(e.target.value)}
                   maxLength={100}
                   disabled={
-                    (livePhase === 'phase1' && !questionNarrationComplete) ||
-                    (livePhase === 'phase1' && cycleCount === 1 && !daterOpeningAnswerDone)
+                    (livePhase === 'phase1' && !questionNarrationComplete)
                   }
                 />
                 <button
