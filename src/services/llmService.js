@@ -1208,7 +1208,7 @@ CRITICAL RULES:
  * @param {boolean} isFinalRound
  * @returns {Promise<string|null>}
  */
-export async function getDaterFollowupComment(dater, question, playerAnswer, firstReaction, priorAnswers = [], conversationHistory = [], isFinalRound = false, allowSelfAnswer = false, cycleNumber = 0, avatarName = 'your date') {
+export async function getDaterFollowupComment(dater, question, playerAnswer, firstReaction, _priorAnswers = [], conversationHistory = [], isFinalRound = false, allowSelfAnswer = false, cycleNumber = 0, avatarName = 'your date') {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const finalNote = isFinalRound
@@ -2482,7 +2482,6 @@ export async function checkAttributeMatch(attribute, daterValues, dater, daterRe
 
   // Build tie-break instruction for the LLM
   let tieBreakInstruction = ''
-  const direction = getTieBreakDirection()
   if (currentCompatibility > 50) {
     tieBreakInstruction = `\n\nTIE-BREAK RULE: The date is currently going WELL (compatibility: ${currentCompatibility}%). If both a LIKE trait and a DISLIKE trait apply to what they said, lean toward GOOD (Like). Give them the benefit of the doubt. However, this does NOT apply to LOVE or DEALBREAKER — those always win outright regardless of how the date is going.`
   } else if (currentCompatibility < 50) {
@@ -3121,5 +3120,240 @@ Return ONLY the 3-sentence narration, nothing else.`
   } catch (error) {
     console.error('Error generating plot twist summary:', error)
     return buildFallbackSummary()
+  }
+}
+
+const safeJsonObject = (text) => {
+  if (!text || typeof text !== 'string') return null
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  try {
+    return JSON.parse(match[0])
+  } catch {
+    return null
+  }
+}
+
+const normalizeStringList = (items = []) => (
+  Array.isArray(items)
+    ? items.map((item) => String(item || '').trim()).filter(Boolean)
+    : []
+)
+
+export async function evaluateLikesDislikesResponse({
+  dater,
+  question = '',
+  playerAnswer = '',
+  daterResponse = '',
+  likes = [],
+  dislikes = [],
+  alreadyHitLikes = [],
+  alreadyHitDislikes = [],
+}) {
+  const remainingLikes = normalizeStringList(likes).filter((item) => !alreadyHitLikes.includes(item))
+  const remainingDislikes = normalizeStringList(dislikes).filter((item) => !alreadyHitDislikes.includes(item))
+  if (remainingLikes.length === 0 && remainingDislikes.length === 0) {
+    return { likesHit: [], dislikesHit: [] }
+  }
+
+  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating your own latest response in a dating game.
+Decide which hidden likes/dislikes were clearly triggered by what just happened.
+
+OUTPUT RULES:
+- Return JSON only.
+- It is valid to trigger multiple likes and multiple dislikes in one response.
+- Only return items from the provided lists.
+- Do not return items already hit.
+`
+
+  const userPrompt = `QUESTION:
+"${question}"
+
+PLAYER ANSWER:
+"${playerAnswer}"
+
+YOUR RESPONSE:
+"${daterResponse}"
+
+REMAINING LIKES:
+${remainingLikes.map((item) => `- ${item}`).join('\n') || '- none'}
+
+REMAINING DISLIKES:
+${remainingDislikes.map((item) => `- ${item}`).join('\n') || '- none'}
+
+Return JSON:
+{
+  "likesHit": ["exact like label", "..."],
+  "dislikesHit": ["exact dislike label", "..."]
+}`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt)
+  const parsed = safeJsonObject(response)
+  if (!parsed) return { likesHit: [], dislikesHit: [] }
+
+  const likesHit = normalizeStringList(parsed.likesHit).filter((item) => remainingLikes.includes(item))
+  const dislikesHit = normalizeStringList(parsed.dislikesHit).filter((item) => remainingDislikes.includes(item))
+  return { likesHit, dislikesHit }
+}
+
+export async function evaluateBingoBlindLockoutResponse({
+  dater,
+  question = '',
+  playerAnswer = '',
+  daterResponse = '',
+  cells = [],
+}) {
+  const allCells = (Array.isArray(cells) ? cells : [])
+    .filter((cell) => cell && cell.id)
+    .map((cell) => ({
+      id: String(cell.id),
+      label: String(cell.label || ''),
+      type: cell.type === 'dislike' ? 'dislike' : 'like',
+      status: cell.status === 'filled' || cell.status === 'locked' ? cell.status : 'hidden',
+    }))
+  if (allCells.length === 0) return { updates: [] }
+  const unresolvedIds = new Set(
+    allCells
+      .filter((cell) => cell.status !== 'filled' && cell.status !== 'locked')
+      .map((cell) => cell.id)
+  )
+  if (unresolvedIds.size === 0) return { updates: [] }
+
+  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating a 4x4 bingo board after your latest response.
+For each cell, decide one status:
+- "filled": what happened agrees with that cell's test
+- "locked": what happened clashes with that cell's test
+- "neutral": no clear signal yet
+
+Rules by type:
+- like cell: filled when the interaction clearly supports that preference, locked when it clearly opposes it.
+- dislike cell: filled when the interaction clearly avoids/rejects that negative trait, locked when the interaction clearly affirms/tolerates it.
+
+You must evaluate all 16 cells each round, using the current status as context.
+If a cell is already filled or locked, keep it unchanged by returning "neutral" for it.
+
+Return JSON only.`
+
+  const userPrompt = `QUESTION:
+"${question}"
+
+PLAYER ANSWER:
+"${playerAnswer}"
+
+YOUR RESPONSE:
+"${daterResponse}"
+
+ALL BOARD CELLS:
+${allCells.map((cell) => `- ${cell.id} | ${cell.type} | current:${cell.status} | ${cell.label}`).join('\n')}
+
+Return JSON:
+{
+  "updates": [
+    {"id": "cell-id", "status": "filled|locked|neutral"}
+  ]
+}`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt)
+  const parsed = safeJsonObject(response)
+  if (!parsed || !Array.isArray(parsed.updates)) return { updates: [] }
+
+  const updates = parsed.updates
+    .filter((update) => update && unresolvedIds.has(String(update.id)))
+    .map((update) => ({
+      id: String(update.id),
+      status: update.status === 'filled' || update.status === 'locked' ? update.status : 'neutral',
+    }))
+    .filter((update) => update.status !== 'neutral')
+
+  return { updates }
+}
+
+export async function evaluateBingoActionsResponse({
+  dater,
+  question = '',
+  playerAnswer = '',
+  daterResponse = '',
+  actionCells = [],
+}) {
+  const allCells = (Array.isArray(actionCells) ? actionCells : [])
+    .filter((cell) => cell && cell.id)
+    .map((cell) => ({
+      id: String(cell.id),
+      label: String(cell.label || ''),
+      status: cell.status === 'filled' ? 'filled' : 'unfilled',
+    }))
+  if (allCells.length === 0) return { filledIds: [] }
+  const allIds = new Set(allCells.map((cell) => cell.id))
+
+  const systemPrompt = `You are ${dater?.name || 'the dater'} checking which conversational actions you just performed.
+Evaluate all 16 actions every round, even if some are already filled.
+Only mark an action as filled if your latest response clearly performed that action.
+Return JSON only.`
+
+  const userPrompt = `QUESTION:
+"${question}"
+
+PLAYER ANSWER:
+"${playerAnswer}"
+
+YOUR RESPONSE:
+"${daterResponse}"
+
+ALL ACTION CELLS:
+${allCells.map((cell) => `- ${cell.id} | current:${cell.status} | ${cell.label}`).join('\n')}
+
+Return JSON:
+{
+  "filledIds": ["action-id-1", "action-id-2"]
+}`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt)
+  const parsed = safeJsonObject(response)
+  if (!parsed) return { filledIds: [] }
+  const filledIds = normalizeStringList(parsed.filledIds).filter((id) => allIds.has(id))
+  return { filledIds }
+}
+
+export async function generateFinalDateDecision(dater, avatarName, conversationHistory = []) {
+  const daterName = dater?.name || 'Your date'
+  const historyBlock = (Array.isArray(conversationHistory) ? conversationHistory : [])
+    .slice(-14)
+    .map((entry) => `${entry?.speaker || 'unknown'}: ${entry?.message || ''}`)
+    .join('\n')
+
+  const prompt = `You are ${daterName} at the end of a first date with ${avatarName || 'your date'}.
+
+Recent conversation:
+${historyBlock || '(no history)'}
+
+Decide if you want a second date.
+This decision must be subjective and based on the conversation vibe only.
+
+Return JSON only:
+{
+  "decision": "yes" | "no",
+  "assessment": "exactly 2 sentences, how the date felt overall",
+  "verdict": "exactly 2 sentences, direct yes/no style ending"
+}`
+
+  const text = await getSingleResponseWithTimeout(prompt, { maxTokens: 260, timeoutMs: 25000 })
+  const parsed = safeJsonObject(text)
+  if (!parsed) {
+    return {
+      decision: 'no',
+      assessment: `You were memorable, and this date definitely had energy. I am still not sure we are truly aligned.`,
+      verdict: `I am going to pass on a second date. I wish you well, but this is where I leave it.`,
+    }
+  }
+
+  const decision = String(parsed.decision || '').toLowerCase() === 'yes' ? 'yes' : 'no'
+  const assessment = String(parsed.assessment || '').trim()
+  const verdict = String(parsed.verdict || '').trim()
+  return {
+    decision,
+    assessment: assessment || `This date surprised me in ways I did not expect. I am leaving with a clearer sense of who you are.`,
+    verdict: verdict || (decision === 'yes'
+      ? 'Yes, I would see you again. There is enough here to keep exploring.'
+      : 'No, I would not do a second date. I do not think this is the right fit.'),
   }
 }

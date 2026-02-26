@@ -10,6 +10,7 @@ import LiveLobby from './components/LiveLobby'
 import LiveGameLobby from './components/LiveGameLobby'
 import LiveDateScene from './components/LiveDateScene'
 import DaterBioPage from './components/DaterBioPage'
+import ScoringModeSelect from './components/ScoringModeSelect'
 import './App.css'
 
 function App() {
@@ -48,6 +49,8 @@ function App() {
         return <LiveLobby />
       case 'dater-bio':
         return <DaterBioPage />
+      case 'scoring-mode-select':
+        return <ScoringModeSelect />
       case 'live-game-lobby':
         return <LiveGameLobby />
       case 'live-date':
@@ -58,7 +61,7 @@ function App() {
   }
   
   // Determine if we should show the header
-  const showHeader = phase !== 'lobby' && phase !== 'live-lobby' && phase !== 'dater-bio'
+  const showHeader = phase !== 'lobby' && phase !== 'live-lobby' && phase !== 'dater-bio' && phase !== 'scoring-mode-select' && phase !== 'results'
   // For Live Date, we use a custom header in the component
   const showGameHeader = showHeader && phase !== 'live-date'
   

@@ -1243,6 +1243,41 @@
   gap: 12px;
 }
 
+.live-score-chip {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #fef3c7;
+  background: rgba(180, 83, 9, 0.42);
+  border: 1px solid rgba(252, 211, 77, 0.8);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.bingo-panel-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid rgba(147, 197, 253, 0.8);
+  background: rgba(30, 64, 175, 0.35);
+  color: #dbeafe;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bingo-panel-toggle:hover {
+  background: rgba(37, 99, 235, 0.45);
+}
+
+.bingo-panel-toggle.flash {
+  animation: board-pulse 0.8s ease-in-out;
+}
+
 .header-cta {
   text-align: left;
   display: flex;
@@ -1305,6 +1340,11 @@
   font-weight: 700;
   color: #6e8efb;
   line-height: 1.2;
+}
+
+@keyframes board-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(56, 189, 248, 0); }
+  50% { box-shadow: 0 0 16px rgba(56, 189, 248, 0.9); }
 }
 
 .header-timer {
@@ -1470,6 +1510,86 @@
 @keyframes pulse-danger {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.02); }
+}
+
+.bingo-board-panel {
+  margin: 8px 12px 0;
+  padding: 10px;
+  background: rgba(17, 24, 39, 0.82);
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  border-radius: 12px;
+  z-index: 4;
+}
+
+.bingo-board-panel.flash {
+  animation: board-pulse 0.8s ease-in-out;
+}
+
+.bingo-board-meta {
+  font-size: 0.7rem;
+  color: rgba(219, 234, 254, 0.95);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.bingo-board-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bingo-cell {
+  min-height: 48px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.bingo-cell-label {
+  font-size: 0.64rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.bingo-cell.hidden {
+  background: rgba(31, 41, 55, 0.8);
+  border-color: rgba(107, 114, 128, 0.55);
+}
+
+.bingo-cell.hidden .bingo-cell-label {
+  color: rgba(209, 213, 219, 0.85);
+}
+
+.bingo-cell.open {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.bingo-cell.open .bingo-cell-label {
+  color: rgba(191, 219, 254, 0.95);
+}
+
+.bingo-cell.filled {
+  background: rgba(6, 95, 70, 0.8);
+  border-color: rgba(52, 211, 153, 0.8);
+}
+
+.bingo-cell.filled .bingo-cell-label {
+  color: #d1fae5;
+}
+
+.bingo-cell.locked {
+  background: rgba(127, 29, 29, 0.85);
+  border-color: rgba(248, 113, 113, 0.9);
+}
+
+.bingo-cell.locked .bingo-cell-label {
+  color: #fee2e2;
 }
 
 /* Shared zone: quality popup / reaction feedback / tracker chips — in-flow at top of date-screen */
@@ -2469,6 +2589,34 @@
   .cta-line2,
   .cta-line3 {
     font-size: 0.6rem;
+  }
+
+  .live-score-chip {
+    font-size: 0.56rem;
+    padding: 3px 8px;
+  }
+
+  .bingo-panel-toggle {
+    right: 8px;
+    font-size: 0.58rem;
+    padding: 5px 7px;
+    border-radius: 8px;
+    max-width: 110px;
+    line-height: 1.15;
+  }
+
+  .bingo-board-panel {
+    margin: 6px 8px 0;
+    padding: 8px;
+  }
+
+  .bingo-cell {
+    min-height: 42px;
+    padding: 4px;
+  }
+
+  .bingo-cell-label {
+    font-size: 0.56rem;
   }
   
   .compatibility-display {

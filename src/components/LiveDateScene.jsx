@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
-import { useGameStore } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterQuickAnswer, getDaterAnswerComparison, getDaterResponseToJustification, generateDaterValues, checkQualityMatch, groupSimilarAnswers, generateBreakdownSentences, generatePlotTwistSummary, getSingleResponseWithTimeout, getLlmErrorMessage, getLlmDebugSnapshot } from '../services/llmService'
+import { useGameStore, SCORING_MODES } from '../store/gameStore'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterQuickAnswer, getDaterAnswerComparison, getDaterResponseToJustification, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
-import { adamScoring, getDefaultScoringProfileForDater } from '../data/scoring/adamScoring'
 import AnimatedText from './AnimatedText'
 import './LiveDateScene.css'
 
@@ -64,11 +63,9 @@ const pickRandom = (items = []) => items[Math.floor(Math.random() * items.length
 function LiveDateScene() {
   const selectedDater = useGameStore((state) => state.selectedDater)
   const avatar = useGameStore((state) => state.avatar)
-  const compatibility = useGameStore((state) => state.compatibility)
   const livePhase = useGameStore((state) => state.livePhase)
   const phaseTimer = useGameStore((state) => state.phaseTimer)
   const cycleCount = useGameStore((state) => state.cycleCount)
-  const maxCycles = useGameStore((state) => state.maxCycles)
   const suggestedAttributes = useGameStore((state) => state.suggestedAttributes)
   const numberedAttributes = useGameStore((state) => state.numberedAttributes)
   const playerChat = useGameStore((state) => state.playerChat)
@@ -76,7 +73,8 @@ function LiveDateScene() {
   const dateConversation = useGameStore((state) => state.dateConversation)
   const latestAttribute = useGameStore((state) => state.latestAttribute)
   const daterValues = useGameStore((state) => state.daterValues)
-  const qualityHits = useGameStore((state) => state.qualityHits)
+  const scoring = useGameStore((state) => state.scoring)
+  const finalDateDecision = useGameStore((state) => state.finalDateDecision)
   const roomCode = useGameStore((state) => state.roomCode)
   const playerId = useGameStore((state) => state.playerId)
   const isHost = useGameStore((state) => state.isHost)
@@ -98,9 +96,11 @@ function LiveDateScene() {
   const setPlayerChat = useGameStore((state) => state.setPlayerChat)
   const setCompatibility = useGameStore((state) => state.setCompatibility)
   const setNumberedAttributes = useGameStore((state) => state.setNumberedAttributes)
-  const addQualityHit = useGameStore((state) => state.addQualityHit)
-  const resetQualityHits = useGameStore((state) => state.resetQualityHits)
-  const getQualityScore = useGameStore((state) => state.getQualityScore)
+  const addLikesDislikesHits = useGameStore((state) => state.addLikesDislikesHits)
+  const applyBingoBlindUpdates = useGameStore((state) => state.applyBingoBlindUpdates)
+  const applyBingoActionFills = useGameStore((state) => state.applyBingoActionFills)
+  const getScoringSummary = useGameStore((state) => state.getScoringSummary)
+  const setFinalDateDecision = useGameStore((state) => state.setFinalDateDecision)
   const showTutorial = useGameStore((state) => state.showTutorial)
   const tutorialStep = useGameStore((state) => state.tutorialStep)
   const setShowTutorial = useGameStore((state) => state.setShowTutorial)
@@ -120,9 +120,6 @@ function LiveDateScene() {
   const [daterEmotion, setDaterEmotion] = useState('neutral') // Dater's current emotional state
   const [isGenerating, setIsGenerating] = useState(false)
   const [_userVote, setUserVote] = useState(null)
-  const [showQualitiesPanel, setShowQualitiesPanel] = useState(false)
-  const showAttributesByDefault = useGameStore((state) => state.showAttributesByDefault)
-  const [showSentimentDebug, setShowSentimentDebug] = useState(showAttributesByDefault) // Phase label shows attributes
   const [_preGeneratedConvo, _setPreGeneratedConvo] = useState(null)
   const [isPreGenerating, setIsPreGenerating] = useState(false) // eslint-disable-line no-unused-vars -- used in JSX (pre-generating indicator)
   const [usingFallback, setUsingFallback] = useState(false)
@@ -154,15 +151,14 @@ function LiveDateScene() {
     setLlmStatusMessage(extras ? `${base} (${extras})` : base)
   }
   
-  const [breakdownSentences, setBreakdownSentences] = useState([])
-  const [isGeneratingBreakdown, setIsGeneratingBreakdown] = useState(false)
-  const [qualityScoreSummary, setQualityScoreSummary] = useState(() => getQualityScore())
+  const [scoringSummary, setScoringSummary] = useState(() => getScoringSummary())
   
   // Reaction feedback - shows temporarily when date reacts to an attribute
   const [reactionFeedback, setReactionFeedback] = useState(null)
   const reactionFeedbackTimeout = useRef(null)
-  const [qualityHitPopup, setQualityHitPopup] = useState(null)
-  const qualityHitPopupTimeout = useRef(null)
+  const [boardPanelOpen, setBoardPanelOpen] = useState(false)
+  const [boardPanelFlash, setBoardPanelFlash] = useState(false)
+  const boardPanelFlashTimeout = useRef(null)
   const [showDateBeginsOverlay, setShowDateBeginsOverlay] = useState(false)
   const [questionNarrationComplete, setQuestionNarrationComplete] = useState(true)
   const [ttsStatusNote, setTtsStatusNote] = useState('')
@@ -170,7 +166,6 @@ function LiveDateScene() {
   // Timer starts immediately when phase begins (no waiting for submissions)
   const [showPhaseAnnouncement, setShowPhaseAnnouncement] = useState(false)
   const [announcementPhase, setAnnouncementPhase] = useState('')
-  const [reactionStreak, _setReactionStreak] = useState({ positive: 0, negative: 0 }) // Track escalation
   
   // LLM Debug state (host only)
   const [showLLMDebug, setShowLLMDebug] = useState(false)
@@ -229,6 +224,12 @@ function LiveDateScene() {
   const allPlotTwistAnsweredRef = useRef(false) // Prevent multiple plot twist auto-advance triggers
   const narratorSummarySpokenRef = useRef(null)  // Track which summary we've already read with narrator TTS
   const lastNarratedQuestionRef = useRef('')
+
+  useEffect(() => {
+    const mode = scoring?.selectedMode
+    const shouldShow = mode === SCORING_MODES.BINGO_BLIND_LOCKOUT || mode === SCORING_MODES.BINGO_ACTIONS_OPEN
+    setBoardPanelOpen(shouldShow)
+  }, [scoring?.selectedMode])
   
   // Who Are You?: exactly 3 questions, no timer (single player only)
   const CREATE_YOUR_DATER_QUESTIONS = [
@@ -237,7 +238,6 @@ function LiveDateScene() {
     { type: 'name', question: 'What is your name?' },
   ]
   const STARTING_STATS_QUESTIONS = CREATE_YOUR_DATER_QUESTIONS
-  const scoringProfile = selectedDater?.scoringProfile || getDefaultScoringProfileForDater(selectedDater) || adamScoring
 
   const getRandomTestAnswer = (target) => {
     if (target === 'starting-stats') {
@@ -271,159 +271,143 @@ function LiveDateScene() {
       const currentSentiments = useGameStore.getState().sentimentCategories
       const currentExposed = useGameStore.getState().exposedValues
       const currentGlowing = useGameStore.getState().glowingValues
-      const currentQualityHits = useGameStore.getState().qualityHits
+      const currentScoring = useGameStore.getState().scoring
+      const currentFinalDateDecision = useGameStore.getState().finalDateDecision
       partyClient.syncState({
         sentimentCategories: currentSentiments,
         exposedValues: currentExposed,
         glowingValues: currentGlowing,
-        qualityHits: currentQualityHits,
+        scoring: currentScoring,
+        finalDateDecision: currentFinalDateDecision,
       })
     }
   }
   
-  // Helper: Get dater emotion based on sentiment AND compatibility
-  // For LIKES/DISLIKES (minor): 70% weight on date vibe, 30% on comment
-  // For LOVES/DEALBREAKERS (major): 30% weight on date vibe, 70% on comment
-  const getDaterEmotionFromSentiment = (sentiment, currentCompatibility = null) => {
-    const compat = currentCompatibility ?? useGameStore.getState().compatibility
-    const isMajor = sentiment === 'loves' || sentiment === 'dealbreakers'
-    const isMinor = sentiment === 'likes' || sentiment === 'dislikes'
-    const _isPositive = sentiment === 'loves' || sentiment === 'likes'
-    
-    // Base emotions for each sentiment
-    const baseEmotionMap = {
-      loves: 'excited',       // LOVES it → EXCITED!!!
-      likes: 'happy',         // Likes it → Happy!
-      dislikes: 'uncomfortable', // Dislikes → Uncomfortable...
-      dealbreakers: 'horrified'  // Dealbreaker → HORRIFIED!
-    }
-    
-    // For MAJOR sentiments (loves/dealbreakers), mostly use the base emotion
-    // but slightly temper it based on compatibility
-    if (isMajor) {
-      // 70% comment, 30% date vibe - mostly use base emotion
-      if (sentiment === 'loves') {
-        // Even if date is going poorly, a LOVE should still be positive
-        // But maybe not MAXIMUM excited if they were having doubts
-        if (compat < 30) return 'happy' // Tone down from excited to just happy
-        return 'excited' // Normal excited for most cases
-      }
-      if (sentiment === 'dealbreakers') {
-        // Even if date was going well, a dealbreaker is still horrifying
-        // But maybe they're more shocked than horrified if it was going great
-        if (compat > 70) return 'worried' // More shocked/worried than horrified
-        return 'horrified' // Normal horrified for most cases
-      }
-    }
-    
-    // For MINOR sentiments (likes/dislikes), heavily weight by compatibility
-    // 70% date vibe, 30% comment
-    if (isMinor) {
-      if (sentiment === 'likes') {
-        // Like hit, but how enthused they are depends on the date
-        if (compat >= 70) return 'excited' // Date going great + like = very happy!
-        if (compat >= 50) return 'happy'   // Neutral-positive date + like = happy
-        if (compat >= 30) return 'neutral' // Date not great + like = meh
-        return 'neutral' // Date going poorly + like = barely registers
-      }
-      if (sentiment === 'dislikes') {
-        // Dislike hit, but severity depends on the date
-        if (compat >= 70) return 'neutral' // Date going great + dislike = brush it off
-        if (compat >= 50) return 'uncomfortable' // Neutral date + dislike = uncomfortable
-        if (compat >= 30) return 'uncomfortable' // Date rough + dislike = more uncomfortable
-        return 'worried' // Date going poorly + dislike = very worried
-      }
-    }
-    
-    return baseEmotionMap[sentiment] || 'neutral'
-  }
-  
   // Show reaction feedback temporarily (auto-clears after 6 seconds)
   const REACTION_FEEDBACK_DURATION_MS = 6000
-  const showReactionFeedback = (sentiment = 'liked', reason = '') => {
-    const daterName = selectedDater?.name || 'Maya'
-    const cleanReason = (reason || '').trim()
-    const topic = cleanReason || 'what you said'
-    const isPositive = sentiment !== 'disliked'
-    const feedbackType = isPositive ? 'liked' : 'disliked'
-
-    const positive = [
-      `${daterName} liked ${topic}.`,
-      `${daterName} is into ${topic}.`,
-      `${daterName} felt good about ${topic}.`,
-    ]
-    const negative = [
-      `${daterName} did not like ${topic}.`,
-      `${topic} rubbed ${daterName} the wrong way.`,
-      `${daterName} felt uneasy about ${topic}.`,
-    ]
-    const pool = isPositive ? positive : negative
-    const text = pool[Math.floor(Math.random() * pool.length)]
-
+  const showRealtimeFeedback = (text, category = 'answer-reveal') => {
     if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
-
-    setReactionFeedback({ text, category: feedbackType })
-    setDaterEmotion(isPositive ? 'happy' : 'uncomfortable')
+    const payload = { text, category }
+    setReactionFeedback(payload)
+    if (partyClient && isHost) {
+      partyClient.syncState({ reactionFeedback: payload })
+    }
 
     reactionFeedbackTimeout.current = setTimeout(() => {
       setReactionFeedback(null)
+      if (partyClient && isHost) {
+        partyClient.syncState({ reactionFeedback: null })
+      }
     }, REACTION_FEEDBACK_DURATION_MS)
-
-    if (partyClient && isHost) {
-      partyClient.syncState({ reactionFeedback: { text, category: feedbackType } })
-    }
   }
 
-  const showDaterAnswerBanner = (answer = '') => {
-    const daterName = selectedDater?.name || 'Your date'
-    const cleanedAnswer = String(answer || '')
-      .replace(/[^A-Za-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 3)
-      .join(' ')
-      .trim()
-    const bannerAnswer = cleanedAnswer || 'from the heart'
-    const text = `${daterName} answered ${bannerAnswer}!`
-
-    if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
-    setReactionFeedback({ text, category: 'answer-reveal' })
-    reactionFeedbackTimeout.current = setTimeout(() => {
-      setReactionFeedback(null)
-    }, REACTION_FEEDBACK_DURATION_MS)
-
-    if (partyClient && isHost) {
-      partyClient.syncState({ reactionFeedback: { text, category: 'answer-reveal' } })
-    }
+  const flashBoardPanelPulse = () => {
+    const mode = useGameStore.getState().scoring?.selectedMode
+    const isBingoMode = mode === SCORING_MODES.BINGO_BLIND_LOCKOUT || mode === SCORING_MODES.BINGO_ACTIONS_OPEN
+    if (!isBingoMode) return
+    if (boardPanelFlashTimeout.current) clearTimeout(boardPanelFlashTimeout.current)
+    setBoardPanelFlash(true)
+    boardPanelFlashTimeout.current = setTimeout(() => setBoardPanelFlash(false), 1200)
   }
 
-  const showQualityMatchPopup = (qualityHit) => {
-    if (!qualityHit) return
-    if (qualityHitPopupTimeout.current) clearTimeout(qualityHitPopupTimeout.current)
+  const applyScoringDecision = async ({ question = '', playerAnswer = '', daterResponse = '', source = '' } = {}) => {
+    if (!isHost) return
+    const responseText = String(daterResponse || '').trim()
+    if (!responseText) return
 
-    const daterName = selectedDater?.name || 'Your date'
-    const positiveTemplates = [
-      `${qualityHit.name} is exactly what ${daterName} wants in a partner.`,
-      `${daterName} values ${qualityHit.name} in a relationship.`,
-      `${qualityHit.name} is a major green flag for ${daterName}.`,
-    ]
-    const negativeTemplates = [
-      `${qualityHit.name} is a dealbreaker for ${daterName}.`,
-      `${daterName} sees ${qualityHit.name} as a hard no.`,
-      `${qualityHit.name} crosses a line for ${daterName}.`,
-    ]
-    const options = qualityHit.type === 'dealbreaker' ? negativeTemplates : positiveTemplates
-    const text = options[Math.floor(Math.random() * options.length)]
+    const state = useGameStore.getState()
+    const mode = state.scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
 
-    setQualityHitPopup({
-      id: `${qualityHit.id}-${Date.now()}`,
-      text,
-      type: qualityHit.type,
-    })
+    try {
+      if (mode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
+        const likesState = state.scoring?.likesMinusDislikes
+        const result = await evaluateLikesDislikesResponse({
+          dater: selectedDater,
+          question,
+          playerAnswer,
+          daterResponse: responseText,
+          likes: likesState?.likes || [],
+          dislikes: likesState?.dislikes || [],
+          alreadyHitLikes: likesState?.likesHit || [],
+          alreadyHitDislikes: likesState?.dislikesHit || [],
+        })
+        syncLlmStatusMessage()
+        const { newLikes, newDislikes } = addLikesDislikesHits(result)
+        const latestSummary = useGameStore.getState().getScoringSummary()
+        setScoringSummary(latestSummary)
+        if (partyClient && isHost) {
+          partyClient.syncState({ scoring: useGameStore.getState().scoring })
+        }
 
-    qualityHitPopupTimeout.current = setTimeout(() => {
-      setQualityHitPopup(null)
-    }, 4200)
+        if (newLikes.length || newDislikes.length) {
+          const fragments = []
+          if (newLikes.length) fragments.push(`+ ${newLikes.join(', ')}`)
+          if (newDislikes.length) fragments.push(`- ${newDislikes.join(', ')}`)
+          const text = `Score update${source ? ` (${source})` : ''}: ${fragments.join(' | ')}`
+          const category = newDislikes.length > 0 ? 'disliked' : 'liked'
+          showRealtimeFeedback(text, category)
+        } else {
+          showRealtimeFeedback(`Score check${source ? ` (${source})` : ''}: no new likes or dislikes.`, 'answer-reveal')
+        }
+        return { hasNegative: newDislikes.length > 0 }
+      }
+
+      if (mode === SCORING_MODES.BINGO_BLIND_LOCKOUT) {
+        const boardCells = state.scoring?.bingoBlindLockout?.cells || []
+        const { updates } = await evaluateBingoBlindLockoutResponse({
+          dater: selectedDater,
+          question,
+          playerAnswer,
+          daterResponse: responseText,
+          cells: boardCells,
+        })
+        syncLlmStatusMessage()
+        const { changed } = applyBingoBlindUpdates(updates)
+        const latestSummary = useGameStore.getState().getScoringSummary()
+        setScoringSummary(latestSummary)
+        if (partyClient && isHost) {
+          partyClient.syncState({ scoring: useGameStore.getState().scoring })
+        }
+        flashBoardPanelPulse()
+        if (changed.length > 0) {
+          const filled = changed.filter((cell) => cell.status === 'filled').length
+          const locked = changed.filter((cell) => cell.status === 'locked').length
+          const text = `Bingo update${source ? ` (${source})` : ''}: ${filled} filled, ${locked} locked.`
+          const category = locked > 0 ? 'disliked' : 'liked'
+          showRealtimeFeedback(text, category)
+        } else {
+          showRealtimeFeedback(`Bingo check${source ? ` (${source})` : ''}: no board changes.`, 'answer-reveal')
+        }
+        return { hasNegative: changed.some((cell) => cell.status === 'locked') }
+      }
+
+      const actionCells = state.scoring?.bingoActionsOpen?.cells || []
+      const { filledIds } = await evaluateBingoActionsResponse({
+        dater: selectedDater,
+        question,
+        playerAnswer,
+        daterResponse: responseText,
+        actionCells,
+      })
+      syncLlmStatusMessage()
+      const { changed } = applyBingoActionFills(filledIds)
+      const latestSummary = useGameStore.getState().getScoringSummary()
+      setScoringSummary(latestSummary)
+      if (partyClient && isHost) {
+        partyClient.syncState({ scoring: useGameStore.getState().scoring })
+      }
+      flashBoardPanelPulse()
+      if (changed.length > 0) {
+        showRealtimeFeedback(`Action bingo update${source ? ` (${source})` : ''}: ${changed.length} action(s) filled.`, 'liked')
+      } else {
+        showRealtimeFeedback(`Action bingo check${source ? ` (${source})` : ''}: no action cells filled.`, 'answer-reveal')
+      }
+      return { hasNegative: false }
+    } catch (error) {
+      console.error('Scoring evaluation error:', error)
+      showRealtimeFeedback('Scoring check failed on this line.', 'answer-reveal')
+      return { hasNegative: false }
+    }
   }
   
   // Handle tutorial advancement (host only, syncs to PartyKit)
@@ -654,8 +638,12 @@ function LiveDateScene() {
       if (state.sentimentCategories) {
         setSentimentCategories(state.sentimentCategories)
       }
-      if (state.qualityHits && Array.isArray(state.qualityHits)) {
-        useGameStore.getState().setQualityHits(state.qualityHits)
+      if (state.scoring && typeof state.scoring === 'object') {
+        useGameStore.setState({ scoring: state.scoring })
+        setScoringSummary(useGameStore.getState().getScoringSummary())
+      }
+      if (state.finalDateDecision && typeof state.finalDateDecision === 'object') {
+        useGameStore.setState({ finalDateDecision: state.finalDateDecision })
       }
       
       // Sync reaction feedback (non-host only)
@@ -667,6 +655,8 @@ function LiveDateScene() {
         reactionFeedbackTimeout.current = setTimeout(() => {
           setReactionFeedback(null)
         }, REACTION_FEEDBACK_DURATION_MS)
+      } else if (state.reactionFeedback === null && !isHost) {
+        setReactionFeedback(null)
       }
       
       // Sync character emotions for speech animation (non-host only)
@@ -948,30 +938,14 @@ function LiveDateScene() {
     return unsubscribe
   }, [])
   
-  // Generate LLM breakdown sentences when game ends
   useEffect(() => {
-    const hasHits = (qualityHits || []).length > 0
-    if (livePhase === 'ended' && hasHits && !isGeneratingBreakdown && breakdownSentences.length === 0) {
-      setIsGeneratingBreakdown(true)
-      const daterName = selectedDater?.name || 'Maya'
-      const avatarName = avatar?.name || 'your date'
-      const scorePct = qualityScoreSummary?.percentage ?? 0
-      
-      generateBreakdownSentences(daterName, avatarName, qualityHits, scorePct)
-        .then(sentences => {
-          setBreakdownSentences(sentences)
-          setIsGeneratingBreakdown(false)
-        })
-        .catch(err => {
-          console.error('Failed to generate breakdown:', err)
-          setIsGeneratingBreakdown(false)
-        })
-    }
-  }, [livePhase, qualityHits, qualityScoreSummary, selectedDater, avatar, isGeneratingBreakdown, breakdownSentences.length])
+    setScoringSummary(useGameStore.getState().getScoringSummary())
+  }, [scoring])
 
-  useEffect(() => {
-    setQualityScoreSummary(getQualityScore())
-  }, [qualityHits, getQualityScore])
+  useEffect(() => () => {
+    if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
+    if (boardPanelFlashTimeout.current) clearTimeout(boardPanelFlashTimeout.current)
+  }, [])
   
   // No phase timer: progression is turn-based (player submits → dater reacts → advance).
   
@@ -1402,10 +1376,7 @@ function LiveDateScene() {
     // IMPORTANT: Clear conversation history for fresh start
     // This ensures the avatar doesn't "remember" previous games
     useGameStore.setState({ dateConversation: [] })
-    setBreakdownSentences([]) // Reset LLM-generated breakdown
-    setIsGeneratingBreakdown(false)
-    resetQualityHits()
-    setQualityHitPopup(null)
+    setScoringSummary(useGameStore.getState().getScoringSummary())
     console.log('🧹 Cleared conversation history for fresh reaction round')
     
     const currentAvatar = useGameStore.getState().avatar
@@ -1479,26 +1450,12 @@ RULES:
         }
 
         const firstImpressionInput = `Appearance: ${physicalList}. Emotional state: ${emotionalList}.`
-        const qualityResult = await checkQualityMatch(
-          firstImpressionInput,
-          'First impression of the avatar',
-          scoringProfile,
-          selectedDater?.name || 'the dater',
-          daterReaction1
-        )
-        const hit = qualityResult?.qualityHit || null
-        if (hit) {
-          const wasAdded = addQualityHit({
-            ...hit,
-            roundNumber: 0,
-            attribute: firstImpressionInput,
-          })
-          if (wasAdded) {
-            showQualityMatchPopup(hit)
-          }
-        } else if (qualityResult) {
-          showReactionFeedback(qualityResult.sentiment, qualityResult.sentimentReason)
-        }
+        await applyScoringDecision({
+          question: 'First impressions',
+          playerAnswer: firstImpressionInput,
+          daterResponse: daterReaction1,
+          source: 'first impression',
+        })
       }
 
       await syncConversationToPartyKit(undefined, undefined, true)
@@ -1699,8 +1656,8 @@ RULES:
       case 1:
         return {
           title: 'Welcome to Bad Date!',
-          text: "Your goal is simple: get the highest compatibility score with your date. Watch the meter at the top — that's your target!",
-          highlight: 'compatibility'
+          text: "Your goal is simple: score as high as you can in the mode you selected. Watch live scoring feedback after each dater line.",
+          highlight: null
         }
       case 2:
         return {
@@ -1711,7 +1668,7 @@ RULES:
       case 3:
         return {
           title: "Let's Go!",
-          text: "After 6 rounds, the date ends and you'll see your final compatibility score. Good luck — try not to say anything too weird!",
+          text: "After 6 rounds, the date ends and you'll see your final score summary plus the dater's Yes/No decision.",
           highlight: null
         }
       default:
@@ -1922,39 +1879,29 @@ RULES:
       )
       syncLlmStatusMessage()
 
-      const qualityResult = await checkQualityMatch(
-        playerAnswer,
-        question,
-        scoringProfile,
-        selectedDater?.name || 'the dater',
-        daterReaction
-      )
-      const sentimentHit = qualityResult?.sentiment === 'disliked' ? 'disliked' : 'liked'
-      const daterMood = sentimentHit === 'disliked' ? 'uncomfortable' : 'happy'
-      const needsJustify = qualityResult?.qualityHit?.type === 'dealbreaker'
+      const lowerReaction = String(daterReaction || '').toLowerCase()
+      const negativeCue = /\b(no|never|not|awful|bad|terrible|uncomfortable|hate|worse|wrong)\b/.test(lowerReaction)
+      const daterMood = negativeCue ? 'uncomfortable' : 'happy'
 
       const preGenData = {
         attribute: playerAnswer,
         isFinalRound,
+        question,
         exchanges: [
           {
             avatarResponse: null,
             daterReaction,
             daterMood,
-            qualityResult,
-            sentimentHit,
-            scoringMultiplier: 1.0,
-            needsJustify
+            source: 'round reaction',
+            needsJustify: false,
           },
           {
             avatarResponse: null,
             daterReaction: daterComparison,
             daterMood: 'neutral',
-            qualityResult: null,
-            sentimentHit: null,
-            scoringMultiplier: 1.0,
+            source: 'round follow-up',
             needsJustify: false,
-            daterQuickAnswer
+            daterQuickAnswer,
           }
         ].filter(e => e.daterReaction),
         avatarWithNewAttr: { ...avatar, attributes: avatar.attributes.includes(playerAnswer) ? avatar.attributes : [...avatar.attributes, playerAnswer] }
@@ -1978,9 +1925,8 @@ RULES:
     if (!preGenData || !isHost) return
 
     console.log('▶️ PLAYING BACK pre-generated conversation (dater only)...')
-    const { attribute, exchanges } = preGenData
-    // Defer reaction feedback: store from exchange[0], show when exchange[1] starts
-    let deferredFeedback = null
+    const { attribute, exchanges, question } = preGenData
+    let shouldPromptJustify = false
 
     for (let i = 0; i < exchanges.length; i++) {
       const exchange = exchanges[i]
@@ -1992,33 +1938,14 @@ RULES:
         await syncConversationToPartyKit(undefined, exchange.daterReaction, undefined)
         if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterMood || 'neutral' })
 
-        // On the FIRST comment: store reaction scoring data but don't show it yet
-        if (exchange.qualityResult) {
-          deferredFeedback = {
-            qualityResult: exchange.qualityResult,
-            scoringMultiplier: exchange.scoringMultiplier || 1,
-            roundNumber: useGameStore.getState().cycleCount + 1,
-          }
-        }
-
-        // On the SECOND comment (i > 0): show quality hit popup or answer-reveal banner.
-        if (i > 0 && deferredFeedback) {
-          const { qualityResult, roundNumber } = deferredFeedback
-          const hit = qualityResult?.qualityHit || null
-
-          if (hit) {
-            const wasAdded = addQualityHit({
-              ...hit,
-              roundNumber,
-              attribute,
-            })
-            if (wasAdded) {
-              showQualityMatchPopup(hit)
-            }
-          } else {
-            showDaterAnswerBanner(exchange.daterQuickAnswer || daterQuickAnswerRef.current)
-          }
-          deferredFeedback = null
+        const scoringResult = await applyScoringDecision({
+          question: question || currentRoundPrompt.subtitle || 'Tell me about yourself',
+          playerAnswer: attribute,
+          daterResponse: exchange.daterReaction,
+          source: exchange.source || (i === 0 ? 'round reaction' : 'round follow-up'),
+        })
+        if (i === 0 && scoringResult?.hasNegative) {
+          shouldPromptJustify = true
         }
 
         await syncConversationToPartyKit(undefined, undefined, true)
@@ -2029,26 +1956,9 @@ RULES:
         }
       }
     }
-
-    // Safety: if there was only one exchange, show the deferred feedback now
-    if (deferredFeedback) {
-      const { qualityResult, roundNumber } = deferredFeedback
-      const hit = qualityResult?.qualityHit || null
-      if (hit) {
-        const wasAdded = addQualityHit({
-          ...hit,
-          roundNumber,
-          attribute,
-        })
-        if (wasAdded) {
-          showQualityMatchPopup(hit)
-        }
-      } else {
-        showDaterAnswerBanner(daterQuickAnswerRef.current)
-      }
-    }
     
     console.log('✅ Playback complete!')
+    return shouldPromptJustify
   }
   
   // ============================================
@@ -2090,15 +2000,23 @@ RULES:
         partyClient.syncState({ isPreGenerating: false })
       }
       
+      let shouldPromptJustify = false
       if (preGenData) {
         // PHASE 2: Playback smoothly (dater only)
-        await playbackConversation(preGenData)
+        shouldPromptJustify = await playbackConversation(preGenData)
       } else {
         const safeAnswer = String(currentAttribute || latestAttribute || 'that').trim()
         const fallbackReaction = `You gave me "${safeAnswer}"... and yes, I have an opinion.`
         setDaterBubble(fallbackReaction)
         addDateMessage('dater', fallbackReaction)
         await syncConversationToPartyKit(undefined, fallbackReaction, undefined)
+        const fallbackScore = await applyScoringDecision({
+          question: currentRoundPrompt.subtitle || 'Tell me about yourself',
+          playerAnswer: safeAnswer,
+          daterResponse: fallbackReaction,
+          source: 'fallback reaction',
+        })
+        shouldPromptJustify = Boolean(fallbackScore?.hasNegative)
       }
 
       // Wait for all audio to finish before ending the round
@@ -2111,7 +2029,7 @@ RULES:
       await new Promise(r => setTimeout(r, 4000))
 
       // If dater had a strong negative (dealbreaker), ask player to justify instead of next question
-      const needsJustify = preGenData?.exchanges?.[0]?.needsJustify
+      const needsJustify = shouldPromptJustify && preGenData?.exchanges?.[0]
       if (needsJustify && preGenData?.exchanges?.[0]) {
         setJustifyOriginalAnswer(preGenData.attribute)
         setJustifyDaterReaction(preGenData.exchanges[0].daterReaction)
@@ -2150,143 +2068,74 @@ RULES:
   const waitForAudioOrTimeout = (maxMs = 12000) =>
     Promise.race([waitForAllAudio(), new Promise(r => setTimeout(r, maxMs))])
 
-  const generateWrapUpRound = async (qualitySummary) => {
-    const daterName = selectedDater?.name || 'Maya'
+  const generateWrapUpRound = async () => {
     const avatarName = avatar?.name || 'you'
-    const avatarAttributes = avatar?.attributes || []
-    const hitQualities = useGameStore.getState().qualityHits || []
-    const scorePercentage = qualitySummary?.percentage ?? Math.min(100, Math.max(0, Math.round(((qualitySummary?.totalPoints || 0) / 140) * 100)))
-    const LLM_TIMEOUT_MS = 25000
-
     console.log('🎬 Starting Phase 9: Wrap Up')
 
-    let sentimentTier, daterMood
-    if (scorePercentage >= 80) {
-      sentimentTier = 'falling_in_love'
-      daterMood = 'excited'
-    } else if (scorePercentage >= 60) {
-      sentimentTier = 'want_another_date'
-      daterMood = 'happy'
-    } else if (scorePercentage >= 40) {
-      sentimentTier = 'uncertain'
-      daterMood = 'neutral'
-    } else if (scorePercentage >= 20) {
-      sentimentTier = 'no_second_date'
-      daterMood = 'uncomfortable'
-    } else {
-      sentimentTier = 'deleting_number'
-      daterMood = 'horrified'
-    }
-
     try {
-      // ===== COMMENT 1: What the dater thought of how the date went and what they think about the avatar =====
-      console.log('🎭 Wrap-Up Comment 1: How the date went + opinion of the avatar')
+      const decisionState = await generateFinalDateDecision(
+        selectedDater,
+        avatarName,
+        useGameStore.getState().dateConversation || []
+      )
+      syncLlmStatusMessage()
+      setFinalDateDecision(decisionState)
 
-      const conversationAfterAvatar = useGameStore.getState().dateConversation
-      const recentConvo = conversationAfterAvatar.slice(-12).map(m => `${m.speaker}: ${m.message}`).join('\n')
-      const qualityHitLines = hitQualities.length > 0
-        ? hitQualities.map((hit) => `- ${hit.name} (${hit.type}, rank ${hit.rank})`).join('\n')
-        : '- No major qualities were clearly hit.'
+      const assessment = String(decisionState?.assessment || '').trim()
+        || "This date had its moments, and I learned a lot about you."
+      const verdict = String(decisionState?.verdict || '').trim()
+        || (decisionState?.decision === 'yes'
+          ? "Yes, I'd go on another date."
+          : "No, I don't want a second date.")
 
-      const daterAssessmentPrompt = `You are ${daterName} at the end of a first date with ${avatarName}.
-
-QUALITY SCORE: ${scorePercentage}% (based on ranked qualities and dealbreakers hit during the date).
-
-WHAT WAS SAID DURING THE DATE (recent conversation):
-${recentConvo}
-
-THINGS ${avatarName.toUpperCase()} REVEALED ABOUT THEMSELVES:
-${avatarAttributes.map(a => `- ${a}`).join('\n')}
-
-QUALITIES HIT DURING THE DATE:
-${qualityHitLines}
-
-🎯 YOUR TASK: Tell ${avatarName} what you thought of how the date went and what you think of them as a person. Be honest and in character.
-
-RULES:
-- Comment on how the date went overall AND your impression of ${avatarName} as a person.
-- Your tone should match ${scorePercentage}%: ${sentimentTier.replace(/_/g, ' ')}
-- Reference one specific thing they said or did if you can, briefly.
-- Exactly 2 sentences. NO action descriptors - dialogue only. Don't mention percentages. Cut filler.
-
-${sentimentTier === 'falling_in_love' ? 'You are TOTALLY SMITTEN. Tell them why this date was amazing and what you love about them.' :
-  sentimentTier === 'want_another_date' ? 'You had a great time. Tell them what you liked about the date and about them.' :
-  sentimentTier === 'uncertain' ? 'You have mixed feelings. Share what worked and what concerned you about them.' :
-  sentimentTier === 'no_second_date' ? 'You are NOT feeling it. Tell them honestly why the date didn\'t work for you.' :
-  'This was a disaster. Tell them plainly why you\'re done.'}
-
-Generate ${daterName}'s assessment:`
-
-      const daterAssessment = await getSingleResponseWithTimeout(daterAssessmentPrompt, { maxTokens: 120, timeoutMs: LLM_TIMEOUT_MS })
-        || "Well... that was certainly something."
-
-      setDaterEmotion(daterMood)
-      setDaterBubble(daterAssessment)
+      const assessmentMood = decisionState?.decision === 'yes' ? 'happy' : 'neutral'
+      setDaterEmotion(assessmentMood)
+      setDaterBubble(assessment)
       setDaterBubbleReady(true)
-      addDateMessage('dater', daterAssessment)
-      await syncConversationToPartyKit(undefined, daterAssessment, undefined)
-      if (partyClient) partyClient.syncState({ daterEmotion: daterMood })
-
-      console.log(`💬 Dater assessment: "${daterAssessment}"`)
+      addDateMessage('dater', assessment)
+      await syncConversationToPartyKit(undefined, assessment, undefined)
+      if (partyClient) {
+        partyClient.syncState({ daterEmotion: assessmentMood, finalDateDecision: decisionState })
+      }
+      await applyScoringDecision({
+        question: 'Date wrap-up assessment',
+        playerAnswer: '',
+        daterResponse: assessment,
+        source: 'wrap-up assessment',
+      })
       await waitForAudioOrTimeout()
-      await new Promise(r => setTimeout(r, 1000))
+      await new Promise(r => setTimeout(r, 900))
 
-      // ===== COMMENT 2: Whether they want a second date =====
-      console.log('🎭 Wrap-Up Comment 2: Second date decision')
-
-      const verdictInstructions = {
-        falling_in_love: `Say something short and enthusiastic about seeing them again soon. Be flirty, one short line.`,
-        want_another_date: `Be warm and clear you'd like to see them again. One short sentence.`,
-        uncertain: `Politely noncommittal - "I'll think about it" in one short line.`,
-        no_second_date: `Polite but clear you don't want another date. One short line.`,
-        deleting_number: `Polite but clear this is goodbye. One short line.`
-      }
-
-      const verdictExamples = {
-        falling_in_love: '"Yes. When are you free? Tomorrow?"',
-        want_another_date: '"I\'d like that. Text me."',
-        uncertain: '"I\'ll think about it. Nice meeting you."',
-        no_second_date: '"I\'m good. Take care."',
-        deleting_number: '"I\'m gonna go. Don\'t call me."'
-      }
-
-      const daterVerdictPrompt = `You are ${daterName}. You just told ${avatarName} what you thought of the date. Now tell them whether you would want a second date.
-
-QUALITY SCORE: ${scorePercentage}%
-YOUR DECISION: ${sentimentTier.replace(/_/g, ' ').toUpperCase()}
-
-${verdictInstructions[sentimentTier]}
-
-🎯 Exactly 2 sentences. Tell them your decision about a second date and why. NO action descriptors - dialogue only.
-
-EXAMPLE: ${verdictExamples[sentimentTier]}
-
-Generate ${daterName}'s final verdict:`
-
-      const daterVerdict = await getSingleResponseWithTimeout(daterVerdictPrompt, { maxTokens: 60, timeoutMs: LLM_TIMEOUT_MS })
-        || "We'll see."
-
-      const verdictMood = sentimentTier === 'falling_in_love' ? 'excited' :
-                          sentimentTier === 'want_another_date' ? 'happy' :
-                          sentimentTier === 'uncertain' ? 'neutral' :
-                          sentimentTier === 'no_second_date' ? 'uncomfortable' : 'horrified'
-
+      const verdictMood = decisionState?.decision === 'yes' ? 'excited' : 'uncomfortable'
       setDaterEmotion(verdictMood)
-      setDaterBubble(daterVerdict)
+      setDaterBubble(verdict)
       setDaterBubbleReady(true)
-      addDateMessage('dater', daterVerdict)
-      await syncConversationToPartyKit(undefined, daterVerdict, undefined)
-      if (partyClient) partyClient.syncState({ daterEmotion: verdictMood })
-
-      console.log(`💬 Dater verdict (${sentimentTier}): "${daterVerdict}"`)
+      addDateMessage('dater', verdict)
+      await syncConversationToPartyKit(undefined, verdict, undefined)
+      if (partyClient) {
+        partyClient.syncState({ daterEmotion: verdictMood, finalDateDecision: decisionState })
+      }
+      await applyScoringDecision({
+        question: 'Second date decision',
+        playerAnswer: '',
+        daterResponse: verdict,
+        source: 'wrap-up verdict',
+      })
       await waitForAudioOrTimeout()
-      await new Promise(r => setTimeout(r, 2000))
-
+      await new Promise(r => setTimeout(r, 1500))
+      setScoringSummary(useGameStore.getState().getScoringSummary())
       console.log('✅ Wrap-Up Round complete!')
     } catch (error) {
       console.error('Error in wrap-up round:', error)
-      setDaterBubble("Well... it was nice meeting you.")
-      addDateMessage('dater', "Well... it was nice meeting you.")
+      const fallbackDecision = {
+        decision: 'no',
+        assessment: "This was definitely a memorable night.",
+        verdict: "I'm going to pass on a second date.",
+      }
+      setFinalDateDecision(fallbackDecision)
+      setDaterBubble(fallbackDecision.verdict)
+      addDateMessage('dater', fallbackDecision.verdict)
+      await syncConversationToPartyKit(undefined, fallbackDecision.verdict, undefined)
     }
   }
   
@@ -2305,10 +2154,10 @@ Generate ${daterName}'s final verdict:`
     const newRoundCount = currentCycleCount + 1
     incrementCycle()
     
-    // Keep compatibility around for legacy systems, but scoring now uses quality hits.
+    // Keep compatibility around for legacy systems.
     const currentCompatibility = useGameStore.getState().compatibility
-    const qualitySummary = useGameStore.getState().getQualityScore()
-    console.log(`Round ${newRoundCount}/${currentMaxCycles} complete, qualityScore: ${qualitySummary.percentage}%, cycleCount: ${currentCycleCount} -> ${newRoundCount}`)
+    const currentSummary = useGameStore.getState().getScoringSummary()
+    console.log(`Round ${newRoundCount}/${currentMaxCycles} complete, mode: ${currentSummary.mode}, cycleCount: ${currentCycleCount} -> ${newRoundCount}`)
     
     // Check if we should trigger Plot Twist (after Round 3, i.e., newRoundCount === 3)
     if (newRoundCount === 3 && !currentPlotTwistCompleted) {
@@ -2340,7 +2189,7 @@ Generate ${daterName}'s final verdict:`
         })
       }
       
-      await generateWrapUpRound(qualitySummary)
+      await generateWrapUpRound()
       
       // Date ends ONLY after wrap-up conversation finishes
       const finalCycleCount = newRoundCount + 1
@@ -2480,6 +2329,12 @@ Generate ${daterName}'s final verdict:`
         setDaterBubble(opener)
         addDateMessage('dater', opener)
         await syncConversationToPartyKit(undefined, opener, undefined)
+        await applyScoringDecision({
+          question: 'Another person just hit on me. What would you do?',
+          playerAnswer: '',
+          daterResponse: opener,
+          source: 'plot twist opener',
+        })
         await waitForAllAudio()
       }
     } catch (err) {
@@ -2823,6 +2678,12 @@ BAD examples (do NOT do this):
       if (ttsEnabled) speak(safeReaction1, 'dater')
       addDateMessage('dater', safeReaction1)
       syncConversationToPartyKit(undefined, safeReaction1)
+      await applyScoringDecision({
+        question: 'Plot twist reaction',
+        playerAnswer: winnerText || '',
+        daterResponse: safeReaction1,
+        source: 'plot twist reaction',
+      })
       if (partyClient && isHost) {
         partyClient.syncState({ daterEmotion: plotTwistDaterMood })
       }
@@ -3377,6 +3238,12 @@ BAD examples (do NOT do this):
         addDateMessage('dater', daterResponseToJustification)
         setDaterBubble(daterResponseToJustification)
         await syncConversationToPartyKit(undefined, daterResponseToJustification, undefined)
+        await applyScoringDecision({
+          question: `Justify your previous answer: ${justifyOriginalAnswer}`,
+          playerAnswer: justification,
+          daterResponse: daterResponseToJustification,
+          source: 'justify response',
+        })
         if (partyClient) partyClient.syncState({ daterBubble: daterResponseToJustification })
         await waitForAllAudio()
       }
@@ -3425,6 +3292,51 @@ BAD examples (do NOT do this):
       case 'plot-twist-reaction': return `${selectedDater?.name || 'The dater'} reacts to what happened`
       default: return ''
     }
+  }
+
+  const selectedScoringMode = scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
+  const isBlindBingoMode = selectedScoringMode === SCORING_MODES.BINGO_BLIND_LOCKOUT
+  const isActionBingoMode = selectedScoringMode === SCORING_MODES.BINGO_ACTIONS_OPEN
+  const isBingoMode = isBlindBingoMode || isActionBingoMode
+  const boardCells = isBlindBingoMode
+    ? (scoring?.bingoBlindLockout?.cells || [])
+    : (scoring?.bingoActionsOpen?.cells || [])
+
+  const getCompactScoreLabel = () => {
+    if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
+      return `Score ${scoringSummary?.scoreOutOf5 ?? 0}/5`
+    }
+    if (selectedScoringMode === SCORING_MODES.BINGO_BLIND_LOCKOUT) {
+      return `Bingo ${scoringSummary?.bingoCount ?? 0} | Filled ${scoringSummary?.filledCount ?? 0}`
+    }
+    return `Action Bingo ${scoringSummary?.bingoCount ?? 0} | Filled ${scoringSummary?.filledCount ?? 0}`
+  }
+
+  const getScoreStatusChips = () => {
+    if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
+      return [
+        { key: 'score', label: `Daily Score ${scoringSummary?.scoreOutOf5 ?? 0}/5`, className: 'positive' },
+        { key: 'likes', label: `Likes ${scoringSummary?.likesCount ?? 0}`, className: 'positive' },
+        { key: 'dislikes', label: `Dislikes ${scoringSummary?.dislikesCount ?? 0}`, className: 'dealbreaker' },
+      ]
+    }
+    if (selectedScoringMode === SCORING_MODES.BINGO_BLIND_LOCKOUT) {
+      return [
+        { key: 'filled', label: `Filled ${scoringSummary?.filledCount ?? 0}/16`, className: 'positive' },
+        { key: 'locked', label: `Locked ${scoringSummary?.lockedCount ?? 0}/16`, className: 'dealbreaker' },
+        { key: 'bingo', label: `Bingos ${scoringSummary?.bingoCount ?? 0}`, className: 'positive' },
+      ]
+    }
+    return [
+      { key: 'filled', label: `Filled ${scoringSummary?.filledCount ?? 0}/16`, className: 'positive' },
+      { key: 'bingo', label: `Bingos ${scoringSummary?.bingoCount ?? 0}`, className: 'positive' },
+    ]
+  }
+
+  const getEndOverlayTitle = () => {
+    if (finalDateDecision?.decision === 'yes') return '💕 Second Date: Yes'
+    if (finalDateDecision?.decision === 'no') return '💔 Second Date: No'
+    return 'Date Complete'
   }
   
   return (
@@ -3901,62 +3813,61 @@ BAD examples (do NOT do this):
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
-              <h1 className="end-game-title">
-                {(qualityScoreSummary?.percentage ?? 0) >= 70 ? '💕 Great Date!' : 
-                 (qualityScoreSummary?.percentage ?? 0) >= 40 ? '😐 It Was... Okay' : 
-                 '💔 Total Disaster'}
-              </h1>
+              <h1 className="end-game-title">{getEndOverlayTitle()}</h1>
               <div className="end-game-compatibility">
-                <span className="compat-final">{qualityScoreSummary?.percentage ?? 0}%</span>
-                <span className="compat-label">Quality Match</span>
+                <span className="compat-final">
+                  {selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES
+                    ? `${scoringSummary?.scoreOutOf5 ?? 0}/5`
+                    : `${scoringSummary?.bingoCount ?? 0}`}
+                </span>
+                <span className="compat-label">
+                  {selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES ? 'Daily Score' : 'Bingos'}
+                </span>
               </div>
               
-              {/* Breakdown of quality hits */}
               <div className="end-game-breakdown">
-                <h2>Qualities Hit:</h2>
+                <h2>Score Summary</h2>
                 <div className="breakdown-list">
-                  {(qualityHits || []).length > 0 ? (
-                    (qualityHits || []).map((hit, index) => (
-                      <motion.div
-                        key={`${hit.id}-${index}`}
-                        className="breakdown-item conversational"
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: 0.35 + (index * 0.2) }}
-                      >
-                        <span className="breakdown-text">
-                          {hit.type === 'dealbreaker' ? 'Dealbreaker' : 'Quality'}: {hit.name}
-                        </span>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <p className="no-impacts">No major quality matches were detected.</p>
-                  )}
+                  {getScoreStatusChips().map((chip, index) => (
+                    <motion.div
+                      key={chip.key}
+                      className="breakdown-item conversational"
+                      initial={{ x: -20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.35 + (index * 0.14) }}
+                    >
+                      <span className="breakdown-text">{chip.label}</span>
+                    </motion.div>
+                  ))}
                 </div>
               </div>
 
-              {/* LLM recap */}
               <div className="end-game-breakdown">
-                <h2>Date Recap:</h2>
+                <h2>{selectedDater?.name || 'Your date'}'s Final Call</h2>
                 <div className="breakdown-list">
-                  {isGeneratingBreakdown ? (
-                    <p className="no-impacts">Recapping the date...</p>
-                  ) : breakdownSentences.length > 0 ? (
-                    breakdownSentences.map((sentence, index) => (
-                      <motion.div 
-                        key={index}
+                  {finalDateDecision?.assessment ? (
+                    <>
+                      <motion.div
                         className="breakdown-item conversational"
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: 0.5 + (index * 0.3) }}
+                        transition={{ delay: 0.45 }}
                       >
-                        <span className="breakdown-text">{sentence}</span>
+                        <span className="breakdown-text">{finalDateDecision.assessment}</span>
                       </motion.div>
-                    ))
-                  ) : (qualityHits || []).length === 0 ? (
-                    <p className="no-impacts">No recap available for this date.</p>
+                      {finalDateDecision?.verdict ? (
+                        <motion.div
+                          className="breakdown-item conversational"
+                          initial={{ x: -20, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ delay: 0.65 }}
+                        >
+                          <span className="breakdown-text">{finalDateDecision.verdict}</span>
+                        </motion.div>
+                      ) : null}
+                    </>
                   ) : (
-                    <p className="no-impacts">Loading recap...</p>
+                    <p className="no-impacts">Final decision is still processing...</p>
                   )}
                 </div>
               </div>
@@ -3985,12 +3896,7 @@ BAD examples (do NOT do this):
       <div className={`live-header ${showTutorial && getTutorialContent().highlight === 'compatibility' ? 'tutorial-highlight' : ''}`}>
         <div className="header-row header-centered">
           {/* Centered: Round indicator + Phase description */}
-          <div 
-            className="header-center-content"
-            onClick={() => setShowQualitiesPanel(prev => !prev)}
-            style={{ cursor: 'pointer' }}
-            title="Tap to see qualities"
-          >
+          <div className="header-center-content">
             <div className="round-indicator">
               <span className="round-label">Phase</span>
               <span className="round-value">
@@ -4002,47 +3908,18 @@ BAD examples (do NOT do this):
               <span className="cta-line2">{getPhaseTitle().line2}</span>
               <span className="cta-line3">{getPhaseTitle().line3}</span>
             </div>
+            <div className="live-score-chip">{getCompactScoreLabel()}</div>
           </div>
+          {isBingoMode && (
+            <button
+              type="button"
+              className={`bingo-panel-toggle ${boardPanelFlash ? 'flash' : ''}`}
+              onClick={() => setBoardPanelOpen((open) => !open)}
+            >
+              {boardPanelOpen ? 'Hide Bingo Board' : 'Show Bingo Board'}
+            </button>
+          )}
         </div>
-        
-        {/* Qualities Panel Overlay */}
-        {showQualitiesPanel && (
-          <div className="qualities-panel-overlay" onClick={() => setShowQualitiesPanel(false)}>
-            <div className="qualities-panel" onClick={e => e.stopPropagation()}>
-              <h3 className="qualities-panel-title">{selectedDater?.name || 'Dater'}'s Qualities</h3>
-
-              <div className="qualities-panel-section">
-                <span className="qualities-panel-section-label">Looking For</span>
-                {(scoringProfile?.positiveQualities || []).map(q => {
-                  const hit = (qualityHits || []).find(h => h.id === q.id)
-                  return (
-                    <div key={q.id} className={`qualities-panel-item ${hit ? 'hit' : 'unmet'}`}>
-                      <span className="qualities-panel-rank">#{q.rank}</span>
-                      <span className="qualities-panel-name">{q.name}</span>
-                      {hit && <span className="qualities-panel-hit-badge">✓</span>}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="qualities-panel-section">
-                <span className="qualities-panel-section-label">Dealbreakers</span>
-                {(scoringProfile?.dealbreakers || []).map(q => {
-                  const hit = (qualityHits || []).find(h => h.id === q.id)
-                  return (
-                    <div key={q.id} className={`qualities-panel-item dealbreaker ${hit ? 'hit' : 'unmet'}`}>
-                      <span className="qualities-panel-rank">#{q.rank}</span>
-                      <span className="qualities-panel-name">{q.name}</span>
-                      {hit && <span className="qualities-panel-hit-badge">✗</span>}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <button className="qualities-panel-close" onClick={() => setShowQualitiesPanel(false)}>Close</button>
-            </div>
-          </div>
-        )}
         
         {/* LLM Debug Panel (Host only) */}
         <AnimatePresence>
@@ -4349,21 +4226,41 @@ BAD examples (do NOT do this):
             </motion.div>
           )}
         </AnimatePresence>
-        
-        {/* Shared zone: quality popup → reaction feedback → quality tracker chips */}
-        <AnimatePresence mode="wait">
-          {qualityHitPopup ? (
+
+        <AnimatePresence>
+          {isBingoMode && boardPanelOpen && (
             <motion.div
-              key="quality-hit-popup"
-              className={`quality-zone quality-hit-popup ${qualityHitPopup.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.98 }}
-              transition={{ duration: 0.25 }}
+              className={`bingo-board-panel ${boardPanelFlash ? 'flash' : ''}`}
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
             >
-              {qualityHitPopup.text}
+              <div className="bingo-board-meta">
+                {isBlindBingoMode
+                  ? `Filled ${scoringSummary?.filledCount ?? 0} | Locked ${scoringSummary?.lockedCount ?? 0} | Bingos ${scoringSummary?.bingoCount ?? 0}`
+                  : `Filled ${scoringSummary?.filledCount ?? 0} | Bingos ${scoringSummary?.bingoCount ?? 0}`}
+              </div>
+              <div className="bingo-board-grid">
+                {boardCells.slice(0, 16).map((cell, index) => {
+                  const isHiddenCell = isBlindBingoMode && cell.status === 'hidden' && !cell.revealed
+                  const statusClass = isBlindBingoMode
+                    ? (cell.status === 'filled' ? 'filled' : cell.status === 'locked' ? 'locked' : 'hidden')
+                    : (cell.status === 'filled' ? 'filled' : 'open')
+                  const cellLabel = isHiddenCell ? 'Hidden' : (cell.label || `Cell ${index + 1}`)
+                  return (
+                    <div key={cell.id || `bingo-cell-${index}`} className={`bingo-cell ${statusClass}`}>
+                      <span className="bingo-cell-label">{cellLabel}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </motion.div>
-          ) : reactionFeedback ? (
+          )}
+        </AnimatePresence>
+        
+        {/* Shared scoring feedback zone */}
+        <AnimatePresence mode="wait">
+          {reactionFeedback ? (
             <motion.div
               key="reaction-feedback"
               className={`quality-zone reaction-feedback ${reactionFeedback.category}`}
@@ -4374,23 +4271,23 @@ BAD examples (do NOT do this):
             >
               {reactionFeedback.text}
             </motion.div>
-          ) : (qualityHits || []).length > 0 ? (
+          ) : (
             <div key="quality-tracker" className="quality-tracker-container">
-              <span className="quality-tracker-label">Qualities Spotted</span>
+              <span className="quality-tracker-label">Live Scoring</span>
               <div className="quality-tracker">
-                {(qualityHits || []).map((hit) => (
+                {getScoreStatusChips().map((chip) => (
                   <motion.span
-                    key={hit.id}
-                    className={`quality-chip ${hit.type === 'dealbreaker' ? 'dealbreaker' : 'positive'}`}
+                    key={chip.key}
+                    className={`quality-chip ${chip.className}`}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
-                    {hit.name}
+                    {chip.label}
                   </motion.span>
                 ))}
               </div>
             </div>
-          ) : null}
+          )}
         </AnimatePresence>
 
         {/* Conversation Bubbles Area - dater speech text (always readable) */}

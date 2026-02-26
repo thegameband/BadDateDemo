@@ -229,7 +229,66 @@ export const daters = [
     
     idealPartner: ['brutally honest about their flaws', 'dark sense of humor', 'genuinely curious without judgment', 'embraces the strange and unconventional', 'emotionally courageous and vulnerable'],
     dealbreakers: ['pity or treating him as an inspiration', 'cruelty about bodies or appearance', 'superficiality and vanity', 'fear or disgust reactions to his nature', 'performative perfection or fakeness', 'fire, flames, or burning — his deepest trauma and phobia'],
-    
+
+    dailyScoring: {
+      likesMinusDislikes: {
+        likes: [
+          'Sees me as a person',
+          'Dark humor',
+          'Self-awareness',
+          'Kindness to vulnerable people',
+          'Intellectual curiosity',
+          'Emotional honesty',
+        ],
+        dislikes: [
+          'Pity or condescension',
+          'Cruelty',
+          'Shallow vanity',
+          'Casual fire talk',
+        ],
+      },
+      bingoBlindLockout: {
+        cells: [
+          { id: 'bb1', label: 'Sees me as a person', type: 'like' },
+          { id: 'bb2', label: 'Dark humor', type: 'like' },
+          { id: 'bb3', label: 'Self-awareness', type: 'like' },
+          { id: 'bb4', label: 'Kindness to vulnerable people', type: 'like' },
+          { id: 'bb5', label: 'Intellectual curiosity', type: 'like' },
+          { id: 'bb6', label: 'Emotional honesty', type: 'like' },
+          { id: 'bb7', label: 'Courage with discomfort', type: 'like' },
+          { id: 'bb8', label: 'Accepts the unconventional', type: 'like' },
+          { id: 'bb9', label: 'Pity or condescension', type: 'dislike' },
+          { id: 'bb10', label: 'Cruelty toward vulnerable people', type: 'dislike' },
+          { id: 'bb11', label: 'Shallow vanity', type: 'dislike' },
+          { id: 'bb12', label: 'Treating me as a spectacle', type: 'dislike' },
+          { id: 'bb13', label: 'Fear/disgust reaction', type: 'dislike' },
+          { id: 'bb14', label: 'Performative perfection', type: 'dislike' },
+          { id: 'bb15', label: 'Dodging accountability', type: 'dislike' },
+          { id: 'bb16', label: 'Fire or flames mention', type: 'dislike' },
+        ],
+      },
+      bingoActionsOpen: {
+        actions: [
+          { id: 'ba1', label: 'Answer directly', difficulty: 1 },
+          { id: 'ba2', label: 'Ask a follow-up question', difficulty: 1 },
+          { id: 'ba3', label: 'Reference your values', difficulty: 1 },
+          { id: 'ba4', label: 'Give a sincere compliment', difficulty: 1 },
+          { id: 'ba5', label: 'Talk about your past', difficulty: 2 },
+          { id: 'ba6', label: 'Tell a short story', difficulty: 2 },
+          { id: 'ba7', label: 'Tell a joke', difficulty: 2 },
+          { id: 'ba8', label: 'Show curiosity about me', difficulty: 2 },
+          { id: 'ba9', label: 'Admit uncertainty', difficulty: 3 },
+          { id: 'ba10', label: 'Admit to a mistake', difficulty: 3 },
+          { id: 'ba11', label: 'Be self-deprecating', difficulty: 3 },
+          { id: 'ba12', label: 'Challenge me respectfully', difficulty: 3 },
+          { id: 'ba13', label: 'Reveal a fear', difficulty: 4 },
+          { id: 'ba14', label: 'Set a personal boundary', difficulty: 4 },
+          { id: 'ba15', label: 'State a dealbreaker clearly', difficulty: 4 },
+          { id: 'ba16', label: 'Invite a second date', difficulty: 4 },
+        ],
+      },
+    },
+
     speechStylePrompt: `=== CHARACTER SPEECH OVERLAY: ADAM ===
 This layers ON TOP of the Gen-Z Dating Speech Register.
 Where this conflicts with the base, THIS takes priority.
