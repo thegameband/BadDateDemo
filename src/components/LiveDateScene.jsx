@@ -58,6 +58,28 @@ const DEBUG_AUTO_FILL_ANSWERS = {
 }
 
 const pickRandom = (items = []) => items[Math.floor(Math.random() * items.length)] || ''
+const clampChaosValue = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 1
+  return Math.max(1, Math.min(10, numeric))
+}
+const getChaosFillPercent = (value) => {
+  const clamped = clampChaosValue(value)
+  return ((clamped - 1) / 9) * 100
+}
+const getChaosTierLabel = (value) => {
+  const clamped = clampChaosValue(value)
+  if (clamped < 3) return 'Steady'
+  if (clamped < 5) return 'Spicy'
+  if (clamped < 7) return 'Wild'
+  if (clamped < 9) return 'Unhinged'
+  return 'Nuclear'
+}
+const getChaosTextMeter = (value) => {
+  const clamped = clampChaosValue(value)
+  const filled = Math.max(1, Math.min(5, Math.round(clamped / 2)))
+  return `${'█'.repeat(filled)}${'░'.repeat(5 - filled)}`
+}
 
 // Phase timers: 30 seconds for Phase 1 and Phase 2
 function LiveDateScene() {
@@ -362,8 +384,8 @@ function LiveDateScene() {
           if (newLikes.length) fragments.push(`+ ${newLikes.join(', ')}`)
           if (newDislikes.length) fragments.push(`- ${newDislikes.join(', ')}`)
           if (isChaosMode && chaosApplied != null) {
-            fragments.push(`Chaos ${chaosApplied}/10`)
-            fragments.push(`x${Number(latestSummary?.chaosMultiplier || 1).toFixed(2)}`)
+            fragments.push(`Chaos ${getChaosTextMeter(chaosApplied)} ${getChaosTierLabel(chaosApplied)}`)
+            fragments.push(`Multiplier x${Number(latestSummary?.chaosMultiplier || 1).toFixed(2)}`)
           }
           const text = `Score update${source ? ` (${source})` : ''}: ${fragments.join(' | ')}`
           const category = newDislikes.length > 0 ? 'disliked' : 'liked'
@@ -3330,7 +3352,13 @@ BAD examples (do NOT do this):
     if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS) {
       return [
         { key: 'base', label: `Base ${scoringSummary?.scoreOutOf5 ?? 0}/5`, className: 'positive' },
-        { key: 'chaos', label: `Chaos Avg ${Number(scoringSummary?.chaosAverage ?? 1).toFixed(1)}/10`, className: 'positive' },
+        {
+          key: 'chaos',
+          kind: 'chaos-meter',
+          chaosValue: scoringSummary?.chaosAverage ?? 1,
+          chaosTier: getChaosTierLabel(scoringSummary?.chaosAverage ?? 1),
+          className: 'positive',
+        },
         { key: 'multiplier', label: `Multiplier x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`, className: 'positive' },
         { key: 'final', label: `Final ${Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')}`, className: 'positive' },
       ]
@@ -3860,7 +3888,20 @@ BAD examples (do NOT do this):
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ delay: 0.35 + (index * 0.14) }}
                     >
-                      <span className="breakdown-text">{chip.label}</span>
+                      {chip.kind === 'chaos-meter' ? (
+                        <div className="breakdown-chaos-meter">
+                          <span className="chaos-meter-label">Chaos Meter</span>
+                          <span className="chaos-meter-track">
+                            <span
+                              className="chaos-meter-fill"
+                              style={{ width: `${getChaosFillPercent(chip.chaosValue)}%` }}
+                            />
+                          </span>
+                          <span className="chaos-meter-tier">{chip.chaosTier}</span>
+                        </div>
+                      ) : (
+                        <span className="breakdown-text">{chip.label}</span>
+                      )}
                     </motion.div>
                   ))}
                 </div>
@@ -3971,11 +4012,22 @@ BAD examples (do NOT do this):
                     {getScoreStatusChips().map((chip) => (
                       <motion.span
                         key={chip.key}
-                        className={`quality-chip ${chip.className}`}
+                        className={`quality-chip ${chip.className} ${chip.kind === 'chaos-meter' ? 'chaos-meter-chip' : ''}`}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                       >
-                        {chip.label}
+                        {chip.kind === 'chaos-meter' ? (
+                          <>
+                            <span className="chaos-meter-label">Chaos</span>
+                            <span className="chaos-meter-track">
+                              <span
+                                className="chaos-meter-fill"
+                                style={{ width: `${getChaosFillPercent(chip.chaosValue)}%` }}
+                              />
+                            </span>
+                            <span className="chaos-meter-tier">{chip.chaosTier}</span>
+                          </>
+                        ) : chip.label}
                       </motion.span>
                     ))}
                   </div>

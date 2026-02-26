@@ -64,6 +64,51 @@
   font-size: 0.85rem;
 }
 
+.results-chaos-meter {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 204, 21, 0.62);
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.results-chaos-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+
+.results-chaos-track {
+  position: relative;
+  width: 132px;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.results-chaos-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #34d399 0%, #fbbf24 55%, #f87171 100%);
+}
+
+.results-chaos-tier {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fef3c7;
+  white-space: nowrap;
+}
+
 .decision-card {
   margin-top: 14px;
   border-radius: 14px;
@@ -240,6 +285,20 @@
 
   .result-columns {
     grid-template-columns: 1fr;
+  }
+
+  .results-chaos-meter {
+    gap: 8px;
+    padding: 7px 9px;
+  }
+
+  .results-chaos-track {
+    width: 106px;
+  }
+
+  .results-chaos-label,
+  .results-chaos-tier {
+    font-size: 0.65rem;
   }
 
   .results-cell {

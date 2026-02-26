@@ -1970,6 +1970,76 @@
   border-color: rgba(248, 113, 113, 0.95);
 }
 
+.quality-chip.chaos-meter-chip {
+  min-width: 138px;
+  gap: 6px;
+  color: #fef3c7;
+  background: rgba(17, 24, 39, 0.62);
+  border-color: rgba(250, 204, 21, 0.85);
+}
+
+.header-scoring-row .quality-chip.chaos-meter-chip {
+  min-width: 126px;
+  gap: 5px;
+}
+
+.chaos-meter-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fde68a;
+  flex-shrink: 0;
+}
+
+.chaos-meter-track {
+  position: relative;
+  flex: 1;
+  min-width: 54px;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.chaos-meter-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #34d399 0%, #fbbf24 55%, #f87171 100%);
+}
+
+.chaos-meter-tier {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fde68a;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.breakdown-chaos-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.breakdown-chaos-meter .chaos-meter-label {
+  font-size: 0.68rem;
+}
+
+.breakdown-chaos-meter .chaos-meter-track {
+  height: 8px;
+}
+
+.breakdown-chaos-meter .chaos-meter-tier {
+  font-size: 0.7rem;
+}
+
 .bubble-column {
   flex: 1;
   display: flex;
@@ -2686,6 +2756,22 @@
     padding: 3px 7px;
   }
 
+  .header-scoring-row .quality-chip.chaos-meter-chip {
+    min-width: 108px;
+    gap: 4px;
+    padding: 3px 6px;
+  }
+
+  .header-scoring-row .quality-chip.chaos-meter-chip .chaos-meter-track {
+    min-width: 44px;
+    height: 6px;
+  }
+
+  .header-scoring-row .quality-chip.chaos-meter-chip .chaos-meter-label,
+  .header-scoring-row .quality-chip.chaos-meter-chip .chaos-meter-tier {
+    font-size: 0.46rem;
+  }
+
   .header-feedback-banner {
     min-height: 62px;
     font-size: 0.82rem;
@@ -2840,6 +2926,22 @@
   .header-scoring-row .quality-chip {
     font-size: 0.5rem;
     padding: 3px 6px;
+  }
+
+  .header-scoring-row .quality-chip.chaos-meter-chip {
+    min-width: 98px;
+    gap: 3px;
+    padding: 3px 5px;
+  }
+
+  .header-scoring-row .quality-chip.chaos-meter-chip .chaos-meter-track {
+    min-width: 38px;
+    height: 5px;
+  }
+
+  .header-scoring-row .quality-chip.chaos-meter-chip .chaos-meter-label,
+  .header-scoring-row .quality-chip.chaos-meter-chip .chaos-meter-tier {
+    font-size: 0.42rem;
   }
 
   .header-feedback-banner {

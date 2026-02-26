@@ -2,6 +2,26 @@ import { motion } from 'framer-motion' // eslint-disable-line no-unused-vars -- 
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import './Results.css'
 
+const clampChaosValue = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 1
+  return Math.max(1, Math.min(10, numeric))
+}
+
+const getChaosFillPercent = (value) => {
+  const clamped = clampChaosValue(value)
+  return ((clamped - 1) / 9) * 100
+}
+
+const getChaosTierLabel = (value) => {
+  const clamped = clampChaosValue(value)
+  if (clamped < 3) return 'Steady'
+  if (clamped < 5) return 'Spicy'
+  if (clamped < 7) return 'Wild'
+  if (clamped < 9) return 'Unhinged'
+  return 'Nuclear'
+}
+
 function Results() {
   const selectedDater = useGameStore((state) => state.selectedDater)
   const avatar = useGameStore((state) => state.avatar)
@@ -53,9 +73,21 @@ function Results() {
             <div className="hero-stats">
               Likes {scoringSummary?.likesCount ?? 0} • Dislikes {scoringSummary?.dislikesCount ?? 0}
               {isChaosMode
-                ? ` • Base ${scoringSummary?.scoreOutOf5 ?? 0}/5 • Chaos Avg ${Number(scoringSummary?.chaosAverage ?? 1).toFixed(1)}/10 • x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`
+                ? ` • Base ${scoringSummary?.scoreOutOf5 ?? 0}/5 • Multiplier x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`
                 : ''}
             </div>
+            {isChaosMode ? (
+              <div className="results-chaos-meter">
+                <span className="results-chaos-label">Chaos Meter</span>
+                <span className="results-chaos-track">
+                  <span
+                    className="results-chaos-fill"
+                    style={{ width: `${getChaosFillPercent(scoringSummary?.chaosAverage ?? 1)}%` }}
+                  />
+                </span>
+                <span className="results-chaos-tier">{getChaosTierLabel(scoringSummary?.chaosAverage ?? 1)}</span>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="score-hero">
