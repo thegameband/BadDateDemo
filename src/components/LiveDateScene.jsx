@@ -320,16 +320,30 @@ function LiveDateScene() {
 
     try {
       if (mode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
+        const normalizedAnswer = String(playerAnswer || '').trim()
+        const normalizedSource = String(source || '').toLowerCase()
+
+        // Mode 1 is one score per player answer.
+        // Initial impression is non-scorable, and follow-up/system lines should not score.
+        if (normalizedSource.includes('first impression')) {
+          return { hasNegative: false, skipped: true }
+        }
+        if (!normalizedAnswer) {
+          return { hasNegative: false, skipped: true }
+        }
+        if (normalizedSource.includes('round follow-up')) {
+          return { hasNegative: false, skipped: true }
+        }
+
         const likesState = state.scoring?.likesMinusDislikes
         const result = await evaluateLikesDislikesResponse({
           dater: selectedDater,
           question,
-          playerAnswer,
+          playerAnswer: normalizedAnswer,
           daterResponse: responseText,
           likes: likesState?.likes || [],
           dislikes: likesState?.dislikes || [],
-          alreadyHitLikes: likesState?.likesHit || [],
-          alreadyHitDislikes: likesState?.dislikesHit || [],
+          profileValues: daterValues,
         })
         syncLlmStatusMessage()
         const { newLikes, newDislikes } = addLikesDislikesHits(result)

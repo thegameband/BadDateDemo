@@ -232,7 +232,7 @@ const initialLiveState = {
   plotTwistCompleted: false,
   // Game settings (set from lobby)
   showAttributesByDefault: false, // Whether to show sentiment categories by default
-  llmProvider: 'anthropic', // 'openai' | 'anthropic' | 'auto'
+  llmProvider: 'openai', // 'openai' | 'anthropic' | 'auto'
   // Quality-based scoring state
   qualityHits: [], // { id, name, rank, type: 'positive'|'dealbreaker', points, roundNumber }
   // Daily scoring modes state
@@ -649,20 +649,35 @@ export const useGameStore = create((set, get) => ({
       finalDateDecision: { decision: null, assessment: '', verdict: '' },
     })
   },
-  addLikesDislikesHits: ({ likes = [], dislikes = [] } = {}) => {
+  addLikesDislikesHits: ({
+    likes = [],
+    dislikes = [],
+    likesHit = [],
+    dislikesHit = [],
+  } = {}) => {
     const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
     const modeState = scoring.likesMinusDislikes
-    const likesSet = new Set(modeState.likesHit)
-    const dislikesSet = new Set(modeState.dislikesHit)
     const validLikes = new Set(modeState.likes)
     const validDislikes = new Set(modeState.dislikes)
+    const likeCandidates = Array.isArray(likes) && likes.length > 0 ? likes : likesHit
+    const dislikeCandidates = Array.isArray(dislikes) && dislikes.length > 0 ? dislikes : dislikesHit
 
-    const newLikes = (Array.isArray(likes) ? likes : [])
+    let newLikes = (Array.isArray(likeCandidates) ? likeCandidates : [])
       .map((item) => String(item))
-      .filter((item) => validLikes.has(item) && !likesSet.has(item))
-    const newDislikes = (Array.isArray(dislikes) ? dislikes : [])
+      .filter((item) => validLikes.has(item))
+    let newDislikes = (Array.isArray(dislikeCandidates) ? dislikeCandidates : [])
       .map((item) => String(item))
-      .filter((item) => validDislikes.has(item) && !dislikesSet.has(item))
+      .filter((item) => validDislikes.has(item))
+
+    // Mode 1 rule: each answer grants exactly one point (like OR dislike).
+    if (newLikes.length > 0 && newDislikes.length > 0) {
+      newLikes = []
+      newDislikes = [newDislikes[0]]
+    } else if (newLikes.length > 1) {
+      newLikes = [newLikes[0]]
+    } else if (newDislikes.length > 1) {
+      newDislikes = [newDislikes[0]]
+    }
 
     if (newLikes.length === 0 && newDislikes.length === 0) {
       return { newLikes: [], newDislikes: [] }

@@ -16,7 +16,7 @@ import { useGameStore } from '../store/gameStore'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const OPENAI_MODEL = 'gpt-4o'
+const OPENAI_MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5.2'
 const ANTHROPIC_MODEL = 'claude-opus-4-6'
 let _llmErrorMessage = null
 let _llmDebugSnapshot = null
@@ -43,7 +43,7 @@ function getLlmProviderPreference() {
   } catch {
     // Fall through to default
   }
-  return 'anthropic'
+  return 'openai'
 }
 
 function resolveLlmProviderConfig() {
@@ -128,7 +128,7 @@ function buildProviderBody(providerConfig, { maxTokens, systemPrompt, messages }
 
   return {
     model: providerConfig.model,
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
       ...messages,
@@ -3159,39 +3159,78 @@ const normalizeIdKey = (value = '') => (
     .toLowerCase()
 )
 
-const toCanonicalLabelHits = (items, canonicalMap) => {
-  if (!Array.isArray(items) || !(canonicalMap instanceof Map) || canonicalMap.size === 0) return []
-  const hits = []
+const clipPromptText = (value = '', max = 420) => {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+  if (normalized.length <= max) return normalized
+  return `${normalized.slice(0, max - 3).trim()}...`
+}
 
-  items.forEach((item) => {
-    let candidateLabel = ''
-    let isHit = true
+const normalizePromptList = (items = [], fallback = 'not specified') => {
+  const list = normalizeStringList(items)
+  return list.length > 0 ? list.join(', ') : fallback
+}
 
-    if (typeof item === 'string') {
-      candidateLabel = item
-    } else if (item && typeof item === 'object') {
-      candidateLabel = item.label || item.name || item.id || item.trait || ''
-      const status = String(item.status || '').toLowerCase()
+const toMode1Verdict = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) return null
+  if (['dislike', 'disliked', 'negative', 'bad', 'no'].includes(normalized)) return 'dislike'
+  if (['like', 'liked', 'positive', 'good', 'yes'].includes(normalized)) return 'like'
+  return null
+}
 
-      if (Object.prototype.hasOwnProperty.call(item, 'hit')) {
-        isHit = Boolean(item.hit)
-      } else if (Object.prototype.hasOwnProperty.call(item, 'triggered')) {
-        isHit = Boolean(item.triggered)
-      } else if (status) {
-        isHit = ['hit', 'filled', 'triggered', 'yes', 'true'].includes(status)
-      } else {
-        isHit = false
-      }
-    } else {
-      return
+const buildMode1ProfileSnapshot = (dater, profileValues) => {
+  const snapshotLines = [
+    `Name: ${dater?.name || 'the dater'}`,
+    `Description: ${clipPromptText(dater?.description || '') || 'not specified'}`,
+    `Values: ${clipPromptText(dater?.values || '') || 'not specified'}`,
+    `Beliefs: ${clipPromptText(dater?.beliefs || '') || 'not specified'}`,
+    `Dealbreakers: ${normalizePromptList(dater?.dealbreakers || [])}`,
+    `Ideal partner: ${normalizePromptList(dater?.idealPartner || [])}`,
+  ]
+
+  if (profileValues && typeof profileValues === 'object') {
+    snapshotLines.push(`Current loves: ${normalizePromptList(profileValues.loves || [])}`)
+    snapshotLines.push(`Current likes: ${normalizePromptList(profileValues.likes || [])}`)
+    snapshotLines.push(`Current dislikes: ${normalizePromptList(profileValues.dislikes || [])}`)
+    snapshotLines.push(`Current dealbreakers: ${normalizePromptList(profileValues.dealbreakers || [])}`)
+  }
+
+  return snapshotLines.join('\n')
+}
+
+const pickClosestTraitLabel = (labels = [], text = '') => {
+  const sourceLabels = Array.isArray(labels) ? labels.filter(Boolean) : []
+  if (sourceLabels.length === 0) return null
+
+  const normalizedText = normalizeLabelKey(text)
+  if (normalizedText) {
+    const direct = sourceLabels.find((label) => normalizedText.includes(normalizeLabelKey(label)))
+    if (direct) return direct
+  }
+
+  const textTokens = new Set(
+    normalizedText
+      .split(' ')
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2)
+  )
+
+  let bestLabel = sourceLabels[0]
+  let bestScore = -1
+  sourceLabels.forEach((label) => {
+    const labelTokens = normalizeLabelKey(label)
+      .split(' ')
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2)
+    const score = labelTokens.reduce((sum, token) => sum + (textTokens.has(token) ? 1 : 0), 0)
+    if (score > bestScore) {
+      bestScore = score
+      bestLabel = label
     }
-
-    if (!isHit) return
-    const canonical = canonicalMap.get(normalizeLabelKey(candidateLabel))
-    if (canonical) hits.push(canonical)
   })
 
-  return [...new Set(hits)]
+  return bestLabel
 }
 
 export async function evaluateLikesDislikesResponse({
@@ -3201,38 +3240,48 @@ export async function evaluateLikesDislikesResponse({
   daterResponse = '',
   likes = [],
   dislikes = [],
-  alreadyHitLikes = [],
-  alreadyHitDislikes = [],
+  profileValues = null,
 }) {
-  const remainingLikes = normalizeStringList(likes).filter((item) => !alreadyHitLikes.includes(item))
-  const remainingDislikes = normalizeStringList(dislikes).filter((item) => !alreadyHitDislikes.includes(item))
-  if (remainingLikes.length === 0 && remainingDislikes.length === 0) {
-    return { likesHit: [], dislikesHit: [] }
+  const likePool = normalizeStringList(likes)
+  const dislikePool = normalizeStringList(dislikes)
+  if (likePool.length === 0 && dislikePool.length === 0) {
+    return { likes: [], dislikes: [] }
   }
 
-  const likeMap = new Map(remainingLikes.map((label) => [normalizeLabelKey(label), label]))
-  const dislikeMap = new Map(remainingDislikes.map((label) => [normalizeLabelKey(label), label]))
+  const likeMap = new Map(likePool.map((label) => [normalizeLabelKey(label), label]))
+  const dislikeMap = new Map(dislikePool.map((label) => [normalizeLabelKey(label), label]))
+  const fullTurnText = [question, playerAnswer, daterResponse].filter(Boolean).join(' | ')
+  const profileSnapshot = buildMode1ProfileSnapshot(dater, profileValues)
 
   const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating Mode 1 daily scoring for a dating-game turn.
 
 Evaluate the ENTIRE turn (question + player answer + your response), with primary focus on the player's stance and behavior.
+You MUST ground your decision in the character profile and values provided.
 
-Scoring meaning:
-- A LIKE is hit only when the player clearly demonstrates/endorses that positive trait.
-- A DISLIKE is hit only when the player clearly demonstrates/endorses/tolerates that negative trait.
+SCORING GOAL:
+- Every single turn must award EXACTLY ONE point:
+  - either 1 Like point
+  - or 1 Dislike point
+- Never award both. Never award neither.
 
-Critical stance rules:
+Classification rules:
+- "like" only when the player's stance/behavior is net positive relative to preferences.
+- "dislike" only when the player's stance/behavior is net negative.
 - Dislikes are NEGATIVE-only in this mode.
-- If the player rejects/condemns/sets a boundary against a dislike trait, that dislike is NOT hit.
-- Mentioning a concept without clear stance is neutral.
+- If the player rejects/condemns/sets a boundary against a negative trait, that is NOT a dislike hit.
+- Mentioning a concept without clear stance should still end in one classification based on overall tone/stance.
+- If the player's stance conflicts with your stated values/dealbreakers, classify as "dislike".
+- If the player's stance aligns with your stated values/ideal partner traits, classify as "like".
 - Use semantic matching (paraphrases/synonyms/near meaning). Exact wording is not required.
-- Strong absolute statements (for example "X is everything", "I always", "I never") are strong evidence of stance.
-- Multiple likes/dislikes can be hit in one turn when clearly supported.
+- Strong absolute claims (e.g., "X is everything", "I always", "I never") are strong evidence.
 
 Output rules:
 - Return JSON only.
-- Evaluate every listed remaining trait.
-- Only use labels from the provided remaining lists (no inventions).`
+- Choose exactly one matching trait label from the selected side's list.
+- Only use labels from the provided lists (no inventions).
+- Also classify reactionPolarity from YOUR RESPONSE line:
+  - warm/approving/interested reaction => "like"
+  - cold/disapproving/upset reaction => "dislike"`
 
   const userPrompt = `QUESTION:
 "${question}"
@@ -3243,50 +3292,49 @@ PLAYER ANSWER:
 YOUR RESPONSE:
 "${daterResponse}"
 
-REMAINING LIKES:
-${remainingLikes.map((item) => `- ${item}`).join('\n') || '- none'}
+CHARACTER PROFILE SNAPSHOT:
+${profileSnapshot}
 
-REMAINING DISLIKES:
-${remainingDislikes.map((item) => `- ${item}`).join('\n') || '- none'}
+LIKES:
+${likePool.map((item) => `- ${item}`).join('\n') || '- none'}
+
+DISLIKES:
+${dislikePool.map((item) => `- ${item}`).join('\n') || '- none'}
 
 Return JSON:
 {
-  "likes": [
-    {"label": "exact like label", "hit": true | false}
-  ],
-  "dislikes": [
-    {"label": "exact dislike label", "hit": true | false}
-  ]
+  "profileVerdict": "like" | "dislike",
+  "reactionPolarity": "like" | "dislike",
+  "matchedValue": "exact label from the chosen side",
+  "reason": "short explanation"
 }`
 
-  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 360 })
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 260 })
   const parsed = safeJsonObject(response)
-  if (!parsed) return { likesHit: [], dislikesHit: [] }
+  const parsedProfileVerdict = toMode1Verdict(parsed?.profileVerdict || parsed?.result || parsed?.category || parsed?.sentiment)
+  const parsedReactionVerdict = toMode1Verdict(parsed?.reactionPolarity || parsed?.reactionTone || parsed?.tone)
+  const inferredReactionVerdict = inferSimpleSentimentFromReaction(daterResponse) === 'disliked' ? 'dislike' : 'like'
+  const reactionVerdict = parsedReactionVerdict || inferredReactionVerdict
 
-  let likesHit = toCanonicalLabelHits(parsed.likes, likeMap)
-  let dislikesHit = toCanonicalLabelHits(parsed.dislikes, dislikeMap)
+  // Conservative resolution for alignment: if either signal is dislike, score dislike.
+  const finalVerdict = parsedProfileVerdict === 'dislike' || reactionVerdict === 'dislike'
+    ? 'dislike'
+    : parsedProfileVerdict === 'like' || reactionVerdict === 'like'
+      ? 'like'
+      : 'like'
+  const candidate = parsed?.matchedValue || parsed?.label || parsed?.trait || parsed?.shortLabel || ''
 
-  // Backward compatibility with older output shape.
-  if (likesHit.length === 0 && Array.isArray(parsed.likesHit)) {
-    likesHit = toCanonicalLabelHits(parsed.likesHit, likeMap)
-  }
-  if (dislikesHit.length === 0 && Array.isArray(parsed.dislikesHit)) {
-    dislikesHit = toCanonicalLabelHits(parsed.dislikesHit, dislikeMap)
-  }
-
-  // Last-resort compatibility for plain-string arrays with casing/punctuation differences.
-  if (likesHit.length === 0 && Array.isArray(parsed.likesHit)) {
-    likesHit = normalizeStringList(parsed.likesHit)
-      .map((item) => likeMap.get(normalizeLabelKey(item)))
-      .filter(Boolean)
-  }
-  if (dislikesHit.length === 0 && Array.isArray(parsed.dislikesHit)) {
-    dislikesHit = normalizeStringList(parsed.dislikesHit)
-      .map((item) => dislikeMap.get(normalizeLabelKey(item)))
-      .filter(Boolean)
+  if (finalVerdict === 'dislike') {
+    const canonical = dislikeMap.get(normalizeLabelKey(candidate))
+      || pickClosestTraitLabel(dislikePool, `${fullTurnText} ${candidate}`)
+      || dislikePool[0]
+    return canonical ? { likes: [], dislikes: [canonical] } : { likes: [], dislikes: [] }
   }
 
-  return { likesHit, dislikesHit }
+  const canonical = likeMap.get(normalizeLabelKey(candidate))
+    || pickClosestTraitLabel(likePool, `${fullTurnText} ${candidate}`)
+    || likePool[0]
+  return canonical ? { likes: [canonical], dislikes: [] } : { likes: [], dislikes: [] }
 }
 
 export async function evaluateBingoBlindLockoutResponse({

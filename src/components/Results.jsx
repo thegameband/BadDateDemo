@@ -68,7 +68,7 @@ function Results() {
             <div className="result-column liked">
               <h3>What They Liked</h3>
               {likesHit.length > 0 ? (
-                likesHit.map((item) => <span key={item} className="result-chip liked">{item}</span>)
+                likesHit.map((item, index) => <span key={`${item}-${index}`} className="result-chip liked">{item}</span>)
               ) : (
                 <p className="empty-copy">No likes were triggered.</p>
               )}
@@ -76,7 +76,7 @@ function Results() {
             <div className="result-column disliked">
               <h3>What Backfired</h3>
               {dislikesHit.length > 0 ? (
-                dislikesHit.map((item) => <span key={item} className="result-chip disliked">{item}</span>)
+                dislikesHit.map((item, index) => <span key={`${item}-${index}`} className="result-chip disliked">{item}</span>)
               ) : (
                 <p className="empty-copy">No dislikes were triggered.</p>
               )}
