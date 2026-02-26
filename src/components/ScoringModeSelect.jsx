@@ -10,6 +10,11 @@ const MODE_OPTIONS = [
     subtitle: 'Hit likes, avoid dislikes. Final score is clamped to 0-5.',
   },
   {
+    id: SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS,
+    title: 'Likes + CHAOS Multiplier',
+    subtitle: 'Mode 1 scoring plus per-answer chaos (1-10). Base score is clamped to 0-5, then multiplied from 0.5x to 3x.',
+  },
+  {
     id: SCORING_MODES.BINGO_BLIND_LOCKOUT,
     title: 'Bad Date Bingo (Blind + Lockouts)',
     subtitle: 'Hidden 4x4 board. Cells reveal and become filled or locked in real-time.',

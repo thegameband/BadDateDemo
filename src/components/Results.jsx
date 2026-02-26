@@ -13,6 +13,8 @@ function Results() {
 
   const scoringSummary = getScoringSummary()
   const mode = scoringSummary?.mode || SCORING_MODES.LIKES_MINUS_DISLIKES
+  const isChaosMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+  const isLikesMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES || isChaosMode
 
   const likesHit = scoring?.likesMinusDislikes?.likesHit || []
   const dislikesHit = scoring?.likesMinusDislikes?.dislikesHit || []
@@ -40,11 +42,20 @@ function Results() {
         <h1 className="result-title">{selectedDater?.name || 'Your Date'} Results</h1>
         <p className="result-subtitle">{avatar?.name || 'You'} vs {selectedDater?.name || 'your date'}</p>
 
-        {mode === SCORING_MODES.LIKES_MINUS_DISLIKES ? (
+        {isLikesMode ? (
           <div className="score-hero">
-            <div className="hero-value">{scoringSummary?.scoreOutOf5 ?? 0}/5</div>
-            <div className="hero-label">Likes Minus Dislikes</div>
-            <div className="hero-stats">Likes {scoringSummary?.likesCount ?? 0} • Dislikes {scoringSummary?.dislikesCount ?? 0}</div>
+            <div className="hero-value">
+              {isChaosMode
+                ? Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')
+                : `${scoringSummary?.scoreOutOf5 ?? 0}/5`}
+            </div>
+            <div className="hero-label">{isChaosMode ? 'Likes x CHAOS' : 'Likes Minus Dislikes'}</div>
+            <div className="hero-stats">
+              Likes {scoringSummary?.likesCount ?? 0} • Dislikes {scoringSummary?.dislikesCount ?? 0}
+              {isChaosMode
+                ? ` • Base ${scoringSummary?.scoreOutOf5 ?? 0}/5 • Chaos Avg ${Number(scoringSummary?.chaosAverage ?? 1).toFixed(1)}/10 • x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`
+                : ''}
+            </div>
           </div>
         ) : (
           <div className="score-hero">
@@ -63,7 +74,7 @@ function Results() {
           {finalDateDecision?.verdict ? <p>{finalDateDecision.verdict}</p> : null}
         </div>
 
-        {mode === SCORING_MODES.LIKES_MINUS_DISLIKES ? (
+        {isLikesMode ? (
           <div className="result-columns">
             <div className="result-column liked">
               <h3>What They Liked</h3>

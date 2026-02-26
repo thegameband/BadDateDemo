@@ -319,7 +319,10 @@ function LiveDateScene() {
     const mode = state.scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
 
     try {
-      if (mode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
+      const isLikesMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES || mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+      const isChaosMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+
+      if (isLikesMode) {
         const normalizedAnswer = String(playerAnswer || '').trim()
         const normalizedSource = String(source || '').toLowerCase()
 
@@ -344,9 +347,10 @@ function LiveDateScene() {
           likes: likesState?.likes || [],
           dislikes: likesState?.dislikes || [],
           profileValues: daterValues,
+          includeChaos: isChaosMode,
         })
         syncLlmStatusMessage()
-        const { newLikes, newDislikes } = addLikesDislikesHits(result)
+        const { newLikes, newDislikes, chaosApplied } = addLikesDislikesHits(result)
         const latestSummary = useGameStore.getState().getScoringSummary()
         setScoringSummary(latestSummary)
         if (partyClient && isHost) {
@@ -357,11 +361,15 @@ function LiveDateScene() {
           const fragments = []
           if (newLikes.length) fragments.push(`+ ${newLikes.join(', ')}`)
           if (newDislikes.length) fragments.push(`- ${newDislikes.join(', ')}`)
+          if (isChaosMode && chaosApplied != null) {
+            fragments.push(`Chaos ${chaosApplied}/10`)
+            fragments.push(`x${Number(latestSummary?.chaosMultiplier || 1).toFixed(2)}`)
+          }
           const text = `Score update${source ? ` (${source})` : ''}: ${fragments.join(' | ')}`
           const category = newDislikes.length > 0 ? 'disliked' : 'liked'
           showRealtimeFeedback(text, category)
         } else {
-          showRealtimeFeedback(`Score check${source ? ` (${source})` : ''}: no new likes or dislikes.`, 'answer-reveal')
+          showRealtimeFeedback(`Score check${source ? ` (${source})` : ''}: no points.`, 'answer-reveal')
         }
         return { hasNegative: newDislikes.length > 0 }
       }
@@ -3309,6 +3317,8 @@ BAD examples (do NOT do this):
   }
 
   const selectedScoringMode = scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
+  const isChaosLikesMode = selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+  const isLikesMode = selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES || isChaosLikesMode
   const isBlindBingoMode = selectedScoringMode === SCORING_MODES.BINGO_BLIND_LOCKOUT
   const isActionBingoMode = selectedScoringMode === SCORING_MODES.BINGO_ACTIONS_OPEN
   const isBingoMode = isBlindBingoMode || isActionBingoMode
@@ -3317,6 +3327,14 @@ BAD examples (do NOT do this):
     : (scoring?.bingoActionsOpen?.cells || [])
 
   const getScoreStatusChips = () => {
+    if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS) {
+      return [
+        { key: 'base', label: `Base ${scoringSummary?.scoreOutOf5 ?? 0}/5`, className: 'positive' },
+        { key: 'chaos', label: `Chaos Avg ${Number(scoringSummary?.chaosAverage ?? 1).toFixed(1)}/10`, className: 'positive' },
+        { key: 'multiplier', label: `Multiplier x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`, className: 'positive' },
+        { key: 'final', label: `Final ${Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')}`, className: 'positive' },
+      ]
+    }
     if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
       return [
         { key: 'score', label: `Daily Score ${scoringSummary?.scoreOutOf5 ?? 0}/5`, className: 'positive' },
@@ -3820,12 +3838,14 @@ BAD examples (do NOT do this):
               <h1 className="end-game-title">{getEndOverlayTitle()}</h1>
               <div className="end-game-compatibility">
                 <span className="compat-final">
-                  {selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES
-                    ? `${scoringSummary?.scoreOutOf5 ?? 0}/5`
+                  {isLikesMode
+                    ? (isChaosLikesMode
+                      ? `${Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')}`
+                      : `${scoringSummary?.scoreOutOf5 ?? 0}/5`)
                     : `${scoringSummary?.bingoCount ?? 0}`}
                 </span>
                 <span className="compat-label">
-                  {selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES ? 'Daily Score' : 'Bingos'}
+                  {isLikesMode ? (isChaosLikesMode ? 'Final Score' : 'Daily Score') : 'Bingos'}
                 </span>
               </div>
               

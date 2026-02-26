@@ -3241,11 +3241,12 @@ export async function evaluateLikesDislikesResponse({
   likes = [],
   dislikes = [],
   profileValues = null,
+  includeChaos = false,
 }) {
   const likePool = normalizeStringList(likes)
   const dislikePool = normalizeStringList(dislikes)
   if (likePool.length === 0 && dislikePool.length === 0) {
-    return { likes: [], dislikes: [] }
+    return includeChaos ? { likes: [], dislikes: [], chaosScore: 5 } : { likes: [], dislikes: [] }
   }
 
   const likeMap = new Map(likePool.map((label) => [normalizeLabelKey(label), label]))
@@ -3281,7 +3282,13 @@ Output rules:
 - Only use labels from the provided lists (no inventions).
 - Also classify reactionPolarity from YOUR RESPONSE line:
   - warm/approving/interested reaction => "like"
-  - cold/disapproving/upset reaction => "dislike"`
+  - cold/disapproving/upset reaction => "dislike"
+${includeChaos ? `
+- Also return chaosScore (integer 1-10).
+  - 1 = extremely safe/predictable/normal
+  - 5 = mildly unusual
+  - 10 = highly chaotic, socially risky, absurd, or norm-breaking
+- chaosScore reflects HOW chaotic the player's answer was, not whether you liked it.` : ''}`
 
   const userPrompt = `QUESTION:
 "${question}"
@@ -3306,15 +3313,17 @@ Return JSON:
   "profileVerdict": "like" | "dislike",
   "reactionPolarity": "like" | "dislike",
   "matchedValue": "exact label from the chosen side",
-  "reason": "short explanation"
+  "reason": "short explanation"${includeChaos ? ',\n  "chaosScore": 1-10' : ''}
 }`
 
-  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 260 })
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: includeChaos ? 320 : 260 })
   const parsed = safeJsonObject(response)
   const parsedProfileVerdict = toMode1Verdict(parsed?.profileVerdict || parsed?.result || parsed?.category || parsed?.sentiment)
   const parsedReactionVerdict = toMode1Verdict(parsed?.reactionPolarity || parsed?.reactionTone || parsed?.tone)
   const inferredReactionVerdict = inferSimpleSentimentFromReaction(daterResponse) === 'disliked' ? 'dislike' : 'like'
   const reactionVerdict = parsedReactionVerdict || inferredReactionVerdict
+  const parsedChaos = Number(parsed?.chaosScore ?? parsed?.chaos ?? parsed?.chaosLevel ?? parsed?.chaos_level)
+  const normalizedChaos = Number.isFinite(parsedChaos) ? Math.max(1, Math.min(10, Math.round(parsedChaos))) : 5
 
   // Conservative resolution for alignment: if either signal is dislike, score dislike.
   const finalVerdict = parsedProfileVerdict === 'dislike' || reactionVerdict === 'dislike'
@@ -3323,18 +3332,19 @@ Return JSON:
       ? 'like'
       : 'like'
   const candidate = parsed?.matchedValue || parsed?.label || parsed?.trait || parsed?.shortLabel || ''
+  const appendChaos = (payload) => (includeChaos ? { ...payload, chaosScore: normalizedChaos } : payload)
 
   if (finalVerdict === 'dislike') {
     const canonical = dislikeMap.get(normalizeLabelKey(candidate))
       || pickClosestTraitLabel(dislikePool, `${fullTurnText} ${candidate}`)
       || dislikePool[0]
-    return canonical ? { likes: [], dislikes: [canonical] } : { likes: [], dislikes: [] }
+    return canonical ? appendChaos({ likes: [], dislikes: [canonical] }) : appendChaos({ likes: [], dislikes: [] })
   }
 
   const canonical = likeMap.get(normalizeLabelKey(candidate))
     || pickClosestTraitLabel(likePool, `${fullTurnText} ${candidate}`)
     || likePool[0]
-  return canonical ? { likes: [canonical], dislikes: [] } : { likes: [], dislikes: [] }
+  return canonical ? appendChaos({ likes: [canonical], dislikes: [] }) : appendChaos({ likes: [], dislikes: [] })
 }
 
 export async function evaluateBingoBlindLockoutResponse({

@@ -16,6 +16,7 @@ const initialAvatar = {
 
 export const SCORING_MODES = {
   LIKES_MINUS_DISLIKES: 'likes-minus-dislikes',
+  LIKES_MINUS_DISLIKES_CHAOS: 'likes-minus-dislikes-chaos',
   BINGO_BLIND_LOCKOUT: 'bingo-blind-lockout',
   BINGO_ACTIONS_OPEN: 'bingo-actions-open',
 }
@@ -88,6 +89,16 @@ const GENERIC_ACTION_CELLS = [
 ]
 
 const clampDailyScore = (value) => Math.max(0, Math.min(5, value))
+const clampChaosScore = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  return Math.max(1, Math.min(10, Math.round(numeric)))
+}
+const getChaosMultiplierFromAverage = (avgChaos = 1) => {
+  const normalized = Math.max(1, Math.min(10, Number(avgChaos) || 1))
+  const multiplier = 0.5 + ((normalized - 1) / 9) * 2.5
+  return Number(multiplier.toFixed(2))
+}
 
 const calculateBingoCount = (cells = [], filledStatus = 'filled') => {
   if (!Array.isArray(cells) || cells.length < 16) return 0
@@ -153,6 +164,9 @@ const createScoringStateForDater = (dater, mode = SCORING_MODES.LIKES_MINUS_DISL
       dislikes: config.likesMinusDislikes.dislikes,
       likesHit: [],
       dislikesHit: [],
+      chaosTurns: 0,
+      chaosTotal: 0,
+      chaosHistory: [],
     },
     bingoBlindLockout: {
       cells: blindCells,
@@ -654,9 +668,11 @@ export const useGameStore = create((set, get) => ({
     dislikes = [],
     likesHit = [],
     dislikesHit = [],
+    chaosScore = null,
   } = {}) => {
     const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
     const modeState = scoring.likesMinusDislikes
+    const isChaosMode = scoring.selectedMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
     const validLikes = new Set(modeState.likes)
     const validDislikes = new Set(modeState.dislikes)
     const likeCandidates = Array.isArray(likes) && likes.length > 0 ? likes : likesHit
@@ -680,20 +696,28 @@ export const useGameStore = create((set, get) => ({
     }
 
     if (newLikes.length === 0 && newDislikes.length === 0) {
-      return { newLikes: [], newDislikes: [] }
+      return { newLikes: [], newDislikes: [], chaosApplied: null }
+    }
+
+    const normalizedChaos = isChaosMode ? (clampChaosScore(chaosScore) ?? 5) : null
+    const nextLikesMode = {
+      ...modeState,
+      likesHit: [...modeState.likesHit, ...newLikes],
+      dislikesHit: [...modeState.dislikesHit, ...newDislikes],
+      chaosTurns: isChaosMode ? (modeState.chaosTurns || 0) + 1 : modeState.chaosTurns || 0,
+      chaosTotal: isChaosMode ? (modeState.chaosTotal || 0) + normalizedChaos : modeState.chaosTotal || 0,
+      chaosHistory: isChaosMode
+        ? [...(Array.isArray(modeState.chaosHistory) ? modeState.chaosHistory : []), normalizedChaos]
+        : (Array.isArray(modeState.chaosHistory) ? modeState.chaosHistory : []),
     }
 
     set({
       scoring: {
         ...scoring,
-        likesMinusDislikes: {
-          ...modeState,
-          likesHit: [...modeState.likesHit, ...newLikes],
-          dislikesHit: [...modeState.dislikesHit, ...newDislikes],
-        },
+        likesMinusDislikes: nextLikesMode,
       },
     })
-    return { newLikes, newDislikes }
+    return { newLikes, newDislikes, chaosApplied: normalizedChaos }
   },
   applyBingoBlindUpdates: (updates = []) => {
     const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
@@ -784,17 +808,31 @@ export const useGameStore = create((set, get) => ({
     const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
     const mode = scoring.selectedMode
 
-    if (mode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
-      const likesCount = scoring.likesMinusDislikes.likesHit.length
-      const dislikesCount = scoring.likesMinusDislikes.dislikesHit.length
+    const isLikesMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES || mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+    const isChaosMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+
+    if (isLikesMode) {
+      const modeState = scoring.likesMinusDislikes || {}
+      const likesCount = Array.isArray(modeState.likesHit) ? modeState.likesHit.length : 0
+      const dislikesCount = Array.isArray(modeState.dislikesHit) ? modeState.dislikesHit.length : 0
       const rawNet = likesCount - dislikesCount
       const scoreOutOf5 = clampDailyScore(rawNet)
+      const chaosTurns = Number(modeState.chaosTurns) || 0
+      const chaosTotal = Number(modeState.chaosTotal) || 0
+      const chaosAverage = chaosTurns > 0 ? Number((chaosTotal / chaosTurns).toFixed(2)) : 1
+      const chaosMultiplier = isChaosMode ? getChaosMultiplierFromAverage(chaosAverage) : 1
+      const multipliedScore = Number((scoreOutOf5 * chaosMultiplier).toFixed(2))
       return {
         mode,
         likesCount,
         dislikesCount,
         rawNet,
         scoreOutOf5,
+        chaosTurns,
+        chaosTotal,
+        chaosAverage,
+        chaosMultiplier,
+        multipliedScore,
       }
     }
 
