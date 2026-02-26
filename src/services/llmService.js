@@ -3143,6 +3143,57 @@ const normalizeStringList = (items = []) => (
     : []
 )
 
+const normalizeLabelKey = (value = '') => (
+  String(value || '')
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?,;:]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+)
+
+const normalizeIdKey = (value = '') => (
+  String(value || '')
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .toLowerCase()
+)
+
+const toCanonicalLabelHits = (items, canonicalMap) => {
+  if (!Array.isArray(items) || !(canonicalMap instanceof Map) || canonicalMap.size === 0) return []
+  const hits = []
+
+  items.forEach((item) => {
+    let candidateLabel = ''
+    let isHit = true
+
+    if (typeof item === 'string') {
+      candidateLabel = item
+    } else if (item && typeof item === 'object') {
+      candidateLabel = item.label || item.name || item.id || item.trait || ''
+      const status = String(item.status || '').toLowerCase()
+
+      if (Object.prototype.hasOwnProperty.call(item, 'hit')) {
+        isHit = Boolean(item.hit)
+      } else if (Object.prototype.hasOwnProperty.call(item, 'triggered')) {
+        isHit = Boolean(item.triggered)
+      } else if (status) {
+        isHit = ['hit', 'filled', 'triggered', 'yes', 'true'].includes(status)
+      } else {
+        isHit = false
+      }
+    } else {
+      return
+    }
+
+    if (!isHit) return
+    const canonical = canonicalMap.get(normalizeLabelKey(candidateLabel))
+    if (canonical) hits.push(canonical)
+  })
+
+  return [...new Set(hits)]
+}
+
 export async function evaluateLikesDislikesResponse({
   dater,
   question = '',
@@ -3159,26 +3210,29 @@ export async function evaluateLikesDislikesResponse({
     return { likesHit: [], dislikesHit: [] }
   }
 
+  const likeMap = new Map(remainingLikes.map((label) => [normalizeLabelKey(label), label]))
+  const dislikeMap = new Map(remainingDislikes.map((label) => [normalizeLabelKey(label), label]))
+
   const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating Mode 1 daily scoring for a dating-game turn.
 
 Evaluate the ENTIRE turn (question + player answer + your response), with primary focus on the player's stance and behavior.
 
 Scoring meaning:
-- "likesHit": traits from REMAINING LIKES that were clearly demonstrated/endorsed by the player this turn.
-- "dislikesHit": traits from REMAINING DISLIKES that were clearly demonstrated/endorsed/tolerated by the player this turn.
+- A LIKE is hit only when the player clearly demonstrates/endorses that positive trait.
+- A DISLIKE is hit only when the player clearly demonstrates/endorses/tolerates that negative trait.
 
 Critical stance rules:
 - Dislikes are NEGATIVE-only in this mode.
-- If the player rejects/condemns/sets a boundary against a dislike trait, do NOT mark that dislike as hit.
-- Mentioning a trait without clear stance is neutral.
-- Exact wording is not required; use semantic meaning (paraphrases/synonyms).
-- Multiple likes and multiple dislikes may be hit in one turn when clearly supported.
+- If the player rejects/condemns/sets a boundary against a dislike trait, that dislike is NOT hit.
+- Mentioning a concept without clear stance is neutral.
+- Use semantic matching (paraphrases/synonyms/near meaning). Exact wording is not required.
+- Strong absolute statements (for example "X is everything", "I always", "I never") are strong evidence of stance.
+- Multiple likes/dislikes can be hit in one turn when clearly supported.
 
 Output rules:
 - Return JSON only.
-- Only return labels from the provided remaining lists.
-- Do not invent new labels.
-- Do not return items already hit (those are excluded from remaining lists).`
+- Evaluate every listed remaining trait.
+- Only use labels from the provided remaining lists (no inventions).`
 
   const userPrompt = `QUESTION:
 "${question}"
@@ -3197,16 +3251,41 @@ ${remainingDislikes.map((item) => `- ${item}`).join('\n') || '- none'}
 
 Return JSON:
 {
-  "likesHit": ["exact like label", "..."],
-  "dislikesHit": ["exact dislike label", "..."]
+  "likes": [
+    {"label": "exact like label", "hit": true | false}
+  ],
+  "dislikes": [
+    {"label": "exact dislike label", "hit": true | false}
+  ]
 }`
 
-  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 240 })
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 360 })
   const parsed = safeJsonObject(response)
   if (!parsed) return { likesHit: [], dislikesHit: [] }
 
-  const likesHit = normalizeStringList(parsed.likesHit).filter((item) => remainingLikes.includes(item))
-  const dislikesHit = normalizeStringList(parsed.dislikesHit).filter((item) => remainingDislikes.includes(item))
+  let likesHit = toCanonicalLabelHits(parsed.likes, likeMap)
+  let dislikesHit = toCanonicalLabelHits(parsed.dislikes, dislikeMap)
+
+  // Backward compatibility with older output shape.
+  if (likesHit.length === 0 && Array.isArray(parsed.likesHit)) {
+    likesHit = toCanonicalLabelHits(parsed.likesHit, likeMap)
+  }
+  if (dislikesHit.length === 0 && Array.isArray(parsed.dislikesHit)) {
+    dislikesHit = toCanonicalLabelHits(parsed.dislikesHit, dislikeMap)
+  }
+
+  // Last-resort compatibility for plain-string arrays with casing/punctuation differences.
+  if (likesHit.length === 0 && Array.isArray(parsed.likesHit)) {
+    likesHit = normalizeStringList(parsed.likesHit)
+      .map((item) => likeMap.get(normalizeLabelKey(item)))
+      .filter(Boolean)
+  }
+  if (dislikesHit.length === 0 && Array.isArray(parsed.dislikesHit)) {
+    dislikesHit = normalizeStringList(parsed.dislikesHit)
+      .map((item) => dislikeMap.get(normalizeLabelKey(item)))
+      .filter(Boolean)
+  }
+
   return { likesHit, dislikesHit }
 }
 
@@ -3226,12 +3305,12 @@ export async function evaluateBingoBlindLockoutResponse({
       status: cell.status === 'filled' || cell.status === 'locked' ? cell.status : 'hidden',
     }))
   if (allCells.length === 0) return { updates: [] }
-  const unresolvedIds = new Set(
+  const unresolvedIdMap = new Map(
     allCells
       .filter((cell) => cell.status !== 'filled' && cell.status !== 'locked')
-      .map((cell) => cell.id)
+      .map((cell) => [normalizeIdKey(cell.id), cell.id])
   )
-  if (unresolvedIds.size === 0) return { updates: [] }
+  if (unresolvedIdMap.size === 0) return { updates: [] }
 
   const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating a 4x4 bingo board for a dating-game turn.
 
@@ -3286,10 +3365,19 @@ Output constraints:
   if (!parsed || !Array.isArray(parsed.updates)) return { updates: [] }
 
   const updates = parsed.updates
-    .filter((update) => update && unresolvedIds.has(String(update.id)))
+    .map((update) => {
+      if (!update) return null
+      const canonicalId = unresolvedIdMap.get(normalizeIdKey(update.id))
+      if (!canonicalId) return null
+      return {
+        id: canonicalId,
+        status: update.status === 'filled' || update.status === 'locked' ? update.status : 'neutral',
+      }
+    })
+    .filter(Boolean)
     .map((update) => ({
-      id: String(update.id),
-      status: update.status === 'filled' || update.status === 'locked' ? update.status : 'neutral',
+      id: update.id,
+      status: update.status,
     }))
     .filter((update) => update.status !== 'neutral')
 
@@ -3311,7 +3399,7 @@ export async function evaluateBingoActionsResponse({
       status: cell.status === 'filled' ? 'filled' : 'unfilled',
     }))
   if (allCells.length === 0) return { filledIds: [] }
-  const allIds = new Set(allCells.map((cell) => cell.id))
+  const allIdMap = new Map(allCells.map((cell) => [normalizeIdKey(cell.id), cell.id]))
 
   const systemPrompt = `You are ${dater?.name || 'the dater'} checking which conversational actions you just performed.
 Evaluate all 16 actions every round, even if some are already filled.
@@ -3338,7 +3426,13 @@ Return JSON:
   const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 260 })
   const parsed = safeJsonObject(response)
   if (!parsed) return { filledIds: [] }
-  const filledIds = normalizeStringList(parsed.filledIds).filter((id) => allIds.has(id))
+  const filledIds = [
+    ...new Set(
+      normalizeStringList(parsed.filledIds)
+        .map((id) => allIdMap.get(normalizeIdKey(id)))
+        .filter(Boolean)
+    ),
+  ]
   return { filledIds }
 }
 
