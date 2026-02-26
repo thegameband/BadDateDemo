@@ -1,0 +1,85 @@
+.scoring-mode-select {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.scoring-mode-card {
+  width: min(900px, 100%);
+  background: rgba(27, 18, 32, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  color: #fff;
+}
+
+.scoring-mode-card h1 {
+  margin: 0 0 8px;
+  font-size: 32px;
+}
+
+.mode-subtitle {
+  margin: 0 0 18px;
+  opacity: 0.9;
+}
+
+.mode-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mode-option {
+  text-align: left;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.mode-option.selected {
+  border-color: #ff7fa8;
+  box-shadow: 0 0 0 2px rgba(255, 127, 168, 0.35) inset;
+  background: rgba(255, 127, 168, 0.08);
+}
+
+.mode-title {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.mode-text {
+  display: block;
+  opacity: 0.86;
+  font-size: 14px;
+}
+
+.mode-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-primary,
+.btn-secondary {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: #ff7fa8;
+  color: #23141e;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}

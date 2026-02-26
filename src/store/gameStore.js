@@ -14,6 +14,174 @@ const initialAvatar = {
   personality: 'A pleasant person with enough baseline traits to hold a conversation, waiting to be shaped by the crowd.',
 }
 
+export const SCORING_MODES = {
+  LIKES_MINUS_DISLIKES: 'likes-minus-dislikes',
+  LIKES_MINUS_DISLIKES_CHAOS: 'likes-minus-dislikes-chaos',
+  BINGO_BLIND_LOCKOUT: 'bingo-blind-lockout',
+  BINGO_ACTIONS_OPEN: 'bingo-actions-open',
+}
+
+const BINGO_LINES = [
+  [0, 1, 2, 3],
+  [4, 5, 6, 7],
+  [8, 9, 10, 11],
+  [12, 13, 14, 15],
+  [0, 4, 8, 12],
+  [1, 5, 9, 13],
+  [2, 6, 10, 14],
+  [3, 7, 11, 15],
+  [0, 5, 10, 15],
+  [3, 6, 9, 12],
+]
+
+const GENERIC_LIKES = [
+  'honesty',
+  'kindness',
+  'emotional intelligence',
+  'sense of humor',
+  'self-awareness',
+  'curiosity',
+]
+
+const GENERIC_DISLIKES = [
+  'cruelty',
+  'dishonesty',
+  'arrogance',
+  'shallow behavior',
+]
+
+const GENERIC_BINGO_CELLS = [
+  { id: 'b1', label: 'Honesty', type: 'like' },
+  { id: 'b2', label: 'Kindness', type: 'like' },
+  { id: 'b3', label: 'Humor', type: 'like' },
+  { id: 'b4', label: 'Curiosity', type: 'like' },
+  { id: 'b5', label: 'Self-Awareness', type: 'like' },
+  { id: 'b6', label: 'Emotional Depth', type: 'like' },
+  { id: 'b7', label: 'Confidence', type: 'like' },
+  { id: 'b8', label: 'Authenticity', type: 'like' },
+  { id: 'b9', label: 'Cruelty', type: 'dislike' },
+  { id: 'b10', label: 'Dishonesty', type: 'dislike' },
+  { id: 'b11', label: 'Vanity', type: 'dislike' },
+  { id: 'b12', label: 'Manipulation', type: 'dislike' },
+  { id: 'b13', label: 'Deflection', type: 'dislike' },
+  { id: 'b14', label: 'Condescension', type: 'dislike' },
+  { id: 'b15', label: 'Carelessness', type: 'dislike' },
+  { id: 'b16', label: 'Hostility', type: 'dislike' },
+]
+
+const GENERIC_ACTION_CELLS = [
+  { id: 'a1', label: 'Answer directly', difficulty: 1 },
+  { id: 'a2', label: 'Ask a follow-up', difficulty: 1 },
+  { id: 'a3', label: 'Share a preference', difficulty: 1 },
+  { id: 'a4', label: 'React with humor', difficulty: 1 },
+  { id: 'a5', label: 'Tell a short story', difficulty: 2 },
+  { id: 'a6', label: 'Mention the past', difficulty: 2 },
+  { id: 'a7', label: 'Be vulnerable', difficulty: 2 },
+  { id: 'a8', label: 'Give a compliment', difficulty: 2 },
+  { id: 'a9', label: 'Set a boundary', difficulty: 3 },
+  { id: 'a10', label: 'Challenge a claim', difficulty: 3 },
+  { id: 'a11', label: 'Admit uncertainty', difficulty: 3 },
+  { id: 'a12', label: 'Admit a mistake', difficulty: 3 },
+  { id: 'a13', label: 'Self-deprecate', difficulty: 4 },
+  { id: 'a14', label: 'Reveal a fear', difficulty: 4 },
+  { id: 'a15', label: 'State a dealbreaker', difficulty: 4 },
+  { id: 'a16', label: 'Propose second date', difficulty: 4 },
+]
+
+const clampDailyScore = (value) => Math.max(0, Math.min(5, value))
+const clampChaosScore = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  return Math.max(1, Math.min(10, Math.round(numeric)))
+}
+const getChaosMultiplierFromAverage = (avgChaos = 1) => {
+  const normalized = Math.max(1, Math.min(10, Number(avgChaos) || 1))
+  const multiplier = 0.5 + ((normalized - 1) / 9) * 2.5
+  return Number(multiplier.toFixed(2))
+}
+
+const calculateBingoCount = (cells = [], filledStatus = 'filled') => {
+  if (!Array.isArray(cells) || cells.length < 16) return 0
+  return BINGO_LINES.reduce((count, line) => {
+    const hasLine = line.every((idx) => cells[idx]?.status === filledStatus)
+    return hasLine ? count + 1 : count
+  }, 0)
+}
+
+const ensureLength = (items = [], length, fallbackItems = []) => {
+  const base = Array.isArray(items) ? [...items] : []
+  const fallback = Array.isArray(fallbackItems) ? [...fallbackItems] : []
+  while (base.length < length && fallback.length > 0) {
+    const next = fallback.shift()
+    if (next != null) base.push(next)
+  }
+  return base.slice(0, length)
+}
+
+const getDaterScoringConfig = (dater) => {
+  const raw = dater?.dailyScoring || dater?.scoringModes || {}
+
+  const likes = ensureLength(raw?.likesMinusDislikes?.likes, 6, GENERIC_LIKES)
+  const dislikes = ensureLength(raw?.likesMinusDislikes?.dislikes, 4, GENERIC_DISLIKES)
+
+  const bingoBlindCellsRaw = ensureLength(raw?.bingoBlindLockout?.cells, 16, GENERIC_BINGO_CELLS)
+  const bingoBlindCells = bingoBlindCellsRaw.map((cell, idx) => ({
+    id: String(cell?.id || `bingo-${idx + 1}`),
+    label: String(cell?.label || `Cell ${idx + 1}`),
+    type: cell?.type === 'dislike' ? 'dislike' : 'like',
+  }))
+
+  const bingoActionCellsRaw = ensureLength(raw?.bingoActionsOpen?.actions, 16, GENERIC_ACTION_CELLS)
+  const bingoActionCells = bingoActionCellsRaw.map((cell, idx) => ({
+    id: String(cell?.id || `action-${idx + 1}`),
+    label: String(cell?.label || `Action ${idx + 1}`),
+    difficulty: Number(cell?.difficulty) || 1,
+  }))
+
+  return {
+    likesMinusDislikes: { likes, dislikes },
+    bingoBlindLockout: { cells: bingoBlindCells },
+    bingoActionsOpen: { actions: bingoActionCells },
+  }
+}
+
+const createScoringStateForDater = (dater, mode = SCORING_MODES.LIKES_MINUS_DISLIKES) => {
+  const config = getDaterScoringConfig(dater)
+  const blindCells = config.bingoBlindLockout.cells.map((cell) => ({
+    ...cell,
+    status: 'hidden', // hidden | filled | locked
+    revealed: false,
+  }))
+  const actionCells = config.bingoActionsOpen.actions.map((cell) => ({
+    ...cell,
+    status: 'unfilled', // unfilled | filled
+  }))
+
+  return {
+    selectedMode: mode,
+    likesMinusDislikes: {
+      likes: config.likesMinusDislikes.likes,
+      dislikes: config.likesMinusDislikes.dislikes,
+      likesHit: [],
+      dislikesHit: [],
+      chaosTurns: 0,
+      chaosTotal: 0,
+      chaosHistory: [],
+    },
+    bingoBlindLockout: {
+      cells: blindCells,
+      filledCount: 0,
+      lockedCount: 0,
+      bingoCount: 0,
+    },
+    bingoActionsOpen: {
+      cells: actionCells,
+      filledCount: 0,
+      bingoCount: 0,
+    },
+  }
+}
+
 // Initial Live Mode state
 const initialLiveState = {
   isLiveMode: false,
@@ -78,9 +246,16 @@ const initialLiveState = {
   plotTwistCompleted: false,
   // Game settings (set from lobby)
   showAttributesByDefault: false, // Whether to show sentiment categories by default
-  llmProvider: 'anthropic', // 'openai' | 'anthropic' | 'auto'
+  llmProvider: 'openai', // 'openai' | 'anthropic' | 'auto'
   // Quality-based scoring state
   qualityHits: [], // { id, name, rank, type: 'positive'|'dealbreaker', points, roundNumber }
+  // Daily scoring modes state
+  scoring: createScoringStateForDater(null, SCORING_MODES.LIKES_MINUS_DISLIKES),
+  finalDateDecision: {
+    decision: null, // 'yes' | 'no' | null
+    assessment: '',
+    verdict: '',
+  },
   // Debug flag: skip straight to plot twist phase
   debugSkipToPlotTwist: false,
 }
@@ -470,6 +645,214 @@ export const useGameStore = create((set, get) => ({
   setRoomCode: (roomCode) => set({ roomCode }),
   setIsHost: (isHost) => set({ isHost }),
   setSelectedDater: (dater) => set({ selectedDater: dater }),
+  setScoringMode: (mode) => {
+    const current = get().scoring || createScoringStateForDater(get().selectedDater)
+    if (!Object.values(SCORING_MODES).includes(mode)) return
+    set({
+      scoring: {
+        ...current,
+        selectedMode: mode,
+      },
+    })
+  },
+  initializeScoringForDater: (dater = null) => {
+    const selectedDater = dater || get().selectedDater
+    const currentMode = get().scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
+    set({
+      scoring: createScoringStateForDater(selectedDater, currentMode),
+      finalDateDecision: { decision: null, assessment: '', verdict: '' },
+    })
+  },
+  addLikesDislikesHits: ({
+    likes = [],
+    dislikes = [],
+    likesHit = [],
+    dislikesHit = [],
+    chaosScore = null,
+  } = {}) => {
+    const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
+    const modeState = scoring.likesMinusDislikes
+    const isChaosMode = scoring.selectedMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+    const validLikes = new Set(modeState.likes)
+    const validDislikes = new Set(modeState.dislikes)
+    const likeCandidates = Array.isArray(likes) && likes.length > 0 ? likes : likesHit
+    const dislikeCandidates = Array.isArray(dislikes) && dislikes.length > 0 ? dislikes : dislikesHit
+
+    let newLikes = (Array.isArray(likeCandidates) ? likeCandidates : [])
+      .map((item) => String(item))
+      .filter((item) => validLikes.has(item))
+    let newDislikes = (Array.isArray(dislikeCandidates) ? dislikeCandidates : [])
+      .map((item) => String(item))
+      .filter((item) => validDislikes.has(item))
+
+    // Mode 1 rule: each answer grants exactly one point (like OR dislike).
+    if (newLikes.length > 0 && newDislikes.length > 0) {
+      newLikes = []
+      newDislikes = [newDislikes[0]]
+    } else if (newLikes.length > 1) {
+      newLikes = [newLikes[0]]
+    } else if (newDislikes.length > 1) {
+      newDislikes = [newDislikes[0]]
+    }
+
+    if (newLikes.length === 0 && newDislikes.length === 0) {
+      return { newLikes: [], newDislikes: [], chaosApplied: null }
+    }
+
+    const normalizedChaos = isChaosMode ? (clampChaosScore(chaosScore) ?? 5) : null
+    const nextLikesMode = {
+      ...modeState,
+      likesHit: [...modeState.likesHit, ...newLikes],
+      dislikesHit: [...modeState.dislikesHit, ...newDislikes],
+      chaosTurns: isChaosMode ? (modeState.chaosTurns || 0) + 1 : modeState.chaosTurns || 0,
+      chaosTotal: isChaosMode ? (modeState.chaosTotal || 0) + normalizedChaos : modeState.chaosTotal || 0,
+      chaosHistory: isChaosMode
+        ? [...(Array.isArray(modeState.chaosHistory) ? modeState.chaosHistory : []), normalizedChaos]
+        : (Array.isArray(modeState.chaosHistory) ? modeState.chaosHistory : []),
+    }
+
+    set({
+      scoring: {
+        ...scoring,
+        likesMinusDislikes: nextLikesMode,
+      },
+    })
+    return { newLikes, newDislikes, chaosApplied: normalizedChaos }
+  },
+  applyBingoBlindUpdates: (updates = []) => {
+    const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
+    const modeState = scoring.bingoBlindLockout
+    const updateMap = new Map(
+      (Array.isArray(updates) ? updates : [])
+        .filter((u) => u && typeof u.id === 'string' && (u.status === 'filled' || u.status === 'locked'))
+        .map((u) => [u.id, u.status])
+    )
+
+    if (updateMap.size === 0) return { changed: [] }
+
+    const changed = []
+    const nextCells = modeState.cells.map((cell) => {
+      const requested = updateMap.get(cell.id)
+      if (!requested) return cell
+      if (cell.status === 'filled' || cell.status === 'locked') return cell
+      const next = {
+        ...cell,
+        status: requested,
+        revealed: true,
+      }
+      changed.push(next)
+      return next
+    })
+
+    if (changed.length === 0) return { changed: [] }
+
+    const filledCount = nextCells.filter((cell) => cell.status === 'filled').length
+    const lockedCount = nextCells.filter((cell) => cell.status === 'locked').length
+    const bingoCount = calculateBingoCount(nextCells, 'filled')
+
+    set({
+      scoring: {
+        ...scoring,
+        bingoBlindLockout: {
+          cells: nextCells,
+          filledCount,
+          lockedCount,
+          bingoCount,
+        },
+      },
+    })
+    return { changed }
+  },
+  applyBingoActionFills: (filledIds = []) => {
+    const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
+    const modeState = scoring.bingoActionsOpen
+    const fillSet = new Set((Array.isArray(filledIds) ? filledIds : []).map((id) => String(id)))
+    if (fillSet.size === 0) return { changed: [] }
+
+    const changed = []
+    const nextCells = modeState.cells.map((cell) => {
+      if (!fillSet.has(cell.id)) return cell
+      if (cell.status === 'filled') return cell
+      const next = { ...cell, status: 'filled' }
+      changed.push(next)
+      return next
+    })
+
+    if (changed.length === 0) return { changed: [] }
+
+    const filledCount = nextCells.filter((cell) => cell.status === 'filled').length
+    const bingoCount = calculateBingoCount(nextCells, 'filled')
+
+    set({
+      scoring: {
+        ...scoring,
+        bingoActionsOpen: {
+          cells: nextCells,
+          filledCount,
+          bingoCount,
+        },
+      },
+    })
+    return { changed }
+  },
+  setFinalDateDecision: (decisionState) => {
+    const base = { decision: null, assessment: '', verdict: '' }
+    set({
+      finalDateDecision: {
+        ...base,
+        ...(decisionState || {}),
+      },
+    })
+  },
+  getScoringSummary: () => {
+    const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
+    const mode = scoring.selectedMode
+
+    const isLikesMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES || mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+    const isChaosMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+
+    if (isLikesMode) {
+      const modeState = scoring.likesMinusDislikes || {}
+      const likesCount = Array.isArray(modeState.likesHit) ? modeState.likesHit.length : 0
+      const dislikesCount = Array.isArray(modeState.dislikesHit) ? modeState.dislikesHit.length : 0
+      const rawNet = likesCount - dislikesCount
+      const scoreOutOf5 = clampDailyScore(rawNet)
+      const chaosTurns = Number(modeState.chaosTurns) || 0
+      const chaosTotal = Number(modeState.chaosTotal) || 0
+      const chaosAverage = chaosTurns > 0 ? Number((chaosTotal / chaosTurns).toFixed(2)) : 1
+      const chaosMultiplier = isChaosMode ? getChaosMultiplierFromAverage(chaosAverage) : 1
+      const multipliedScore = Number((scoreOutOf5 * chaosMultiplier).toFixed(2))
+      return {
+        mode,
+        likesCount,
+        dislikesCount,
+        rawNet,
+        scoreOutOf5,
+        chaosTurns,
+        chaosTotal,
+        chaosAverage,
+        chaosMultiplier,
+        multipliedScore,
+      }
+    }
+
+    if (mode === SCORING_MODES.BINGO_BLIND_LOCKOUT) {
+      return {
+        mode,
+        filledCount: scoring.bingoBlindLockout.filledCount,
+        lockedCount: scoring.bingoBlindLockout.lockedCount,
+        bingoCount: scoring.bingoBlindLockout.bingoCount,
+        totalCells: 16,
+      }
+    }
+
+    return {
+      mode,
+      filledCount: scoring.bingoActionsOpen.filledCount,
+      bingoCount: scoring.bingoActionsOpen.bingoCount,
+      totalCells: 16,
+    }
+  },
   setShowAttributesByDefault: (show) => set({ showAttributesByDefault: show }),
   setLlmProvider: (provider) => set({ llmProvider: provider }),
   
@@ -482,6 +865,7 @@ export const useGameStore = create((set, get) => ({
     const { daters, selectedDater: currentDater } = get()
     // Use currently selected dater, or default to Adam
     const randomDater = currentDater || daters.find(d => d.name === 'Adam') || daters[0]
+    const currentMode = get().scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
     
     // IMPORTANT: Reset ALL game state for a fresh start
     set({
@@ -507,6 +891,8 @@ export const useGameStore = create((set, get) => ({
       // Reset compatibility
       compatibility: 50,
       qualityHits: [],
+      scoring: createScoringStateForDater(randomDater, currentMode),
+      finalDateDecision: { decision: null, assessment: '', verdict: '' },
       // Reset sentiment
       sentimentCategories: {
         loves: [],
@@ -526,6 +912,7 @@ export const useGameStore = create((set, get) => ({
   // Join an existing live room
   joinLiveRoom: (roomCode, username) => {
     const { roomCode: currentRoomCode, players, selectedDater } = get()
+    const currentMode = get().scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
     
     // For demo purposes, we'll simulate joining
     // In a real app, this would connect to a server
@@ -551,6 +938,8 @@ export const useGameStore = create((set, get) => ({
         dateConversation: [],
         compatibility: 50,
         qualityHits: [],
+        scoring: createScoringStateForDater(randomDater, currentMode),
+        finalDateDecision: { decision: null, assessment: '', verdict: '' },
       })
       return true
     }
@@ -567,6 +956,8 @@ export const useGameStore = create((set, get) => ({
       dateConversation: [],
       compatibility: 50,
       qualityHits: [],
+      scoring: createScoringStateForDater(selectedDater, currentMode),
+      finalDateDecision: { decision: null, assessment: '', verdict: '' },
     })
     return true
   },
@@ -587,6 +978,9 @@ export const useGameStore = create((set, get) => ({
   
   // Start the live date (host only)
   startLiveDate: (daterValues = null, withTutorial = false, withStartingStats = false) => {
+    const selectedDater = get().selectedDater
+    const currentMode = get().scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
+    const freshScoring = createScoringStateForDater(selectedDater, currentMode)
     // Determine the starting phase
     let startPhase = 'phase1'
     if (withTutorial) startPhase = 'tutorial'
@@ -621,6 +1015,8 @@ export const useGameStore = create((set, get) => ({
       numberedAttributes: [],
       compatibility: 50,
       qualityHits: [],
+      scoring: freshScoring,
+      finalDateDecision: { decision: null, assessment: '', verdict: '' },
       daterValues: daterValues || {
         loves: [],
         likes: [],
