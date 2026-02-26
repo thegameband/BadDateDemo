@@ -16,7 +16,7 @@ import { useGameStore } from '../store/gameStore'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const OPENAI_MODEL = 'gpt-4o'
+const OPENAI_MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5.2'
 const ANTHROPIC_MODEL = 'claude-opus-4-6'
 let _llmErrorMessage = null
 let _llmDebugSnapshot = null
@@ -43,7 +43,7 @@ function getLlmProviderPreference() {
   } catch {
     // Fall through to default
   }
-  return 'anthropic'
+  return 'openai'
 }
 
 function resolveLlmProviderConfig() {
@@ -128,7 +128,7 @@ function buildProviderBody(providerConfig, { maxTokens, systemPrompt, messages }
 
   return {
     model: providerConfig.model,
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
       ...messages,
@@ -283,10 +283,13 @@ function buildPromptTail(dater) {
 /**
  * Call OpenAI API for a response
  */
-export async function getChatResponse(messages, systemPrompt) {
+export async function getChatResponse(messages, systemPrompt, options = {}) {
   const providerConfig = resolveLlmProviderConfig()
   const runtime = getRuntimeContext()
   const keyFingerprint = getKeyFingerprint(providerConfig?.apiKey)
+  const maxTokens = Number.isFinite(Number(options?.maxTokens))
+    ? Math.max(40, Number(options.maxTokens))
+    : 150
   
   if (!providerConfig) {
     _llmErrorMessage = 'No API key - LLM offline'
@@ -325,7 +328,7 @@ export async function getChatResponse(messages, systemPrompt) {
       method: 'POST',
       headers: providerConfig.headers,
       body: JSON.stringify(buildProviderBody(providerConfig, {
-        maxTokens: 150,
+        maxTokens,
         systemPrompt,
         messages: sanitizedMessages.map(msg => ({
           role: msg.role,
@@ -1210,7 +1213,7 @@ CRITICAL RULES:
  * @param {boolean} isFinalRound
  * @returns {Promise<string|null>}
  */
-export async function getDaterFollowupComment(dater, question, playerAnswer, firstReaction, priorAnswers = [], conversationHistory = [], isFinalRound = false, allowSelfAnswer = false, cycleNumber = 0, avatarName = 'your date') {
+export async function getDaterFollowupComment(dater, question, playerAnswer, firstReaction, _priorAnswers = [], conversationHistory = [], isFinalRound = false, allowSelfAnswer = false, cycleNumber = 0, avatarName = 'your date') {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const finalNote = isFinalRound
@@ -2484,7 +2487,6 @@ export async function checkAttributeMatch(attribute, daterValues, dater, daterRe
 
   // Build tie-break instruction for the LLM
   let tieBreakInstruction = ''
-  const direction = getTieBreakDirection()
   if (currentCompatibility > 50) {
     tieBreakInstruction = `\n\nTIE-BREAK RULE: The date is currently going WELL (compatibility: ${currentCompatibility}%). If both a LIKE trait and a DISLIKE trait apply to what they said, lean toward GOOD (Like). Give them the benefit of the doubt. However, this does NOT apply to LOVE or DEALBREAKER — those always win outright regardless of how the date is going.`
   } else if (currentCompatibility < 50) {
@@ -3123,5 +3125,417 @@ Return ONLY the 3-sentence narration, nothing else.`
   } catch (error) {
     console.error('Error generating plot twist summary:', error)
     return buildFallbackSummary()
+  }
+}
+
+const safeJsonObject = (text) => {
+  if (!text || typeof text !== 'string') return null
+  const match = text.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  try {
+    return JSON.parse(match[0])
+  } catch {
+    return null
+  }
+}
+
+const normalizeStringList = (items = []) => (
+  Array.isArray(items)
+    ? items.map((item) => String(item || '').trim()).filter(Boolean)
+    : []
+)
+
+const normalizeLabelKey = (value = '') => (
+  String(value || '')
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/[.!?,;:]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+)
+
+const normalizeIdKey = (value = '') => (
+  String(value || '')
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .toLowerCase()
+)
+
+const clipPromptText = (value = '', max = 420) => {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+  if (normalized.length <= max) return normalized
+  return `${normalized.slice(0, max - 3).trim()}...`
+}
+
+const normalizePromptList = (items = [], fallback = 'not specified') => {
+  const list = normalizeStringList(items)
+  return list.length > 0 ? list.join(', ') : fallback
+}
+
+const toMode1Verdict = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) return null
+  if (['dislike', 'disliked', 'negative', 'bad', 'no'].includes(normalized)) return 'dislike'
+  if (['like', 'liked', 'positive', 'good', 'yes'].includes(normalized)) return 'like'
+  return null
+}
+
+const buildMode1ProfileSnapshot = (dater, profileValues) => {
+  const snapshotLines = [
+    `Name: ${dater?.name || 'the dater'}`,
+    `Description: ${clipPromptText(dater?.description || '') || 'not specified'}`,
+    `Values: ${clipPromptText(dater?.values || '') || 'not specified'}`,
+    `Beliefs: ${clipPromptText(dater?.beliefs || '') || 'not specified'}`,
+    `Dealbreakers: ${normalizePromptList(dater?.dealbreakers || [])}`,
+    `Ideal partner: ${normalizePromptList(dater?.idealPartner || [])}`,
+  ]
+
+  if (profileValues && typeof profileValues === 'object') {
+    snapshotLines.push(`Current loves: ${normalizePromptList(profileValues.loves || [])}`)
+    snapshotLines.push(`Current likes: ${normalizePromptList(profileValues.likes || [])}`)
+    snapshotLines.push(`Current dislikes: ${normalizePromptList(profileValues.dislikes || [])}`)
+    snapshotLines.push(`Current dealbreakers: ${normalizePromptList(profileValues.dealbreakers || [])}`)
+  }
+
+  return snapshotLines.join('\n')
+}
+
+const pickClosestTraitLabel = (labels = [], text = '') => {
+  const sourceLabels = Array.isArray(labels) ? labels.filter(Boolean) : []
+  if (sourceLabels.length === 0) return null
+
+  const normalizedText = normalizeLabelKey(text)
+  if (normalizedText) {
+    const direct = sourceLabels.find((label) => normalizedText.includes(normalizeLabelKey(label)))
+    if (direct) return direct
+  }
+
+  const textTokens = new Set(
+    normalizedText
+      .split(' ')
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2)
+  )
+
+  let bestLabel = sourceLabels[0]
+  let bestScore = -1
+  sourceLabels.forEach((label) => {
+    const labelTokens = normalizeLabelKey(label)
+      .split(' ')
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2)
+    const score = labelTokens.reduce((sum, token) => sum + (textTokens.has(token) ? 1 : 0), 0)
+    if (score > bestScore) {
+      bestScore = score
+      bestLabel = label
+    }
+  })
+
+  return bestLabel
+}
+
+export async function evaluateLikesDislikesResponse({
+  dater,
+  question = '',
+  playerAnswer = '',
+  daterResponse = '',
+  likes = [],
+  dislikes = [],
+  profileValues = null,
+  includeChaos = false,
+}) {
+  const likePool = normalizeStringList(likes)
+  const dislikePool = normalizeStringList(dislikes)
+  if (likePool.length === 0 && dislikePool.length === 0) {
+    return includeChaos ? { likes: [], dislikes: [], chaosScore: 5 } : { likes: [], dislikes: [] }
+  }
+
+  const likeMap = new Map(likePool.map((label) => [normalizeLabelKey(label), label]))
+  const dislikeMap = new Map(dislikePool.map((label) => [normalizeLabelKey(label), label]))
+  const fullTurnText = [question, playerAnswer, daterResponse].filter(Boolean).join(' | ')
+  const profileSnapshot = buildMode1ProfileSnapshot(dater, profileValues)
+
+  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating Mode 1 daily scoring for a dating-game turn.
+
+Evaluate the ENTIRE turn (question + player answer + your response), with primary focus on the player's stance and behavior.
+You MUST ground your decision in the character profile and values provided.
+
+SCORING GOAL:
+- Every single turn must award EXACTLY ONE point:
+  - either 1 Like point
+  - or 1 Dislike point
+- Never award both. Never award neither.
+
+Classification rules:
+- "like" only when the player's stance/behavior is net positive relative to preferences.
+- "dislike" only when the player's stance/behavior is net negative.
+- Dislikes are NEGATIVE-only in this mode.
+- If the player rejects/condemns/sets a boundary against a negative trait, that is NOT a dislike hit.
+- Mentioning a concept without clear stance should still end in one classification based on overall tone/stance.
+- If the player's stance conflicts with your stated values/dealbreakers, classify as "dislike".
+- If the player's stance aligns with your stated values/ideal partner traits, classify as "like".
+- Use semantic matching (paraphrases/synonyms/near meaning). Exact wording is not required.
+- Strong absolute claims (e.g., "X is everything", "I always", "I never") are strong evidence.
+
+Output rules:
+- Return JSON only.
+- Choose exactly one matching trait label from the selected side's list.
+- Only use labels from the provided lists (no inventions).
+- Also classify reactionPolarity from YOUR RESPONSE line:
+  - warm/approving/interested reaction => "like"
+  - cold/disapproving/upset reaction => "dislike"
+${includeChaos ? `
+- Also return chaosScore (integer 1-10).
+  - 1 = extremely safe/predictable/normal
+  - 5 = mildly unusual
+  - 10 = highly chaotic, socially risky, absurd, or norm-breaking
+- chaosScore reflects HOW chaotic the player's answer was, not whether you liked it.` : ''}`
+
+  const userPrompt = `QUESTION:
+"${question}"
+
+PLAYER ANSWER:
+"${playerAnswer}"
+
+YOUR RESPONSE:
+"${daterResponse}"
+
+CHARACTER PROFILE SNAPSHOT:
+${profileSnapshot}
+
+LIKES:
+${likePool.map((item) => `- ${item}`).join('\n') || '- none'}
+
+DISLIKES:
+${dislikePool.map((item) => `- ${item}`).join('\n') || '- none'}
+
+Return JSON:
+{
+  "profileVerdict": "like" | "dislike",
+  "reactionPolarity": "like" | "dislike",
+  "matchedValue": "exact label from the chosen side",
+  "reason": "short explanation"${includeChaos ? ',\n  "chaosScore": 1-10' : ''}
+}`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: includeChaos ? 320 : 260 })
+  const parsed = safeJsonObject(response)
+  const parsedProfileVerdict = toMode1Verdict(parsed?.profileVerdict || parsed?.result || parsed?.category || parsed?.sentiment)
+  const parsedReactionVerdict = toMode1Verdict(parsed?.reactionPolarity || parsed?.reactionTone || parsed?.tone)
+  const inferredReactionVerdict = inferSimpleSentimentFromReaction(daterResponse) === 'disliked' ? 'dislike' : 'like'
+  const reactionVerdict = parsedReactionVerdict || inferredReactionVerdict
+  const parsedChaos = Number(parsed?.chaosScore ?? parsed?.chaos ?? parsed?.chaosLevel ?? parsed?.chaos_level)
+  const normalizedChaos = Number.isFinite(parsedChaos) ? Math.max(1, Math.min(10, Math.round(parsedChaos))) : 5
+
+  // Conservative resolution for alignment: if either signal is dislike, score dislike.
+  const finalVerdict = parsedProfileVerdict === 'dislike' || reactionVerdict === 'dislike'
+    ? 'dislike'
+    : parsedProfileVerdict === 'like' || reactionVerdict === 'like'
+      ? 'like'
+      : 'like'
+  const candidate = parsed?.matchedValue || parsed?.label || parsed?.trait || parsed?.shortLabel || ''
+  const appendChaos = (payload) => (includeChaos ? { ...payload, chaosScore: normalizedChaos } : payload)
+
+  if (finalVerdict === 'dislike') {
+    const canonical = dislikeMap.get(normalizeLabelKey(candidate))
+      || pickClosestTraitLabel(dislikePool, `${fullTurnText} ${candidate}`)
+      || dislikePool[0]
+    return canonical ? appendChaos({ likes: [], dislikes: [canonical] }) : appendChaos({ likes: [], dislikes: [] })
+  }
+
+  const canonical = likeMap.get(normalizeLabelKey(candidate))
+    || pickClosestTraitLabel(likePool, `${fullTurnText} ${candidate}`)
+    || likePool[0]
+  return canonical ? appendChaos({ likes: [canonical], dislikes: [] }) : appendChaos({ likes: [], dislikes: [] })
+}
+
+export async function evaluateBingoBlindLockoutResponse({
+  dater,
+  question = '',
+  playerAnswer = '',
+  daterResponse = '',
+  cells = [],
+}) {
+  const allCells = (Array.isArray(cells) ? cells : [])
+    .filter((cell) => cell && cell.id)
+    .map((cell) => ({
+      id: String(cell.id),
+      label: String(cell.label || ''),
+      type: cell.type === 'dislike' ? 'dislike' : 'like',
+      status: cell.status === 'filled' || cell.status === 'locked' ? cell.status : 'hidden',
+    }))
+  if (allCells.length === 0) return { updates: [] }
+  const unresolvedIdMap = new Map(
+    allCells
+      .filter((cell) => cell.status !== 'filled' && cell.status !== 'locked')
+      .map((cell) => [normalizeIdKey(cell.id), cell.id])
+  )
+  if (unresolvedIdMap.size === 0) return { updates: [] }
+
+  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating a 4x4 bingo board for a dating-game turn.
+
+Evaluate the ENTIRE turn (question + player answer + your response), not just your response.
+For each cell, decide one status:
+- "filled": clear evidence the cell condition is satisfied
+- "locked": clear evidence the opposite condition is satisfied
+- "neutral": no clear evidence yet
+
+Cell-type rules:
+- like cell (desired quality): filled if the turn endorses/demonstrates it, locked if the turn rejects/opposes it.
+- dislike cell (negative trait): filled if the turn rejects/condemns/sets a boundary against that trait, locked if the turn endorses/accepts/normalizes that trait.
+
+Interpretation rules:
+- Use semantic matching (paraphrases/synonyms/near meaning). Exact wording is NOT required.
+- Direct stance statements are strong evidence (for example: "my dealbreaker is X", "I hate X", "I won't tolerate X").
+- Mentioning a concept without clear stance is neutral.
+- Multiple cells may change in the same turn.
+
+Coverage rules:
+- You must evaluate all 16 cells every turn.
+- If a cell is already filled or locked, keep it unchanged by returning "neutral" for that cell.
+
+Return JSON only.`
+
+  const userPrompt = `QUESTION:
+"${question}"
+
+PLAYER ANSWER:
+"${playerAnswer}"
+
+YOUR RESPONSE:
+"${daterResponse}"
+
+ALL BOARD CELLS:
+${allCells.map((cell) => `- ${cell.id} | ${cell.type} | current:${cell.status} | ${cell.label}`).join('\n')}
+
+Return JSON:
+{
+  "updates": [
+    {"id": "cell-id", "status": "filled|locked|neutral"}
+  ]
+}
+
+Output constraints:
+- Include exactly one updates entry for every listed cell id.
+- Do not omit any cell ids.
+- Use only: "filled", "locked", or "neutral".`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 420 })
+  const parsed = safeJsonObject(response)
+  if (!parsed || !Array.isArray(parsed.updates)) return { updates: [] }
+
+  const updates = parsed.updates
+    .map((update) => {
+      if (!update) return null
+      const canonicalId = unresolvedIdMap.get(normalizeIdKey(update.id))
+      if (!canonicalId) return null
+      return {
+        id: canonicalId,
+        status: update.status === 'filled' || update.status === 'locked' ? update.status : 'neutral',
+      }
+    })
+    .filter(Boolean)
+    .map((update) => ({
+      id: update.id,
+      status: update.status,
+    }))
+    .filter((update) => update.status !== 'neutral')
+
+  return { updates }
+}
+
+export async function evaluateBingoActionsResponse({
+  dater,
+  question = '',
+  playerAnswer = '',
+  daterResponse = '',
+  actionCells = [],
+}) {
+  const allCells = (Array.isArray(actionCells) ? actionCells : [])
+    .filter((cell) => cell && cell.id)
+    .map((cell) => ({
+      id: String(cell.id),
+      label: String(cell.label || ''),
+      status: cell.status === 'filled' ? 'filled' : 'unfilled',
+    }))
+  if (allCells.length === 0) return { filledIds: [] }
+  const allIdMap = new Map(allCells.map((cell) => [normalizeIdKey(cell.id), cell.id]))
+
+  const systemPrompt = `You are ${dater?.name || 'the dater'} checking which conversational actions you just performed.
+Evaluate all 16 actions every round, even if some are already filled.
+Only mark an action as filled if your latest response clearly performed that action.
+Return JSON only.`
+
+  const userPrompt = `QUESTION:
+"${question}"
+
+PLAYER ANSWER:
+"${playerAnswer}"
+
+YOUR RESPONSE:
+"${daterResponse}"
+
+ALL ACTION CELLS:
+${allCells.map((cell) => `- ${cell.id} | current:${cell.status} | ${cell.label}`).join('\n')}
+
+Return JSON:
+{
+  "filledIds": ["action-id-1", "action-id-2"]
+}`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 260 })
+  const parsed = safeJsonObject(response)
+  if (!parsed) return { filledIds: [] }
+  const filledIds = [
+    ...new Set(
+      normalizeStringList(parsed.filledIds)
+        .map((id) => allIdMap.get(normalizeIdKey(id)))
+        .filter(Boolean)
+    ),
+  ]
+  return { filledIds }
+}
+
+export async function generateFinalDateDecision(dater, avatarName, conversationHistory = []) {
+  const daterName = dater?.name || 'Your date'
+  const historyBlock = (Array.isArray(conversationHistory) ? conversationHistory : [])
+    .slice(-14)
+    .map((entry) => `${entry?.speaker || 'unknown'}: ${entry?.message || ''}`)
+    .join('\n')
+
+  const prompt = `You are ${daterName} at the end of a first date with ${avatarName || 'your date'}.
+
+Recent conversation:
+${historyBlock || '(no history)'}
+
+Decide if you want a second date.
+This decision must be subjective and based on the conversation vibe only.
+
+Return JSON only:
+{
+  "decision": "yes" | "no",
+  "assessment": "exactly 2 sentences, how the date felt overall",
+  "verdict": "exactly 2 sentences, direct yes/no style ending"
+}`
+
+  const text = await getSingleResponseWithTimeout(prompt, { maxTokens: 260, timeoutMs: 25000 })
+  const parsed = safeJsonObject(text)
+  if (!parsed) {
+    return {
+      decision: 'no',
+      assessment: `You were memorable, and this date definitely had energy. I am still not sure we are truly aligned.`,
+      verdict: `I am going to pass on a second date. I wish you well, but this is where I leave it.`,
+    }
+  }
+
+  const decision = String(parsed.decision || '').toLowerCase() === 'yes' ? 'yes' : 'no'
+  const assessment = String(parsed.assessment || '').trim()
+  const verdict = String(parsed.verdict || '').trim()
+  return {
+    decision,
+    assessment: assessment || `This date surprised me in ways I did not expect. I am leaving with a clearer sense of who you are.`,
+    verdict: verdict || (decision === 'yes'
+      ? 'Yes, I would see you again. There is enough here to keep exploring.'
+      : 'No, I would not do a second date. I do not think this is the right fit.'),
   }
 }

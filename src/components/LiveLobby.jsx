@@ -127,7 +127,7 @@ function LiveLobby() {
     setPartyClient(null)
     setRoomCode(null)
     setLiveMode(true)
-    setPhase('dater-bio') // Show Dater Bio Page; user taps START THE DATE to begin 3 questions then date
+    setPhase('scoring-mode-select') // Choose scoring mode first, then continue to dater bio
   }
 
   const handleCreate = async () => {

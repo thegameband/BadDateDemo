@@ -1,229 +1,154 @@
 import { motion } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX
-import { useMemo } from 'react'
-import { useGameStore } from '../store/gameStore'
+import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import './Results.css'
 
+const clampChaosValue = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 1
+  return Math.max(1, Math.min(10, numeric))
+}
+
+const getChaosFillPercent = (value) => {
+  const clamped = clampChaosValue(value)
+  return ((clamped - 1) / 9) * 100
+}
+
+const getChaosTierLabel = (value) => {
+  const clamped = clampChaosValue(value)
+  if (clamped < 3) return 'Steady'
+  if (clamped < 5) return 'Spicy'
+  if (clamped < 7) return 'Wild'
+  if (clamped < 9) return 'Unhinged'
+  return 'Nuclear'
+}
+
 function Results() {
-  const { 
-    compatibility, 
-    selectedDater, 
-    avatar, 
-    dateConversation,
-    resetGame,
-    liveMode
-  } = useGameStore()
-  const qualityHits = useGameStore(s => s.qualityHits) || []
-  
-  const isWin = compatibility >= 80
-  const isGreatMatch = compatibility >= 95
-  const isTerrible = compatibility <= 20
-  
-  const getResultTitle = () => {
-    if (isGreatMatch) return "💒 PERFECT MATCH!"
-    if (isWin) return "😘 They're Into You!"
-    if (isTerrible) return "💀 Absolute Disaster"
-    if (compatibility >= 50) return "😬 Awkward Silence..."
-    return "❌ Total Rejection"
-  }
-  
-  const getResultDescription = () => {
-    if (isGreatMatch) {
-      return `${selectedDater.name} is already texting their friends about you. Vegas wedding incoming? 💍`
-    }
-    if (isWin) {
-      return `You did it! ${selectedDater.name} definitely wants a second date. The chemistry was real! ✨`
-    }
-    if (isTerrible) {
-      return `${selectedDater.name} has already blocked you on every platform. They're telling this story at parties for years.`
-    }
-    if (compatibility >= 50) {
-      return `It wasn't terrible, but ${selectedDater.name} is giving you the "I'll text you" that never comes.`
-    }
-    return `${selectedDater.name} excused themselves to the bathroom 20 minutes ago. They're not coming back.`
-  }
-  
-  const getEndingScene = () => {
-    if (isGreatMatch) return "🌅 Walking hand-in-hand into the sunset..."
-    if (isWin) return "💋 A sweet goodnight kiss at the door."
-    if (isTerrible) return "🚕 They called an Uber from the table."
-    if (compatibility >= 50) return "🤝 An awkward handshake goodbye."
-    return "🏃 Speed-walking in the opposite direction."
-  }
-  
-  /* eslint-disable react-hooks/purity -- stable random confetti per mount */
-  const winConfettiConfigs = useMemo(() => [...Array(20)].map(() => ({
-    x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 400),
-    rotate: Math.random() * 720 - 360,
-    duration: 3 + Math.random() * 2,
-    delay: Math.random() * 2,
-    emoji: ['💕', '❤️', '✨', '💖', '🎉'][Math.floor(Math.random() * 5)]
-  })), [])
-  const loseConfettiConfigs = useMemo(() => [...Array(10)].map(() => ({
-    x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 400),
-    duration: 4 + Math.random() * 2,
-    delay: Math.random() * 3,
-    emoji: ['💔', '😬', '🙈', '❌'][Math.floor(Math.random() * 4)]
-  })), [])
-  /* eslint-enable react-hooks/purity */
-  
+  const selectedDater = useGameStore((state) => state.selectedDater)
+  const avatar = useGameStore((state) => state.avatar)
+  const scoring = useGameStore((state) => state.scoring)
+  const getScoringSummary = useGameStore((state) => state.getScoringSummary)
+  const finalDateDecision = useGameStore((state) => state.finalDateDecision)
+  const resetGame = useGameStore((state) => state.resetGame)
+  const isLiveMode = useGameStore((state) => state.isLiveMode)
+
+  const scoringSummary = getScoringSummary()
+  const mode = scoringSummary?.mode || SCORING_MODES.LIKES_MINUS_DISLIKES
+  const isChaosMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+  const isLikesMode = mode === SCORING_MODES.LIKES_MINUS_DISLIKES || isChaosMode
+
+  const likesHit = scoring?.likesMinusDislikes?.likesHit || []
+  const dislikesHit = scoring?.likesMinusDislikes?.dislikesHit || []
+  const blindCells = scoring?.bingoBlindLockout?.cells || []
+  const actionCells = scoring?.bingoActionsOpen?.cells || []
+
+  const isBlindBingo = mode === SCORING_MODES.BINGO_BLIND_LOCKOUT
+  const boardCells = isBlindBingo ? blindCells : actionCells
+
+  const decisionLabel = finalDateDecision?.decision === 'yes'
+    ? 'Second Date: Yes'
+    : finalDateDecision?.decision === 'no'
+      ? 'Second Date: No'
+      : 'Second Date: Pending'
+
+  const decisionClass = finalDateDecision?.decision === 'yes' ? 'yes' : finalDateDecision?.decision === 'no' ? 'no' : 'pending'
+
   return (
-    <div className={`results ${isWin ? 'win' : 'lose'} ${liveMode ? 'live-mode-results' : ''}`}>
-      <div className="results-background">
-        {isWin ? (
-          winConfettiConfigs.map((cfg, i) => (
-            <motion.span
-              key={i}
-              className="confetti"
-              initial={{ y: -20, x: cfg.x, rotate: 0, opacity: 1 }}
-              animate={{ y: (typeof window !== 'undefined' ? window.innerHeight : 600) + 100, rotate: cfg.rotate, opacity: 0 }}
-              transition={{ duration: cfg.duration, repeat: Infinity, delay: cfg.delay, ease: 'linear' }}
-            >
-              {cfg.emoji}
-            </motion.span>
-          ))
-        ) : (
-          loseConfettiConfigs.map((cfg, i) => (
-            <motion.span
-              key={i}
-              className="confetti"
-              initial={{ y: -20, x: cfg.x, opacity: 0.6 }}
-              animate={{ y: (typeof window !== 'undefined' ? window.innerHeight : 600) + 100, opacity: 0 }}
-              transition={{ duration: cfg.duration, repeat: Infinity, delay: cfg.delay, ease: 'linear' }}
-            >
-              {cfg.emoji}
-            </motion.span>
-          ))
-        )}
-      </div>
-      
-      <motion.div 
+    <div className={`results scoring-results ${isLiveMode ? 'live-mode-results' : ''}`}>
+      <motion.div
         className="results-card"
-        initial={{ opacity: 0, scale: 0.8, y: 50 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
       >
-        <motion.div 
-          className="compatibility-result"
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.3, type: 'spring', stiffness: 300 }}
-        >
-          <div className={`compat-circle ${isWin ? 'success' : 'fail'}`}>
-            <span className="compat-value">{compatibility}%</span>
-            <span className="compat-label">Compatible</span>
-          </div>
-        </motion.div>
-        
-        <motion.h1 
-          className="result-title"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          {getResultTitle()}
-        </motion.h1>
-        
-        <motion.p 
-          className="result-description"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-        >
-          {getResultDescription()}
-        </motion.p>
-        
-        <motion.div 
-          className="ending-scene"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.9 }}
-        >
-          <p>{getEndingScene()}</p>
-        </motion.div>
-        
-        <motion.div 
-          className="date-summary"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1 }}
-        >
-          <h3>Date Recap</h3>
-          
-          <div className="summary-row">
-            <div className="summary-item">
-              <img src={selectedDater.photo} alt={selectedDater.name} />
-              <div>
-                <strong>{selectedDater.name}</strong>
-                <span>{selectedDater.tagline}</span>
-              </div>
+        <h1 className="result-title">{selectedDater?.name || 'Your Date'} Results</h1>
+        <p className="result-subtitle">{avatar?.name || 'You'} vs {selectedDater?.name || 'your date'}</p>
+
+        {isLikesMode ? (
+          <div className="score-hero">
+            <div className="hero-value">
+              {isChaosMode
+                ? Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')
+                : `${scoringSummary?.scoreOutOf5 ?? 0}/5`}
             </div>
-            
-            <span className="summary-vs">💕</span>
-            
-            <div className="summary-item">
-              <img 
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Avatar&backgroundColor=b6e3f4" 
-                alt="Avatar" 
-              />
-              <div>
-                <strong>{avatar.name}</strong>
-                <span>{avatar.occupation}</span>
+            <div className="hero-label">{isChaosMode ? 'Likes x CHAOS' : 'Likes Minus Dislikes'}</div>
+            <div className="hero-stats">
+              Likes {scoringSummary?.likesCount ?? 0} • Dislikes {scoringSummary?.dislikesCount ?? 0}
+              {isChaosMode
+                ? ` • Base ${scoringSummary?.scoreOutOf5 ?? 0}/5 • Multiplier x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`
+                : ''}
+            </div>
+            {isChaosMode ? (
+              <div className="results-chaos-meter">
+                <span className="results-chaos-label">Chaos Meter</span>
+                <span className="results-chaos-track">
+                  <span
+                    className="results-chaos-fill"
+                    style={{ width: `${getChaosFillPercent(scoringSummary?.chaosAverage ?? 1)}%` }}
+                  />
+                </span>
+                <span className="results-chaos-tier">{getChaosTierLabel(scoringSummary?.chaosAverage ?? 1)}</span>
               </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="score-hero">
+            <div className="hero-value">{scoringSummary?.bingoCount ?? 0}</div>
+            <div className="hero-label">Bingos</div>
+            <div className="hero-stats">
+              Filled {scoringSummary?.filledCount ?? 0}/16
+              {isBlindBingo ? ` • Locked ${scoringSummary?.lockedCount ?? 0}/16` : ''}
             </div>
           </div>
-          
-        </motion.div>
-        
-        <div className="quality-report">
-          <h3 className="quality-report-title">Date Report Card</h3>
+        )}
 
-          {qualityHits.filter(h => h.type === 'positive').length > 0 && (
-            <div className="quality-report-section">
-              <span className="quality-report-section-label">Qualities Spotted</span>
-              <div className="quality-chip-list">
-                {qualityHits.filter(h => h.type === 'positive').map(h => (
-                  <span key={h.id} className="quality-chip positive">{h.name}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {qualityHits.filter(h => h.type === 'dealbreaker').length > 0 && (
-            <div className="quality-report-section">
-              <span className="quality-report-section-label">Red Flags</span>
-              <div className="quality-chip-list">
-                {qualityHits.filter(h => h.type === 'dealbreaker').map(h => (
-                  <span key={h.id} className="quality-chip dealbreaker">{h.name}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {qualityHits.length === 0 && (
-            <p className="quality-report-empty">No major qualities were triggered during this date.</p>
-          )}
+        <div className={`decision-card ${decisionClass}`}>
+          <h2>{decisionLabel}</h2>
+          {finalDateDecision?.assessment ? <p>{finalDateDecision.assessment}</p> : null}
+          {finalDateDecision?.verdict ? <p>{finalDateDecision.verdict}</p> : null}
         </div>
 
-        <motion.div 
-          className="results-buttons"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.3 }}
-        >
-          <motion.button
-            className="btn btn-primary play-again-btn"
-            onClick={resetGame}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            🔄 Play Again
-          </motion.button>
-        </motion.div>
+        {isLikesMode ? (
+          <div className="result-columns">
+            <div className="result-column liked">
+              <h3>What They Liked</h3>
+              {likesHit.length > 0 ? (
+                likesHit.map((item, index) => <span key={`${item}-${index}`} className="result-chip liked">{item}</span>)
+              ) : (
+                <p className="empty-copy">No likes were triggered.</p>
+              )}
+            </div>
+            <div className="result-column disliked">
+              <h3>What Backfired</h3>
+              {dislikesHit.length > 0 ? (
+                dislikesHit.map((item, index) => <span key={`${item}-${index}`} className="result-chip disliked">{item}</span>)
+              ) : (
+                <p className="empty-copy">No dislikes were triggered.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="board-section">
+            <h3>{isBlindBingo ? 'Final Bingo Board (Revealed)' : 'Action Bingo Board'}</h3>
+            <div className="results-board">
+              {boardCells.slice(0, 16).map((cell, index) => {
+                const statusClass = isBlindBingo
+                  ? (cell.status === 'filled' ? 'filled' : cell.status === 'locked' ? 'locked' : 'unresolved')
+                  : (cell.status === 'filled' ? 'filled' : 'open')
+                return (
+                  <div key={cell.id || `cell-${index}`} className={`results-cell ${statusClass}`}>
+                    <span className="cell-label">{cell.label || `Cell ${index + 1}`}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="results-buttons">
+          <button className="btn btn-primary play-again-btn" onClick={resetGame}>Play Again</button>
+        </div>
       </motion.div>
-      
     </div>
   )
 }
 
 export default Results
-
