@@ -3302,16 +3302,6 @@ BAD examples (do NOT do this):
     ? (scoring?.bingoBlindLockout?.cells || [])
     : (scoring?.bingoActionsOpen?.cells || [])
 
-  const getCompactScoreLabel = () => {
-    if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
-      return `Score ${scoringSummary?.scoreOutOf5 ?? 0}/5`
-    }
-    if (selectedScoringMode === SCORING_MODES.BINGO_BLIND_LOCKOUT) {
-      return `Bingo ${scoringSummary?.bingoCount ?? 0} | Filled ${scoringSummary?.filledCount ?? 0}`
-    }
-    return `Action Bingo ${scoringSummary?.bingoCount ?? 0} | Filled ${scoringSummary?.filledCount ?? 0}`
-  }
-
   const getScoreStatusChips = () => {
     if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
       return [
@@ -3893,33 +3883,73 @@ BAD examples (do NOT do this):
       )}
       
       {/* Header Section - Centered layout */}
-      <div className={`live-header ${showTutorial && getTutorialContent().highlight === 'compatibility' ? 'tutorial-highlight' : ''}`}>
-        <div className="header-row header-centered">
-          {/* Centered: Round indicator + Phase description */}
-          <div className="header-center-content">
-            <div className="round-indicator">
-              <span className="round-label">Phase</span>
-              <span className="round-value">
-                {getGamePhaseNumber()}
-              </span>
-            </div>
-            <div className="header-cta">
-              <span className="cta-line1">{getPhaseTitle().line1}</span>
-              <span className="cta-line2">{getPhaseTitle().line2}</span>
-              <span className="cta-line3">{getPhaseTitle().line3}</span>
-            </div>
-            {!isBingoMode && <div className="live-score-chip">{getCompactScoreLabel()}</div>}
-          </div>
-          {isBingoMode && (
-            <button
-              type="button"
-              className={`bingo-panel-toggle ${boardPanelFlash ? 'flash' : ''}`}
-              onClick={() => setBoardPanelOpen((open) => !open)}
+      <div className={`live-header ${showTutorial && getTutorialContent().highlight === 'compatibility' ? 'tutorial-highlight' : ''} ${reactionFeedback ? 'showing-feedback' : ''}`}>
+        <AnimatePresence mode="wait" initial={false}>
+          {reactionFeedback ? (
+            <motion.div
+              key="header-feedback"
+              className={`header-feedback-banner ${reactionFeedback.category}`}
+              initial={{ opacity: 0, y: -14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -14 }}
+              transition={{ duration: 0.25 }}
             >
-              {boardPanelOpen ? 'Hide Board' : 'Show Board'}
-            </button>
+              {reactionFeedback.text}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="header-content"
+              className="live-header-content"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="header-row header-centered">
+                {/* Centered: Round indicator + Phase description */}
+                <div className="header-center-content">
+                  <div className="round-indicator">
+                    <span className="round-label">Phase</span>
+                    <span className="round-value">
+                      {getGamePhaseNumber()}
+                    </span>
+                  </div>
+                  <div className="header-cta">
+                    <span className="cta-line1">{getPhaseTitle().line1}</span>
+                    <span className="cta-line2">{getPhaseTitle().line2}</span>
+                    <span className="cta-line3">{getPhaseTitle().line3}</span>
+                  </div>
+                </div>
+                {isBingoMode && (
+                  <button
+                    type="button"
+                    className={`bingo-panel-toggle ${boardPanelFlash ? 'flash' : ''}`}
+                    onClick={() => setBoardPanelOpen((open) => !open)}
+                  >
+                    {boardPanelOpen ? 'Hide Board' : 'Show Board'}
+                  </button>
+                )}
+              </div>
+              {!(isBingoMode && boardPanelOpen) && (
+                <div className="header-scoring-row">
+                  <span className="quality-tracker-label">Live Scoring</span>
+                  <div className="quality-tracker">
+                    {getScoreStatusChips().map((chip) => (
+                      <motion.span
+                        key={chip.key}
+                        className={`quality-chip ${chip.className}`}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        {chip.label}
+                      </motion.span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
         
         {/* LLM Debug Panel (Host only) */}
         <AnimatePresence>
@@ -4227,15 +4257,15 @@ BAD examples (do NOT do this):
           )}
         </AnimatePresence>
 
-        <div className={`scoring-overlay-layer ${['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt.title ? 'with-round-prompt' : ''}`}>
-          <AnimatePresence>
-            {isBingoMode && boardPanelOpen && (
-              <motion.div
-                className={`bingo-board-panel ${boardPanelFlash ? 'flash' : ''}`}
-                initial={{ opacity: 0, y: -16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -16 }}
-              >
+        <AnimatePresence>
+          {isBingoMode && boardPanelOpen && (
+            <motion.div
+              className={`bingo-overlay-layer ${['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt.title ? 'with-round-prompt' : ''}`}
+              initial={{ opacity: 0, y: -14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -14 }}
+            >
+              <div className={`bingo-board-panel ${boardPanelFlash ? 'flash' : ''}`}>
                 <div className="bingo-board-meta">
                   {isBlindBingoMode
                     ? `Filled ${scoringSummary?.filledCount ?? 0} | Locked ${scoringSummary?.lockedCount ?? 0} | Bingos ${scoringSummary?.bingoCount ?? 0}`
@@ -4255,43 +4285,10 @@ BAD examples (do NOT do this):
                     )
                   })}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          {/* Shared scoring feedback zone */}
-          <AnimatePresence mode="wait">
-            {reactionFeedback ? (
-              <motion.div
-                key="reaction-feedback"
-                className={`quality-zone reaction-feedback ${reactionFeedback.category}`}
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {reactionFeedback.text}
-              </motion.div>
-            ) : (isBingoMode && boardPanelOpen) ? null
-            : (
-              <div key="quality-tracker" className="quality-tracker-container">
-                <span className="quality-tracker-label">Live Scoring</span>
-                <div className="quality-tracker">
-                  {getScoreStatusChips().map((chip) => (
-                    <motion.span
-                      key={chip.key}
-                      className={`quality-chip ${chip.className}`}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      {chip.label}
-                    </motion.span>
-                  ))}
-                </div>
               </div>
-            )}
-          </AnimatePresence>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Conversation Bubbles Area - dater speech text (always readable) */}
         <div className="conversation-bubbles">
