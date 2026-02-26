@@ -3908,7 +3908,7 @@ BAD examples (do NOT do this):
               <span className="cta-line2">{getPhaseTitle().line2}</span>
               <span className="cta-line3">{getPhaseTitle().line3}</span>
             </div>
-            <div className="live-score-chip">{getCompactScoreLabel()}</div>
+            {!isBingoMode && <div className="live-score-chip">{getCompactScoreLabel()}</div>}
           </div>
           {isBingoMode && (
             <button
@@ -3916,7 +3916,7 @@ BAD examples (do NOT do this):
               className={`bingo-panel-toggle ${boardPanelFlash ? 'flash' : ''}`}
               onClick={() => setBoardPanelOpen((open) => !open)}
             >
-              {boardPanelOpen ? 'Hide Bingo Board' : 'Show Bingo Board'}
+              {boardPanelOpen ? 'Hide Board' : 'Show Board'}
             </button>
           )}
         </div>
@@ -4227,68 +4227,71 @@ BAD examples (do NOT do this):
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {isBingoMode && boardPanelOpen && (
-            <motion.div
-              className={`bingo-board-panel ${boardPanelFlash ? 'flash' : ''}`}
-              initial={{ opacity: 0, y: -16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-            >
-              <div className="bingo-board-meta">
-                {isBlindBingoMode
-                  ? `Filled ${scoringSummary?.filledCount ?? 0} | Locked ${scoringSummary?.lockedCount ?? 0} | Bingos ${scoringSummary?.bingoCount ?? 0}`
-                  : `Filled ${scoringSummary?.filledCount ?? 0} | Bingos ${scoringSummary?.bingoCount ?? 0}`}
+        <div className={`scoring-overlay-layer ${['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt.title ? 'with-round-prompt' : ''}`}>
+          <AnimatePresence>
+            {isBingoMode && boardPanelOpen && (
+              <motion.div
+                className={`bingo-board-panel ${boardPanelFlash ? 'flash' : ''}`}
+                initial={{ opacity: 0, y: -16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+              >
+                <div className="bingo-board-meta">
+                  {isBlindBingoMode
+                    ? `Filled ${scoringSummary?.filledCount ?? 0} | Locked ${scoringSummary?.lockedCount ?? 0} | Bingos ${scoringSummary?.bingoCount ?? 0}`
+                    : `Filled ${scoringSummary?.filledCount ?? 0} | Bingos ${scoringSummary?.bingoCount ?? 0}`}
+                </div>
+                <div className="bingo-board-grid">
+                  {boardCells.slice(0, 16).map((cell, index) => {
+                    const isHiddenCell = isBlindBingoMode && cell.status === 'hidden' && !cell.revealed
+                    const statusClass = isBlindBingoMode
+                      ? (cell.status === 'filled' ? 'filled' : cell.status === 'locked' ? 'locked' : 'hidden')
+                      : (cell.status === 'filled' ? 'filled' : 'open')
+                    const cellLabel = isHiddenCell ? 'Hidden' : (cell.label || `Cell ${index + 1}`)
+                    return (
+                      <div key={cell.id || `bingo-cell-${index}`} className={`bingo-cell ${statusClass}`}>
+                        <span className="bingo-cell-label">{cellLabel}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {/* Shared scoring feedback zone */}
+          <AnimatePresence mode="wait">
+            {reactionFeedback ? (
+              <motion.div
+                key="reaction-feedback"
+                className={`quality-zone reaction-feedback ${reactionFeedback.category}`}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {reactionFeedback.text}
+              </motion.div>
+            ) : (isBingoMode && boardPanelOpen) ? null
+            : (
+              <div key="quality-tracker" className="quality-tracker-container">
+                <span className="quality-tracker-label">Live Scoring</span>
+                <div className="quality-tracker">
+                  {getScoreStatusChips().map((chip) => (
+                    <motion.span
+                      key={chip.key}
+                      className={`quality-chip ${chip.className}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      {chip.label}
+                    </motion.span>
+                  ))}
+                </div>
               </div>
-              <div className="bingo-board-grid">
-                {boardCells.slice(0, 16).map((cell, index) => {
-                  const isHiddenCell = isBlindBingoMode && cell.status === 'hidden' && !cell.revealed
-                  const statusClass = isBlindBingoMode
-                    ? (cell.status === 'filled' ? 'filled' : cell.status === 'locked' ? 'locked' : 'hidden')
-                    : (cell.status === 'filled' ? 'filled' : 'open')
-                  const cellLabel = isHiddenCell ? 'Hidden' : (cell.label || `Cell ${index + 1}`)
-                  return (
-                    <div key={cell.id || `bingo-cell-${index}`} className={`bingo-cell ${statusClass}`}>
-                      <span className="bingo-cell-label">{cellLabel}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        
-        {/* Shared scoring feedback zone */}
-        <AnimatePresence mode="wait">
-          {reactionFeedback ? (
-            <motion.div
-              key="reaction-feedback"
-              className={`quality-zone reaction-feedback ${reactionFeedback.category}`}
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              {reactionFeedback.text}
-            </motion.div>
-          ) : (
-            <div key="quality-tracker" className="quality-tracker-container">
-              <span className="quality-tracker-label">Live Scoring</span>
-              <div className="quality-tracker">
-                {getScoreStatusChips().map((chip) => (
-                  <motion.span
-                    key={chip.key}
-                    className={`quality-chip ${chip.className}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    {chip.label}
-                  </motion.span>
-                ))}
-              </div>
-            </div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Conversation Bubbles Area - dater speech text (always readable) */}
         <div className="conversation-bubbles">
