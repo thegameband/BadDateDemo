@@ -158,7 +158,7 @@ function LiveDateScene() {
   const [isGeneratingBreakdown, setIsGeneratingBreakdown] = useState(false)
   const [qualityScoreSummary, setQualityScoreSummary] = useState(() => getQualityScore())
   
-  // Reaction feedback - shows temporarily when date reacts to an attribute
+  // Reaction feedback - reserved for legacy/system notices
   const [reactionFeedback, setReactionFeedback] = useState(null)
   const reactionFeedbackTimeout = useRef(null)
   const [qualityHitPopup, setQualityHitPopup] = useState(null)
@@ -166,7 +166,8 @@ function LiveDateScene() {
   const [showDateBeginsOverlay, setShowDateBeginsOverlay] = useState(false)
   const [questionNarrationComplete, setQuestionNarrationComplete] = useState(true)
   const [ttsStatusNote, setTtsStatusNote] = useState('')
-  const [submittedAnswer, setSubmittedAnswer] = useState('') // Shown in oval beneath the question
+  const [submittedAnswer, setSubmittedAnswer] = useState('') // Shown in answer comparison box
+  const [daterDisplayAnswer, setDaterDisplayAnswer] = useState('')
   // Timer starts immediately when phase begins (no waiting for submissions)
   const [showPhaseAnnouncement, setShowPhaseAnnouncement] = useState(false)
   const [announcementPhase, setAnnouncementPhase] = useState('')
@@ -340,42 +341,12 @@ function LiveDateScene() {
   
   // Show reaction feedback temporarily (auto-clears after 6 seconds)
   const REACTION_FEEDBACK_DURATION_MS = 6000
-  const showReactionFeedback = (sentiment = 'liked', reason = '') => {
-    const daterName = selectedDater?.name || 'Maya'
-    const cleanReason = (reason || '').trim()
-    const topic = cleanReason || 'what you said'
+  const showReactionFeedback = (sentiment = 'liked') => {
     const isPositive = sentiment !== 'disliked'
-    const feedbackType = isPositive ? 'liked' : 'disliked'
-
-    const positive = [
-      `${daterName} liked ${topic}.`,
-      `${daterName} is into ${topic}.`,
-      `${daterName} felt good about ${topic}.`,
-    ]
-    const negative = [
-      `${daterName} did not like ${topic}.`,
-      `${topic} rubbed ${daterName} the wrong way.`,
-      `${daterName} felt uneasy about ${topic}.`,
-    ]
-    const pool = isPositive ? positive : negative
-    const text = pool[Math.floor(Math.random() * pool.length)]
-
-    if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
-
-    setReactionFeedback({ text, category: feedbackType })
     setDaterEmotion(isPositive ? 'happy' : 'uncomfortable')
-
-    reactionFeedbackTimeout.current = setTimeout(() => {
-      setReactionFeedback(null)
-    }, REACTION_FEEDBACK_DURATION_MS)
-
-    if (partyClient && isHost) {
-      partyClient.syncState({ reactionFeedback: { text, category: feedbackType } })
-    }
   }
 
   const showDaterAnswerBanner = (answer = '') => {
-    const daterName = selectedDater?.name || 'Your date'
     const cleanedAnswer = String(answer || '')
       .replace(/[^A-Za-z0-9\s]/g, ' ')
       .split(/\s+/)
@@ -383,17 +354,11 @@ function LiveDateScene() {
       .slice(0, 3)
       .join(' ')
       .trim()
-    const bannerAnswer = cleanedAnswer || 'from the heart'
-    const text = `${daterName} answered ${bannerAnswer}!`
-
-    if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
-    setReactionFeedback({ text, category: 'answer-reveal' })
-    reactionFeedbackTimeout.current = setTimeout(() => {
-      setReactionFeedback(null)
-    }, REACTION_FEEDBACK_DURATION_MS)
+    const displayAnswer = cleanedAnswer || 'from the heart'
+    setDaterDisplayAnswer(displayAnswer)
 
     if (partyClient && isHost) {
-      partyClient.syncState({ reactionFeedback: { text, category: 'answer-reveal' } })
+      partyClient.syncState({ daterDisplayAnswer: displayAnswer })
     }
   }
 
@@ -667,6 +632,9 @@ function LiveDateScene() {
         reactionFeedbackTimeout.current = setTimeout(() => {
           setReactionFeedback(null)
         }, REACTION_FEEDBACK_DURATION_MS)
+      }
+      if (state.daterDisplayAnswer !== undefined && !isHost) {
+        setDaterDisplayAnswer(state.daterDisplayAnswer || '')
       }
       
       // Sync character emotions for speech animation (non-host only)
@@ -1496,8 +1464,6 @@ RULES:
           if (wasAdded) {
             showQualityMatchPopup(hit)
           }
-        } else if (qualityResult) {
-          showReactionFeedback(qualityResult.sentiment, qualityResult.sentimentReason)
         }
       }
 
@@ -2323,7 +2289,8 @@ Generate ${daterName}'s final verdict:`
       // Date must run this before ending — we never skip to "ended" before wrap-up
       console.log('🎬 Starting Phase 9: Wrap Up')
       
-      setSubmittedAnswer('') // Clear answer oval
+      setSubmittedAnswer('') // Clear answer comparison box
+      setDaterDisplayAnswer('')
       setLivePhase('phase3')
       setCurrentRoundPrompt({ title: 'Phase 9: Wrap Up', subtitle: 'The date is ending...' })
       setDaterBubble('')
@@ -2336,7 +2303,8 @@ Generate ${daterName}'s final verdict:`
           compatibility: currentCompatibility,
           cycleCount: newRoundCount,
           daterBubble: '',
-          avatarBubble: ''
+          avatarBubble: '',
+          daterDisplayAnswer: ''
         })
       }
       
@@ -2362,7 +2330,8 @@ Generate ${daterName}'s final verdict:`
     } else {
       // Start new round - show round prompt interstitial (not dater question)
       setRoundPromptAnimationComplete(false)
-      setSubmittedAnswer('') // Clear previous answer oval
+      setSubmittedAnswer('') // Clear previous answer comparison box
+      setDaterDisplayAnswer('')
       setLivePhase('phase1')
       setPhaseTimer(0) // No timer: advance when player submits
       setQuestionNarrationComplete(false)
@@ -2395,7 +2364,8 @@ Generate ${daterName}'s final verdict:`
             avatarBubble: '',
             cycleCount: newRoundCount,
             suggestedAttributes: [],
-            numberedAttributes: []
+            numberedAttributes: [],
+            daterDisplayAnswer: ''
           })
           partyClient.clearSuggestions()
           partyClient.clearVotes()
@@ -2872,6 +2842,7 @@ BAD examples (do NOT do this):
     
     // Clear answer oval and input so they don't carry over into Phase 5
     setSubmittedAnswer('')
+    setDaterDisplayAnswer('')
     setChatInput('')
     setPlotTwistDaterAnswerDone(false)
 
@@ -2897,6 +2868,7 @@ BAD examples (do NOT do this):
         avatarBubble: '',
         suggestedAttributes: [],
         numberedAttributes: [],
+        daterDisplayAnswer: '',
       })
       partyClient.clearSuggestions()
       partyClient.clearVotes()
@@ -3293,8 +3265,9 @@ BAD examples (do NOT do this):
     }
     applySinglePlayerAnswer(playerAnswer)
     
-    // Show the answer in an oval beneath the question
+    // Show the player's answer in the comparison box below the question
     setSubmittedAnswer(playerAnswer)
+    setDaterDisplayAnswer('')
     
     setLivePhase('phase3')
     setPhaseTimer(0)
@@ -3307,6 +3280,7 @@ BAD examples (do NOT do this):
         compatibility: currentCompatibility,
         cycleCount: currentCycleCount,
         answerSelection: { subPhase: 'idle', slices: [], spinAngle: 0, winningSlice: null },
+        daterDisplayAnswer: '',
       })
       partyClient.clearSuggestions()
       partyClient.clearVotes()
@@ -4177,19 +4151,31 @@ BAD examples (do NOT do this):
               <div className="round-prompt-content">
                 <h2 className="round-prompt-title">{currentRoundPrompt.title}</h2>
                 <p className="round-prompt-subtitle">{currentRoundPrompt.subtitle}</p>
-                <AnimatePresence>
-                  {submittedAnswer && (
-                    <motion.div
-                      className="submitted-answer-oval"
-                      initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.8, y: -5 }}
-                      transition={{ duration: 0.4, ease: 'easeOut' }}
-                    >
-                      &ldquo;{submittedAnswer}&rdquo;
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt.title && submittedAnswer && (
+            <motion.div
+              key={`answer-comparison-${cycleCount}-${submittedAnswer}`}
+              className="answer-comparison-box"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              <div className="answer-column">
+                <p className="answer-column-title">{(startingStats?.activePlayerName || username || 'Player') + '\'s Answer'}</p>
+                <p className="answer-column-value">&ldquo;{submittedAnswer}&rdquo;</p>
+              </div>
+              <div className="answer-column-divider" />
+              <div className="answer-column">
+                <p className="answer-column-title">{(selectedDater?.name || 'Dater') + '\'s Answer'}</p>
+                <p className={`answer-column-value ${daterDisplayAnswer ? '' : 'pending'}`}>
+                  {daterDisplayAnswer ? `"${daterDisplayAnswer}"` : '...'}
+                </p>
               </div>
             </motion.div>
           )}

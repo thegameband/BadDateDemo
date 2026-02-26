@@ -266,7 +266,7 @@ function buildPromptTail(dater) {
            'Adam speaks with 19th-century Romantic prose, old-English phrasing, poetic deadpan, and Latinate vocabulary.\n' +
            'He uses old English words like "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst" regularly.\n' +
            'IMPORTANT: "Thee," "thou," and "thy" are RARE — only in emotional extremes. Use "you/your" for normal address.\n' +
-           'Use 1-3 sentences and aim for <= 350 characters total.\n' +
+           'Use 1-2 sentences and aim for <= 280 characters total.\n' +
            'Adam speaks in 2-3 weighted sentences — poetic, purposeful, and complete.\n' +
            'He NEVER uses modern slang. His emotions are deep and quiet, not loud and hype.\n' +
            'The examples below are your ONLY voice model. Match them exactly.\n' +
@@ -968,7 +968,7 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? '\nREMINDER — LENGTH: Use 1-3 sentences and aim for <= 350 characters total.'
+    ? '\nREMINDER — LENGTH: Use 1-2 sentences and aim for <= 280 characters total.'
     : ''
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
@@ -1004,7 +1004,7 @@ CRITICAL RULES FOR YOUR REACTION:
 - You MUST have an OPINION. Never just say something is "weird" or "strange" or "interesting" without explaining WHY you feel that way based on your personality, your values, and your life experience.
 - React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
 - Be SPECIFIC. Reference what they actually said and connect it to something about yourself — your values, your past, your dealbreakers, what you find attractive.
-- 1-3 sentences. Aim for <= 350 characters total. Dialogue only, no actions or asterisks.
+- 1-2 sentences. Aim for <= 280 characters total. Dialogue only, no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
@@ -1162,11 +1162,13 @@ export async function getDaterAnswerComparison(dater, question, daterAnswer, pla
 
 📋 QUESTION: "${question}"
 💬 YOUR QUICK ANSWER: "${quickAnswer}"
-💬 PLAYER ANSWER: "${playerAnswer}"
+💬 PLAYER ANSWER (context only, do NOT compare): "${playerAnswer}"
 
 CRITICAL RULES:
-- Sentence 1: Explain why your quick answer fits your values.
-- Sentence 2: Compare your answer with the player's answer.
+- Sentence 1: Restate the question naturally and include your answer directly.
+- Sentence 2: Give one concise justification for your answer.
+- Do NOT compare with the player's answer.
+- Keep each sentence short and direct.
 - Keep total length concise (aim <= 350 characters).
 - Dialogue only, no actions or asterisks.
 `
@@ -1175,7 +1177,7 @@ CRITICAL RULES:
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[You answered "${quickAnswer}". The player answered "${playerAnswer}". First explain your answer in one sentence, then compare it to theirs in one sentence.]`
+  const userContent = `[Question: "${question}". Your answer is "${quickAnswer}". Player answer for context: "${playerAnswer}". Respond in exactly two sentences: first restate the question and give your answer, then give one concise justification. No comparison.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1191,9 +1193,9 @@ CRITICAL RULES:
 
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   if (isAdam) {
-    return `I chose ${quickAnswer} because it is what my conscience can live with. Your answer tells me what you prioritize, and I feel both the overlap and the distance between us.`
+    return `For this question, I would choose ${quickAnswer}. It fits what my conscience can live with.`
   }
-  return `I chose ${quickAnswer} because it matches what matters most to me. Your answer shows your priorities, and I can see where we align and where we differ.`
+  return `For this question, I would choose ${quickAnswer}. It matches what matters most to me.`
 }
 
 /**
