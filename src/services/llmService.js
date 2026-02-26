@@ -283,10 +283,13 @@ function buildPromptTail(dater) {
 /**
  * Call OpenAI API for a response
  */
-export async function getChatResponse(messages, systemPrompt) {
+export async function getChatResponse(messages, systemPrompt, options = {}) {
   const providerConfig = resolveLlmProviderConfig()
   const runtime = getRuntimeContext()
   const keyFingerprint = getKeyFingerprint(providerConfig?.apiKey)
+  const maxTokens = Number.isFinite(Number(options?.maxTokens))
+    ? Math.max(40, Number(options.maxTokens))
+    : 150
   
   if (!providerConfig) {
     _llmErrorMessage = 'No API key - LLM offline'
@@ -325,7 +328,7 @@ export async function getChatResponse(messages, systemPrompt) {
       method: 'POST',
       headers: providerConfig.headers,
       body: JSON.stringify(buildProviderBody(providerConfig, {
-        maxTokens: 150,
+        maxTokens,
         systemPrompt,
         messages: sanitizedMessages.map(msg => ({
           role: msg.role,
@@ -3156,15 +3159,26 @@ export async function evaluateLikesDislikesResponse({
     return { likesHit: [], dislikesHit: [] }
   }
 
-  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating your own latest response in a dating game.
-Decide which hidden likes/dislikes were clearly triggered by what just happened.
+  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating Mode 1 daily scoring for a dating-game turn.
 
-OUTPUT RULES:
+Evaluate the ENTIRE turn (question + player answer + your response), with primary focus on the player's stance and behavior.
+
+Scoring meaning:
+- "likesHit": traits from REMAINING LIKES that were clearly demonstrated/endorsed by the player this turn.
+- "dislikesHit": traits from REMAINING DISLIKES that were clearly demonstrated/endorsed/tolerated by the player this turn.
+
+Critical stance rules:
+- Dislikes are NEGATIVE-only in this mode.
+- If the player rejects/condemns/sets a boundary against a dislike trait, do NOT mark that dislike as hit.
+- Mentioning a trait without clear stance is neutral.
+- Exact wording is not required; use semantic meaning (paraphrases/synonyms).
+- Multiple likes and multiple dislikes may be hit in one turn when clearly supported.
+
+Output rules:
 - Return JSON only.
-- It is valid to trigger multiple likes and multiple dislikes in one response.
-- Only return items from the provided lists.
-- Do not return items already hit.
-`
+- Only return labels from the provided remaining lists.
+- Do not invent new labels.
+- Do not return items already hit (those are excluded from remaining lists).`
 
   const userPrompt = `QUESTION:
 "${question}"
@@ -3187,7 +3201,7 @@ Return JSON:
   "dislikesHit": ["exact dislike label", "..."]
 }`
 
-  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt)
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 240 })
   const parsed = safeJsonObject(response)
   if (!parsed) return { likesHit: [], dislikesHit: [] }
 
@@ -3219,18 +3233,27 @@ export async function evaluateBingoBlindLockoutResponse({
   )
   if (unresolvedIds.size === 0) return { updates: [] }
 
-  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating a 4x4 bingo board after your latest response.
+  const systemPrompt = `You are ${dater?.name || 'the dater'} evaluating a 4x4 bingo board for a dating-game turn.
+
+Evaluate the ENTIRE turn (question + player answer + your response), not just your response.
 For each cell, decide one status:
-- "filled": what happened agrees with that cell's test
-- "locked": what happened clashes with that cell's test
-- "neutral": no clear signal yet
+- "filled": clear evidence the cell condition is satisfied
+- "locked": clear evidence the opposite condition is satisfied
+- "neutral": no clear evidence yet
 
-Rules by type:
-- like cell: filled when the interaction clearly supports that preference, locked when it clearly opposes it.
-- dislike cell: filled when the interaction clearly avoids/rejects that negative trait, locked when the interaction clearly affirms/tolerates it.
+Cell-type rules:
+- like cell (desired quality): filled if the turn endorses/demonstrates it, locked if the turn rejects/opposes it.
+- dislike cell (negative trait): filled if the turn rejects/condemns/sets a boundary against that trait, locked if the turn endorses/accepts/normalizes that trait.
 
-You must evaluate all 16 cells each round, using the current status as context.
-If a cell is already filled or locked, keep it unchanged by returning "neutral" for it.
+Interpretation rules:
+- Use semantic matching (paraphrases/synonyms/near meaning). Exact wording is NOT required.
+- Direct stance statements are strong evidence (for example: "my dealbreaker is X", "I hate X", "I won't tolerate X").
+- Mentioning a concept without clear stance is neutral.
+- Multiple cells may change in the same turn.
+
+Coverage rules:
+- You must evaluate all 16 cells every turn.
+- If a cell is already filled or locked, keep it unchanged by returning "neutral" for that cell.
 
 Return JSON only.`
 
@@ -3251,9 +3274,14 @@ Return JSON:
   "updates": [
     {"id": "cell-id", "status": "filled|locked|neutral"}
   ]
-}`
+}
 
-  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt)
+Output constraints:
+- Include exactly one updates entry for every listed cell id.
+- Do not omit any cell ids.
+- Use only: "filled", "locked", or "neutral".`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 420 })
   const parsed = safeJsonObject(response)
   if (!parsed || !Array.isArray(parsed.updates)) return { updates: [] }
 
@@ -3307,7 +3335,7 @@ Return JSON:
   "filledIds": ["action-id-1", "action-id-2"]
 }`
 
-  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt)
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: 260 })
   const parsed = safeJsonObject(response)
   if (!parsed) return { filledIds: [] }
   const filledIds = normalizeStringList(parsed.filledIds).filter((id) => allIds.has(id))
