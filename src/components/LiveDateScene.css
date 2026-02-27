@@ -144,33 +144,40 @@
   max-width: 400px;
 }
 
-.answer-comparison-box {
+.answer-comparison-stack {
   position: absolute;
   top: var(--answer-box-top-space, 135px);
   left: 0;
   right: 0;
   margin: 0 auto;
   width: min(420px, calc(100% - 24px));
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.98) 0 26px,
-      rgba(134, 170, 214, 0.26) 26px 27px
-    ),
-    linear-gradient(165deg, #ffffff 0%, #f3f5f8 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 89;
+  pointer-events: none;
+}
+
+.answer-reveal-card {
+  width: 100%;
+  background: linear-gradient(165deg, #ffffff 0%, #f4f6f9 100%);
   border: 7px solid #545a61;
   border-radius: 20px;
   box-shadow:
     0 10px 28px rgba(0, 0, 0, 0.35),
     inset 0 0 0 2px rgba(255, 255, 255, 0.85),
     inset 0 -2px 6px rgba(40, 50, 70, 0.12);
-  padding: 12px 14px 10px;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  z-index: 89;
-  pointer-events: none;
+  padding: 10px 14px 8px;
+  text-align: center;
+}
+
+.answer-reveal-card-player {
   transform: rotate(-0.55deg);
+}
+
+.answer-reveal-card-dater {
+  transform: rotate(0.45deg);
 }
 
 .answer-column {
@@ -179,21 +186,14 @@
   text-align: center;
 }
 
-.answer-column-divider {
-  width: 2px;
-  margin: 0 10px;
-  background: linear-gradient(180deg, rgba(70, 80, 95, 0) 0%, rgba(70, 80, 95, 0.6) 35%, rgba(70, 80, 95, 0.6) 65%, rgba(70, 80, 95, 0) 100%);
-  border-radius: 8px;
-}
-
 .answer-column-title {
   margin: 0 0 6px 0;
   font-family: 'Caveat', cursive;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: none;
-  color: #2f3948;
+  color: #1f2b3b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -213,11 +213,6 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
-}
-
-.answer-column-value.pending {
-  color: rgba(31, 43, 59, 0.45);
-  letter-spacing: 0.02em;
 }
 
 .round-prompt-title {
@@ -2914,9 +2909,13 @@
     padding: 10px 16px;
   }
 
-  .answer-comparison-box {
+  .answer-comparison-stack {
     width: min(380px, calc(100% - 24px));
-    padding: 10px 12px;
+    gap: 7px;
+  }
+
+  .answer-reveal-card {
+    padding: 9px 12px 8px;
   }
 
   .answer-column-title {
@@ -3197,9 +3196,13 @@
     line-height: 1.35;
   }
 
-  .answer-comparison-box {
+  .answer-comparison-stack {
     width: calc(100% - 20px);
-    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .answer-reveal-card {
+    padding: 8px 10px 7px;
   }
 
   .answer-column-title {

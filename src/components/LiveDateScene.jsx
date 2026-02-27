@@ -4155,23 +4155,37 @@ BAD examples (do NOT do this):
           {['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt.title && submittedAnswer && (
             <motion.div
               key={`answer-comparison-${cycleCount}-${submittedAnswer}`}
-              className="answer-comparison-box"
+              className="answer-comparison-stack"
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              <div className="answer-column">
+              <motion.div
+                className="answer-reveal-card answer-reveal-card-player"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.22 }}
+              >
                 <p className="answer-column-title">{playerAnswerLabelName + '\'s Answer'}</p>
                 <p className="answer-column-value">&ldquo;{submittedAnswer}&rdquo;</p>
-              </div>
-              <div className="answer-column-divider" />
-              <div className="answer-column">
-                <p className="answer-column-title">{(selectedDater?.name || 'Dater') + '\'s Answer'}</p>
-                <p className={`answer-column-value ${daterDisplayAnswer ? '' : 'pending'}`}>
-                  {daterDisplayAnswer ? `"${daterDisplayAnswer}"` : '...'}
-                </p>
-              </div>
+              </motion.div>
+
+              <AnimatePresence>
+                {daterDisplayAnswer && (
+                  <motion.div
+                    key={`dater-answer-${cycleCount}-${daterDisplayAnswer}`}
+                    className="answer-reveal-card answer-reveal-card-dater"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 8 }}
+                    transition={{ duration: 0.22 }}
+                  >
+                    <p className="answer-column-title">{(selectedDater?.name || 'Dater') + '\'s Answer'}</p>
+                    <p className="answer-column-value">&ldquo;{daterDisplayAnswer}&rdquo;</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
