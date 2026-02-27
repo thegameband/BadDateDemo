@@ -1159,11 +1159,12 @@ CRITICAL RULES:
  * @returns {Promise<string|null>} One short sentence.
  */
 export async function getDaterAnswerComparison(dater, question, daterAnswer, playerAnswer, conversationHistory = []) {
+  const MAX_QUIP_CHARS = 280
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const quickAnswer = String(daterAnswer || '').trim() || 'my gut'
   const taskPrompt = `
-🎯 YOUR TASK: Give one short sentence.
+🎯 YOUR TASK: Give one short, witty sentence.
 
 📋 QUESTION: "${question}"
 💬 YOUR QUICK ANSWER: "${quickAnswer}"
@@ -1174,7 +1175,8 @@ CRITICAL RULES:
 - Explain why your quick answer makes sense for you.
 - Respond to the player's answer too: mention whether you align, partly align, or disagree.
 - Be specific about similarity/difference between both answers.
-- Keep it concise (aim <= 220 characters).
+- Keep it concise (aim <= ${MAX_QUIP_CHARS} characters).
+- Tone: playful, funny, or lightly biting (not cruel).
 - Dialogue only, no actions or asterisks.
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
@@ -1192,15 +1194,22 @@ CRITICAL RULES:
 
   const response = await getChatResponse(messages, fullPrompt)
   if (response) {
-    const cleaned = stripActionDescriptions(response)?.trim()
-    if (cleaned) return cleaned
+    const cleaned = stripActionDescriptions(response)?.replace(/\s+/g, ' ')?.trim()
+    if (cleaned) {
+      // Keep only the first sentence, then enforce the hard character cap.
+      const firstSentence = cleaned.match(/[^.!?]+[.!?]/)?.[0]?.trim() || cleaned
+      if (firstSentence.length <= MAX_QUIP_CHARS) return firstSentence
+      const clipped = firstSentence.slice(0, MAX_QUIP_CHARS - 1).trim()
+      const safeClip = clipped.slice(0, clipped.lastIndexOf(' ')).trim() || clipped
+      return `${safeClip}.`
+    }
   }
 
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   if (isAdam) {
-    return `I went with ${quickAnswer} because it fits my values, and compared to your answer we're either aligned at the core or clearly after different things.`
+    return `I went with ${quickAnswer} because that's my lane, and your answer is either my kind of chaos or a red flag in designer packaging.`
   }
-  return `I chose ${quickAnswer} because that matches what matters to me, and your answer feels either very close to mine or pointed in a different direction.`
+  return `I chose ${quickAnswer} because that's my rhythm, and your answer sounds either like my duet partner or someone singing from a different planet.`
 }
 
 /**
