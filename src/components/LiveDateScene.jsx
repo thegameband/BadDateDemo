@@ -326,6 +326,12 @@ function LiveDateScene() {
     }
   }
 
+  const truncateForDisplay = (text, maxWords = 4) => {
+    const words = String(text || '').trim().split(/\s+/).filter(Boolean)
+    if (words.length <= maxWords) return words.join(' ')
+    return words.slice(0, maxWords).join(' ') + '…'
+  }
+
   const flashBoardPanelPulse = () => {
     const mode = useGameStore.getState().scoring?.selectedMode
     const isBingoMode = mode === SCORING_MODES.BINGO_BLIND_LOCKOUT || mode === SCORING_MODES.BINGO_ACTIONS_OPEN
@@ -3161,8 +3167,8 @@ BAD examples (do NOT do this):
     }
     applySinglePlayerAnswer(playerAnswer)
     
-    // Show the player's answer in the comparison box below the question
-    setSubmittedAnswer(playerAnswer)
+    // Show the player's answer in the comparison box (truncated for display)
+    setSubmittedAnswer(truncateForDisplay(playerAnswer))
     setDaterDisplayAnswer('')
     
     setLivePhase('phase3')
