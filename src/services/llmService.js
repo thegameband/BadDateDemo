@@ -3042,7 +3042,17 @@ export async function generatePlotTwistSummary(avatarName, daterName, winningAct
   const safeAction = normalizedAction.replace(/["']/g, '').slice(0, 72) || 'stayed calm'
 
   const buildFallbackSummary = () => {
-    const fallback = `${normalizedAvatarName} acted on instinct and ${safeAction}. The stranger hitting on ${normalizedDaterName} was left stunned as the room shifted. In the aftermath, everyone could feel this date had changed for good.`
+    const closers = [
+      `The tension lingered long after the moment passed.`,
+      `Neither of them would forget what just happened.`,
+      `Something between them shifted—and there was no going back.`,
+      `The silence that followed said more than words ever could.`,
+      `That single moment rewrote the rest of the evening.`,
+      `From that point on, the date was a completely different story.`,
+      `The air between them crackled with a brand-new energy.`,
+    ]
+    const closer = closers[Math.floor(Math.random() * closers.length)]
+    const fallback = `${normalizedAvatarName} acted on instinct and ${safeAction}. The stranger hitting on ${normalizedDaterName} was left stunned as the room shifted. ${closer}`
     return fallback.replace(/\s+/g, ' ').trim()
   }
 
@@ -3080,7 +3090,7 @@ RULES:
 - Always use the person's name "${normalizedAvatarName}" in the narration. NEVER use the word "Avatar" or "the avatar".
 - Write in past tense, like narrating a story
 - Be dramatic and visual - describe the SCENE
-- Keep total output <= 280 characters
+- Keep total output <= 400 characters
 - Don't use quotation marks or dialogue
 - Make it sound like a cinematic narrator
 - Do not say ${normalizedAvatarName} "said" "${normalizedAction}".
@@ -3118,9 +3128,9 @@ Return ONLY the 3-sentence narration, nothing else.`
     const data = await response.json()
     const summary = normalizeSummary(extractProviderText(providerConfig.provider, data))
     if (!summary) return buildFallbackSummary()
-    if (summary.length > 280) return buildFallbackSummary()
-    if (countSentences(summary) !== 3) return buildFallbackSummary()
-    if (/\bsaid\b/i.test(summary)) return buildFallbackSummary()
+    if (summary.length > 400) return buildFallbackSummary()
+    const sentenceCount = countSentences(summary)
+    if (sentenceCount < 2 || sentenceCount > 5) return buildFallbackSummary()
     console.log('🎭 Generated plot twist summary')
     return summary
   } catch (error) {
