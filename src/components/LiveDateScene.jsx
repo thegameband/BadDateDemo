@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterQuickAnswer, getDaterAnswerComparison, getDaterResponseToJustification, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuickAnswer, getDaterAnswerComparison, getDaterResponseToJustification, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -2386,42 +2386,16 @@ RULES:
     const newPlotTwist = {
       ...useGameStore.getState().plotTwist,
       subPhase: 'input',
-      timer: 22, // was 15
+      timer: 22,
     }
     setPlotTwist(newPlotTwist)
     
+    // Player answers first -- no dater opener
+    setPlotTwistDaterAnswerDone(true)
+    
     // Sync to PartyKit
     if (partyClient) {
-      partyClient.syncState({ plotTwist: newPlotTwist })
-    }
-
-    try {
-      const opener = await getDaterQuestionOpener(
-        selectedDater,
-        'Another person just hit on me. What would you do?',
-        useGameStore.getState().dateConversation || []
-      )
-      syncLlmStatusMessage()
-      if (opener) {
-        if (ttsEnabled) setDaterBubbleReady(false)
-        setDaterBubble(opener)
-        addDateMessage('dater', opener)
-        await syncConversationToPartyKit(undefined, opener, undefined)
-        await applyScoringDecision({
-          question: 'Another person just hit on me. What would you do?',
-          playerAnswer: '',
-          daterResponse: opener,
-          source: 'plot twist opener',
-        })
-        await waitForAllAudio()
-      }
-    } catch (err) {
-      console.error('Plot twist opener error:', err)
-    } finally {
-      setPlotTwistDaterAnswerDone(true)
-      if (partyClient) {
-        partyClient.syncState({ plotTwistDaterAnswerDone: true })
-      }
+      partyClient.syncState({ plotTwist: newPlotTwist, plotTwistDaterAnswerDone: true })
     }
   }
   
@@ -3681,9 +3655,6 @@ BAD examples (do NOT do this):
                 
                 {!hasSubmittedPlotTwist ? (
                   <div className="plot-twist-input-area">
-                    {!plotTwistDaterAnswerDone && (
-                      <p className="plot-twist-submitted-note">Let {selectedDater?.name || 'your date'} answer first...</p>
-                    )}
                     <form onSubmit={(e) => {
                       e.preventDefault()
                       submitPlotTwistAnswer(plotTwistInput)
@@ -3693,9 +3664,8 @@ BAD examples (do NOT do this):
                         className="plot-twist-input"
                         value={plotTwistInput}
                         onChange={(e) => setPlotTwistInput(e.target.value)}
-                        placeholder={plotTwistDaterAnswerDone ? "e.g., 'Challenge them to a dance-off'" : "Listen to your date first..."}
+                        placeholder="e.g., 'Challenge them to a dance-off'"
                         autoFocus
-                        disabled={!plotTwistDaterAnswerDone}
                       />
                       <button
                         type="button"
@@ -3709,7 +3679,7 @@ BAD examples (do NOT do this):
                       <button 
                         type="submit" 
                         className="plot-twist-submit-btn"
-                        disabled={!plotTwistInput.trim() || !plotTwistDaterAnswerDone}
+                        disabled={!plotTwistInput.trim()}
                       >
                         Submit
                       </button>
