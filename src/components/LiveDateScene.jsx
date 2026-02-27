@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuickAnswer, getDaterAnswerComparison, getDaterResponseToJustification, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuickAnswer, getDaterAnswerComparison, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -47,13 +47,6 @@ const DEBUG_AUTO_FILL_ANSWERS = {
     'I lean in and improvise like this was the plan.',
     'I pretend confidence and commit to the bit.',
     'I make a joke and try to defuse the chaos.',
-  ],
-  justify: [
-    'It felt right in the moment, even if risky.',
-    'I panicked, trusted my instincts, and doubled down.',
-    'I wanted to be honest instead of playing safe.',
-    'I thought bold was better than boring there.',
-    'That choice matched my personality, for better or worse.',
   ],
 }
 
@@ -232,12 +225,6 @@ function LiveDateScene() {
   // Current round prompt state (persists during Phase 1)
   const [currentRoundPrompt, setCurrentRoundPrompt] = useState({ title: '', subtitle: '' })
   const [roundPromptAnimationComplete, setRoundPromptAnimationComplete] = useState(false)
-  // Justify phase: after dater has strong negative reaction, player can justify
-  const [showJustifyPrompt, setShowJustifyPrompt] = useState(false)
-  const [justifyOriginalAnswer, setJustifyOriginalAnswer] = useState('')
-  const [justifyDaterReaction, setJustifyDaterReaction] = useState('')
-  const [justifyInput, setJustifyInput] = useState('')
-  const [isSubmittingJustify, setIsSubmittingJustify] = useState(false)
   const startingStatsTimerRef = useRef(null)
   const lastActivePlayerRef = useRef(null)
   const lastAnswerCountRef = useRef(0)
@@ -268,7 +255,6 @@ function LiveDateScene() {
       return pickRandom(DEBUG_AUTO_FILL_ANSWERS.startingStats[questionType]) || pickRandom(DEBUG_AUTO_FILL_ANSWERS.chat)
     }
     if (target === 'plot-twist') return pickRandom(DEBUG_AUTO_FILL_ANSWERS.plotTwist)
-    if (target === 'justify') return pickRandom(DEBUG_AUTO_FILL_ANSWERS.justify)
     return pickRandom(DEBUG_AUTO_FILL_ANSWERS.chat)
   }
   
@@ -1964,14 +1950,12 @@ RULES:
             daterReaction,
             daterMood,
             source: 'round reaction',
-            needsJustify: false,
           },
           {
             avatarResponse: null,
             daterReaction: daterComparison,
             daterMood: 'neutral',
             source: 'round follow-up',
-            needsJustify: false,
             daterQuickAnswer,
           }
         ].filter(e => e.daterReaction),
@@ -1997,11 +1981,9 @@ RULES:
 
     console.log('▶️ PLAYING BACK pre-generated conversation (dater only)...')
     const { attribute, exchanges, question } = preGenData
-    let shouldPromptJustify = false
 
     for (let i = 0; i < exchanges.length; i++) {
       const exchange = exchanges[i]
-      // No avatar: only play dater reaction to the player's answer
       if (exchange.daterReaction) {
         setDaterEmotion(exchange.daterMood || 'neutral')
         setDaterBubble(exchange.daterReaction)
@@ -2009,15 +1991,12 @@ RULES:
         await syncConversationToPartyKit(undefined, exchange.daterReaction, undefined)
         if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterMood || 'neutral' })
 
-        const scoringResult = await applyScoringDecision({
+        await applyScoringDecision({
           question: question || currentRoundPrompt.subtitle || 'Tell me about yourself',
           playerAnswer: attribute,
           daterResponse: exchange.daterReaction,
           source: exchange.source || (i === 0 ? 'round reaction' : 'round follow-up'),
         })
-        if (i === 0 && scoringResult?.hasNegative) {
-          shouldPromptJustify = true
-        }
         if (i > 0) {
           showDaterAnswerBanner(exchange.daterQuickAnswer || daterQuickAnswerRef.current)
         }
@@ -2032,7 +2011,6 @@ RULES:
     }
     
     console.log('✅ Playback complete!')
-    return shouldPromptJustify
   }
   
   // ============================================
@@ -2074,23 +2052,20 @@ RULES:
         partyClient.syncState({ isPreGenerating: false })
       }
       
-      let shouldPromptJustify = false
       if (preGenData) {
-        // PHASE 2: Playback smoothly (dater only)
-        shouldPromptJustify = await playbackConversation(preGenData)
+        await playbackConversation(preGenData)
       } else {
         const safeAnswer = String(currentAttribute || latestAttribute || 'that').trim()
         const fallbackReaction = `You gave me "${safeAnswer}"... and yes, I have an opinion.`
         setDaterBubble(fallbackReaction)
         addDateMessage('dater', fallbackReaction)
         await syncConversationToPartyKit(undefined, fallbackReaction, undefined)
-        const fallbackScore = await applyScoringDecision({
+        await applyScoringDecision({
           question: currentRoundPrompt.subtitle || 'Tell me about yourself',
           playerAnswer: safeAnswer,
           daterResponse: fallbackReaction,
           source: 'fallback reaction',
         })
-        shouldPromptJustify = Boolean(fallbackScore?.hasNegative)
       }
 
       // Wait for all audio to finish before ending the round
@@ -2101,28 +2076,6 @@ RULES:
       // Wait 4 seconds after dater finishes reacting so player can read the response
       console.log('⏳ Holding for 4 seconds before next question...')
       await new Promise(r => setTimeout(r, 4000))
-
-      // If dater had a strong negative (dealbreaker), ask player to justify instead of next question
-      const needsJustify = shouldPromptJustify && preGenData?.exchanges?.[0]
-      if (needsJustify && preGenData?.exchanges?.[0]) {
-        setJustifyOriginalAnswer(preGenData.attribute)
-        setJustifyDaterReaction(preGenData.exchanges[0].daterReaction)
-        const justifyInviteOptions = [
-          'Would you like to explain that one a little more?',
-          'Do you want to explain that one a little more?',
-          'Can you explain that one a little more for me?'
-        ]
-        const inviteLine = justifyInviteOptions[Math.floor(Math.random() * justifyInviteOptions.length)]
-        addDateMessage('dater', inviteLine)
-        if (ttsEnabled) setDaterBubbleReady(false)
-        setDaterBubble(inviteLine)
-        await syncConversationToPartyKit(undefined, inviteLine, undefined)
-        if (partyClient) partyClient.syncState({ daterBubble: inviteLine })
-        await waitForAllAudio()
-        setShowJustifyPrompt(true)
-        setIsGenerating(false)
-        return
-      }
 
       await handleRoundComplete()
       
@@ -3277,40 +3230,6 @@ BAD examples (do NOT do this):
     setChatInput('')
   }
 
-  const handleJustifySubmit = async (e) => {
-    e.preventDefault()
-    if (!justifyInput.trim() || isSubmittingJustify) return
-    const justification = justifyInput.trim()
-    setIsSubmittingJustify(true)
-    setShowJustifyPrompt(false)
-    setJustifyInput('')
-    try {
-      // Dater reacts to the player's justification
-      const conversationHistory = useGameStore.getState().dateConversation
-      const daterResponseToJustification = await getDaterResponseToJustification(
-        selectedDater, justifyOriginalAnswer, justification, justifyDaterReaction, conversationHistory
-      )
-      if (daterResponseToJustification) {
-        addDateMessage('dater', daterResponseToJustification)
-        setDaterBubble(daterResponseToJustification)
-        await syncConversationToPartyKit(undefined, daterResponseToJustification, undefined)
-        await applyScoringDecision({
-          question: `Justify your previous answer: ${justifyOriginalAnswer}`,
-          playerAnswer: justification,
-          daterResponse: daterResponseToJustification,
-          source: 'justify response',
-        })
-        if (partyClient) partyClient.syncState({ daterBubble: daterResponseToJustification })
-        await waitForAllAudio()
-      }
-      setJustifyOriginalAnswer('')
-      setJustifyDaterReaction('')
-      await handleRoundComplete()
-    } catch (err) {
-      console.error('Justify flow error:', err)
-    }
-    setIsSubmittingJustify(false)
-  }
   
   const getPhaseTitle = () => {
     const daterName = selectedDater?.name || 'Maya'
@@ -3403,51 +3322,6 @@ BAD examples (do NOT do this):
   
   return (
     <div className="live-date-scene">
-      
-      {/* Justify: full-screen takeover */}
-      <AnimatePresence>
-        {showJustifyPrompt && (
-          <motion.div
-            className="justify-fullscreen-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="justify-fullscreen-content">
-              <h1 className="justify-fullscreen-title">Justify Your Answer</h1>
-              <p className="justify-fullscreen-hint">The dater had a strong reaction. Explain yourself.</p>
-              <form className="justify-fullscreen-form" onSubmit={handleJustifySubmit}>
-                <input
-                  type="text"
-                  className="justify-fullscreen-input"
-                  placeholder="Type your justification..."
-                  value={justifyInput}
-                  onChange={(e) => setJustifyInput(e.target.value)}
-                  maxLength={200}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="debug-autofill-btn"
-                  onClick={() => setJustifyInput(getRandomTestAnswer('justify'))}
-                  title="Debug: fill random test answer"
-                  aria-label="Debug fill random justification"
-                >
-                  🎲
-                </button>
-                <button
-                  type="submit"
-                  className="justify-fullscreen-submit"
-                  disabled={isSubmittingJustify || !justifyInput.trim()}
-                >
-                  {isSubmittingJustify ? '…' : 'Submit'}
-                </button>
-              </form>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       
       {/* Tutorial Overlay */}
       <AnimatePresence>
@@ -4456,42 +4330,36 @@ BAD examples (do NOT do this):
       {/* Chat Module: hidden during passive phases, slim input bar during active phases */}
       {!['reaction', 'phase3', 'plot-twist-reaction', 'ended'].includes(livePhase) && (
         <div className="chat-module chat-module-single-input">
-          {showJustifyPrompt ? (
-            null
-          ) : (
-            <>
-              <span className="chat-hint chat-hint-single">{getPhaseInstructions()}</span>
-              <form className="chat-input-form" onSubmit={handleChatSubmit}>
-                <input
-                  type="text"
-                  className="chat-input"
-                  placeholder={livePhase === 'phase1'
-                    ? (!questionNarrationComplete
-                      ? 'Listen to the question...'
-                      : 'Type your answer...')
-                    : livePhase === 'plot-twist'
-                      ? 'What do you do?'
-                      : 'Type your answer...'}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  maxLength={100}
-                  disabled={
-                    (livePhase === 'phase1' && !questionNarrationComplete)
-                  }
-                />
-                <button
-                  type="button"
-                  className="debug-autofill-btn"
-                  onClick={() => setChatInput(getRandomTestAnswer(livePhase === 'plot-twist' ? 'plot-twist' : 'chat'))}
-                  title="Debug: fill random test answer"
-                  aria-label="Debug fill random chat answer"
-                >
-                  🎲
-                </button>
-                <button type="submit" className="chat-send-btn">✨</button>
-              </form>
-            </>
-          )}
+          <span className="chat-hint chat-hint-single">{getPhaseInstructions()}</span>
+          <form className="chat-input-form" onSubmit={handleChatSubmit}>
+            <input
+              type="text"
+              className="chat-input"
+              placeholder={livePhase === 'phase1'
+                ? (!questionNarrationComplete
+                  ? 'Listen to the question...'
+                  : 'Type your answer...')
+                : livePhase === 'plot-twist'
+                  ? 'What do you do?'
+                  : 'Type your answer...'}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              maxLength={100}
+              disabled={
+                (livePhase === 'phase1' && !questionNarrationComplete)
+              }
+            />
+            <button
+              type="button"
+              className="debug-autofill-btn"
+              onClick={() => setChatInput(getRandomTestAnswer(livePhase === 'plot-twist' ? 'plot-twist' : 'chat'))}
+              title="Debug: fill random test answer"
+              aria-label="Debug fill random chat answer"
+            >
+              🎲
+            </button>
+            <button type="submit" className="chat-send-btn">✨</button>
+          </form>
         </div>
       )}
 
