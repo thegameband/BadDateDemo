@@ -53,6 +53,11 @@
   line-height: 1;
 }
 
+.hero-value.hero-value-text {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
 .hero-label {
   margin-top: 6px;
   font-weight: 700;
@@ -69,23 +74,35 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  width: min(320px, 100%);
+  padding: 7px 9px;
   border-radius: 999px;
-  border: 1px solid rgba(250, 204, 21, 0.62);
-  background: rgba(15, 23, 42, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.results-chaos-meter.compatibility {
+  border-color: rgba(236, 72, 153, 0.55);
+}
+
+.results-chaos-meter.ratings {
+  border-color: rgba(251, 191, 36, 0.6);
 }
 
 .results-chaos-label {
+  min-width: 106px;
+  text-align: left;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fde68a;
+  flex-shrink: 0;
 }
 
 .results-chaos-track {
   position: relative;
-  width: 132px;
+  width: 100%;
   height: 8px;
   border-radius: 999px;
   overflow: hidden;
@@ -100,6 +117,14 @@
   bottom: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, #34d399 0%, #fbbf24 55%, #f87171 100%);
+}
+
+.results-chaos-fill.compatibility {
+  background: linear-gradient(90deg, rgba(192, 132, 252, 0.92) 0%, rgba(244, 114, 182, 0.95) 100%);
+}
+
+.results-chaos-fill.ratings {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.9) 0%, rgba(249, 115, 22, 0.95) 100%);
 }
 
 .results-chaos-tier {
@@ -129,6 +154,26 @@
 .decision-card.pending {
   background: rgba(30, 64, 175, 0.25);
   border-color: rgba(147, 197, 253, 0.55);
+}
+
+.decision-card.total-failure {
+  background: rgba(127, 29, 29, 0.35);
+  border-color: rgba(248, 113, 113, 0.72);
+}
+
+.decision-card.successful-tv-episode {
+  background: rgba(146, 64, 14, 0.34);
+  border-color: rgba(251, 191, 36, 0.7);
+}
+
+.decision-card.successful-date {
+  background: rgba(6, 95, 70, 0.32);
+  border-color: rgba(52, 211, 153, 0.6);
+}
+
+.decision-card.perfect-date {
+  background: rgba(76, 29, 149, 0.33);
+  border-color: rgba(196, 181, 253, 0.75);
 }
 
 .decision-card h2 {
@@ -281,6 +326,10 @@
 
   .hero-value {
     font-size: 1.9rem;
+  }
+
+  .hero-value.hero-value-text {
+    font-size: 1.15rem;
   }
 
   .result-columns {

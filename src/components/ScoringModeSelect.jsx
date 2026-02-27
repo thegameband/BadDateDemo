@@ -11,8 +11,8 @@ const MODE_OPTIONS = [
   },
   {
     id: SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS,
-    title: 'Likes + CHAOS Multiplier',
-    subtitle: 'Mode 1 scoring plus per-answer chaos (1-10). Base score is clamped to 0-5, then multiplied from 0.5x to 3x.',
+    title: 'Compatibility + Ratings',
+    subtitle: 'Mode 1 compatibility plus TV ratings shifts each answer. Build both meters to 3+ for a Perfect Date.',
   },
   {
     id: SCORING_MODES.BINGO_BLIND_LOCKOUT,
