@@ -329,7 +329,7 @@ function LiveDateScene() {
       .replace(/[^A-Za-z0-9\s]/g, ' ')
       .split(/\s+/)
       .filter(Boolean)
-      .slice(0, 3)
+      .slice(0, 4)
       .join(' ')
       .trim()
     const displayAnswer = cleanedAnswer || 'from the heart'
@@ -1776,22 +1776,29 @@ RULES:
   
   // FIRST ROUND ONLY - must be one of these 3
   const FIRST_ROUND_PROMPTS = [
-    { title: "Green Flag", subtitle: "What's something small that makes you think 'this person gets it'?" },
-    { title: "Ick", subtitle: "What's a small thing that turns you off?" },
-    { title: "Dealbreaker", subtitle: "What's something that would make you immediately lose interest in someone?" },
+    { title: "Green Flag", subtitle: "What small thing makes you think someone \"gets it\"?" },
+    { title: "Ick", subtitle: "What totally harmless thing is a big turnoff?" },
+    { title: "Dealbreaker", subtitle: "What would make you instantly lose interest?" },
   ]
   
-  // ADDITIONAL prompts available for rounds 2-5 (plus any unused from first round pool)
+  // ADDITIONAL prompts available for rounds 2+ (plus any unused from first round pool)
   const ADDITIONAL_PROMPTS = [
-    { title: "Hot Take", subtitle: "What's your most controversial opinion about dating or relationships?" },
-    { title: "Unpopular Opinion", subtitle: "What do you believe about relationships that most people would disagree with?" },
-    { title: "Love Language", subtitle: "How do you show someone you care about them?" },
-    { title: "Desert Island Date", subtitle: "You're stranded together—what one item do you bring?" },
+    { title: "Hot Take", subtitle: "Your most controversial relationship opinion?" },
+    { title: "Love Language", subtitle: "How do you show someone that you care?" },
+    { title: "Desert Island Date", subtitle: "Stranded together. What item do you bring?" },
     { title: "Time Traveler", subtitle: "First date in any time period—when and where?" },
-    { title: "Superpower Romance", subtitle: "What superpower would make you the best partner?" },
-    { title: "Lottery Winner", subtitle: "You win $10 million. How does your dating life change?" },
-    { title: "Secret Talent", subtitle: "What's your hidden skill that would impress a date?" },
+    { title: "Superpower Romance", subtitle: "What superpower would make you a super-partner?" },
+    { title: "Lottery Winner", subtitle: "You win $10 million; how does dating change?" },
+    { title: "Secret Talent", subtitle: "What's a hidden skill that'd impress a date?" },
     { title: "Embarrassing Moment", subtitle: "What's your most mortifying dating story?" },
+    { title: "Soft Spot", subtitle: "What's the fastest way to melt your heart?" },
+    { title: "The Pattern", subtitle: "What dating habit do you keep repeating?" },
+    { title: "First Five Minutes", subtitle: "What do you notice first about a date?" },
+    { title: "Silent Tell", subtitle: "How can someone tell you secretly like them?" },
+    { title: "Lost Cause", subtitle: "When do you know it's time to just give up?" },
+    { title: "The Test", subtitle: "What do you do early on to vet a new partner?" },
+    { title: "Unspoken Rule", subtitle: "What's a dating rule you never say out loud?" },
+    { title: "Solo Chapter", subtitle: "What part of being single won't you give up?" },
   ]
   
   // All prompts combined (for rounds 2-5)

@@ -1105,18 +1105,19 @@ CRITICAL RULES:
 /**
  * Build a terse 1-3 word answer for the current question.
  * Used for banner reveal after the player's answer.
- * @returns {Promise<string>} 1-3 words, no punctuation.
+ * @returns {Promise<string>} 1-4 words, no punctuation.
  */
 export async function getDaterQuickAnswer(dater, question, conversationHistory = []) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const taskPrompt = `
-🎯 YOUR TASK: Give your own quick answer to the question in 1-3 words.
+🎯 YOUR TASK: Give your gut-reaction answer to the question in 1-4 words. Reference the question topic directly.
 
 📋 QUESTION: "${question}"
 
 CRITICAL RULES:
-- Exactly 1-3 words.
+- 1-4 words maximum.
+- Your answer must relate to the question topic (e.g. Q: "What's a dealbreaker?" → "Being dishonest" or "Rudeness").
 - No punctuation, no quotes, no emojis.
 - No explanation, only the answer.
 `
@@ -1125,7 +1126,7 @@ CRITICAL RULES:
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Answer "${question}" in 1-3 words only. No punctuation. No explanation.]`
+  const userContent = `[Answer "${question}" in 1-4 words. Reference the question topic. No punctuation. No explanation.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1139,7 +1140,7 @@ CRITICAL RULES:
       .replace(/[^A-Za-z0-9\s]/g, ' ')
       .split(/\s+/)
       .filter(Boolean)
-      .slice(0, 3)
+      .slice(0, 4)
     if (words.length >= 1) {
       return words.join(' ')
     }
