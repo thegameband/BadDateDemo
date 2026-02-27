@@ -72,10 +72,6 @@ const getRatingsEffectText = (value) => {
   if (normalized === 'decrease') return 'Ratings Down'
   return 'Ratings Steady'
 }
-const SIDE_METER_LABELS = {
-  compatibility: ['C', 'O', 'M', 'P', 'A', 'T', 'I', 'B', 'I', 'L', 'I', 'T', 'Y'],
-  ratings: ['R', 'A', 'T', 'I', 'N', 'G', 'S'],
-}
 
 // Phase timers: 30 seconds for Phase 1 and Phase 2
 function LiveDateScene() {
@@ -3922,6 +3918,30 @@ BAD examples (do NOT do this):
                   </button>
                 )}
               </div>
+              {isChaosLikesMode && (
+                <div className="top-meters">
+                  <div className="top-meter-row">
+                    <span className="top-meter-icon" role="img" aria-label="low compatibility">💔</span>
+                    <div className="top-meter-track compatibility">
+                      <div
+                        className="top-meter-fill compatibility"
+                        style={{ width: `${getMeterFillPercent(scoringSummary?.compatibilityScore ?? 0)}%` }}
+                      />
+                    </div>
+                    <span className="top-meter-icon" role="img" aria-label="high compatibility">💕💕💕</span>
+                  </div>
+                  <div className="top-meter-row">
+                    <span className="top-meter-icon" role="img" aria-label="boring">💤</span>
+                    <div className="top-meter-track ratings">
+                      <div
+                        className="top-meter-fill ratings"
+                        style={{ width: `${getMeterFillPercent(scoringSummary?.ratingsScore ?? 0)}%` }}
+                      />
+                    </div>
+                    <span className="top-meter-icon" role="img" aria-label="exciting">🙌</span>
+                  </div>
+                </div>
+              )}
               {!(isBingoMode && boardPanelOpen) && !isChaosLikesMode && (
                 <div className="header-scoring-row">
                   <span className="quality-tracker-label">Live Scoring</span>
@@ -4025,69 +4045,8 @@ BAD examples (do NOT do this):
       
       {/* Date Screen - Characters with Speech Bubbles */}
       <div
-        className={`date-screen ${['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt?.title ? 'has-round-prompt-banner' : ''} ${isChaosLikesMode ? 'with-side-meters' : ''}`}
+        className={`date-screen ${['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt?.title ? 'has-round-prompt-banner' : ''}`}
       >
-        {isChaosLikesMode && (
-          <div className="side-meters" aria-hidden="true">
-            {(() => {
-              const compatibilityFill = getMeterFillPercent(scoringSummary?.compatibilityScore ?? 0)
-              const ratingsFill = getMeterFillPercent(scoringSummary?.ratingsScore ?? 0)
-              return (
-                <>
-                  <div className="side-meter-rail compatibility">
-                    <span
-                      className="side-meter-fill compatibility"
-                      style={{ height: `${compatibilityFill}%` }}
-                    />
-                    <span className="side-meter-label">
-                      <span className="side-meter-label-layer unfilled">
-                        {SIDE_METER_LABELS.compatibility.map((letter, index) => (
-                          <span key={`compat-unfilled-${index}`}>{letter}</span>
-                        ))}
-                      </span>
-                      <span
-                        className="side-meter-label-layer filled"
-                        style={{
-                          clipPath: `inset(${100 - compatibilityFill}% 0 0 0)`,
-                          WebkitClipPath: `inset(${100 - compatibilityFill}% 0 0 0)`,
-                        }}
-                      >
-                        {SIDE_METER_LABELS.compatibility.map((letter, index) => (
-                          <span key={`compat-filled-${index}`}>{letter}</span>
-                        ))}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="side-meter-rail ratings">
-                    <span
-                      className="side-meter-fill ratings"
-                      style={{ height: `${ratingsFill}%` }}
-                    />
-                    <span className="side-meter-label">
-                      <span className="side-meter-label-layer unfilled">
-                        {SIDE_METER_LABELS.ratings.map((letter, index) => (
-                          <span key={`ratings-unfilled-${index}`}>{letter}</span>
-                        ))}
-                      </span>
-                      <span
-                        className="side-meter-label-layer filled"
-                        style={{
-                          clipPath: `inset(${100 - ratingsFill}% 0 0 0)`,
-                          WebkitClipPath: `inset(${100 - ratingsFill}% 0 0 0)`,
-                        }}
-                      >
-                        {SIDE_METER_LABELS.ratings.map((letter, index) => (
-                          <span key={`ratings-filled-${index}`}>{letter}</span>
-                        ))}
-                      </span>
-                    </span>
-                  </div>
-                </>
-              )
-            })()}
-          </div>
-        )}
-
         {/* Phase Announcement Banner - at top of conversation area */}
         <AnimatePresence>
           {showPhaseAnnouncement && (
