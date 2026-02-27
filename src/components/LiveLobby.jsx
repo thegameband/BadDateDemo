@@ -10,7 +10,9 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.02.90'
+const GAME_VERSION = '0.02.91'
+const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
+const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
 // Main game entry screen - Bad Date
 
@@ -116,7 +118,7 @@ function LiveLobby() {
   
   // Single-player: Play → Dater Bio Page → START THE DATE → 3 questions → date
   const handlePlayNow = () => {
-    const playerName = username.trim() || `Player${Math.floor(Math.random() * 1000)}`
+    const playerName = username.trim() || getRandomFallbackName()
     const odId = generatePlayerId()
     const dater = daters.find((d) => d.name === selectedDaterName) || daters[0]
     setUsername(playerName)
@@ -135,7 +137,7 @@ function LiveLobby() {
     setError('')
     
     const roomCode = generateRoomCode()
-    const playerName = username.trim() || `Player${Math.floor(Math.random() * 1000)}`
+    const playerName = username.trim() || getRandomFallbackName()
     const odId = generatePlayerId()
     // Use debug-selected dater
     const randomDater = daters.find(d => d.name === selectedDaterName) || daters[0]

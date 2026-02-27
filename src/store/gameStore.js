@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { daters } from '../data/daters'
 
-// Initial Avatar state - starts with generic attributes so conversation can flow
+// Initial Avatar state
 const initialAvatar = {
-  name: 'Avatar',
+  name: null,
   age: 27,
   occupation: 'Professional',
   attributes: [
@@ -232,7 +232,7 @@ const initialLiveState = {
   livePhase: 'waiting', // 'waiting' | 'starting-stats' | 'phase1' | 'phase2' | 'phase3' | 'ended'
   phaseTimer: 0,
   cycleCount: 0,
-  maxCycles: 7, // 6 question rounds + 1 wrap-up round
+  maxCycles: 6, // 5 question rounds + 1 wrap-up round
   // Tutorial state
   showTutorial: false,
   tutorialStep: 0, // 0 = not started, 1-3 = tutorial steps
@@ -1040,6 +1040,7 @@ export const useGameStore = create((set, get) => ({
   // Start the live date (host only)
   startLiveDate: (daterValues = null, withTutorial = false, withStartingStats = false) => {
     const selectedDater = get().selectedDater
+    const username = String(get().username || '').trim()
     const currentMode = get().scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
     const freshScoring = createScoringStateForDater(selectedDater, currentMode)
     // Determine the starting phase
@@ -1067,7 +1068,13 @@ export const useGameStore = create((set, get) => ({
       phaseTimer: 0, // No timers: progression is turn-based
       cycleCount: 0,
       // IMPORTANT: Reset all game state for fresh start
-      avatar: { ...initialAvatar },
+      avatar: {
+        ...initialAvatar,
+        name: username || 'Alex',
+        // Without starting stats, keep reaction lightweight and move to questions quickly.
+        attributes: [],
+        personality: '',
+      },
       appliedAttributes: [],
       submittedAttributes: [],
       latestAttribute: null,

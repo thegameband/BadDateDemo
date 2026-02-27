@@ -23,9 +23,9 @@ function LiveGameLobby() {
   
   const setShowAttributesByDefault = useGameStore((state) => state.setShowAttributesByDefault)
   
-  // Tutorial always false, Starting Stats always true (removed checkboxes)
+  // Tutorial always false, starting stats disabled
   const showTutorial = false
-  const startingStatsMode = true
+  const startingStatsMode = false
   const [showAttributes, setShowAttributes] = useState(false) // Default OFF
   
   // Subscribe to PartyKit state updates

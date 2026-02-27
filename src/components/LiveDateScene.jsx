@@ -2225,7 +2225,6 @@ RULES:
     // IMPORTANT: Get ALL current values from store (not closure values!)
     const currentCycleCount = useGameStore.getState().cycleCount
     const currentMaxCycles = useGameStore.getState().maxCycles
-    const currentPlotTwistCompleted = useGameStore.getState().plotTwistCompleted
     const newRoundCount = currentCycleCount + 1
     incrementCycle()
     
@@ -2233,13 +2232,6 @@ RULES:
     const currentCompatibility = useGameStore.getState().compatibility
     const currentSummary = useGameStore.getState().getScoringSummary()
     console.log(`Round ${newRoundCount}/${currentMaxCycles} complete, mode: ${currentSummary.mode}, cycleCount: ${currentCycleCount} -> ${newRoundCount}`)
-    
-    // Check if we should trigger Plot Twist (after Round 3, i.e., newRoundCount === 3)
-    if (newRoundCount === 3 && !currentPlotTwistCompleted) {
-      console.log('🎭 Triggering Plot Twist after Round 3!')
-      startPlotTwist()
-      return
-    }
     
     // With maxCycles=6: Rounds 1-5 are question rounds; Round 6 is wrap-up. Date ends ONLY after wrap-up.
     if (newRoundCount === currentMaxCycles - 1) {
@@ -4439,7 +4431,7 @@ BAD examples (do NOT do this):
       </div>
       
       {/* Chat Module: hidden during passive phases, slim input bar during active phases */}
-      {!['reaction', 'phase3', 'plot-twist-reaction', 'ended'].includes(livePhase) && (
+      {!['reaction', 'phase3', 'ended'].includes(livePhase) && (
         <div className="chat-module chat-module-single-input">
           <span className="chat-hint chat-hint-single">{getPhaseInstructions()}</span>
           <form className="chat-input-form" onSubmit={handleChatSubmit}>

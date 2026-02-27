@@ -4,9 +4,8 @@ import { speak } from '../services/ttsService'
 import './DaterBioPage.css'
 
 /**
- * Dater Bio Page: shown after Play, before the 3 questions.
+ * Dater Bio Page: shown after Play, before the live date starts.
  * Shows dater image + age, gender, occupation, hobbies (from personality) and START THE DATE.
- * Design: Play → Dater Bio Page → START THE DATE → 3 questions → date.
  */
 function DaterBioPage() {
   const selectedDater = useGameStore((state) => state.selectedDater)
@@ -24,7 +23,7 @@ function DaterBioPage() {
 
   const handleStartDate = () => {
     setPhase('live-date')
-    startLiveDate(null, false, true) // no tutorial, with starting stats (3 questions)
+    startLiveDate(null, false, false) // no tutorial, no starting stats
   }
 
   if (!selectedDater) {
