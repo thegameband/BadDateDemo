@@ -266,7 +266,7 @@ function buildPromptTail(dater) {
            'Adam speaks with 19th-century Romantic prose, old-English phrasing, poetic deadpan, and Latinate vocabulary.\n' +
            'He uses old English words like "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst" regularly.\n' +
            'IMPORTANT: "Thee," "thou," and "thy" are RARE — only in emotional extremes. Use "you/your" for normal address.\n' +
-           'Use 1-3 sentences and aim for <= 350 characters total.\n' +
+           'Use 1-2 sentences and aim for <= 280 characters total.\n' +
            'Adam speaks in 2-3 weighted sentences — poetic, purposeful, and complete.\n' +
            'He NEVER uses modern slang. His emotions are deep and quiet, not loud and hype.\n' +
            'The examples below are your ONLY voice model. Match them exactly.\n' +
@@ -971,7 +971,7 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? '\nREMINDER — LENGTH: Use 1-3 sentences and aim for <= 350 characters total.'
+    ? '\nREMINDER — LENGTH: Use 1-2 sentences and aim for <= 280 characters total.'
     : ''
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
@@ -1007,7 +1007,7 @@ CRITICAL RULES FOR YOUR REACTION:
 - You MUST have an OPINION. Never just say something is "weird" or "strange" or "interesting" without explaining WHY you feel that way based on your personality, your values, and your life experience.
 - React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
 - Be SPECIFIC. Reference what they actually said and connect it to something about yourself — your values, your past, your dealbreakers, what you find attractive.
-- 1-3 sentences. Aim for <= 350 characters total. Dialogue only, no actions or asterisks.
+- 1-2 sentences. Aim for <= 280 characters total. Dialogue only, no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
@@ -1105,18 +1105,19 @@ CRITICAL RULES:
 /**
  * Build a terse 1-3 word answer for the current question.
  * Used for banner reveal after the player's answer.
- * @returns {Promise<string>} 1-3 words, no punctuation.
+ * @returns {Promise<string>} 1-4 words, no punctuation.
  */
 export async function getDaterQuickAnswer(dater, question, conversationHistory = []) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const taskPrompt = `
-🎯 YOUR TASK: Give your own quick answer to the question in 1-3 words.
+🎯 YOUR TASK: Give your gut-reaction answer to the question in 1-4 words. Reference the question topic directly.
 
 📋 QUESTION: "${question}"
 
 CRITICAL RULES:
-- Exactly 1-3 words.
+- 1-4 words maximum.
+- Your answer must relate to the question topic (e.g. Q: "What's a dealbreaker?" → "Being dishonest" or "Rudeness").
 - No punctuation, no quotes, no emojis.
 - No explanation, only the answer.
 `
@@ -1125,7 +1126,7 @@ CRITICAL RULES:
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Answer "${question}" in 1-3 words only. No punctuation. No explanation.]`
+  const userContent = `[Answer "${question}" in 1-4 words. Reference the question topic. No punctuation. No explanation.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1139,7 +1140,7 @@ CRITICAL RULES:
       .replace(/[^A-Za-z0-9\s]/g, ' ')
       .split(/\s+/)
       .filter(Boolean)
-      .slice(0, 3)
+      .slice(0, 4)
     if (words.length >= 1) {
       return words.join(' ')
     }
@@ -1165,11 +1166,13 @@ export async function getDaterAnswerComparison(dater, question, daterAnswer, pla
 
 📋 QUESTION: "${question}"
 💬 YOUR QUICK ANSWER: "${quickAnswer}"
-💬 PLAYER ANSWER: "${playerAnswer}"
+💬 PLAYER ANSWER (context only, do NOT compare): "${playerAnswer}"
 
 CRITICAL RULES:
-- Sentence 1: Explain why your quick answer fits your values.
-- Sentence 2: Compare your answer with the player's answer.
+- Sentence 1: Restate the question naturally and include your answer directly.
+- Sentence 2: Give one concise justification for your answer.
+- Do NOT compare with the player's answer.
+- Keep each sentence short and direct.
 - Keep total length concise (aim <= 350 characters).
 - Dialogue only, no actions or asterisks.
 `
@@ -1178,7 +1181,7 @@ CRITICAL RULES:
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[You answered "${quickAnswer}". The player answered "${playerAnswer}". First explain your answer in one sentence, then compare it to theirs in one sentence.]`
+  const userContent = `[Question: "${question}". Your answer is "${quickAnswer}". Player answer for context: "${playerAnswer}". Respond in exactly two sentences: first restate the question and give your answer, then give one concise justification. No comparison.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1194,9 +1197,9 @@ CRITICAL RULES:
 
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   if (isAdam) {
-    return `I chose ${quickAnswer} because it is what my conscience can live with. Your answer tells me what you prioritize, and I feel both the overlap and the distance between us.`
+    return `For this question, I would choose ${quickAnswer}. It fits what my conscience can live with.`
   }
-  return `I chose ${quickAnswer} because it matches what matters most to me. Your answer shows your priorities, and I can see where we align and where we differ.`
+  return `For this question, I would choose ${quickAnswer}. It matches what matters most to me.`
 }
 
 /**
@@ -3039,7 +3042,17 @@ export async function generatePlotTwistSummary(avatarName, daterName, winningAct
   const safeAction = normalizedAction.replace(/["']/g, '').slice(0, 72) || 'stayed calm'
 
   const buildFallbackSummary = () => {
-    const fallback = `${normalizedAvatarName} acted on instinct and ${safeAction}. The stranger hitting on ${normalizedDaterName} was left stunned as the room shifted. In the aftermath, everyone could feel this date had changed for good.`
+    const closers = [
+      `The tension lingered long after the moment passed.`,
+      `Neither of them would forget what just happened.`,
+      `Something between them shifted—and there was no going back.`,
+      `The silence that followed said more than words ever could.`,
+      `That single moment rewrote the rest of the evening.`,
+      `From that point on, the date was a completely different story.`,
+      `The air between them crackled with a brand-new energy.`,
+    ]
+    const closer = closers[Math.floor(Math.random() * closers.length)]
+    const fallback = `${normalizedAvatarName} acted on instinct and ${safeAction}. The stranger hitting on ${normalizedDaterName} was left stunned as the room shifted. ${closer}`
     return fallback.replace(/\s+/g, ' ').trim()
   }
 
@@ -3077,7 +3090,7 @@ RULES:
 - Always use the person's name "${normalizedAvatarName}" in the narration. NEVER use the word "Avatar" or "the avatar".
 - Write in past tense, like narrating a story
 - Be dramatic and visual - describe the SCENE
-- Keep total output <= 280 characters
+- Keep total output <= 400 characters
 - Don't use quotation marks or dialogue
 - Make it sound like a cinematic narrator
 - Do not say ${normalizedAvatarName} "said" "${normalizedAction}".
@@ -3115,9 +3128,9 @@ Return ONLY the 3-sentence narration, nothing else.`
     const data = await response.json()
     const summary = normalizeSummary(extractProviderText(providerConfig.provider, data))
     if (!summary) return buildFallbackSummary()
-    if (summary.length > 280) return buildFallbackSummary()
-    if (countSentences(summary) !== 3) return buildFallbackSummary()
-    if (/\bsaid\b/i.test(summary)) return buildFallbackSummary()
+    if (summary.length > 400) return buildFallbackSummary()
+    const sentenceCount = countSentences(summary)
+    if (sentenceCount < 2 || sentenceCount > 5) return buildFallbackSummary()
     console.log('🎭 Generated plot twist summary')
     return summary
   } catch (error) {

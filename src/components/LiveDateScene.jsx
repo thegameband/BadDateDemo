@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuestionOpener, getDaterQuickAnswer, getDaterAnswerComparison, getDaterResponseToJustification, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
+import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuickAnswer, getDaterAnswerComparison, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -47,13 +47,6 @@ const DEBUG_AUTO_FILL_ANSWERS = {
     'I lean in and improvise like this was the plan.',
     'I pretend confidence and commit to the bit.',
     'I make a joke and try to defuse the chaos.',
-  ],
-  justify: [
-    'It felt right in the moment, even if risky.',
-    'I panicked, trusted my instincts, and doubled down.',
-    'I wanted to be honest instead of playing safe.',
-    'I thought bold was better than boring there.',
-    'That choice matched my personality, for better or worse.',
   ],
 }
 
@@ -178,7 +171,7 @@ function LiveDateScene() {
   
   const [scoringSummary, setScoringSummary] = useState(() => getScoringSummary())
   
-  // Reaction feedback - shows temporarily when date reacts to an attribute
+  // Reaction feedback - reserved for legacy/system notices
   const [reactionFeedback, setReactionFeedback] = useState(null)
   const reactionFeedbackTimeout = useRef(null)
   const [boardPanelOpen, setBoardPanelOpen] = useState(false)
@@ -187,7 +180,8 @@ function LiveDateScene() {
   const [showDateBeginsOverlay, setShowDateBeginsOverlay] = useState(false)
   const [questionNarrationComplete, setQuestionNarrationComplete] = useState(true)
   const [ttsStatusNote, setTtsStatusNote] = useState('')
-  const [submittedAnswer, setSubmittedAnswer] = useState('') // Shown in oval beneath the question
+  const [submittedAnswer, setSubmittedAnswer] = useState('') // Shown in answer comparison box
+  const [daterDisplayAnswer, setDaterDisplayAnswer] = useState('')
   // Timer starts immediately when phase begins (no waiting for submissions)
   const [showPhaseAnnouncement, setShowPhaseAnnouncement] = useState(false)
   const [announcementPhase, setAnnouncementPhase] = useState('')
@@ -234,12 +228,6 @@ function LiveDateScene() {
   // Current round prompt state (persists during Phase 1)
   const [currentRoundPrompt, setCurrentRoundPrompt] = useState({ title: '', subtitle: '' })
   const [roundPromptAnimationComplete, setRoundPromptAnimationComplete] = useState(false)
-  // Justify phase: after dater has strong negative reaction, player can justify
-  const [showJustifyPrompt, setShowJustifyPrompt] = useState(false)
-  const [justifyOriginalAnswer, setJustifyOriginalAnswer] = useState('')
-  const [justifyDaterReaction, setJustifyDaterReaction] = useState('')
-  const [justifyInput, setJustifyInput] = useState('')
-  const [isSubmittingJustify, setIsSubmittingJustify] = useState(false)
   const startingStatsTimerRef = useRef(null)
   const lastActivePlayerRef = useRef(null)
   const lastAnswerCountRef = useRef(0)
@@ -270,7 +258,6 @@ function LiveDateScene() {
       return pickRandom(DEBUG_AUTO_FILL_ANSWERS.startingStats[questionType]) || pickRandom(DEBUG_AUTO_FILL_ANSWERS.chat)
     }
     if (target === 'plot-twist') return pickRandom(DEBUG_AUTO_FILL_ANSWERS.plotTwist)
-    if (target === 'justify') return pickRandom(DEBUG_AUTO_FILL_ANSWERS.justify)
     return pickRandom(DEBUG_AUTO_FILL_ANSWERS.chat)
   }
   
@@ -324,6 +311,30 @@ function LiveDateScene() {
         partyClient.syncState({ reactionFeedback: null })
       }
     }, REACTION_FEEDBACK_DURATION_MS)
+  }
+
+  const toTitleCase = (text = '') => String(text).replace(/\b\w/g, (c) => c.toUpperCase())
+
+  const showDaterAnswerBanner = (answer = '') => {
+    const cleanedAnswer = String(answer || '')
+      .replace(/[^A-Za-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 4)
+      .join(' ')
+      .trim()
+    const displayAnswer = toTitleCase(cleanedAnswer || 'from the heart')
+    setDaterDisplayAnswer(displayAnswer)
+
+    if (partyClient && isHost) {
+      partyClient.syncState({ daterDisplayAnswer: displayAnswer })
+    }
+  }
+
+  const truncateForDisplay = (text, maxWords = 4) => {
+    const words = String(text || '').trim().split(/\s+/).filter(Boolean)
+    if (words.length <= maxWords) return toTitleCase(words.join(' '))
+    return toTitleCase(words.slice(0, maxWords).join(' ')) + '…'
   }
 
   const flashBoardPanelPulse = () => {
@@ -703,6 +714,9 @@ function LiveDateScene() {
         }, REACTION_FEEDBACK_DURATION_MS)
       } else if (state.reactionFeedback === null && !isHost) {
         setReactionFeedback(null)
+      }
+      if (state.daterDisplayAnswer !== undefined && !isHost) {
+        setDaterDisplayAnswer(state.daterDisplayAnswer || '')
       }
       
       // Sync character emotions for speech animation (non-host only)
@@ -1744,13 +1758,13 @@ RULES:
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: daterValues/setDaterValues not in deps
   }, [selectedDater, isHost, partyClient, roomCode])
   
-  // Single player: auto-advance from Plot Twist input to "What Happened" after submitting (no wheel, no Continue click)
+  // Auto-advance from Plot Twist input after submitting answer
   useEffect(() => {
-    if (livePhase !== 'plot-twist' || plotTwist?.subPhase !== 'input' || !hasSubmittedPlotTwist || partyClient) return
+    if (livePhase !== 'plot-twist' || plotTwist?.subPhase !== 'input' || !hasSubmittedPlotTwist || !isHost) return
     const t = setTimeout(() => advancePlotTwistToReveal(), 1500)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advancePlotTwistToReveal intentionally omitted to avoid re-trigger loops
-  }, [livePhase, plotTwist?.subPhase, hasSubmittedPlotTwist, partyClient])
+  }, [livePhase, plotTwist?.subPhase, hasSubmittedPlotTwist, isHost])
 
   
   // Round prompts - Title + Subtitle (Question) for each round
@@ -1758,22 +1772,29 @@ RULES:
   
   // FIRST ROUND ONLY - must be one of these 3
   const FIRST_ROUND_PROMPTS = [
-    { title: "Green Flag", subtitle: "What's something small that makes you think 'this person gets it'?" },
-    { title: "Ick", subtitle: "What's a small thing that turns you off?" },
-    { title: "Dealbreaker", subtitle: "What's something that would make you immediately lose interest in someone?" },
+    { title: "Green Flag", subtitle: "What small thing makes you think someone \"gets it\"?" },
+    { title: "Ick", subtitle: "What totally harmless thing is a big turnoff?" },
+    { title: "Dealbreaker", subtitle: "What would make you instantly lose interest?" },
   ]
   
-  // ADDITIONAL prompts available for rounds 2-5 (plus any unused from first round pool)
+  // ADDITIONAL prompts available for rounds 2+ (plus any unused from first round pool)
   const ADDITIONAL_PROMPTS = [
-    { title: "Hot Take", subtitle: "What's your most controversial opinion about dating or relationships?" },
-    { title: "Unpopular Opinion", subtitle: "What do you believe about relationships that most people would disagree with?" },
-    { title: "Love Language", subtitle: "How do you show someone you care about them?" },
-    { title: "Desert Island Date", subtitle: "You're stranded together—what one item do you bring?" },
+    { title: "Hot Take", subtitle: "Your most controversial relationship opinion?" },
+    { title: "Love Language", subtitle: "How do you show someone that you care?" },
+    { title: "Desert Island Date", subtitle: "Stranded together. What item do you bring?" },
     { title: "Time Traveler", subtitle: "First date in any time period—when and where?" },
-    { title: "Superpower Romance", subtitle: "What superpower would make you the best partner?" },
-    { title: "Lottery Winner", subtitle: "You win $10 million. How does your dating life change?" },
-    { title: "Secret Talent", subtitle: "What's your hidden skill that would impress a date?" },
+    { title: "Superpower Romance", subtitle: "What superpower would make you a super-partner?" },
+    { title: "Lottery Winner", subtitle: "You win $10 million; how does dating change?" },
+    { title: "Secret Talent", subtitle: "What's a hidden skill that'd impress a date?" },
     { title: "Embarrassing Moment", subtitle: "What's your most mortifying dating story?" },
+    { title: "Soft Spot", subtitle: "What's the fastest way to melt your heart?" },
+    { title: "The Pattern", subtitle: "What dating habit do you keep repeating?" },
+    { title: "First Five Minutes", subtitle: "What do you notice first about a date?" },
+    { title: "Silent Tell", subtitle: "How can someone tell you secretly like them?" },
+    { title: "Lost Cause", subtitle: "When do you know it's time to just give up?" },
+    { title: "The Test", subtitle: "What do you do early on to vet a new partner?" },
+    { title: "Unspoken Rule", subtitle: "What's a dating rule you never say out loud?" },
+    { title: "Solo Chapter", subtitle: "What part of being single won't you give up?" },
   ]
   
   // All prompts combined (for rounds 2-5)
@@ -1939,14 +1960,12 @@ RULES:
             daterReaction,
             daterMood,
             source: 'round reaction',
-            needsJustify: false,
           },
           {
             avatarResponse: null,
             daterReaction: daterComparison,
             daterMood: 'neutral',
             source: 'round follow-up',
-            needsJustify: false,
             daterQuickAnswer,
           }
         ].filter(e => e.daterReaction),
@@ -1972,11 +1991,9 @@ RULES:
 
     console.log('▶️ PLAYING BACK pre-generated conversation (dater only)...')
     const { attribute, exchanges, question } = preGenData
-    let shouldPromptJustify = false
 
     for (let i = 0; i < exchanges.length; i++) {
       const exchange = exchanges[i]
-      // No avatar: only play dater reaction to the player's answer
       if (exchange.daterReaction) {
         setDaterEmotion(exchange.daterMood || 'neutral')
         setDaterBubble(exchange.daterReaction)
@@ -1984,14 +2001,14 @@ RULES:
         await syncConversationToPartyKit(undefined, exchange.daterReaction, undefined)
         if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterMood || 'neutral' })
 
-        const scoringResult = await applyScoringDecision({
+        await applyScoringDecision({
           question: question || currentRoundPrompt.subtitle || 'Tell me about yourself',
           playerAnswer: attribute,
           daterResponse: exchange.daterReaction,
           source: exchange.source || (i === 0 ? 'round reaction' : 'round follow-up'),
         })
-        if (i === 0 && scoringResult?.hasNegative) {
-          shouldPromptJustify = true
+        if (i > 0) {
+          showDaterAnswerBanner(exchange.daterQuickAnswer || daterQuickAnswerRef.current)
         }
 
         await syncConversationToPartyKit(undefined, undefined, true)
@@ -2004,7 +2021,6 @@ RULES:
     }
     
     console.log('✅ Playback complete!')
-    return shouldPromptJustify
   }
   
   // ============================================
@@ -2046,23 +2062,20 @@ RULES:
         partyClient.syncState({ isPreGenerating: false })
       }
       
-      let shouldPromptJustify = false
       if (preGenData) {
-        // PHASE 2: Playback smoothly (dater only)
-        shouldPromptJustify = await playbackConversation(preGenData)
+        await playbackConversation(preGenData)
       } else {
         const safeAnswer = String(currentAttribute || latestAttribute || 'that').trim()
         const fallbackReaction = `You gave me "${safeAnswer}"... and yes, I have an opinion.`
         setDaterBubble(fallbackReaction)
         addDateMessage('dater', fallbackReaction)
         await syncConversationToPartyKit(undefined, fallbackReaction, undefined)
-        const fallbackScore = await applyScoringDecision({
+        await applyScoringDecision({
           question: currentRoundPrompt.subtitle || 'Tell me about yourself',
           playerAnswer: safeAnswer,
           daterResponse: fallbackReaction,
           source: 'fallback reaction',
         })
-        shouldPromptJustify = Boolean(fallbackScore?.hasNegative)
       }
 
       // Wait for all audio to finish before ending the round
@@ -2073,28 +2086,6 @@ RULES:
       // Wait 4 seconds after dater finishes reacting so player can read the response
       console.log('⏳ Holding for 4 seconds before next question...')
       await new Promise(r => setTimeout(r, 4000))
-
-      // If dater had a strong negative (dealbreaker), ask player to justify instead of next question
-      const needsJustify = shouldPromptJustify && preGenData?.exchanges?.[0]
-      if (needsJustify && preGenData?.exchanges?.[0]) {
-        setJustifyOriginalAnswer(preGenData.attribute)
-        setJustifyDaterReaction(preGenData.exchanges[0].daterReaction)
-        const justifyInviteOptions = [
-          'Would you like to explain that one a little more?',
-          'Do you want to explain that one a little more?',
-          'Can you explain that one a little more for me?'
-        ]
-        const inviteLine = justifyInviteOptions[Math.floor(Math.random() * justifyInviteOptions.length)]
-        addDateMessage('dater', inviteLine)
-        if (ttsEnabled) setDaterBubbleReady(false)
-        setDaterBubble(inviteLine)
-        await syncConversationToPartyKit(undefined, inviteLine, undefined)
-        if (partyClient) partyClient.syncState({ daterBubble: inviteLine })
-        await waitForAllAudio()
-        setShowJustifyPrompt(true)
-        setIsGenerating(false)
-        return
-      }
 
       await handleRoundComplete()
       
@@ -2256,7 +2247,8 @@ RULES:
       // Date must run this before ending — we never skip to "ended" before wrap-up
       console.log('🎬 Starting Phase 9: Wrap Up')
       
-      setSubmittedAnswer('') // Clear answer oval
+      setSubmittedAnswer('') // Clear answer comparison box
+      setDaterDisplayAnswer('')
       setLivePhase('phase3')
       setCurrentRoundPrompt({ title: 'Phase 9: Wrap Up', subtitle: 'The date is ending...' })
       setDaterBubble('')
@@ -2269,7 +2261,8 @@ RULES:
           compatibility: currentCompatibility,
           cycleCount: newRoundCount,
           daterBubble: '',
-          avatarBubble: ''
+          avatarBubble: '',
+          daterDisplayAnswer: ''
         })
       }
       
@@ -2295,7 +2288,8 @@ RULES:
     } else {
       // Start new round - show round prompt interstitial (not dater question)
       setRoundPromptAnimationComplete(false)
-      setSubmittedAnswer('') // Clear previous answer oval
+      setSubmittedAnswer('') // Clear previous answer comparison box
+      setDaterDisplayAnswer('')
       setLivePhase('phase1')
       setPhaseTimer(0) // No timer: advance when player submits
       setQuestionNarrationComplete(false)
@@ -2328,7 +2322,8 @@ RULES:
             avatarBubble: '',
             cycleCount: newRoundCount,
             suggestedAttributes: [],
-            numberedAttributes: []
+            numberedAttributes: [],
+            daterDisplayAnswer: ''
           })
           partyClient.clearSuggestions()
           partyClient.clearVotes()
@@ -2392,42 +2387,16 @@ RULES:
     const newPlotTwist = {
       ...useGameStore.getState().plotTwist,
       subPhase: 'input',
-      timer: 22, // was 15
+      timer: 22,
     }
     setPlotTwist(newPlotTwist)
     
+    // Player answers first -- no dater opener
+    setPlotTwistDaterAnswerDone(true)
+    
     // Sync to PartyKit
     if (partyClient) {
-      partyClient.syncState({ plotTwist: newPlotTwist })
-    }
-
-    try {
-      const opener = await getDaterQuestionOpener(
-        selectedDater,
-        'Another person just hit on me. What would you do?',
-        useGameStore.getState().dateConversation || []
-      )
-      syncLlmStatusMessage()
-      if (opener) {
-        if (ttsEnabled) setDaterBubbleReady(false)
-        setDaterBubble(opener)
-        addDateMessage('dater', opener)
-        await syncConversationToPartyKit(undefined, opener, undefined)
-        await applyScoringDecision({
-          question: 'Another person just hit on me. What would you do?',
-          playerAnswer: '',
-          daterResponse: opener,
-          source: 'plot twist opener',
-        })
-        await waitForAllAudio()
-      }
-    } catch (err) {
-      console.error('Plot twist opener error:', err)
-    } finally {
-      setPlotTwistDaterAnswerDone(true)
-      if (partyClient) {
-        partyClient.syncState({ plotTwistDaterAnswerDone: true })
-      }
+      partyClient.syncState({ plotTwist: newPlotTwist, plotTwistDaterAnswerDone: true })
     }
   }
   
@@ -2817,6 +2786,7 @@ BAD examples (do NOT do this):
     
     // Clear answer oval and input so they don't carry over into Phase 5
     setSubmittedAnswer('')
+    setDaterDisplayAnswer('')
     setChatInput('')
     setPlotTwistDaterAnswerDone(false)
 
@@ -2842,6 +2812,7 @@ BAD examples (do NOT do this):
         avatarBubble: '',
         suggestedAttributes: [],
         numberedAttributes: [],
+        daterDisplayAnswer: '',
       })
       partyClient.clearSuggestions()
       partyClient.clearVotes()
@@ -3238,8 +3209,9 @@ BAD examples (do NOT do this):
     }
     applySinglePlayerAnswer(playerAnswer)
     
-    // Show the answer in an oval beneath the question
-    setSubmittedAnswer(playerAnswer)
+    // Show the player's answer in the comparison box (truncated for display)
+    setSubmittedAnswer(truncateForDisplay(playerAnswer))
+    setDaterDisplayAnswer('')
     
     setLivePhase('phase3')
     setPhaseTimer(0)
@@ -3252,6 +3224,7 @@ BAD examples (do NOT do this):
         compatibility: currentCompatibility,
         cycleCount: currentCycleCount,
         answerSelection: { subPhase: 'idle', slices: [], spinAngle: 0, winningSlice: null },
+        daterDisplayAnswer: '',
       })
       partyClient.clearSuggestions()
       partyClient.clearVotes()
@@ -3305,40 +3278,6 @@ BAD examples (do NOT do this):
     setChatInput('')
   }
 
-  const handleJustifySubmit = async (e) => {
-    e.preventDefault()
-    if (!justifyInput.trim() || isSubmittingJustify) return
-    const justification = justifyInput.trim()
-    setIsSubmittingJustify(true)
-    setShowJustifyPrompt(false)
-    setJustifyInput('')
-    try {
-      // Dater reacts to the player's justification
-      const conversationHistory = useGameStore.getState().dateConversation
-      const daterResponseToJustification = await getDaterResponseToJustification(
-        selectedDater, justifyOriginalAnswer, justification, justifyDaterReaction, conversationHistory
-      )
-      if (daterResponseToJustification) {
-        addDateMessage('dater', daterResponseToJustification)
-        setDaterBubble(daterResponseToJustification)
-        await syncConversationToPartyKit(undefined, daterResponseToJustification, undefined)
-        await applyScoringDecision({
-          question: `Justify your previous answer: ${justifyOriginalAnswer}`,
-          playerAnswer: justification,
-          daterResponse: daterResponseToJustification,
-          source: 'justify response',
-        })
-        if (partyClient) partyClient.syncState({ daterBubble: daterResponseToJustification })
-        await waitForAllAudio()
-      }
-      setJustifyOriginalAnswer('')
-      setJustifyDaterReaction('')
-      await handleRoundComplete()
-    } catch (err) {
-      console.error('Justify flow error:', err)
-    }
-    setIsSubmittingJustify(false)
-  }
   
   const getPhaseTitle = () => {
     const daterName = selectedDater?.name || 'Maya'
@@ -3443,51 +3382,6 @@ BAD examples (do NOT do this):
   
   return (
     <div className="live-date-scene">
-      
-      {/* Justify: full-screen takeover */}
-      <AnimatePresence>
-        {showJustifyPrompt && (
-          <motion.div
-            className="justify-fullscreen-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="justify-fullscreen-content">
-              <h1 className="justify-fullscreen-title">Justify Your Answer</h1>
-              <p className="justify-fullscreen-hint">The dater had a strong reaction. Explain yourself.</p>
-              <form className="justify-fullscreen-form" onSubmit={handleJustifySubmit}>
-                <input
-                  type="text"
-                  className="justify-fullscreen-input"
-                  placeholder="Type your justification..."
-                  value={justifyInput}
-                  onChange={(e) => setJustifyInput(e.target.value)}
-                  maxLength={200}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="debug-autofill-btn"
-                  onClick={() => setJustifyInput(getRandomTestAnswer('justify'))}
-                  title="Debug: fill random test answer"
-                  aria-label="Debug fill random justification"
-                >
-                  🎲
-                </button>
-                <button
-                  type="submit"
-                  className="justify-fullscreen-submit"
-                  disabled={isSubmittingJustify || !justifyInput.trim()}
-                >
-                  {isSubmittingJustify ? '…' : 'Submit'}
-                </button>
-              </form>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       
       {/* Tutorial Overlay */}
       <AnimatePresence>
@@ -3695,9 +3589,6 @@ BAD examples (do NOT do this):
                 
                 {!hasSubmittedPlotTwist ? (
                   <div className="plot-twist-input-area">
-                    {!plotTwistDaterAnswerDone && (
-                      <p className="plot-twist-submitted-note">Let {selectedDater?.name || 'your date'} answer first...</p>
-                    )}
                     <form onSubmit={(e) => {
                       e.preventDefault()
                       submitPlotTwistAnswer(plotTwistInput)
@@ -3707,9 +3598,8 @@ BAD examples (do NOT do this):
                         className="plot-twist-input"
                         value={plotTwistInput}
                         onChange={(e) => setPlotTwistInput(e.target.value)}
-                        placeholder={plotTwistDaterAnswerDone ? "e.g., 'Challenge them to a dance-off'" : "Listen to your date first..."}
+                        placeholder="e.g., 'Challenge them to a dance-off'"
                         autoFocus
-                        disabled={!plotTwistDaterAnswerDone}
                       />
                       <button
                         type="button"
@@ -3723,7 +3613,7 @@ BAD examples (do NOT do this):
                       <button 
                         type="submit" 
                         className="plot-twist-submit-btn"
-                        disabled={!plotTwistInput.trim() || !plotTwistDaterAnswerDone}
+                        disabled={!plotTwistInput.trim()}
                       >
                         Submit
                       </button>
@@ -3742,15 +3632,6 @@ BAD examples (do NOT do this):
                   </div>
                 )}
                 
-                {isHost && (
-                  <button
-                    type="button"
-                    className="plot-twist-continue-btn"
-                    onClick={() => advancePlotTwistToReveal()}
-                  >
-                    Continue
-                  </button>
-                )}
               </div>
             )}
             
@@ -4282,19 +4163,31 @@ BAD examples (do NOT do this):
               <div className="round-prompt-content">
                 <h2 className="round-prompt-title">{currentRoundPrompt.title}</h2>
                 <p className="round-prompt-subtitle">{currentRoundPrompt.subtitle}</p>
-                <AnimatePresence>
-                  {submittedAnswer && (
-                    <motion.div
-                      className="submitted-answer-oval"
-                      initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.8, y: -5 }}
-                      transition={{ duration: 0.4, ease: 'easeOut' }}
-                    >
-                      &ldquo;{submittedAnswer}&rdquo;
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt.title && submittedAnswer && (
+            <motion.div
+              key={`answer-comparison-${cycleCount}-${submittedAnswer}`}
+              className="answer-comparison-box"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              <div className="answer-column">
+                <p className="answer-column-title">{(startingStats?.activePlayerName || username || 'Player') + '\'s Answer'}</p>
+                <p className="answer-column-value">&ldquo;{submittedAnswer}&rdquo;</p>
+              </div>
+              <div className="answer-column-divider" />
+              <div className="answer-column">
+                <p className="answer-column-title">{(selectedDater?.name || 'Dater') + '\'s Answer'}</p>
+                <p className={`answer-column-value ${daterDisplayAnswer ? '' : 'pending'}`}>
+                  {daterDisplayAnswer ? `"${daterDisplayAnswer}"` : '...'}
+                </p>
               </div>
             </motion.div>
           )}
@@ -4548,42 +4441,36 @@ BAD examples (do NOT do this):
       {/* Chat Module: hidden during passive phases, slim input bar during active phases */}
       {!['reaction', 'phase3', 'plot-twist-reaction', 'ended'].includes(livePhase) && (
         <div className="chat-module chat-module-single-input">
-          {showJustifyPrompt ? (
-            null
-          ) : (
-            <>
-              <span className="chat-hint chat-hint-single">{getPhaseInstructions()}</span>
-              <form className="chat-input-form" onSubmit={handleChatSubmit}>
-                <input
-                  type="text"
-                  className="chat-input"
-                  placeholder={livePhase === 'phase1'
-                    ? (!questionNarrationComplete
-                      ? 'Listen to the question...'
-                      : 'Type your answer...')
-                    : livePhase === 'plot-twist'
-                      ? 'What do you do?'
-                      : 'Type your answer...'}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  maxLength={100}
-                  disabled={
-                    (livePhase === 'phase1' && !questionNarrationComplete)
-                  }
-                />
-                <button
-                  type="button"
-                  className="debug-autofill-btn"
-                  onClick={() => setChatInput(getRandomTestAnswer(livePhase === 'plot-twist' ? 'plot-twist' : 'chat'))}
-                  title="Debug: fill random test answer"
-                  aria-label="Debug fill random chat answer"
-                >
-                  🎲
-                </button>
-                <button type="submit" className="chat-send-btn">✨</button>
-              </form>
-            </>
-          )}
+          <span className="chat-hint chat-hint-single">{getPhaseInstructions()}</span>
+          <form className="chat-input-form" onSubmit={handleChatSubmit}>
+            <input
+              type="text"
+              className="chat-input"
+              placeholder={livePhase === 'phase1'
+                ? (!questionNarrationComplete
+                  ? 'Listen to the question...'
+                  : 'Type your answer...')
+                : livePhase === 'plot-twist'
+                  ? 'What do you do?'
+                  : 'Type your answer...'}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              maxLength={100}
+              disabled={
+                (livePhase === 'phase1' && !questionNarrationComplete)
+              }
+            />
+            <button
+              type="button"
+              className="debug-autofill-btn"
+              onClick={() => setChatInput(getRandomTestAnswer(livePhase === 'plot-twist' ? 'plot-twist' : 'chat'))}
+              title="Debug: fill random test answer"
+              aria-label="Debug fill random chat answer"
+            >
+              🎲
+            </button>
+            <button type="submit" className="chat-send-btn">✨</button>
+          </form>
         </div>
       )}
 

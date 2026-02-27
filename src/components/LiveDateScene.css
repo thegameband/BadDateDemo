@@ -121,7 +121,7 @@
 /* Round Prompt Banner - Persistent during Phase 1 */
 .round-prompt-banner {
   position: absolute;
-  top: 0;
+  top: var(--round-prompt-top-space, 0);
   left: 0;
   right: 0;
   display: flex;
@@ -142,6 +142,72 @@
     0 0 30px rgba(255, 215, 0, 0.2);
   pointer-events: auto;
   max-width: 400px;
+}
+
+.answer-comparison-box {
+  position: absolute;
+  top: var(--answer-box-top-space, 135px);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: min(420px, calc(100% - 24px));
+  background: var(--bg-card);
+  border: 4px solid var(--accent-pink);
+  border-radius: 16px;
+  box-shadow:
+    0 6px 32px rgba(255, 77, 109, 0.45),
+    0 0 16px rgba(255, 77, 109, 0.2);
+  padding: 12px 14px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  z-index: 89;
+  pointer-events: none;
+}
+
+.answer-column {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.answer-column-divider {
+  width: 1px;
+  margin: 0 10px;
+  background: linear-gradient(180deg, rgba(255, 77, 109, 0) 0%, rgba(255, 77, 109, 0.5) 50%, rgba(255, 77, 109, 0) 100%);
+}
+
+.answer-column-title {
+  margin: 0 0 6px 0;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-pink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.answer-column-value {
+  margin: 0;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.3;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.answer-column-value.pending {
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.08em;
 }
 
 .round-prompt-title {
@@ -1892,6 +1958,10 @@
   justify-content: flex-end;
   min-height: 0;
   overflow: hidden;
+  --round-prompt-top-space: 12px;
+  --answer-box-top-space: 135px;
+  --top-stack-reserved-space: 240px;
+  --suggestions-top-space: 260px;
 }
 
 .date-screen.with-side-meters {
@@ -2010,7 +2080,7 @@
 
 /* When round prompt banner is visible, reserve space so submitted answers and content are not covered */
 .date-screen.has-round-prompt-banner {
-  padding-top: 96px;
+  padding-top: var(--top-stack-reserved-space, 120px);
 }
 
 /* Subtle romantic pattern overlay */
@@ -2822,6 +2892,31 @@
    MOBILE - Full screen
    ============================================ */
 @media (max-width: 768px) {
+  .date-screen {
+    --round-prompt-top-space: 10px;
+    --answer-box-top-space: 130px;
+    --top-stack-reserved-space: 250px;
+    --suggestions-top-space: 270px;
+  }
+
+  .round-prompt-content {
+    max-width: 360px;
+    padding: 10px 16px;
+  }
+
+  .answer-comparison-box {
+    width: min(380px, calc(100% - 24px));
+    padding: 10px 12px;
+  }
+
+  .answer-column-title {
+    font-size: 0.66rem;
+  }
+
+  .answer-column-value {
+    font-size: 0.88rem;
+  }
+
   .live-date-scene {
     max-width: 100%;
     border-radius: 0;
@@ -3070,6 +3165,42 @@
 
 /* Very small phones */
 @media (max-width: 380px) {
+  .date-screen {
+    --round-prompt-top-space: 8px;
+    --answer-box-top-space: 125px;
+    --top-stack-reserved-space: 260px;
+    --suggestions-top-space: 280px;
+  }
+
+  .round-prompt-content {
+    max-width: 320px;
+    padding: 9px 12px;
+  }
+
+  .round-prompt-title {
+    font-size: 1.15rem;
+    letter-spacing: 1px;
+  }
+
+  .round-prompt-subtitle {
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .answer-comparison-box {
+    width: calc(100% - 20px);
+    padding: 8px 10px;
+  }
+
+  .answer-column-title {
+    font-size: 0.62rem;
+    margin-bottom: 5px;
+  }
+
+  .answer-column-value {
+    font-size: 0.8rem;
+  }
+
   .live-header {
     min-height: 74px;
   }
