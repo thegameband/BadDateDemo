@@ -310,6 +310,8 @@ function LiveDateScene() {
     }, REACTION_FEEDBACK_DURATION_MS)
   }
 
+  const toTitleCase = (text = '') => String(text).replace(/\b\w/g, (c) => c.toUpperCase())
+
   const showDaterAnswerBanner = (answer = '') => {
     const cleanedAnswer = String(answer || '')
       .replace(/[^A-Za-z0-9\s]/g, ' ')
@@ -318,7 +320,7 @@ function LiveDateScene() {
       .slice(0, 4)
       .join(' ')
       .trim()
-    const displayAnswer = cleanedAnswer || 'from the heart'
+    const displayAnswer = toTitleCase(cleanedAnswer || 'from the heart')
     setDaterDisplayAnswer(displayAnswer)
 
     if (partyClient && isHost) {
@@ -328,8 +330,8 @@ function LiveDateScene() {
 
   const truncateForDisplay = (text, maxWords = 4) => {
     const words = String(text || '').trim().split(/\s+/).filter(Boolean)
-    if (words.length <= maxWords) return words.join(' ')
-    return words.slice(0, maxWords).join(' ') + '…'
+    if (words.length <= maxWords) return toTitleCase(words.join(' '))
+    return toTitleCase(words.slice(0, maxWords).join(' ')) + '…'
   }
 
   const flashBoardPanelPulse = () => {
