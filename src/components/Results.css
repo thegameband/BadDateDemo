@@ -73,6 +73,7 @@
   margin-top: 10px;
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   width: min(320px, 100%);
   padding: 7px 9px;
   border-radius: 999px;
@@ -89,11 +90,14 @@
 }
 
 .results-chaos-label {
+  min-width: 106px;
+  text-align: left;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fde68a;
+  flex-shrink: 0;
 }
 
 .results-chaos-track {

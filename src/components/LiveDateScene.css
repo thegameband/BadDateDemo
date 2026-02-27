@@ -2161,8 +2161,20 @@
 .breakdown-chaos-meter {
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   justify-content: center;
   width: 100%;
+}
+
+.breakdown-chaos-label {
+  min-width: 106px;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fde68a;
+  flex-shrink: 0;
 }
 
 .breakdown-chaos-meter .chaos-meter-track {

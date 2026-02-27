@@ -62,11 +62,11 @@ function Results() {
             {isChaosMode ? (
               <>
                 <div className="hero-value hero-value-text">{scoringSummary?.dateOutcomeLabel || 'Date Complete'}</div>
-                <div className="hero-label">Compatibility + Ratings</div>
                 <div className="hero-stats">
                   {scoringSummary?.dateOutcomeDescription || 'Balance chemistry and chaos for the best ending.'}
                 </div>
                 <div className="results-chaos-meter compatibility">
+                  <span className="results-chaos-label">Compatibility</span>
                   <span className="results-chaos-track">
                     <span
                       className="results-chaos-fill compatibility"
@@ -75,6 +75,7 @@ function Results() {
                   </span>
                 </div>
                 <div className="results-chaos-meter ratings">
+                  <span className="results-chaos-label">Ratings</span>
                   <span className="results-chaos-track">
                     <span
                       className="results-chaos-fill ratings"

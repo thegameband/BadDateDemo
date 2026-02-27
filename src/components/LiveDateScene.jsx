@@ -384,8 +384,8 @@ function LiveDateScene() {
 
         if (newLikes.length || newDislikes.length) {
           const fragments = []
-          if (newLikes.length) fragments.push(`+ ${newLikes.join(', ')}`)
-          if (newDislikes.length) fragments.push(`- ${newDislikes.join(', ')}`)
+          if (newLikes.length) fragments.push('Compatibility +1')
+          if (newDislikes.length) fragments.push('Compatibility -1')
           if (isChaosMode) {
             fragments.push(`${getRatingsTextMeter(ratingsEffectApplied)} ${getRatingsEffectText(ratingsEffectApplied)}`)
           }
@@ -3942,6 +3942,9 @@ BAD examples (do NOT do this):
                     >
                       {chip.kind === 'meter' ? (
                         <div className="breakdown-chaos-meter">
+                          <span className="breakdown-chaos-label">
+                            {chip.meterType === 'ratings' ? 'Ratings' : 'Compatibility'}
+                          </span>
                           <span className={`chaos-meter-track ${chip.meterType || ''}`}>
                             <span
                               className={`chaos-meter-fill ${chip.meterType || ''}`}
