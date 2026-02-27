@@ -1754,13 +1754,13 @@ RULES:
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: daterValues/setDaterValues not in deps
   }, [selectedDater, isHost, partyClient, roomCode])
   
-  // Single player: auto-advance from Plot Twist input to "What Happened" after submitting (no wheel, no Continue click)
+  // Auto-advance from Plot Twist input after submitting answer
   useEffect(() => {
-    if (livePhase !== 'plot-twist' || plotTwist?.subPhase !== 'input' || !hasSubmittedPlotTwist || partyClient) return
+    if (livePhase !== 'plot-twist' || plotTwist?.subPhase !== 'input' || !hasSubmittedPlotTwist || !isHost) return
     const t = setTimeout(() => advancePlotTwistToReveal(), 1500)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- advancePlotTwistToReveal intentionally omitted to avoid re-trigger loops
-  }, [livePhase, plotTwist?.subPhase, hasSubmittedPlotTwist, partyClient])
+  }, [livePhase, plotTwist?.subPhase, hasSubmittedPlotTwist, isHost])
 
   
   // Round prompts - Title + Subtitle (Question) for each round
@@ -3578,15 +3578,6 @@ BAD examples (do NOT do this):
                   </div>
                 )}
                 
-                {isHost && (
-                  <button
-                    type="button"
-                    className="plot-twist-continue-btn"
-                    onClick={() => advancePlotTwistToReveal()}
-                  >
-                    Continue
-                  </button>
-                )}
               </div>
             )}
             
