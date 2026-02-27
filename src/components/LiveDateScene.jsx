@@ -879,18 +879,19 @@ function LiveDateScene() {
   useEffect(() => {
     if (!isHost || livePhase !== 'phase1' || !questionNarrationComplete || !selectedDater) return
 
-    const question = (currentRoundPrompt?.subtitle || '').trim()
-    if (!question || lastQuickAnswerQuestionRef.current === question) return
+    const questionSubtitle = (currentRoundPrompt?.subtitle || '').trim()
+    if (!questionSubtitle || lastQuickAnswerQuestionRef.current === questionSubtitle) return
 
-    lastQuickAnswerQuestionRef.current = question
+    lastQuickAnswerQuestionRef.current = questionSubtitle
     daterQuickAnswerRef.current = ''
+    const llmQuestion = getLlmQuestionWithNotes(currentRoundPrompt)
 
     let cancelled = false
     const runQuickAnswer = async () => {
       try {
         const answer = await getDaterQuickAnswer(
           selectedDater,
-          question,
+          llmQuestion,
           useGameStore.getState().dateConversation || []
         )
         syncLlmStatusMessage()
@@ -1799,6 +1800,11 @@ RULES:
   
   // All prompts combined (for rounds 2-5)
   const ALL_PROMPTS = [...FIRST_ROUND_PROMPTS, ...ADDITIONAL_PROMPTS]
+
+  const QUESTION_RESPONSE_NOTES = {
+    Dealbreaker: 'The answer to this question is referring to something that the player does NOT LIKE.',
+    'Lost Cause': 'The answer to this question is referring to something that the player does NOT LIKE.',
+  }
   
   // Track which prompts have been used this game (by title)
   const usedRoundPromptsRef = useRef(new Set())
@@ -1834,6 +1840,14 @@ RULES:
     usedRoundPromptsRef.current.add(prompt.title)
     console.log(`🎯 Selected prompt: "${prompt.title}" (${isFirstRound ? 'first round' : 'later round'})`)
     return prompt
+  }
+
+  const getLlmQuestionWithNotes = (prompt = currentRoundPrompt) => {
+    const subtitle = String(prompt?.subtitle || '').trim()
+    if (!subtitle) return 'Tell me about yourself'
+    const title = String(prompt?.title || '').trim()
+    const note = QUESTION_RESPONSE_NOTES[title]
+    return note ? `${subtitle}\n\nContext note: ${note}` : subtitle
   }
   
   const _handlePhaseEnd = async () => {
@@ -1907,6 +1921,7 @@ RULES:
 
     // Always pass question + answer so LLM has context (critical for short answers like single words)
     const question = currentRoundPrompt.subtitle || 'Tell me about yourself'
+    const llmQuestion = getLlmQuestionWithNotes(currentRoundPrompt)
     console.log('🎬 Pre-generating: Dater responds to player answer (question + answer context)...')
     setIsPreGenerating(true)
     if (partyClient) partyClient.syncState({ isPreGenerating: true })
@@ -1920,7 +1935,7 @@ RULES:
     try {
       const daterQuickAnswer = String(daterQuickAnswerRef.current || '').trim() || await getDaterQuickAnswer(
         selectedDater,
-        question,
+        llmQuestion,
         conversationHistory
       )
       if (daterQuickAnswer) {
@@ -1929,7 +1944,7 @@ RULES:
 
       const daterComparison = await getDaterAnswerComparison(
         selectedDater,
-        question,
+        llmQuestion,
         daterQuickAnswer || 'my gut',
         playerAnswer,
         conversationHistory

@@ -151,25 +151,28 @@
   left: 0;
   right: 0;
   margin: 0 auto;
-  width: min(420px, calc(100% - 24px));
+  width: min(520px, calc(100% - 20px));
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
   z-index: 89;
   pointer-events: none;
 }
 
 .answer-reveal-card {
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 240px;
   background: linear-gradient(165deg, #ffffff 0%, #f4f6f9 100%);
-  border: 7px solid #545a61;
-  border-radius: 20px;
+  border: 5px solid #545a61;
+  border-radius: 16px;
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.35),
+    0 8px 22px rgba(0, 0, 0, 0.3),
     inset 0 0 0 2px rgba(255, 255, 255, 0.85),
     inset 0 -2px 6px rgba(40, 50, 70, 0.12);
-  padding: 10px 14px 8px;
+  padding: 8px 10px 6px;
   text-align: center;
 }
 
@@ -2883,20 +2886,23 @@
   }
 
   .answer-comparison-stack {
-    width: min(380px, calc(100% - 24px));
-    gap: 7px;
+    width: min(440px, calc(100% - 16px));
+    gap: 8px;
   }
 
   .answer-reveal-card {
-    padding: 9px 12px 8px;
+    padding: 7px 8px 5px;
+    border-width: 4px;
+    border-radius: 14px;
+    max-width: 200px;
   }
 
   .answer-column-title {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
   }
 
   .answer-column-value {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .live-date-scene {
@@ -3162,21 +3168,24 @@
   }
 
   .answer-comparison-stack {
-    width: calc(100% - 20px);
+    width: calc(100% - 12px);
     gap: 6px;
   }
 
   .answer-reveal-card {
-    padding: 8px 10px 7px;
+    padding: 6px 6px 4px;
+    border-width: 3px;
+    border-radius: 12px;
+    max-width: 170px;
   }
 
   .answer-column-title {
-    font-size: 0.84rem;
-    margin-bottom: 5px;
+    font-size: 0.76rem;
+    margin-bottom: 4px;
   }
 
   .answer-column-value {
-    font-size: 1rem;
+    font-size: 0.88rem;
   }
 
   .live-header {

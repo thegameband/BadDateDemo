@@ -1163,6 +1163,21 @@ export async function getDaterAnswerComparison(dater, question, daterAnswer, pla
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const quickAnswer = String(daterAnswer || '').trim() || 'my gut'
+  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
+
+  const toneGuidance = isAdam ? `
+TONE — CONDITIONAL (this is critical):
+First, judge whether the player's answer ALIGNS with yours or NOT.
+- IF ALIGNED (similar values/spirit): be cheeky, flirty, warmly teasing. You are charmed and let it show through wit. Think: a raised eyebrow and a pleased half-smile.
+- IF MISALIGNED (different values/opposing): be cutting, sharp, and devastating — but always elegant. Channel Jane Austen: dry irony, elegant shade, clever social observation. Your wit should sting like a paper cut from a love letter.
+
+STYLE REFERENCE (adapt to your old-English voice):
+Aligned examples: "I must confess, your taste nearly rivals my own — a feat I had thought impossible." / "It seems we are of one mind; I find that both delightful and deeply suspicious."
+Misaligned examples: "I am certain you meant that to be charming." / "I admire your confidence — it is entirely unearned, but I admire it." / "I have endured more stimulating company from my morning tea." / "Your answer hath just rendered the single life a luxury."
+` : `
+TONE: playful, funny, or lightly biting (not cruel). Lean into humor.
+`
+
   const taskPrompt = `
 🎯 YOUR TASK: Give one short, witty sentence.
 
@@ -1176,15 +1191,15 @@ CRITICAL RULES:
 - Respond to the player's answer too: mention whether you align, partly align, or disagree.
 - Be specific about similarity/difference between both answers.
 - Keep it concise (aim <= ${MAX_QUIP_CHARS} characters).
-- Tone: playful, funny, or lightly biting (not cruel).
 - Dialogue only, no actions or asterisks.
-`
+${toneGuidance}`
+
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
   const historyMessages = conversationHistory.slice(-12).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Question: "${question}". Your quick answer is "${quickAnswer}". Player answer is "${playerAnswer}". Respond in exactly one sentence that explains your answer and compares it to theirs.]`
+  const userContent = `[Question: "${question}". Your quick answer is "${quickAnswer}". Player answer is "${playerAnswer}". Judge alignment then respond in exactly one sentence — cheeky if aligned, cutting if not. Explain your answer and compare it to theirs.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1196,7 +1211,6 @@ CRITICAL RULES:
   if (response) {
     const cleaned = stripActionDescriptions(response)?.replace(/\s+/g, ' ')?.trim()
     if (cleaned) {
-      // Keep only the first sentence, then enforce the hard character cap.
       const firstSentence = cleaned.match(/[^.!?]+[.!?]/)?.[0]?.trim() || cleaned
       if (firstSentence.length <= MAX_QUIP_CHARS) return firstSentence
       const clipped = firstSentence.slice(0, MAX_QUIP_CHARS - 1).trim()
@@ -1205,9 +1219,23 @@ CRITICAL RULES:
     }
   }
 
-  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   if (isAdam) {
-    return `I went with ${quickAnswer} because that's my lane, and your answer is either my kind of chaos or a red flag in designer packaging.`
+    const adamAlignedFallbacks = [
+      `It would appear we share a sensibility — I chose ${quickAnswer}, and your answer suggests you might yet prove tolerable company.`,
+      `We are of one mind, it seems; I answered ${quickAnswer}, and yours tells me this evening may not be entirely wasted.`,
+      `I said ${quickAnswer} and you echo the sentiment — I confess, I find that both delightful and deeply suspicious.`,
+    ]
+    const adamMisalignedFallbacks = [
+      `I went with ${quickAnswer} because I possess taste, and your answer has made the single life appear a positive luxury.`,
+      `My answer was ${quickAnswer}; yours, I am certain, was meant to be charming — though it has rather missed the mark.`,
+      `I chose ${quickAnswer} for reasons of sound judgement, and I admire your confidence — it is entirely unearned, but I admire it.`,
+      `I said ${quickAnswer}, and after hearing yours, I believe silence would have served you far better.`,
+    ]
+    const pLower = String(playerAnswer || '').toLowerCase()
+    const dLower = String(quickAnswer || '').toLowerCase()
+    const likelyAligned = pLower === dLower || pLower.includes(dLower) || dLower.includes(pLower)
+    const pool = likelyAligned ? adamAlignedFallbacks : adamMisalignedFallbacks
+    return pool[Math.floor(Math.random() * pool.length)]
   }
   return `I chose ${quickAnswer} because that's my rhythm, and your answer sounds either like my duet partner or someone singing from a different planet.`
 }
