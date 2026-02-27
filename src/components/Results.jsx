@@ -2,24 +2,15 @@ import { motion } from 'framer-motion' // eslint-disable-line no-unused-vars -- 
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import './Results.css'
 
-const clampChaosValue = (value) => {
+const clampMeterValue = (value) => {
   const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return 1
-  return Math.max(1, Math.min(10, numeric))
+  if (!Number.isFinite(numeric)) return 0
+  return Math.max(0, Math.min(5, numeric))
 }
 
-const getChaosFillPercent = (value) => {
-  const clamped = clampChaosValue(value)
-  return ((clamped - 1) / 9) * 100
-}
-
-const getChaosTierLabel = (value) => {
-  const clamped = clampChaosValue(value)
-  if (clamped < 3) return 'Steady'
-  if (clamped < 5) return 'Spicy'
-  if (clamped < 7) return 'Wild'
-  if (clamped < 9) return 'Unhinged'
-  return 'Nuclear'
+const getMeterFillPercent = (value) => {
+  const clamped = clampMeterValue(value)
+  return (clamped / 5) * 100
 }
 
 function Results() {
@@ -44,13 +35,17 @@ function Results() {
   const isBlindBingo = mode === SCORING_MODES.BINGO_BLIND_LOCKOUT
   const boardCells = isBlindBingo ? blindCells : actionCells
 
-  const decisionLabel = finalDateDecision?.decision === 'yes'
-    ? 'Second Date: Yes'
-    : finalDateDecision?.decision === 'no'
-      ? 'Second Date: No'
-      : 'Second Date: Pending'
+  const decisionLabel = isChaosMode
+    ? (scoringSummary?.dateOutcomeLabel || 'Date Outcome Pending')
+    : finalDateDecision?.decision === 'yes'
+      ? 'Second Date: Yes'
+      : finalDateDecision?.decision === 'no'
+        ? 'Second Date: No'
+        : 'Second Date: Pending'
 
-  const decisionClass = finalDateDecision?.decision === 'yes' ? 'yes' : finalDateDecision?.decision === 'no' ? 'no' : 'pending'
+  const decisionClass = isChaosMode
+    ? (scoringSummary?.dateOutcomeKey || 'pending')
+    : finalDateDecision?.decision === 'yes' ? 'yes' : finalDateDecision?.decision === 'no' ? 'no' : 'pending'
 
   return (
     <div className={`results scoring-results ${isLiveMode ? 'live-mode-results' : ''}`}>
@@ -64,30 +59,37 @@ function Results() {
 
         {isLikesMode ? (
           <div className="score-hero">
-            <div className="hero-value">
-              {isChaosMode
-                ? Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')
-                : `${scoringSummary?.scoreOutOf5 ?? 0}/5`}
-            </div>
-            <div className="hero-label">{isChaosMode ? 'Likes x CHAOS' : 'Likes Minus Dislikes'}</div>
-            <div className="hero-stats">
-              Likes {scoringSummary?.likesCount ?? 0} • Dislikes {scoringSummary?.dislikesCount ?? 0}
-              {isChaosMode
-                ? ` • Base ${scoringSummary?.scoreOutOf5 ?? 0}/5 • Multiplier x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`
-                : ''}
-            </div>
             {isChaosMode ? (
-              <div className="results-chaos-meter">
-                <span className="results-chaos-label">Chaos Meter</span>
-                <span className="results-chaos-track">
-                  <span
-                    className="results-chaos-fill"
-                    style={{ width: `${getChaosFillPercent(scoringSummary?.chaosAverage ?? 1)}%` }}
-                  />
-                </span>
-                <span className="results-chaos-tier">{getChaosTierLabel(scoringSummary?.chaosAverage ?? 1)}</span>
-              </div>
-            ) : null}
+              <>
+                <div className="hero-value hero-value-text">{scoringSummary?.dateOutcomeLabel || 'Date Complete'}</div>
+                <div className="hero-label">Compatibility + Ratings</div>
+                <div className="hero-stats">
+                  {scoringSummary?.dateOutcomeDescription || 'Balance chemistry and chaos for the best ending.'}
+                </div>
+                <div className="results-chaos-meter compatibility">
+                  <span className="results-chaos-track">
+                    <span
+                      className="results-chaos-fill compatibility"
+                      style={{ width: `${getMeterFillPercent(scoringSummary?.compatibilityScore ?? 0)}%` }}
+                    />
+                  </span>
+                </div>
+                <div className="results-chaos-meter ratings">
+                  <span className="results-chaos-track">
+                    <span
+                      className="results-chaos-fill ratings"
+                      style={{ width: `${getMeterFillPercent(scoringSummary?.ratingsScore ?? 0)}%` }}
+                    />
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hero-value">{scoringSummary?.scoreOutOf5 ?? 0}/5</div>
+                <div className="hero-label">Likes Minus Dislikes</div>
+                <div className="hero-stats">Likes {scoringSummary?.likesCount ?? 0} • Dislikes {scoringSummary?.dislikesCount ?? 0}</div>
+              </>
+            )}
           </div>
         ) : (
           <div className="score-hero">
@@ -101,9 +103,18 @@ function Results() {
         )}
 
         <div className={`decision-card ${decisionClass}`}>
-          <h2>{decisionLabel}</h2>
-          {finalDateDecision?.assessment ? <p>{finalDateDecision.assessment}</p> : null}
-          {finalDateDecision?.verdict ? <p>{finalDateDecision.verdict}</p> : null}
+          <h2>{isChaosMode ? `Outcome: ${decisionLabel}` : decisionLabel}</h2>
+          {isChaosMode ? (
+            <>
+              {scoringSummary?.dateOutcomeDescription ? <p>{scoringSummary.dateOutcomeDescription}</p> : null}
+              <p>Second Date: {scoringSummary?.secondDateDecision === 'yes' ? 'Yes' : 'No'}</p>
+            </>
+          ) : (
+            <>
+              {finalDateDecision?.assessment ? <p>{finalDateDecision.assessment}</p> : null}
+              {finalDateDecision?.verdict ? <p>{finalDateDecision.verdict}</p> : null}
+            </>
+          )}
         </div>
 
         {isLikesMode ? (

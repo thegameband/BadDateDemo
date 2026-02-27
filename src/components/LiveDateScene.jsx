@@ -58,27 +58,30 @@ const DEBUG_AUTO_FILL_ANSWERS = {
 }
 
 const pickRandom = (items = []) => items[Math.floor(Math.random() * items.length)] || ''
-const clampChaosValue = (value) => {
+const clampMeterValue = (value) => {
   const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return 1
-  return Math.max(1, Math.min(10, numeric))
+  if (!Number.isFinite(numeric)) return 0
+  return Math.max(0, Math.min(5, numeric))
 }
-const getChaosFillPercent = (value) => {
-  const clamped = clampChaosValue(value)
-  return ((clamped - 1) / 9) * 100
+const getMeterFillPercent = (value) => {
+  const clamped = clampMeterValue(value)
+  return (clamped / 5) * 100
 }
-const getChaosTierLabel = (value) => {
-  const clamped = clampChaosValue(value)
-  if (clamped < 3) return 'Steady'
-  if (clamped < 5) return 'Spicy'
-  if (clamped < 7) return 'Wild'
-  if (clamped < 9) return 'Unhinged'
-  return 'Nuclear'
+const getRatingsTextMeter = (value) => {
+  const normalized = String(value || '').toLowerCase()
+  if (normalized === 'increase') return '▲▲'
+  if (normalized === 'decrease') return '▼▼'
+  return '▬'
 }
-const getChaosTextMeter = (value) => {
-  const clamped = clampChaosValue(value)
-  const filled = Math.max(1, Math.min(5, Math.round(clamped / 2)))
-  return `${'█'.repeat(filled)}${'░'.repeat(5 - filled)}`
+const getRatingsEffectText = (value) => {
+  const normalized = String(value || '').toLowerCase()
+  if (normalized === 'increase') return 'Ratings Up'
+  if (normalized === 'decrease') return 'Ratings Down'
+  return 'Ratings Steady'
+}
+const SIDE_METER_LABELS = {
+  compatibility: ['C', 'O', 'M', 'P', 'A', 'T', 'I', 'B', 'I', 'L', 'I', 'T', 'Y'],
+  ratings: ['R', 'A', 'T', 'I', 'N', 'G', 'S'],
 }
 
 // Phase timers: 30 seconds for Phase 1 and Phase 2
@@ -372,7 +375,7 @@ function LiveDateScene() {
           includeChaos: isChaosMode,
         })
         syncLlmStatusMessage()
-        const { newLikes, newDislikes, chaosApplied } = addLikesDislikesHits(result)
+        const { newLikes, newDislikes, ratingsEffectApplied } = addLikesDislikesHits(result)
         const latestSummary = useGameStore.getState().getScoringSummary()
         setScoringSummary(latestSummary)
         if (partyClient && isHost) {
@@ -383,9 +386,8 @@ function LiveDateScene() {
           const fragments = []
           if (newLikes.length) fragments.push(`+ ${newLikes.join(', ')}`)
           if (newDislikes.length) fragments.push(`- ${newDislikes.join(', ')}`)
-          if (isChaosMode && chaosApplied != null) {
-            fragments.push(`Chaos ${getChaosTextMeter(chaosApplied)} ${getChaosTierLabel(chaosApplied)}`)
-            fragments.push(`Multiplier x${Number(latestSummary?.chaosMultiplier || 1).toFixed(2)}`)
+          if (isChaosMode) {
+            fragments.push(`${getRatingsTextMeter(ratingsEffectApplied)} ${getRatingsEffectText(ratingsEffectApplied)}`)
           }
           const text = `Score update${source ? ` (${source})` : ''}: ${fragments.join(' | ')}`
           const category = newDislikes.length > 0 ? 'disliked' : 'liked'
@@ -2112,17 +2114,55 @@ RULES:
   const waitForAudioOrTimeout = (maxMs = 12000) =>
     Promise.race([waitForAllAudio(), new Promise(r => setTimeout(r, maxMs))])
 
+  const buildRatingsModeFinalDecision = () => {
+    const summary = useGameStore.getState().getScoringSummary()
+    const outcomeKey = summary?.dateOutcomeKey || 'total-failure'
+    const decision = summary?.secondDateDecision === 'yes' ? 'yes' : 'no'
+
+    const byOutcome = {
+      'total-failure': {
+        assessment: "That crashed as both a date and an episode.",
+        verdict: 'Second date: no. The chemistry and the ratings both flatlined.',
+      },
+      'successful-tv-episode': {
+        assessment: 'Great television, questionable romance.',
+        verdict: 'Second date: no. Incredible episode, but not a match.',
+      },
+      'successful-date': {
+        assessment: 'This was a real connection, even if it was low-drama TV.',
+        verdict: 'Second date: yes. The date worked, even without chaos.',
+      },
+      'perfect-date': {
+        assessment: 'You nailed both the chemistry and the spectacle.',
+        verdict: 'Second date: yes. Perfect date, perfect episode.',
+      },
+    }
+
+    const selected = byOutcome[outcomeKey] || byOutcome['total-failure']
+    return {
+      decision,
+      assessment: selected.assessment,
+      verdict: selected.verdict,
+    }
+  }
+
   const generateWrapUpRound = async () => {
     const avatarName = avatar?.name || 'you'
     console.log('🎬 Starting Phase 9: Wrap Up')
 
     try {
-      const decisionState = await generateFinalDateDecision(
-        selectedDater,
-        avatarName,
-        useGameStore.getState().dateConversation || []
-      )
-      syncLlmStatusMessage()
+      const currentMode = useGameStore.getState().scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
+      const useRatingsModeDecision = currentMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+      const decisionState = useRatingsModeDecision
+        ? buildRatingsModeFinalDecision()
+        : await generateFinalDateDecision(
+          selectedDater,
+          avatarName,
+          useGameStore.getState().dateConversation || []
+        )
+      if (!useRatingsModeDecision) {
+        syncLlmStatusMessage()
+      }
       setFinalDateDecision(decisionState)
 
       const assessment = String(decisionState?.assessment || '').trim()
@@ -3351,16 +3391,20 @@ BAD examples (do NOT do this):
   const getScoreStatusChips = () => {
     if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS) {
       return [
-        { key: 'base', label: `Base ${scoringSummary?.scoreOutOf5 ?? 0}/5`, className: 'positive' },
         {
-          key: 'chaos',
-          kind: 'chaos-meter',
-          chaosValue: scoringSummary?.chaosAverage ?? 1,
-          chaosTier: getChaosTierLabel(scoringSummary?.chaosAverage ?? 1),
+          key: 'compatibility',
+          kind: 'meter',
+          meterType: 'compatibility',
+          meterValue: scoringSummary?.compatibilityScore ?? 0,
           className: 'positive',
         },
-        { key: 'multiplier', label: `Multiplier x${Number(scoringSummary?.chaosMultiplier ?? 1).toFixed(2)}`, className: 'positive' },
-        { key: 'final', label: `Final ${Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')}`, className: 'positive' },
+        {
+          key: 'ratings',
+          kind: 'meter',
+          meterType: 'ratings',
+          meterValue: scoringSummary?.ratingsScore ?? 0,
+          className: 'positive',
+        },
       ]
     }
     if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES) {
@@ -3384,6 +3428,14 @@ BAD examples (do NOT do this):
   }
 
   const getEndOverlayTitle = () => {
+    if (isChaosLikesMode) {
+      const outcome = scoringSummary?.dateOutcomeKey
+      if (outcome === 'perfect-date') return '🏆 Perfect Date'
+      if (outcome === 'successful-date') return '💘 Successful Date'
+      if (outcome === 'successful-tv-episode') return '📺 Successful TV Episode'
+      if (outcome === 'total-failure') return '📉 Total Failure'
+      return 'Date Complete'
+    }
     if (finalDateDecision?.decision === 'yes') return '💕 Second Date: Yes'
     if (finalDateDecision?.decision === 'no') return '💔 Second Date: No'
     return 'Date Complete'
@@ -3865,15 +3917,15 @@ BAD examples (do NOT do this):
             >
               <h1 className="end-game-title">{getEndOverlayTitle()}</h1>
               <div className="end-game-compatibility">
-                <span className="compat-final">
+                <span className={`compat-final ${isChaosLikesMode ? 'textual' : ''}`}>
                   {isLikesMode
                     ? (isChaosLikesMode
-                      ? `${Number(scoringSummary?.multipliedScore ?? 0).toFixed(2).replace(/\.00$/, '')}`
+                      ? `${scoringSummary?.dateOutcomeLabel || 'Date Complete'}`
                       : `${scoringSummary?.scoreOutOf5 ?? 0}/5`)
                     : `${scoringSummary?.bingoCount ?? 0}`}
                 </span>
                 <span className="compat-label">
-                  {isLikesMode ? (isChaosLikesMode ? 'Final Score' : 'Daily Score') : 'Bingos'}
+                  {isLikesMode ? (isChaosLikesMode ? 'Final Outcome' : 'Daily Score') : 'Bingos'}
                 </span>
               </div>
               
@@ -3888,16 +3940,14 @@ BAD examples (do NOT do this):
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ delay: 0.35 + (index * 0.14) }}
                     >
-                      {chip.kind === 'chaos-meter' ? (
+                      {chip.kind === 'meter' ? (
                         <div className="breakdown-chaos-meter">
-                          <span className="chaos-meter-label">Chaos Meter</span>
-                          <span className="chaos-meter-track">
+                          <span className={`chaos-meter-track ${chip.meterType || ''}`}>
                             <span
-                              className="chaos-meter-fill"
-                              style={{ width: `${getChaosFillPercent(chip.chaosValue)}%` }}
+                              className={`chaos-meter-fill ${chip.meterType || ''}`}
+                              style={{ width: `${getMeterFillPercent(chip.meterValue)}%` }}
                             />
                           </span>
-                          <span className="chaos-meter-tier">{chip.chaosTier}</span>
                         </div>
                       ) : (
                         <span className="breakdown-text">{chip.label}</span>
@@ -4005,27 +4055,25 @@ BAD examples (do NOT do this):
                   </button>
                 )}
               </div>
-              {!(isBingoMode && boardPanelOpen) && (
+              {!(isBingoMode && boardPanelOpen) && !isChaosLikesMode && (
                 <div className="header-scoring-row">
                   <span className="quality-tracker-label">Live Scoring</span>
                   <div className="quality-tracker">
                     {getScoreStatusChips().map((chip) => (
                       <motion.span
                         key={chip.key}
-                        className={`quality-chip ${chip.className} ${chip.kind === 'chaos-meter' ? 'chaos-meter-chip' : ''}`}
+                        className={`quality-chip ${chip.className} ${chip.kind === 'meter' ? 'chaos-meter-chip' : ''}`}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                       >
-                        {chip.kind === 'chaos-meter' ? (
+                        {chip.kind === 'meter' ? (
                           <>
-                            <span className="chaos-meter-label">Chaos</span>
-                            <span className="chaos-meter-track">
+                            <span className={`chaos-meter-track ${chip.meterType || ''}`}>
                               <span
-                                className="chaos-meter-fill"
-                                style={{ width: `${getChaosFillPercent(chip.chaosValue)}%` }}
+                                className={`chaos-meter-fill ${chip.meterType || ''}`}
+                                style={{ width: `${getMeterFillPercent(chip.meterValue)}%` }}
                               />
                             </span>
-                            <span className="chaos-meter-tier">{chip.chaosTier}</span>
                           </>
                         ) : chip.label}
                       </motion.span>
@@ -4110,8 +4158,69 @@ BAD examples (do NOT do this):
       
       {/* Date Screen - Characters with Speech Bubbles */}
       <div
-        className={`date-screen ${['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt?.title ? 'has-round-prompt-banner' : ''}`}
+        className={`date-screen ${['phase1', 'answer-selection', 'phase3'].includes(livePhase) && currentRoundPrompt?.title ? 'has-round-prompt-banner' : ''} ${isChaosLikesMode ? 'with-side-meters' : ''}`}
       >
+        {isChaosLikesMode && (
+          <div className="side-meters" aria-hidden="true">
+            {(() => {
+              const compatibilityFill = getMeterFillPercent(scoringSummary?.compatibilityScore ?? 0)
+              const ratingsFill = getMeterFillPercent(scoringSummary?.ratingsScore ?? 0)
+              return (
+                <>
+                  <div className="side-meter-rail compatibility">
+                    <span
+                      className="side-meter-fill compatibility"
+                      style={{ height: `${compatibilityFill}%` }}
+                    />
+                    <span className="side-meter-label">
+                      <span className="side-meter-label-layer unfilled">
+                        {SIDE_METER_LABELS.compatibility.map((letter, index) => (
+                          <span key={`compat-unfilled-${index}`}>{letter}</span>
+                        ))}
+                      </span>
+                      <span
+                        className="side-meter-label-layer filled"
+                        style={{
+                          clipPath: `inset(${100 - compatibilityFill}% 0 0 0)`,
+                          WebkitClipPath: `inset(${100 - compatibilityFill}% 0 0 0)`,
+                        }}
+                      >
+                        {SIDE_METER_LABELS.compatibility.map((letter, index) => (
+                          <span key={`compat-filled-${index}`}>{letter}</span>
+                        ))}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="side-meter-rail ratings">
+                    <span
+                      className="side-meter-fill ratings"
+                      style={{ height: `${ratingsFill}%` }}
+                    />
+                    <span className="side-meter-label">
+                      <span className="side-meter-label-layer unfilled">
+                        {SIDE_METER_LABELS.ratings.map((letter, index) => (
+                          <span key={`ratings-unfilled-${index}`}>{letter}</span>
+                        ))}
+                      </span>
+                      <span
+                        className="side-meter-label-layer filled"
+                        style={{
+                          clipPath: `inset(${100 - ratingsFill}% 0 0 0)`,
+                          WebkitClipPath: `inset(${100 - ratingsFill}% 0 0 0)`,
+                        }}
+                      >
+                        {SIDE_METER_LABELS.ratings.map((letter, index) => (
+                          <span key={`ratings-filled-${index}`}>{letter}</span>
+                        ))}
+                      </span>
+                    </span>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        )}
+
         {/* Phase Announcement Banner - at top of conversation area */}
         <AnimatePresence>
           {showPhaseAnnouncement && (

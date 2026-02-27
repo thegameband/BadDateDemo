@@ -3179,6 +3179,34 @@ const toMode1Verdict = (value = '') => {
   return null
 }
 
+const toRatingsEffect = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (['increase', 'up', '+1', 'raise'].includes(normalized)) return 'increase'
+  if (['decrease', 'down', '-1', 'drop', 'lower'].includes(normalized)) return 'decrease'
+  if (['no_change', 'no change', 'neutral', 'same', 'none', 'unchanged', 'flat'].includes(normalized)) return 'no_change'
+  return null
+}
+
+const deriveRatingsEffectFallback = (playerAnswer = '', chaosLikeSignal = null) => {
+  if (Number.isFinite(chaosLikeSignal)) {
+    if (chaosLikeSignal >= 4) return 'increase'
+    if (chaosLikeSignal <= 2) return 'decrease'
+    return 'no_change'
+  }
+
+  const answer = String(playerAnswer || '').trim()
+  if (!answer) return 'decrease'
+  const lower = answer.toLowerCase()
+  if (/^(idk|i don't know|dont know|pass|whatever|no comment|n\/a|none)\b/.test(lower)) {
+    return 'decrease'
+  }
+
+  const wordCount = answer.split(/\s+/).filter(Boolean).length
+  if (wordCount >= 4) return 'increase'
+  if (wordCount <= 2) return 'decrease'
+  return 'no_change'
+}
+
 const buildMode1ProfileSnapshot = (dater, profileValues) => {
   const snapshotLines = [
     `Name: ${dater?.name || 'the dater'}`,
@@ -3246,7 +3274,7 @@ export async function evaluateLikesDislikesResponse({
   const likePool = normalizeStringList(likes)
   const dislikePool = normalizeStringList(dislikes)
   if (likePool.length === 0 && dislikePool.length === 0) {
-    return includeChaos ? { likes: [], dislikes: [], chaosScore: 5 } : { likes: [], dislikes: [] }
+    return includeChaos ? { likes: [], dislikes: [], ratingsEffect: 'no_change' } : { likes: [], dislikes: [] }
   }
 
   const likeMap = new Map(likePool.map((label) => [normalizeLabelKey(label), label]))
@@ -3284,11 +3312,11 @@ Output rules:
   - warm/approving/interested reaction => "like"
   - cold/disapproving/upset reaction => "dislike"
 ${includeChaos ? `
-- Also return chaosScore (integer 1-10).
-  - 1 = extremely safe/predictable/normal
-  - 5 = mildly unusual
-  - 10 = highly chaotic, socially risky, absurd, or norm-breaking
-- chaosScore reflects HOW chaotic the player's answer was, not whether you liked it.` : ''}`
+- Also return ratingsEffect: "increase" | "decrease" | "no_change".
+  - "increase" if the player's answer is entertaining, surprising, bold, or not dull.
+  - "decrease" only when the answer is clearly dull/flat/non-committal.
+  - "no_change" for in-between cases.
+- Be relatively generous: if the answer is not dull, prefer "increase".` : ''}`
 
   const userPrompt = `QUESTION:
 "${question}"
@@ -3313,7 +3341,7 @@ Return JSON:
   "profileVerdict": "like" | "dislike",
   "reactionPolarity": "like" | "dislike",
   "matchedValue": "exact label from the chosen side",
-  "reason": "short explanation"${includeChaos ? ',\n  "chaosScore": 1-10' : ''}
+  "reason": "short explanation"${includeChaos ? ',\n  "ratingsEffect": "increase" | "decrease" | "no_change"' : ''}
 }`
 
   const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: includeChaos ? 320 : 260 })
@@ -3323,7 +3351,8 @@ Return JSON:
   const inferredReactionVerdict = inferSimpleSentimentFromReaction(daterResponse) === 'disliked' ? 'dislike' : 'like'
   const reactionVerdict = parsedReactionVerdict || inferredReactionVerdict
   const parsedChaos = Number(parsed?.chaosScore ?? parsed?.chaos ?? parsed?.chaosLevel ?? parsed?.chaos_level)
-  const normalizedChaos = Number.isFinite(parsedChaos) ? Math.max(1, Math.min(10, Math.round(parsedChaos))) : 5
+  const parsedRatingsEffect = toRatingsEffect(parsed?.ratingsEffect || parsed?.ratings || parsed?.chaosEffect || parsed?.ratingImpact)
+  const normalizedRatingsEffect = parsedRatingsEffect || deriveRatingsEffectFallback(playerAnswer, Number.isFinite(parsedChaos) ? parsedChaos : null)
 
   // Conservative resolution for alignment: if either signal is dislike, score dislike.
   const finalVerdict = parsedProfileVerdict === 'dislike' || reactionVerdict === 'dislike'
@@ -3332,19 +3361,19 @@ Return JSON:
       ? 'like'
       : 'like'
   const candidate = parsed?.matchedValue || parsed?.label || parsed?.trait || parsed?.shortLabel || ''
-  const appendChaos = (payload) => (includeChaos ? { ...payload, chaosScore: normalizedChaos } : payload)
+  const appendModeExtras = (payload) => (includeChaos ? { ...payload, ratingsEffect: normalizedRatingsEffect } : payload)
 
   if (finalVerdict === 'dislike') {
     const canonical = dislikeMap.get(normalizeLabelKey(candidate))
       || pickClosestTraitLabel(dislikePool, `${fullTurnText} ${candidate}`)
       || dislikePool[0]
-    return canonical ? appendChaos({ likes: [], dislikes: [canonical] }) : appendChaos({ likes: [], dislikes: [] })
+    return canonical ? appendModeExtras({ likes: [], dislikes: [canonical] }) : appendModeExtras({ likes: [], dislikes: [] })
   }
 
   const canonical = likeMap.get(normalizeLabelKey(candidate))
     || pickClosestTraitLabel(likePool, `${fullTurnText} ${candidate}`)
     || likePool[0]
-  return canonical ? appendChaos({ likes: [canonical], dislikes: [] }) : appendChaos({ likes: [], dislikes: [] })
+  return canonical ? appendModeExtras({ likes: [canonical], dislikes: [] }) : appendModeExtras({ likes: [], dislikes: [] })
 }
 
 export async function evaluateBingoBlindLockoutResponse({

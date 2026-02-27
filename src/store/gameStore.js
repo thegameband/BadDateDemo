@@ -89,15 +89,54 @@ const GENERIC_ACTION_CELLS = [
 ]
 
 const clampDailyScore = (value) => Math.max(0, Math.min(5, value))
-const clampChaosScore = (value) => {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return null
-  return Math.max(1, Math.min(10, Math.round(numeric)))
+const normalizeRatingsEffect = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (normalized === 'increase' || normalized === 'up' || normalized === '+1') return 'increase'
+  if (normalized === 'decrease' || normalized === 'down' || normalized === '-1') return 'decrease'
+  return 'no_change'
 }
-const getChaosMultiplierFromAverage = (avgChaos = 1) => {
-  const normalized = Math.max(1, Math.min(10, Number(avgChaos) || 1))
-  const multiplier = 0.5 + ((normalized - 1) / 9) * 2.5
-  return Number(multiplier.toFixed(2))
+const ratingsDeltaFromEffect = (effect = 'no_change') => (
+  effect === 'increase' ? 1 : effect === 'decrease' ? -1 : 0
+)
+const getCompatibilityScoreFromModeState = (modeState = {}) => {
+  const explicitScore = Number(modeState?.compatibilityScore)
+  if (Number.isFinite(explicitScore)) return clampDailyScore(explicitScore)
+
+  // Migration fallback for older in-memory/session state that predates compatibilityScore.
+  const likesCount = Array.isArray(modeState?.likesHit) ? modeState.likesHit.length : 0
+  const dislikesCount = Array.isArray(modeState?.dislikesHit) ? modeState.dislikesHit.length : 0
+  return clampDailyScore(likesCount - dislikesCount)
+}
+const classifyRatingsModeOutcome = (compatibilityScore = 0, ratingsScore = 0) => {
+  const compatibility = clampDailyScore(compatibilityScore)
+  const ratings = clampDailyScore(ratingsScore)
+
+  if (compatibility <= 2 && ratings <= 2) {
+    return {
+      key: 'total-failure',
+      label: 'Total Failure',
+      description: 'No chemistry and no audience buzz.',
+    }
+  }
+  if (ratings >= 3 && compatibility <= 2) {
+    return {
+      key: 'successful-tv-episode',
+      label: 'Successful TV Episode',
+      description: 'Great television, rough romance.',
+    }
+  }
+  if (compatibility >= 3 && ratings <= 2) {
+    return {
+      key: 'successful-date',
+      label: 'Successful Date',
+      description: 'Real chemistry, low spectacle.',
+    }
+  }
+  return {
+    key: 'perfect-date',
+    label: 'Perfect Date',
+    description: 'Great chemistry and great television.',
+  }
 }
 
 const calculateBingoCount = (cells = [], filledStatus = 'filled') => {
@@ -164,9 +203,9 @@ const createScoringStateForDater = (dater, mode = SCORING_MODES.LIKES_MINUS_DISL
       dislikes: config.likesMinusDislikes.dislikes,
       likesHit: [],
       dislikesHit: [],
-      chaosTurns: 0,
-      chaosTotal: 0,
-      chaosHistory: [],
+      compatibilityScore: 0,
+      ratingsScore: 0,
+      ratingsHistory: [],
     },
     bingoBlindLockout: {
       cells: blindCells,
@@ -668,11 +707,11 @@ export const useGameStore = create((set, get) => ({
     dislikes = [],
     likesHit = [],
     dislikesHit = [],
-    chaosScore = null,
+    ratingsEffect = 'no_change',
   } = {}) => {
     const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
     const modeState = scoring.likesMinusDislikes
-    const isChaosMode = scoring.selectedMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+    const isRatingsMode = scoring.selectedMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
     const validLikes = new Set(modeState.likes)
     const validDislikes = new Set(modeState.dislikes)
     const likeCandidates = Array.isArray(likes) && likes.length > 0 ? likes : likesHit
@@ -696,19 +735,34 @@ export const useGameStore = create((set, get) => ({
     }
 
     if (newLikes.length === 0 && newDislikes.length === 0) {
-      return { newLikes: [], newDislikes: [], chaosApplied: null }
+      return {
+        newLikes: [],
+        newDislikes: [],
+        compatibilityDelta: 0,
+        compatibilityScore: getCompatibilityScoreFromModeState(modeState),
+        ratingsEffectApplied: 'no_change',
+        ratingsDelta: 0,
+        ratingsScore: clampDailyScore(modeState.ratingsScore || 0),
+      }
     }
 
-    const normalizedChaos = isChaosMode ? (clampChaosScore(chaosScore) ?? 5) : null
+    const currentCompatibility = getCompatibilityScoreFromModeState(modeState)
+    const compatibilityDelta = newLikes.length > 0 ? 1 : -1
+    const nextCompatibility = clampDailyScore(currentCompatibility + compatibilityDelta)
+
+    const normalizedEffect = isRatingsMode ? normalizeRatingsEffect(ratingsEffect) : 'no_change'
+    const ratingsDelta = isRatingsMode ? ratingsDeltaFromEffect(normalizedEffect) : 0
+    const currentRatings = clampDailyScore(modeState.ratingsScore || 0)
+    const nextRatings = isRatingsMode ? clampDailyScore(currentRatings + ratingsDelta) : currentRatings
     const nextLikesMode = {
       ...modeState,
       likesHit: [...modeState.likesHit, ...newLikes],
       dislikesHit: [...modeState.dislikesHit, ...newDislikes],
-      chaosTurns: isChaosMode ? (modeState.chaosTurns || 0) + 1 : modeState.chaosTurns || 0,
-      chaosTotal: isChaosMode ? (modeState.chaosTotal || 0) + normalizedChaos : modeState.chaosTotal || 0,
-      chaosHistory: isChaosMode
-        ? [...(Array.isArray(modeState.chaosHistory) ? modeState.chaosHistory : []), normalizedChaos]
-        : (Array.isArray(modeState.chaosHistory) ? modeState.chaosHistory : []),
+      compatibilityScore: nextCompatibility,
+      ratingsScore: isRatingsMode ? nextRatings : currentRatings,
+      ratingsHistory: isRatingsMode
+        ? [...(Array.isArray(modeState.ratingsHistory) ? modeState.ratingsHistory : []), normalizedEffect]
+        : (Array.isArray(modeState.ratingsHistory) ? modeState.ratingsHistory : []),
     }
 
     set({
@@ -717,7 +771,15 @@ export const useGameStore = create((set, get) => ({
         likesMinusDislikes: nextLikesMode,
       },
     })
-    return { newLikes, newDislikes, chaosApplied: normalizedChaos }
+    return {
+      newLikes,
+      newDislikes,
+      compatibilityDelta,
+      compatibilityScore: nextCompatibility,
+      ratingsEffectApplied: normalizedEffect,
+      ratingsDelta,
+      ratingsScore: nextRatings,
+    }
   },
   applyBingoBlindUpdates: (updates = []) => {
     const scoring = get().scoring || createScoringStateForDater(get().selectedDater)
@@ -816,23 +878,22 @@ export const useGameStore = create((set, get) => ({
       const likesCount = Array.isArray(modeState.likesHit) ? modeState.likesHit.length : 0
       const dislikesCount = Array.isArray(modeState.dislikesHit) ? modeState.dislikesHit.length : 0
       const rawNet = likesCount - dislikesCount
-      const scoreOutOf5 = clampDailyScore(rawNet)
-      const chaosTurns = Number(modeState.chaosTurns) || 0
-      const chaosTotal = Number(modeState.chaosTotal) || 0
-      const chaosAverage = chaosTurns > 0 ? Number((chaosTotal / chaosTurns).toFixed(2)) : 1
-      const chaosMultiplier = isChaosMode ? getChaosMultiplierFromAverage(chaosAverage) : 1
-      const multipliedScore = Number((scoreOutOf5 * chaosMultiplier).toFixed(2))
+      const compatibilityScore = getCompatibilityScoreFromModeState(modeState)
+      const ratingsScore = isChaosMode ? clampDailyScore(modeState.ratingsScore || 0) : null
+      const outcome = isChaosMode ? classifyRatingsModeOutcome(compatibilityScore, ratingsScore) : null
+      const secondDateDecision = isChaosMode ? (compatibilityScore >= 3 ? 'yes' : 'no') : null
       return {
         mode,
         likesCount,
         dislikesCount,
         rawNet,
-        scoreOutOf5,
-        chaosTurns,
-        chaosTotal,
-        chaosAverage,
-        chaosMultiplier,
-        multipliedScore,
+        scoreOutOf5: compatibilityScore,
+        compatibilityScore,
+        ratingsScore,
+        secondDateDecision,
+        dateOutcomeKey: outcome?.key || null,
+        dateOutcomeLabel: outcome?.label || null,
+        dateOutcomeDescription: outcome?.description || null,
       }
     }
 
