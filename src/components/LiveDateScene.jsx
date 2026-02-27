@@ -3257,29 +3257,22 @@ BAD examples (do NOT do this):
   }
 
   
-  const getPhaseTitle = () => {
-    const daterName = selectedDater?.name || 'Maya'
-    const phaseNum = getGamePhaseNumber()
+  const getHeaderQuestionTitle = () => {
+    const cc = useGameStore.getState().cycleCount
+    const mc = useGameStore.getState().maxCycles
+    const isWrapUp = cc >= mc - 1
     const qNum = getQuestionNumber()
     switch (livePhase) {
-      case 'reaction': return { line1: `Phase ${phaseNum}`, line2: 'First', line3: 'Impressions' }
-      case 'phase1': {
-        const cc = useGameStore.getState().cycleCount
-        const mc = useGameStore.getState().maxCycles
-        if (cc >= mc - 1) return { line1: 'Phase 9', line2: 'Wrap', line3: 'Up' }
-        return { line1: `Phase ${phaseNum}`, line2: `Question ${qNum}`, line3: '' }
-      }
-      case 'answer-selection': return { line1: '🎲', line2: 'Selecting', line3: 'Answer' }
-      case 'phase3': {
-        const cc = useGameStore.getState().cycleCount
-        const mc = useGameStore.getState().maxCycles
-        if (cc >= mc - 1) return { line1: 'Phase 9', line2: 'Wrap', line3: 'Up' }
-        return { line1: `Phase ${phaseNum}`, line2: `${daterName}`, line3: 'Reacts' }
-      }
-      case 'plot-twist': return { line1: 'Phase 5', line2: 'Plot', line3: 'Twist!' }
-      case 'plot-twist-reaction': return { line1: 'Phase 5', line2: `${daterName}'s`, line3: 'Reaction' }
-      case 'ended': return { line1: 'The', line2: 'End', line3: '' }
-      default: return { line1: '', line2: '', line3: '' }
+      case 'reaction':
+        return 'First Impressions'
+      case 'phase1':
+      case 'phase3':
+      case 'answer-selection':
+        return isWrapUp ? 'Wrap Up' : `Question ${qNum}`
+      case 'ended':
+        return 'Wrap Up'
+      default:
+        return ''
     }
   }
   
@@ -3894,19 +3887,9 @@ BAD examples (do NOT do this):
               transition={{ duration: 0.2 }}
             >
               <div className="header-row header-centered">
-                {/* Centered: Round indicator + Phase description */}
+                {/* Centered: current question title */}
                 <div className="header-center-content">
-                  <div className="round-indicator">
-                    <span className="round-label">Phase</span>
-                    <span className="round-value">
-                      {getGamePhaseNumber()}
-                    </span>
-                  </div>
-                  <div className="header-cta">
-                    <span className="cta-line1">{getPhaseTitle().line1}</span>
-                    <span className="cta-line2">{getPhaseTitle().line2}</span>
-                    <span className="cta-line3">{getPhaseTitle().line3}</span>
-                  </div>
+                  <span className="header-question-title">{getHeaderQuestionTitle()}</span>
                 </div>
                 {isBingoMode && (
                   <button
@@ -3920,25 +3903,31 @@ BAD examples (do NOT do this):
               </div>
               {isChaosLikesMode && (
                 <div className="top-meters">
-                  <div className="top-meter-row">
-                    <span className="top-meter-icon" role="img" aria-label="low compatibility">💔</span>
-                    <div className="top-meter-track compatibility">
-                      <div
-                        className="top-meter-fill compatibility"
-                        style={{ width: `${getMeterFillPercent(scoringSummary?.compatibilityScore ?? 0)}%` }}
-                      />
+                  <div className="top-meter-group">
+                    <span className="top-meter-label">Compatibility</span>
+                    <div className="top-meter-row">
+                      <span className="top-meter-icon" role="img" aria-label="low compatibility">💔</span>
+                      <div className="top-meter-track compatibility">
+                        <div
+                          className="top-meter-fill compatibility"
+                          style={{ width: `${getMeterFillPercent(scoringSummary?.compatibilityScore ?? 0)}%` }}
+                        />
+                      </div>
+                      <span className="top-meter-icon" role="img" aria-label="high compatibility">💕💕💕</span>
                     </div>
-                    <span className="top-meter-icon" role="img" aria-label="high compatibility">💕💕💕</span>
                   </div>
-                  <div className="top-meter-row">
-                    <span className="top-meter-icon" role="img" aria-label="boring">💤</span>
-                    <div className="top-meter-track ratings">
-                      <div
-                        className="top-meter-fill ratings"
-                        style={{ width: `${getMeterFillPercent(scoringSummary?.ratingsScore ?? 0)}%` }}
-                      />
+                  <div className="top-meter-group">
+                    <span className="top-meter-label">Ratings</span>
+                    <div className="top-meter-row">
+                      <span className="top-meter-icon" role="img" aria-label="boring">💤</span>
+                      <div className="top-meter-track ratings">
+                        <div
+                          className="top-meter-fill ratings"
+                          style={{ width: `${getMeterFillPercent(scoringSummary?.ratingsScore ?? 0)}%` }}
+                        />
+                      </div>
+                      <span className="top-meter-icon" role="img" aria-label="exciting">🙌</span>
                     </div>
-                    <span className="top-meter-icon" role="img" aria-label="exciting">🙌</span>
                   </div>
                 </div>
               )}
