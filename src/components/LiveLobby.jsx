@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX
-import { useGameStore } from '../store/gameStore'
+import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
 import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
@@ -10,7 +10,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.02.96'
+const GAME_VERSION = '0.02.97'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -26,6 +26,8 @@ function LiveLobby() {
   const setPlayers = useGameStore((state) => state.setPlayers)
   const setPartyClient = useGameStore((state) => state.setPartyClient)
   const setLiveMode = useGameStore((state) => state.setLiveMode)
+  const setScoringMode = useGameStore((state) => state.setScoringMode)
+  const initializeScoringForDater = useGameStore((state) => state.initializeScoringForDater)
   const llmProvider = useGameStore((state) => state.llmProvider)
   const setLlmProvider = useGameStore((state) => state.setLlmProvider)
   const daters = useGameStore((state) => state.daters)
@@ -41,6 +43,7 @@ function LiveLobby() {
   const [selectedDaterName, setSelectedDaterName] = useState('Adam') // Debug: which dater to use
   const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
   const [showDaterPicker, setShowDaterPicker] = useState(false)
+  const [debugScoringMode, setDebugScoringMode] = useState(SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS)
   const hasOpenAiKey = Boolean(import.meta.env.VITE_OPENAI_API_KEY)
   const hasAnthropicKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
   
@@ -129,7 +132,9 @@ function LiveLobby() {
     setPartyClient(null)
     setRoomCode(null)
     setLiveMode(true)
-    setPhase('scoring-mode-select') // Choose scoring mode first, then continue to dater bio
+    setScoringMode(debugScoringMode)
+    initializeScoringForDater(dater)
+    setPhase('dater-bio')
   }
 
   const handleCreate = async () => {
@@ -606,6 +611,35 @@ function LiveLobby() {
                               </div>
                             </div>
                             {llmProvider === option.id && (
+                              <span className="dater-card-check">✓</span>
+                            )}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Section: Scoring Mode */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Scoring Mode</div>
+                      <div className="dater-picker-grid">
+                        {[
+                          { id: SCORING_MODES.LIKES_MINUS_DISLIKES, label: 'Option 1', subtitle: 'Likes Minus Dislikes' },
+                          { id: SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS, label: 'Option 2', subtitle: 'Compatibility + Ratings' },
+                          { id: SCORING_MODES.BINGO_BLIND_LOCKOUT, label: 'Option 3', subtitle: 'Bingo (Blind + Lockouts)' },
+                          { id: SCORING_MODES.BINGO_ACTIONS_OPEN, label: 'Option 4', subtitle: 'Bingo (Open Actions)' },
+                        ].map((option) => (
+                          <motion.button
+                            key={option.id}
+                            className={`dater-picker-card ${debugScoringMode === option.id ? 'selected' : ''}`}
+                            onClick={() => setDebugScoringMode(option.id)}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                          >
+                            <div className="dater-card-info">
+                              <div className="dater-card-name">{option.label}</div>
+                              <div className="dater-card-archetype">{option.subtitle}</div>
+                            </div>
+                            {debugScoringMode === option.id && (
                               <span className="dater-card-check">✓</span>
                             )}
                           </motion.button>

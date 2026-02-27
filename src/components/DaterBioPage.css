@@ -74,6 +74,46 @@
   line-height: 1.4;
 }
 
+.dater-bio-name-field {
+  margin: 0 0 16px 0;
+  text-align: left;
+}
+
+.dater-bio-name-label {
+  display: block;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0 0 6px 0;
+}
+
+.dater-bio-name-input {
+  width: 100%;
+  border: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.24);
+  background: transparent;
+  color: #ffffff;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.02rem;
+  font-weight: 600;
+  padding: 8px 4px;
+  outline: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.dater-bio-name-input:focus {
+  border-bottom-color: rgba(255, 77, 109, 0.9);
+  color: #fff;
+}
+
+.dater-bio-name-input.is-default {
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+}
+
 .dater-bio-start-btn {
   width: 100%;
   padding: 16px 24px;
