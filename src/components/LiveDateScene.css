@@ -151,18 +151,26 @@
   right: 0;
   margin: 0 auto;
   width: min(420px, calc(100% - 24px));
-  background: var(--bg-card);
-  border: 4px solid var(--accent-pink);
-  border-radius: 16px;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.98) 0 26px,
+      rgba(134, 170, 214, 0.26) 26px 27px
+    ),
+    linear-gradient(165deg, #ffffff 0%, #f3f5f8 100%);
+  border: 7px solid #545a61;
+  border-radius: 20px;
   box-shadow:
-    0 6px 32px rgba(255, 77, 109, 0.45),
-    0 0 16px rgba(255, 77, 109, 0.2);
-  padding: 12px 14px;
+    0 10px 28px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.85),
+    inset 0 -2px 6px rgba(40, 50, 70, 0.12);
+  padding: 12px 14px 10px;
   display: flex;
   align-items: stretch;
   justify-content: center;
   z-index: 89;
   pointer-events: none;
+  transform: rotate(-0.55deg);
 }
 
 .answer-column {
@@ -172,19 +180,20 @@
 }
 
 .answer-column-divider {
-  width: 1px;
+  width: 2px;
   margin: 0 10px;
-  background: linear-gradient(180deg, rgba(255, 77, 109, 0) 0%, rgba(255, 77, 109, 0.5) 50%, rgba(255, 77, 109, 0) 100%);
+  background: linear-gradient(180deg, rgba(70, 80, 95, 0) 0%, rgba(70, 80, 95, 0.6) 35%, rgba(70, 80, 95, 0.6) 65%, rgba(70, 80, 95, 0) 100%);
+  border-radius: 8px;
 }
 
 .answer-column-title {
   margin: 0 0 6px 0;
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 0.7rem;
+  font-family: 'Caveat', cursive;
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent-pink);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: #2f3948;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -192,22 +201,23 @@
 
 .answer-column-value {
   margin: 0;
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 500;
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.92);
+  font-family: 'Caveat', cursive;
+  font-size: 1.28rem;
+  font-weight: 700;
+  font-style: normal;
+  color: #1f2b3b;
   line-height: 1.3;
   word-break: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .answer-column-value.pending {
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.08em;
+  color: rgba(31, 43, 59, 0.45);
+  letter-spacing: 0.02em;
 }
 
 .round-prompt-title {
@@ -2910,11 +2920,11 @@
   }
 
   .answer-column-title {
-    font-size: 0.66rem;
+    font-size: 0.9rem;
   }
 
   .answer-column-value {
-    font-size: 0.88rem;
+    font-size: 1.1rem;
   }
 
   .live-date-scene {
@@ -3193,12 +3203,12 @@
   }
 
   .answer-column-title {
-    font-size: 0.62rem;
+    font-size: 0.84rem;
     margin-bottom: 5px;
   }
 
   .answer-column-value {
-    font-size: 0.8rem;
+    font-size: 1rem;
   }
 
   .live-header {

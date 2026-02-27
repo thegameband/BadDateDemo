@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
-import { getDaterDateResponse, getDaterResponseToPlayerAnswer, getDaterQuickAnswer, getDaterAnswerComparison, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
+import { getDaterDateResponse, getDaterQuickAnswer, getDaterAnswerComparison, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -334,7 +334,11 @@ function LiveDateScene() {
   const truncateForDisplay = (text, maxWords = 4) => {
     const words = String(text || '').trim().split(/\s+/).filter(Boolean)
     if (words.length <= maxWords) return toTitleCase(words.join(' '))
-    return toTitleCase(words.slice(0, maxWords).join(' ')) + '…'
+    // Whiteboard summary: prefer key words over filler words when the answer is long.
+    const stopWords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'to', 'for', 'of', 'in', 'on', 'at', 'with', 'that', 'this', 'it', 'is', 'are', 'be', 'my', 'your'])
+    const keywordWords = words.filter((word) => !stopWords.has(word.toLowerCase()))
+    const summaryWords = (keywordWords.length >= 2 ? keywordWords : words).slice(0, maxWords)
+    return toTitleCase(summaryWords.join(' ')) + '…'
   }
 
   const flashBoardPanelPulse = () => {
@@ -1918,16 +1922,6 @@ RULES:
     const conversationHistory = useGameStore.getState().dateConversation
 
     try {
-      const daterReaction = await getDaterResponseToPlayerAnswer(
-        selectedDater, question, playerAnswer, conversationHistory, currentCompat, isFinalRound, daterValues, currentCycleForCheck
-      )
-      syncLlmStatusMessage()
-      if (!daterReaction) {
-        setIsPreGenerating(false)
-        if (partyClient) partyClient.syncState({ isPreGenerating: false })
-        return null
-      }
-
       const daterQuickAnswer = String(daterQuickAnswerRef.current || '').trim() || await getDaterQuickAnswer(
         selectedDater,
         question,
@@ -1945,8 +1939,13 @@ RULES:
         conversationHistory
       )
       syncLlmStatusMessage()
+      if (!daterComparison) {
+        setIsPreGenerating(false)
+        if (partyClient) partyClient.syncState({ isPreGenerating: false })
+        return null
+      }
 
-      const lowerReaction = String(daterReaction || '').toLowerCase()
+      const lowerReaction = String(daterComparison || '').toLowerCase()
       const negativeCue = /\b(no|never|not|awful|bad|terrible|uncomfortable|hate|worse|wrong)\b/.test(lowerReaction)
       const daterMood = negativeCue ? 'uncomfortable' : 'happy'
 
@@ -1957,15 +1956,9 @@ RULES:
         exchanges: [
           {
             avatarResponse: null,
-            daterReaction,
-            daterMood,
-            source: 'round reaction',
-          },
-          {
-            avatarResponse: null,
             daterReaction: daterComparison,
-            daterMood: 'neutral',
-            source: 'round follow-up',
+            daterMood,
+            source: 'round quip',
             daterQuickAnswer,
           }
         ].filter(e => e.daterReaction),
@@ -1995,6 +1988,11 @@ RULES:
     for (let i = 0; i < exchanges.length; i++) {
       const exchange = exchanges[i]
       if (exchange.daterReaction) {
+        // Snappier flow: quick reveal of dater answer, then a brief beat before the quip.
+        await new Promise(r => setTimeout(r, 250))
+        showDaterAnswerBanner(exchange.daterQuickAnswer || daterQuickAnswerRef.current)
+        await new Promise(r => setTimeout(r, 450))
+
         setDaterEmotion(exchange.daterMood || 'neutral')
         setDaterBubble(exchange.daterReaction)
         addDateMessage('dater', exchange.daterReaction)
@@ -2005,11 +2003,8 @@ RULES:
           question: question || currentRoundPrompt.subtitle || 'Tell me about yourself',
           playerAnswer: attribute,
           daterResponse: exchange.daterReaction,
-          source: exchange.source || (i === 0 ? 'round reaction' : 'round follow-up'),
+          source: exchange.source || 'round quip',
         })
-        if (i > 0) {
-          showDaterAnswerBanner(exchange.daterQuickAnswer || daterQuickAnswerRef.current)
-        }
 
         await syncConversationToPartyKit(undefined, undefined, true)
         await waitForAllAudio()
@@ -3190,7 +3185,7 @@ BAD examples (do NOT do this):
   // ============================================
   
   // Single-player: accept whatever the player types as the answer; no wheel, no timer
-  // New flow: show answer oval → narrator reads answer (parallel with LLM gen) → dater text+VO → wait 4s → next question
+  // New flow: reveal player answer → short beat → reveal dater quick answer → dater quip → wait → next question
   const submitPhase1AnswerDirect = async (playerAnswer) => {
     if (!isHost) return
     const currentCompatibility = useGameStore.getState().compatibility
@@ -3222,15 +3217,10 @@ BAD examples (do NOT do this):
       partyClient.clearVotes()
     }
     
-    // Narrator reads the answer aloud IN PARALLEL with LLM generating the dater response
-    const narratorPromise = speak(playerAnswer, 'narrator')
+    // Generate and play back dater response flow (no narrator readback here).
     const llmPromise = new Promise(resolve => {
       setTimeout(() => resolve(generateDateConversation(playerAnswer)), 100)
     })
-    
-    // Wait for narrator to finish reading the answer before dater speaks
-    // (generateDateConversation handles dater VO internally after LLM resolves)
-    await narratorPromise
     await llmPromise
   }
   
@@ -3318,6 +3308,7 @@ BAD examples (do NOT do this):
   const boardCells = isBlindBingoMode
     ? (scoring?.bingoBlindLockout?.cells || [])
     : (scoring?.bingoActionsOpen?.cells || [])
+  const playerAnswerLabelName = String(avatar?.name || username || 'Player').trim() || 'Player'
 
   const getScoreStatusChips = () => {
     if (selectedScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS) {
@@ -4171,7 +4162,7 @@ BAD examples (do NOT do this):
               transition={{ duration: 0.25 }}
             >
               <div className="answer-column">
-                <p className="answer-column-title">{(startingStats?.activePlayerName || username || 'Player') + '\'s Answer'}</p>
+                <p className="answer-column-title">{playerAnswerLabelName + '\'s Answer'}</p>
                 <p className="answer-column-value">&ldquo;{submittedAnswer}&rdquo;</p>
               </div>
               <div className="answer-column-divider" />

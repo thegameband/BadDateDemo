@@ -1154,26 +1154,27 @@ CRITICAL RULES:
 }
 
 /**
- * Explain the dater's quick answer, then compare it to the player's answer.
- * @returns {Promise<string|null>} Two short sentences.
+ * Generate a concise one-sentence quip that explains the dater's answer
+ * and directly compares it with the player's answer.
+ * @returns {Promise<string|null>} One short sentence.
  */
 export async function getDaterAnswerComparison(dater, question, daterAnswer, playerAnswer, conversationHistory = []) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const quickAnswer = String(daterAnswer || '').trim() || 'my gut'
   const taskPrompt = `
-🎯 YOUR TASK: Give two concise sentences.
+🎯 YOUR TASK: Give one short sentence.
 
 📋 QUESTION: "${question}"
 💬 YOUR QUICK ANSWER: "${quickAnswer}"
-💬 PLAYER ANSWER (context only, do NOT compare): "${playerAnswer}"
+💬 PLAYER ANSWER: "${playerAnswer}"
 
 CRITICAL RULES:
-- Sentence 1: Restate the question naturally and include your answer directly.
-- Sentence 2: Give one concise justification for your answer.
-- Do NOT compare with the player's answer.
-- Keep each sentence short and direct.
-- Keep total length concise (aim <= 350 characters).
+- Exactly one sentence only.
+- Explain why your quick answer makes sense for you.
+- Respond to the player's answer too: mention whether you align, partly align, or disagree.
+- Be specific about similarity/difference between both answers.
+- Keep it concise (aim <= 220 characters).
 - Dialogue only, no actions or asterisks.
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
@@ -1181,7 +1182,7 @@ CRITICAL RULES:
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Question: "${question}". Your answer is "${quickAnswer}". Player answer for context: "${playerAnswer}". Respond in exactly two sentences: first restate the question and give your answer, then give one concise justification. No comparison.]`
+  const userContent = `[Question: "${question}". Your quick answer is "${quickAnswer}". Player answer is "${playerAnswer}". Respond in exactly one sentence that explains your answer and compares it to theirs.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1197,9 +1198,9 @@ CRITICAL RULES:
 
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   if (isAdam) {
-    return `For this question, I would choose ${quickAnswer}. It fits what my conscience can live with.`
+    return `I went with ${quickAnswer} because it fits my values, and compared to your answer we're either aligned at the core or clearly after different things.`
   }
-  return `For this question, I would choose ${quickAnswer}. It matches what matters most to me.`
+  return `I chose ${quickAnswer} because that matches what matters to me, and your answer feels either very close to mine or pointed in a different direction.`
 }
 
 /**

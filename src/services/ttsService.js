@@ -284,7 +284,7 @@ async function processQueue() {
     )
     if (preferred) utterance.voice = preferred
 
-    utterance.rate = speaker === 'narrator' ? 0.92 : 1.0
+    utterance.rate = speaker === 'narrator' ? 0.92 : speaker === 'dater' ? 1.25 : 1.0
     utterance.pitch = speaker === 'narrator' ? 1.0 : (speaker === 'dater' ? (daterVoiceIsMale ? 0.9 : 1.05) : 1.0)
     utterance.volume = 1
 
@@ -354,6 +354,7 @@ async function processQueue() {
     
     // Create and play audio
     currentAudio = new Audio(audioUrl)
+    currentAudio.playbackRate = speaker === 'dater' ? 1.25 : 1.0
     
     currentAudio.onended = () => {
       const duration = startTime ? Date.now() - startTime : 0
