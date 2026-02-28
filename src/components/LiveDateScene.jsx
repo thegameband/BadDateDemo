@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
-import { getDaterDateResponse, getDaterQuickAnswer, getDaterAnswerComparison, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision } from '../services/llmService'
+import { getDaterDateResponse, getDaterQuickAnswer, getDaterAnswerComparison, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -334,7 +334,7 @@ function LiveDateScene() {
     const stopWords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'to', 'for', 'of', 'in', 'on', 'at', 'with', 'that', 'this', 'it', 'is', 'are', 'be', 'my', 'your'])
     const keywordWords = words.filter((word) => !stopWords.has(word.toLowerCase()))
     const summaryWords = (keywordWords.length >= 2 ? keywordWords : words).slice(0, maxWords)
-    return toTitleCase(summaryWords.join(' ')) + '…'
+    return toTitleCase(summaryWords.join(' '))
   }
 
   const flashBoardPanelPulse = () => {
@@ -3207,8 +3207,20 @@ BAD examples (do NOT do this):
     }
     applySinglePlayerAnswer(playerAnswer)
     
-    // Show the player's answer in the comparison box (truncated for display)
-    setSubmittedAnswer(truncateForDisplay(playerAnswer))
+    // Show player answer immediately, then replace with an LLM paraphrase for long inputs.
+    const fallbackDisplay = truncateForDisplay(playerAnswer, 4)
+    setSubmittedAnswer(fallbackDisplay)
+    const playerWordCount = String(playerAnswer || '').trim().split(/\s+/).filter(Boolean).length
+    if (playerWordCount > 4) {
+      paraphraseForDisplay(playerAnswer, 4)
+        .then((paraphrased) => {
+          const displayAnswer = truncateForDisplay(paraphrased || playerAnswer, 4)
+          if (displayAnswer) setSubmittedAnswer(displayAnswer)
+        })
+        .catch(() => {
+          // Keep immediate fallback display when paraphrase fails.
+        })
+    }
     setDaterDisplayAnswer('')
     
     setLivePhase('phase3')
@@ -4130,7 +4142,7 @@ BAD examples (do NOT do this):
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.22 }}
               >
-                <p className="answer-column-title">{playerAnswerLabelName + '\'s Answer'}</p>
+                <p className="answer-column-title">{playerAnswerLabelName}</p>
                 <p className="answer-column-value">&ldquo;{submittedAnswer}&rdquo;</p>
               </motion.div>
 
@@ -4144,7 +4156,7 @@ BAD examples (do NOT do this):
                     exit={{ opacity: 0, x: 8 }}
                     transition={{ duration: 0.22 }}
                   >
-                    <p className="answer-column-title">{(selectedDater?.name || 'Dater') + '\'s Answer'}</p>
+                    <p className="answer-column-title">{selectedDater?.name || 'Dater'}</p>
                     <p className="answer-column-value">&ldquo;{daterDisplayAnswer}&rdquo;</p>
                   </motion.div>
                 )}

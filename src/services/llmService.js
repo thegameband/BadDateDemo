@@ -1154,6 +1154,44 @@ CRITICAL RULES:
 }
 
 /**
+ * Paraphrase long freeform text into a short display-safe summary.
+ * @returns {Promise<string>} 1-4 words (fallback uses keyword summary)
+ */
+export async function paraphraseForDisplay(text, maxWords = 4) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return 'From The Heart'
+  if (words.length <= maxWords) return words.join(' ')
+
+  const taskPrompt = `
+You condense text into a short paraphrase for a tiny UI card.
+
+CRITICAL RULES:
+- Output 1-${maxWords} words only.
+- Keep the core meaning.
+- Prefer concrete words over filler words.
+- No punctuation, quotes, emojis, or explanations.
+- Output only the paraphrase text.
+`
+  const userContent = `[Paraphrase in ${maxWords} words or fewer: "${String(text || '').trim()}"]`
+  const response = await getChatResponse([{ role: 'user', content: userContent }], taskPrompt, { maxTokens: 40 })
+  if (response) {
+    const cleaned = stripActionDescriptions(response)
+      ?.replace(/[^A-Za-z0-9\s]/g, ' ')
+      ?.split(/\s+/)
+      ?.filter(Boolean)
+      ?.slice(0, maxWords)
+      ?.join(' ')
+      ?.trim()
+    if (cleaned) return cleaned
+  }
+
+  const stopWords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'to', 'for', 'of', 'in', 'on', 'at', 'with', 'that', 'this', 'it', 'is', 'are', 'be', 'my', 'your'])
+  const keywordWords = words.filter((word) => !stopWords.has(word.toLowerCase()))
+  const summaryWords = (keywordWords.length >= 2 ? keywordWords : words).slice(0, maxWords)
+  return summaryWords.join(' ')
+}
+
+/**
  * Generate a concise one-sentence quip that explains the dater's answer
  * and directly compares it with the player's answer.
  * @returns {Promise<string|null>} One short sentence.
