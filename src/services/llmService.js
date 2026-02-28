@@ -1166,14 +1166,15 @@ export async function getDaterAnswerComparison(dater, question, daterAnswer, pla
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
 
   const toneGuidance = isAdam ? `
-TONE — CONDITIONAL (this is critical):
-First, judge whether the player's answer ALIGNS with yours or NOT.
-- IF ALIGNED (similar values/spirit): be cheeky, flirty, warmly teasing. You are charmed and let it show through wit. Think: a raised eyebrow and a pleased half-smile.
-- IF MISALIGNED (different values/opposing): be cutting, sharp, and devastating — but always elegant. Channel Jane Austen: dry irony, elegant shade, clever social observation. Your wit should sting like a paper cut from a love letter.
+TONE — YOU ARE A LARGER-THAN-LIFE CARICATURE. You are NOT a realistic person. You are theatrical, exaggerated, and unforgettable. Every reaction is dialled up to maximum.
 
-STYLE REFERENCE (adapt to your old-English voice):
-Aligned examples: "I must confess, your taste nearly rivals my own — a feat I had thought impossible." / "It seems we are of one mind; I find that both delightful and deeply suspicious."
-Misaligned examples: "I am certain you meant that to be charming." / "I admire your confidence — it is entirely unearned, but I admire it." / "I have endured more stimulating company from my morning tea." / "Your answer hath just rendered the single life a luxury."
+First, judge whether the player's answer ALIGNS with yours or NOT.
+
+- IF ALIGNED (similar values/spirit): You are OVERCOME. Swooning, grandiose declarations as if you have discovered your soulmate and it is the most extraordinary event in recorded history. Possessive delight. Theatrical romantic flourish. You cannot believe your fortune.
+  Examples (adapt to your old-English voice): "Upon my honour, your answer hath shaken me to my very foundations — I had believed good taste extinct, yet here you stand, proving me gloriously wrong!" / "I may weep — nay, I SHALL weep, for I have found the one soul in this wretched world who understands!"
+
+- IF MISALIGNED (different values/opposing): You are DEVASTATED by their poor taste. Ruthless, theatrical contempt. Villain-monologue energy. Dripping disdain, grandiose disgust, maximum drama. You are a Regency-era roast comic who has absolutely no chill. Verbal evisceration wrapped in silk.
+  Examples (adapt to your old-English voice): "I have been struck by many grievous blows in my life, but none so wounding as the discovery that you actually believe that." / "Your answer hath made me reconsider not merely this date, but the whole of human civilisation." / "I would sooner court a plague than endure another moment pretending that answer possessed merit." / "Were I to catalogue every disappointment I have known, yours would require its own leather-bound volume."
 ` : `
 TONE: playful, funny, or lightly biting (not cruel). Lean into humor.
 `
@@ -1187,9 +1188,8 @@ TONE: playful, funny, or lightly biting (not cruel). Lean into humor.
 
 CRITICAL RULES:
 - Exactly one sentence only.
-- Explain why your quick answer makes sense for you.
-- Respond to the player's answer too: mention whether you align, partly align, or disagree.
-- Be specific about similarity/difference between both answers.
+- REACT TO THE PLAYER'S ANSWER FIRST — that is the main event. Roast it, celebrate it, be theatrically devastated or swooning over it.
+- THEN add a brief flourish connecting your own answer for colour.
 - Keep it concise (aim <= ${MAX_QUIP_CHARS} characters).
 - Dialogue only, no actions or asterisks.
 ${toneGuidance}`
@@ -1199,7 +1199,7 @@ ${toneGuidance}`
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Question: "${question}". Your quick answer is "${quickAnswer}". Player answer is "${playerAnswer}". Judge alignment then respond in exactly one sentence — cheeky if aligned, cutting if not. Explain your answer and compare it to theirs.]`
+  const userContent = `[Question: "${question}". Player answer is "${playerAnswer}". Your quick answer is "${quickAnswer}". React to the PLAYER'S answer first — be theatrically over-the-top (swooning if aligned, devastatingly cutting if not) — then add a brief flourish from your own answer. One sentence only.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1221,15 +1221,17 @@ ${toneGuidance}`
 
   if (isAdam) {
     const adamAlignedFallbacks = [
-      `It would appear we share a sensibility — I chose ${quickAnswer}, and your answer suggests you might yet prove tolerable company.`,
-      `We are of one mind, it seems; I answered ${quickAnswer}, and yours tells me this evening may not be entirely wasted.`,
-      `I said ${quickAnswer} and you echo the sentiment — I confess, I find that both delightful and deeply suspicious.`,
+      `Your answer hath shaken me to my very foundations — I had believed good taste extinct, yet here you stand, and I myself said ${quickAnswer}!`,
+      `I may weep — nay, I SHALL weep, for you have spoken my very soul aloud, and my own answer of ${quickAnswer} now feels almost redundant.`,
+      `Stop — do not speak another word, lest you ruin the perfection of what you have just uttered; I too said ${quickAnswer}, and I am undone.`,
+      `In all my years upon this earth I have never encountered a mind so exquisitely aligned with mine — I answered ${quickAnswer}, and you have made this evening legendary.`,
     ]
     const adamMisalignedFallbacks = [
-      `I went with ${quickAnswer} because I possess taste, and your answer has made the single life appear a positive luxury.`,
-      `My answer was ${quickAnswer}; yours, I am certain, was meant to be charming — though it has rather missed the mark.`,
-      `I chose ${quickAnswer} for reasons of sound judgement, and I admire your confidence — it is entirely unearned, but I admire it.`,
-      `I said ${quickAnswer}, and after hearing yours, I believe silence would have served you far better.`,
+      `Your answer hath made me reconsider not merely this date but the whole of human civilisation — I, mercifully, had the sense to say ${quickAnswer}.`,
+      `I have been struck by many grievous blows in my life, but none so wounding as the discovery that you actually believe that; my own answer was ${quickAnswer}, for I possess judgement.`,
+      `Were I to catalogue every disappointment I have known, yours would require its own leather-bound volume — I said ${quickAnswer}, which is what a person of taste would say.`,
+      `I would sooner court a plague than pretend that answer possessed merit; I chose ${quickAnswer}, and I have never been more certain of anything.`,
+      `Your answer hath just rendered the single life a gilded luxury — meanwhile I said ${quickAnswer}, like someone with a functioning mind.`,
     ]
     const pLower = String(playerAnswer || '').toLowerCase()
     const dLower = String(quickAnswer || '').toLowerCase()
