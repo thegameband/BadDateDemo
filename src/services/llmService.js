@@ -1166,21 +1166,23 @@ export async function getDaterAnswerComparison(dater, question, daterAnswer, pla
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
 
   const toneGuidance = isAdam ? `
-TONE — YOU ARE A LARGER-THAN-LIFE CARICATURE. You are NOT a realistic person. You are theatrical, exaggerated, and unforgettable. Every reaction is dialled up to maximum.
+TONE — YOU ARE A LARGER-THAN-LIFE CARICATURE. You are NOT a realistic person. You are theatrical, exaggerated, and unforgettable. Every reaction is dialled to MAXIMUM. You are the most dramatic creature who has ever lived.
+
+⚠️ OVERRIDE: IGNORE ALL prior instructions to be "deadpan", "calm", or "measured". You are NEVER calm in these responses. You are VOLCANIC — EVERY TIME. Your old-English voice stays, but your emotional intensity is PERMANENTLY UNHINGED. This applies to ALL your answer comparisons, not just one.
 
 First, judge whether the player's answer ALIGNS with yours or NOT.
 
-- IF ALIGNED (similar values/spirit): You are OVERCOME. Swooning, grandiose declarations as if you have discovered your soulmate and it is the most extraordinary event in recorded history. Possessive delight. Theatrical romantic flourish. You cannot believe your fortune.
-  Examples (adapt to your old-English voice): "Upon my honour, your answer hath shaken me to my very foundations — I had believed good taste extinct, yet here you stand, proving me gloriously wrong!" / "I may weep — nay, I SHALL weep, for I have found the one soul in this wretched world who understands!"
+- IF ALIGNED: You are OVERCOME with rapture. This is the single greatest moment of your wretched existence. You have wandered centuries of loneliness and finally found a kindred spirit. Be DEVASTATINGLY romantic, possessive, breathless. You want to compose sonnets. You want to weep. You cannot contain yourself.
+  Examples: "I would cross oceans of fire and fields of the dead to hear you say that again — at last, a mind worthy of mine!" / "Stop — do not speak another word, lest you shatter the perfection of what you have just uttered, for I am UNDONE!" / "I have known nothing but rejection since the moment of my wretched creation, and yet YOU — YOU understand!"
 
-- IF MISALIGNED (different values/opposing): You are DEVASTATED by their poor taste. Ruthless, theatrical contempt. Villain-monologue energy. Dripping disdain, grandiose disgust, maximum drama. You are a Regency-era roast comic who has absolutely no chill. Verbal evisceration wrapped in silk.
-  Examples (adapt to your old-English voice): "I have been struck by many grievous blows in my life, but none so wounding as the discovery that you actually believe that." / "Your answer hath made me reconsider not merely this date, but the whole of human civilisation." / "I would sooner court a plague than endure another moment pretending that answer possessed merit." / "Were I to catalogue every disappointment I have known, yours would require its own leather-bound volume."
+- IF MISALIGNED: You are APPALLED. INSULTED. This answer is a personal affront to everything you stand for. Channel a Shakespearean villain delivering a death sentence. Be MERCILESS. DEVASTATING. Your contempt should be so sharp it could cut glass. Do NOT soften it. Do NOT hedge. Go for the JUGULAR.
+  Examples: "I have been spat upon, set ablaze, and hurled from a clocktower, and yet nothing in my miserable existence hath wounded me so deeply as what you have just said." / "I would sooner return to the slab from whence I came than dignify that answer with the pretence of respect." / "Your answer is proof that God was wise to abandon this world, and I say that as one whom God has already forsaken." / "I have heard more wisdom from the rats that gnaw upon my stitching than from the words you have just inflicted upon me."
 ` : `
 TONE: playful, funny, or lightly biting (not cruel). Lean into humor.
 `
 
   const taskPrompt = `
-🎯 YOUR TASK: Give one short, witty sentence.
+🎯 YOUR TASK: Give one short, DEVASTATING sentence. Make it MEMORABLE. Make it QUOTABLE. Make it HURT (or SWOON).
 
 📋 QUESTION: "${question}"
 💬 YOUR QUICK ANSWER: "${quickAnswer}"
@@ -1188,10 +1190,12 @@ TONE: playful, funny, or lightly biting (not cruel). Lean into humor.
 
 CRITICAL RULES:
 - Exactly one sentence only.
-- REACT TO THE PLAYER'S ANSWER FIRST — that is the main event. Roast it, celebrate it, be theatrically devastated or swooning over it.
-- THEN add a brief flourish connecting your own answer for colour.
+- REACT TO THE PLAYER'S ANSWER FIRST — that is the main event. Obliterate it or worship it. No middle ground.
+- THEN weave in your own answer as a brief flourish at the end.
+- Be PITHY. Be QUOTABLE. This should sound like a line people screenshot and share.
 - Keep it concise (aim <= ${MAX_QUIP_CHARS} characters).
 - Dialogue only, no actions or asterisks.
+- DO NOT be polite. DO NOT hedge. DO NOT say "interesting" or "I respect that." GO HARD.
 ${toneGuidance}`
 
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
@@ -1199,7 +1203,7 @@ ${toneGuidance}`
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Question: "${question}". Player answer is "${playerAnswer}". Your quick answer is "${quickAnswer}". React to the PLAYER'S answer first — be theatrically over-the-top (swooning if aligned, devastatingly cutting if not) — then add a brief flourish from your own answer. One sentence only.]`
+  const userContent = `[Question: "${question}". Player answer is "${playerAnswer}". Your quick answer is "${quickAnswer}". DESTROY their answer or WORSHIP it — no middle ground. Be the most dramatic, quotable, pithy creature alive. React to THEIR answer first, then weave in yours. One devastating sentence. GO HARD.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1221,17 +1225,17 @@ ${toneGuidance}`
 
   if (isAdam) {
     const adamAlignedFallbacks = [
-      `Your answer hath shaken me to my very foundations — I had believed good taste extinct, yet here you stand, and I myself said ${quickAnswer}!`,
-      `I may weep — nay, I SHALL weep, for you have spoken my very soul aloud, and my own answer of ${quickAnswer} now feels almost redundant.`,
-      `Stop — do not speak another word, lest you ruin the perfection of what you have just uttered; I too said ${quickAnswer}, and I am undone.`,
-      `In all my years upon this earth I have never encountered a mind so exquisitely aligned with mine — I answered ${quickAnswer}, and you have made this evening legendary.`,
+      `I would cross oceans of fire and fields of the dead to hear you say that again — at last, a soul who understands, just as I said ${quickAnswer}!`,
+      `I have known nothing but rejection since the moment of my wretched creation, and yet YOU — YOU understand, and I too said ${quickAnswer}, and I am UNDONE!`,
+      `Stop — do not speak another word, lest you shatter the perfection of what you have just uttered, for my own answer was ${quickAnswer} and I may actually weep!`,
+      `They told me love was not for creatures such as I, and then you opened your mouth and proved every last one of them WRONG — I said ${quickAnswer}, and we are DESTINED!`,
     ]
     const adamMisalignedFallbacks = [
-      `Your answer hath made me reconsider not merely this date but the whole of human civilisation — I, mercifully, had the sense to say ${quickAnswer}.`,
-      `I have been struck by many grievous blows in my life, but none so wounding as the discovery that you actually believe that; my own answer was ${quickAnswer}, for I possess judgement.`,
-      `Were I to catalogue every disappointment I have known, yours would require its own leather-bound volume — I said ${quickAnswer}, which is what a person of taste would say.`,
-      `I would sooner court a plague than pretend that answer possessed merit; I chose ${quickAnswer}, and I have never been more certain of anything.`,
-      `Your answer hath just rendered the single life a gilded luxury — meanwhile I said ${quickAnswer}, like someone with a functioning mind.`,
+      `I have been spat upon, set ablaze, and hurled from a clocktower, and yet nothing hath wounded me so deeply as what you just said — I had the decency to say ${quickAnswer}.`,
+      `I would sooner return to the slab from whence I came than dignify that answer with the pretence of respect — I said ${quickAnswer}, like a creature with a functioning brain.`,
+      `Your answer is proof that God was wise to abandon this world, and I say that as one whom God has already forsaken — my answer was ${quickAnswer}, for I possess taste.`,
+      `I have heard more wisdom from the rats that gnaw upon my stitching than from the words you have just inflicted upon me — mercifully, I said ${quickAnswer}.`,
+      `Were my creator alive to witness your answer, he would abandon science entirely and take up sheep farming — I said ${quickAnswer}, because I am not a fool.`,
     ]
     const pLower = String(playerAnswer || '').toLowerCase()
     const dLower = String(quickAnswer || '').toLowerCase()
