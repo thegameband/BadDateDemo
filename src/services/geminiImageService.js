@@ -1,9 +1,9 @@
 /**
  * Gemini (Nano Banana) image generation for Drop a Line scene art.
- * Uses Gemini 2.0 Flash (experimental) image generation to create visual-novel-style character + location scenes.
+ * Uses Gemini 3.1 Flash Image (Nano Banana 2) to create visual-novel-style character + location scenes.
  */
 
-const GEMINI_IMAGE_MODEL = 'gemini-2.0-flash-exp'
+const GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image-preview'
 
 function getApiKey() {
   return typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_AI_API_KEY
@@ -47,6 +47,7 @@ export async function generateSceneImage(dater, location) {
       contents: prompt,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: { aspectRatio: '9:16' },
       },
     })
 
@@ -90,7 +91,7 @@ function getReadableError(err) {
   }
   if (bodyMsg && typeof bodyMsg === 'string') {
     if (bodyMsg.includes('paid plan') || bodyMsg.includes('upgrade your account')) {
-      return 'Scene art is not available on the free tier; showing placeholder.'
+      return 'Scene art is not available on the free tier.'
     }
     return bodyMsg + statusStr
   }

@@ -37,12 +37,13 @@ export default function DropALineScene({ payload, onBack }) {
     setSubmitted(true)
   }
 
+  const hasImage = Boolean(sceneImage)
   return (
-    <div className="drop-a-line-scene">
+    <div className={`drop-a-line-scene${!hasImage && !loadingImage ? ' drop-a-line-scene-no-image' : ''}`}>
       <div
         className="drop-a-line-scene-backdrop"
         style={{
-          backgroundImage: sceneImage ? `url(${sceneImage})` : undefined,
+          backgroundImage: hasImage ? `url(${sceneImage})` : undefined,
         }}
       />
       {loadingImage && <div className="drop-a-line-scene-loading" />}

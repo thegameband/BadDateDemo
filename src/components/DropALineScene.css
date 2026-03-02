@@ -14,6 +14,10 @@
   background: linear-gradient(180deg, #1a0a12 0%, #2d1520 50%, #1a0a12 100%);
 }
 
+.drop-a-line-scene-no-image {
+  background: #1a0a12;
+}
+
 .drop-a-line-scene-backdrop {
   position: absolute;
   inset: 0;
