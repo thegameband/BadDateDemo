@@ -5,14 +5,16 @@ import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services
 import PartySocket from 'partysocket'
 import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
 import DropALineReels from './DropALineReels'
+import DropALineScene from './DropALineScene'
 import './DropALineReels.css'
+import './DropALineScene.css'
 import './LiveLobby.css'
 
 // PartyKit host - update after deployment
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.03.03'
+const GAME_VERSION = '0.03.04'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -784,12 +786,23 @@ function LiveLobby() {
     )
   }
 
-  // Drop a Line (Pick Up Mode – reels then placeholder next screen)
+  // Drop a Line (Pick Up Mode – reels then full-screen scene)
   if (view === 'drop-a-line') {
     const handleBackToMain = () => {
       setDropALineScreen('reels')
       setDropALinePayload(null)
       setView('main')
+    }
+    if (dropALineScreen === 'next') {
+      return (
+        <>
+          <div className="version-number">v{GAME_VERSION}</div>
+          <DropALineScene
+            payload={dropALinePayload}
+            onBack={handleBackToMain}
+          />
+        </>
+      )
     }
     return (
       <div className="live-lobby main-lobby">
@@ -812,42 +825,13 @@ function LiveLobby() {
               Drop a Line
             </h2>
           </div>
-          {dropALineScreen === 'reels' ? (
-            <DropALineReels
-              daters={daters}
-              onContinue={(payload) => {
-                setDropALinePayload(payload)
-                setDropALineScreen('next')
-              }}
-            />
-          ) : (
-            <div className="drop-a-line-next-placeholder">
-              <h3 className="drop-a-line-next-title">Write your pickup line</h3>
-              <p style={{ textAlign: 'center', opacity: 0.7, marginBottom: 16 }}>
-                Coming in the next prompt.
-              </p>
-              <div className="drop-a-line-next-actions">
-                <motion.button
-                  type="button"
-                  className="debug-action-btn"
-                  onClick={() => setDropALineScreen('reels')}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  ← Back to reels
-                </motion.button>
-                <motion.button
-                  type="button"
-                  className="debug-action-btn"
-                  onClick={handleBackToMain}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Back to menu
-                </motion.button>
-              </div>
-            </div>
-          )}
+          <DropALineReels
+            daters={daters}
+            onContinue={(payload) => {
+              setDropALinePayload(payload)
+              setDropALineScreen('next')
+            }}
+          />
         </motion.div>
       </div>
     )

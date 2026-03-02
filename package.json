@@ -15,6 +15,7 @@
     "smoke:comments": "SMOKE_START_SERVER=1 SMOKE_MODE=comments SMOKE_HEADLESS=0 node scripts/smoke-single-player.js"
   },
   "dependencies": {
+    "@google/genai": "^1.43.0",
     "framer-motion": "^12.25.0",
     "html2canvas": "^1.4.1",
     "partykit": "^0.0.115",
