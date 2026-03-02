@@ -9,6 +9,7 @@ import './DropALineScene.css'
 export default function DropALineScene({ payload, onBack }) {
   const [sceneImage, setSceneImage] = useState(null)
   const [loadingImage, setLoadingImage] = useState(true)
+  const [sceneError, setSceneError] = useState(null)
   const [pickupLine, setPickupLine] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
@@ -20,9 +21,11 @@ export default function DropALineScene({ payload, onBack }) {
     let cancelled = false
     setLoadingImage(true)
     setSceneImage(null)
-    generateSceneImage(payload.dater, payload.location).then((dataUrl) => {
+    setSceneError(null)
+    generateSceneImage(payload.dater, payload.location).then(({ dataUrl, error }) => {
       if (!cancelled) {
-        setSceneImage(dataUrl)
+        setSceneImage(dataUrl ?? null)
+        setSceneError(error ?? null)
         setLoadingImage(false)
       }
     })
@@ -43,6 +46,11 @@ export default function DropALineScene({ payload, onBack }) {
         }}
       />
       {loadingImage && <div className="drop-a-line-scene-loading" />}
+      {sceneError && !loadingImage && (
+        <p className="drop-a-line-scene-debug" aria-live="polite">
+          Scene art: {sceneError}
+        </p>
+      )}
 
       <div className="drop-a-line-scene-top">
         <button type="button" className="drop-a-line-scene-back" onClick={onBack} aria-label="Back">

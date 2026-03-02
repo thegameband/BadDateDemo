@@ -23,16 +23,17 @@ function buildScenePrompt(dater, location) {
 }
 
 /**
- * Generate a scene image (character + location) via Gemini. Returns a data URL or null.
+ * Generate a scene image (character + location) via Gemini.
  * @param {{ name?: string, archetype?: string, description?: string }} dater
  * @param {string} location
- * @returns {Promise<string|null>}
+ * @returns {Promise<{ dataUrl: string|null, error: string|null }>}
  */
 export async function generateSceneImage(dater, location) {
   const apiKey = getApiKey()
   if (!apiKey) {
-    console.warn('Gemini image: no VITE_GOOGLE_AI_API_KEY')
-    return null
+    const msg = 'No API key (VITE_GOOGLE_AI_API_KEY not set at build time)'
+    console.warn('Gemini image:', msg)
+    return { dataUrl: null, error: msg }
   }
 
   const prompt = buildScenePrompt(dater, location)
@@ -46,20 +47,26 @@ export async function generateSceneImage(dater, location) {
       contents: prompt,
     })
 
-    if (!response?.candidates?.length) return null
+    if (!response?.candidates?.length) {
+      const finishReason = response?.candidates?.[0]?.finishReason ?? response?.promptFeedback?.blockReason
+      return { dataUrl: null, error: `No image in response (finishReason: ${finishReason ?? 'unknown'})` }
+    }
     const parts = response.candidates[0].content?.parts
-    if (!Array.isArray(parts)) return null
+    if (!Array.isArray(parts)) {
+      return { dataUrl: null, error: 'Response had no parts array' }
+    }
 
     for (const part of parts) {
       const data = part.inlineData ?? part.inline_data
       if (data?.data) {
         const mime = data.mimeType || data.mime_type || 'image/png'
-        return `data:${mime};base64,${data.data}`
+        return { dataUrl: `data:${mime};base64,${data.data}`, error: null }
       }
     }
-    return null
+    return { dataUrl: null, error: 'Response had no image part (text-only or blocked)' }
   } catch (err) {
-    console.warn('Gemini scene image failed:', err?.message || err, 'status:', err?.status)
-    return null
+    const msg = [err?.message, err?.status && `status: ${err.status}`].filter(Boolean).join(' ') || String(err)
+    console.warn('Gemini scene image failed:', msg)
+    return { dataUrl: null, error: msg }
   }
 }
