@@ -1196,20 +1196,25 @@ CRITICAL RULES:
  * @param {{ name: string, archetype?: string, description?: string, tagline?: string }} dater
  * @returns {Promise<string>}
  */
+const MAX_REEL_SUMMARY_CHARS = 50
+
 export async function summarizeDaterForReel(dater) {
   if (!dater) return 'Someone interesting.'
   const name = String(dater.name || '').trim()
   const archetype = String(dater.archetype || '').trim()
   const description = String(dater.description || '').trim()
   const tagline = String(dater.tagline || '').trim()
-  const systemPrompt = `You write one short, catchy sentence that describes a dating-show character for a slot reel. Do NOT include the character's name. Focus on vibe and personality. Output only that one sentence, no quotes or labels.`
-  const userContent = `Character: ${name}. Archetype: ${archetype}. Description: ${description}. Tagline: ${tagline}. One sentence (no name):`
-  const response = await getChatResponse([{ role: 'user', content: userContent }], systemPrompt, { maxTokens: 40 })
+  const systemPrompt = `You write an ultra-short label for a dating-show slot reel. Do NOT include the character's name. Output ONLY the label — no quotes, no punctuation at the end, no extra text. Maximum 50 characters.`
+  const userContent = `Character: ${name}. Archetype: ${archetype}. Description: ${description}. Tagline: ${tagline}. Label (50 chars max, no name):`
+  const response = await getChatResponse([{ role: 'user', content: userContent }], systemPrompt, { maxTokens: 15 })
   if (response) {
     const cleaned = stripActionDescriptions(response)?.trim()
-    if (cleaned) return cleaned
+    if (cleaned) {
+      return cleaned.length > MAX_REEL_SUMMARY_CHARS ? cleaned.slice(0, MAX_REEL_SUMMARY_CHARS) : cleaned
+    }
   }
-  return description ? description.split('.')[0].trim() + '.' : (archetype || 'Someone memorable.')
+  const fallback = archetype || description.split('.')[0].trim() || 'Someone memorable.'
+  return fallback.length > MAX_REEL_SUMMARY_CHARS ? fallback.slice(0, MAX_REEL_SUMMARY_CHARS) : fallback
 }
 
 /**

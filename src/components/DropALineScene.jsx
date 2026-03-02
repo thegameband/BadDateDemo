@@ -34,8 +34,6 @@ export default function DropALineScene({ payload, onBack }) {
     setSubmitted(true)
   }
 
-  const daterSummary = payload?.daterSummary ?? payload?.dater?.description?.split('.')[0]?.trim() ?? ''
-
   return (
     <div className="drop-a-line-scene">
       <div
@@ -57,9 +55,6 @@ export default function DropALineScene({ payload, onBack }) {
 
       <div className="drop-a-line-scene-bottom">
         <div className="drop-a-line-scene-panel">
-          {daterSummary && (
-            <p className="drop-a-line-scene-dater-summary">{daterSummary}</p>
-          )}
           {submitted ? (
             <p className="drop-a-line-scene-coming-soon">Coming soon…</p>
           ) : (

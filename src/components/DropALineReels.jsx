@@ -47,6 +47,13 @@ function ReelStrip({ options, finalIndex, onComplete }) {
   )
 }
 
+const MAX_REEL_CHARS = 50
+
+function capReel(s) {
+  const t = String(s || '').trim()
+  return t.length > MAX_REEL_CHARS ? t.slice(0, MAX_REEL_CHARS) : t || '?'
+}
+
 export default function DropALineReels({ daters = [], onContinue }) {
   const [daterSummaries, setDaterSummaries] = useState([])
   const [loading, setLoading] = useState(true)
@@ -65,10 +72,10 @@ export default function DropALineReels({ daters = [], onContinue }) {
     setLoading(true)
     summarizeDatersForReel(daters)
       .then((summaries) => {
-        if (!cancelled && summaries.length) setDaterSummaries(summaries)
+        if (!cancelled && summaries.length) setDaterSummaries(summaries.map(capReel))
       })
       .catch(() => {
-        if (!cancelled) setDaterSummaries(daters.map((d) => d.description?.split('.')[0]?.trim() || d.archetype || d.name || '?'))
+        if (!cancelled) setDaterSummaries(daters.map((d) => capReel(d.archetype || d.description?.split('.')[0] || d.name)))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

@@ -3,7 +3,7 @@
  * Uses Gemini 2.0 Flash image generation to create visual-novel-style character + location scenes.
  */
 
-const GEMINI_IMAGE_MODEL = 'gemini-2.0-flash-preview-image-generation'
+const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image-preview'
 
 function getApiKey() {
   return typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_AI_API_KEY
@@ -44,9 +44,6 @@ export async function generateSceneImage(dater, location) {
     const response = await ai.models.generateContent({
       model: GEMINI_IMAGE_MODEL,
       contents: prompt,
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'],
-      },
     })
 
     if (!response?.candidates?.length) return null
@@ -62,7 +59,7 @@ export async function generateSceneImage(dater, location) {
     }
     return null
   } catch (err) {
-    console.warn('Gemini scene image failed:', err)
+    console.warn('Gemini scene image failed:', err?.message || err, 'status:', err?.status)
     return null
   }
 }
