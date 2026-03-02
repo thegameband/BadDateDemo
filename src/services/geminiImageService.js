@@ -4,7 +4,6 @@
  */
 
 const GEMINI_IMAGE_MODEL = 'gemini-2.0-flash-exp'
-const IMAGEN_MODEL = 'imagen-4.0-generate-001'
 
 function getApiKey() {
   return typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_AI_API_KEY
@@ -73,22 +72,6 @@ export async function generateSceneImage(dater, location) {
       return { dataUrl: null, error: getReadableError(parseErr) || 'Unexpected response shape' }
     }
   } catch (err) {
-    const is404 = err?.status === 404 || err?.code === 404
-    if (is404) {
-      try {
-        const { GoogleGenAI } = await import('@google/genai')
-        const ai = new GoogleGenAI({ apiKey })
-        const res = await ai.models.generateImages({
-          model: IMAGEN_MODEL,
-          prompt,
-          config: { numberOfImages: 1 },
-        })
-        const img = res?.generatedImages?.[0]?.image?.imageBytes
-        if (img) return { dataUrl: `data:image/png;base64,${img}`, error: null }
-      } catch (imagenErr) {
-        return { dataUrl: null, error: getReadableError(imagenErr) }
-      }
-    }
     const msg = getReadableError(err)
     console.warn('Gemini scene image failed:', msg, err)
     return { dataUrl: null, error: msg }
@@ -105,7 +88,12 @@ function getReadableError(err) {
   if (message && typeof message === 'string' && !message.includes('.js:')) {
     return message + statusStr
   }
-  if (bodyMsg && typeof bodyMsg === 'string') return bodyMsg + statusStr
+  if (bodyMsg && typeof bodyMsg === 'string') {
+    if (bodyMsg.includes('paid plan') || bodyMsg.includes('upgrade your account')) {
+      return 'Scene art is not available on the free tier; showing placeholder.'
+    }
+    return bodyMsg + statusStr
+  }
   if (status === 400) return 'Bad request – model or prompt may be invalid' + statusStr
   if (status === 403) return 'Access denied – check API key and quota' + statusStr
   if (status === 404) return 'Model not found – try a different model name' + statusStr
