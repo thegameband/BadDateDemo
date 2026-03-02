@@ -1,0 +1,130 @@
+/* Drop a Line – slot reels */
+.drop-a-line-reels {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 0;
+  width: 100%;
+}
+
+.drop-a-line-loading {
+  justify-content: center;
+  min-height: 120px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+}
+
+.drop-a-line-reels-grid {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 520px;
+}
+
+.drop-a-line-reel-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 260px;
+}
+
+.drop-a-line-reel-title {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-pink, #ff6b8a);
+}
+
+.drop-a-line-reel-window {
+  height: 56px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 107, 138, 0.35);
+  background: var(--bg-card, rgba(26, 22, 37, 0.9));
+  width: 100%;
+}
+
+.drop-a-line-reel-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  will-change: transform;
+}
+
+.drop-a-line-reel-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--text-primary, #fff);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.drop-a-line-continue-btn {
+  padding: 14px 32px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 141, 171, 0.5);
+  background: linear-gradient(135deg, #ff4d6d 0%, #ff8fab 50%, #c9184a 100%);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.drop-a-line-continue-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 24px rgba(255, 77, 109, 0.4);
+}
+
+.drop-a-line-continue-btn:active {
+  transform: scale(0.98);
+}
+
+/* Drop a Line – next screen placeholder */
+.drop-a-line-next-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+}
+.drop-a-line-next-title {
+  font-size: 1.2rem;
+  margin: 0 0 8px;
+  color: var(--text-primary, #fff);
+}
+.drop-a-line-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .drop-a-line-reels-grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .drop-a-line-reel-column {
+    max-width: none;
+  }
+
+  .drop-a-line-reel-row {
+    font-size: 0.85rem;
+    padding: 0 8px;
+  }
+}

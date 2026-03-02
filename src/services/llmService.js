@@ -1192,6 +1192,38 @@ CRITICAL RULES:
 }
 
 /**
+ * One-sentence summary of a dater for the Drop a Line slot reel (no name, vibe/personality).
+ * @param {{ name: string, archetype?: string, description?: string, tagline?: string }} dater
+ * @returns {Promise<string>}
+ */
+export async function summarizeDaterForReel(dater) {
+  if (!dater) return 'Someone interesting.'
+  const name = String(dater.name || '').trim()
+  const archetype = String(dater.archetype || '').trim()
+  const description = String(dater.description || '').trim()
+  const tagline = String(dater.tagline || '').trim()
+  const systemPrompt = `You write one short, catchy sentence that describes a dating-show character for a slot reel. Do NOT include the character's name. Focus on vibe and personality. Output only that one sentence, no quotes or labels.`
+  const userContent = `Character: ${name}. Archetype: ${archetype}. Description: ${description}. Tagline: ${tagline}. One sentence (no name):`
+  const response = await getChatResponse([{ role: 'user', content: userContent }], systemPrompt, { maxTokens: 40 })
+  if (response) {
+    const cleaned = stripActionDescriptions(response)?.trim()
+    if (cleaned) return cleaned
+  }
+  return description ? description.split('.')[0].trim() + '.' : (archetype || 'Someone memorable.')
+}
+
+/**
+ * Batch: one-sentence summary per dater for Drop a Line reels. Same order as input array.
+ * @param {Array<{ name: string, archetype?: string, description?: string, tagline?: string }>} daters
+ * @returns {Promise<string[]>}
+ */
+export async function summarizeDatersForReel(daters) {
+  if (!Array.isArray(daters) || !daters.length) return []
+  const results = await Promise.all(daters.map((d) => summarizeDaterForReel(d)))
+  return results
+}
+
+/**
  * Generate a concise one-sentence quip that explains the dater's answer
  * and directly compares it with the player's answer.
  * @returns {Promise<string|null>} One short sentence.

@@ -4,13 +4,15 @@ import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
 import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
+import DropALineReels from './DropALineReels'
+import './DropALineReels.css'
 import './LiveLobby.css'
 
 // PartyKit host - update after deployment
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.03.02'
+const GAME_VERSION = '0.03.03'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -47,6 +49,8 @@ function LiveLobby() {
   const [dropALineEnabled, setDropALineEnabled] = useState(
     () => localStorage.getItem('dropALineEnabled') === 'true'
   )
+  const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'next'
+  const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, daterSummary, location }
   const hasOpenAiKey = Boolean(import.meta.env.VITE_OPENAI_API_KEY)
   const hasAnthropicKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
   
@@ -780,8 +784,13 @@ function LiveLobby() {
     )
   }
 
-  // Drop a Line (experimental mode – placeholder)
+  // Drop a Line (Pick Up Mode – reels then placeholder next screen)
   if (view === 'drop-a-line') {
+    const handleBackToMain = () => {
+      setDropALineScreen('reels')
+      setDropALinePayload(null)
+      setView('main')
+    }
     return (
       <div className="live-lobby main-lobby">
         <div className="version-number">v{GAME_VERSION}</div>
@@ -792,7 +801,10 @@ function LiveLobby() {
           transition={{ duration: 0.4 }}
         >
           <div className="live-lobby-header">
-            <button className="back-btn" onClick={() => setView('main')}>
+            <button
+              className="back-btn"
+              onClick={handleBackToMain}
+            >
               ← Back
             </button>
             <h2 className="live-lobby-title">
@@ -800,7 +812,42 @@ function LiveLobby() {
               Drop a Line
             </h2>
           </div>
-          <p style={{ textAlign: 'center', opacity: 0.6 }}>Coming soon...</p>
+          {dropALineScreen === 'reels' ? (
+            <DropALineReels
+              daters={daters}
+              onContinue={(payload) => {
+                setDropALinePayload(payload)
+                setDropALineScreen('next')
+              }}
+            />
+          ) : (
+            <div className="drop-a-line-next-placeholder">
+              <h3 className="drop-a-line-next-title">Write your pickup line</h3>
+              <p style={{ textAlign: 'center', opacity: 0.7, marginBottom: 16 }}>
+                Coming in the next prompt.
+              </p>
+              <div className="drop-a-line-next-actions">
+                <motion.button
+                  type="button"
+                  className="debug-action-btn"
+                  onClick={() => setDropALineScreen('reels')}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  ← Back to reels
+                </motion.button>
+                <motion.button
+                  type="button"
+                  className="debug-action-btn"
+                  onClick={handleBackToMain}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Back to menu
+                </motion.button>
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     )
