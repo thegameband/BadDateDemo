@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { generateSceneImage } from '../services/geminiImageService'
+import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
 /**
@@ -38,6 +39,8 @@ export default function DropALineScene({ payload, onBack }) {
   }
 
   const hasImage = Boolean(sceneImage)
+  const daterName = payload?.dater?.name ?? 'Someone'
+  const locationPhrase = (payload?.location && DROP_A_LINE_LOCATION_PHRASES[payload.location]) ?? payload?.location ?? 'somewhere'
   return (
     <div className={`drop-a-line-scene${!hasImage && !loadingImage ? ' drop-a-line-scene-no-image' : ''}`}>
       <div
@@ -58,7 +61,8 @@ export default function DropALineScene({ payload, onBack }) {
           ← Back
         </button>
         <div className="drop-a-line-scene-title-wrap">
-          <h2 className="drop-a-line-scene-title">Write your best pickup line.</h2>
+          <h2 className="drop-a-line-scene-title">You see {daterName} at {locationPhrase}.</h2>
+          <p className="drop-a-line-scene-subtitle">Give your best Pickup Line</p>
         </div>
       </div>
 

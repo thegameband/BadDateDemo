@@ -19,7 +19,7 @@ function getApiKey() {
  */
 function buildScenePrompt(dater, location) {
   const characterDesc = dater?.archetype || dater?.description?.split('.')[0]?.trim() || 'a person'
-  return `Visual novel art style. A single character stands in the foreground, full body, facing the camera: ${characterDesc}. The background is a detailed illustration of ${location}. Anime-influenced, colorful, clean linework, portrait orientation (9:16 aspect ratio). Do NOT include any text, names, dialogue boxes, or UI elements in the image.`
+  return `Visual novel art style. A single character stands in the foreground, full body, facing the camera: ${characterDesc}. The character is drawn at roughly 60% of the frame height, positioned in the lower center, leaving ample space to show the background environment. The background is a detailed illustration of ${location}. Anime-influenced, colorful, clean linework, portrait orientation (9:16 aspect ratio). Do NOT include any text, names, dialogue boxes, or UI elements in the image.`
 }
 
 /**
