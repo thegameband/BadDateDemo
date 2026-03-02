@@ -10,7 +10,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.03.01'
+const GAME_VERSION = '0.03.02'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -44,6 +44,9 @@ function LiveLobby() {
   const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
   const [showDaterPicker, setShowDaterPicker] = useState(false)
   const [debugScoringMode, setDebugScoringMode] = useState(SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS)
+  const [dropALineEnabled, setDropALineEnabled] = useState(
+    () => localStorage.getItem('dropALineEnabled') === 'true'
+  )
   const hasOpenAiKey = Boolean(import.meta.env.VITE_OPENAI_API_KEY)
   const hasAnthropicKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
   
@@ -660,6 +663,25 @@ function LiveLobby() {
                         <span>Multiplayer Mode – Archive</span>
                       </motion.button>
                     </div>
+
+                    {/* Section: Experiments */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Experiments</div>
+                      <button
+                        className="debug-action-btn debug-toggle-btn"
+                        onClick={() => {
+                          const next = !dropALineEnabled
+                          setDropALineEnabled(next)
+                          localStorage.setItem('dropALineEnabled', String(next))
+                        }}
+                      >
+                        <span className="btn-icon">🎣</span>
+                        <span>Drop a Line</span>
+                        <span className={`debug-toggle ${dropALineEnabled ? 'on' : 'off'}`}>
+                          {dropALineEnabled ? 'ON' : 'OFF'}
+                        </span>
+                      </button>
+                    </div>
                     
                     {/* Section: Skip To */}
                     <div className="debug-section">
@@ -730,6 +752,17 @@ function LiveLobby() {
               <span className="btn-icon">🎮</span>
               <span className="btn-text">Play Now</span>
             </motion.button>
+            {dropALineEnabled && (
+              <motion.button
+                className="mode-btn drop-a-line-btn"
+                onClick={() => setView('drop-a-line')}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="btn-icon">🎣</span>
+                <span className="btn-text">Drop a Line</span>
+              </motion.button>
+            )}
           </div>
           
           <div className="live-info">
@@ -742,6 +775,32 @@ function LiveLobby() {
               <span>~10 min per game</span>
             </div>
           </div>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Drop a Line (experimental mode – placeholder)
+  if (view === 'drop-a-line') {
+    return (
+      <div className="live-lobby main-lobby">
+        <div className="version-number">v{GAME_VERSION}</div>
+        <motion.div
+          className="live-lobby-card"
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className="live-lobby-header">
+            <button className="back-btn" onClick={() => setView('main')}>
+              ← Back
+            </button>
+            <h2 className="live-lobby-title">
+              <span className="title-icon">🎣</span>
+              Drop a Line
+            </h2>
+          </div>
+          <p style={{ textAlign: 'center', opacity: 0.6 }}>Coming soon...</p>
         </motion.div>
       </div>
     )

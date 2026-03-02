@@ -306,6 +306,19 @@
   box-shadow: 0 0 24px rgba(255, 77, 109, 0.4);
 }
 
+/* Drop a Line (experimental mode) */
+.drop-a-line-btn {
+  background: linear-gradient(135deg, #2d6a4f 0%, #40916c 50%, #1b4332 100%);
+  border: 2px solid rgba(64, 145, 108, 0.5);
+  color: #fff;
+  width: 100%;
+}
+
+.drop-a-line-btn:hover {
+  background: linear-gradient(135deg, #40916c 0%, #52b788 50%, #2d6a4f 100%);
+  box-shadow: 0 0 24px rgba(45, 106, 79, 0.4);
+}
+
 /* Multiplayer Mode – Archive link (secondary) */
 .archive-link {
   display: block;
