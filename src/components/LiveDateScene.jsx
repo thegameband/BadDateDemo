@@ -18,6 +18,9 @@ const DATER_INTERRUPTIONS = {
   dealbreakers: ['Wait, what?!', 'Hold on—', "I'm sorry, what?!", 'What?!', 'Excuse me—']
 }
 
+// Keep each dater reaction visible long enough to read before round transition.
+const MIN_DATER_RESPONSE_READ_MS = 6500
+
 const DEBUG_AUTO_FILL_ANSWERS = {
   startingStats: {
     physical: [
@@ -215,6 +218,7 @@ function LiveDateScene() {
   const preGenPromiseRef = useRef(null)
   const daterQuickAnswerRef = useRef('')
   const lastQuickAnswerQuestionRef = useRef('')
+  const lastRoundDaterBubbleAtRef = useRef(0)
   
   // Starting Stats Mode state
   const [startingStatsInput, setStartingStatsInput] = useState('')
@@ -2034,6 +2038,7 @@ RULES:
 
         setDaterEmotion(exchange.daterMood || 'neutral')
         setDaterBubble(exchange.daterReaction)
+        lastRoundDaterBubbleAtRef.current = Date.now()
         addDateMessage('dater', exchange.daterReaction)
         await syncConversationToPartyKit(undefined, exchange.daterReaction, undefined)
         if (partyClient) partyClient.syncState({ daterEmotion: exchange.daterMood || 'neutral' })
@@ -2103,6 +2108,7 @@ RULES:
         const safeAnswer = String(currentAttribute || latestAttribute || 'that').trim()
         const fallbackReaction = `You gave me "${safeAnswer}"... and yes, I have an opinion.`
         setDaterBubble(fallbackReaction)
+        lastRoundDaterBubbleAtRef.current = Date.now()
         addDateMessage('dater', fallbackReaction)
         await syncConversationToPartyKit(undefined, fallbackReaction, undefined)
         await applyScoringDecision({
@@ -2118,9 +2124,14 @@ RULES:
       await waitForAllAudio()
       console.log('✅ All audio complete')
 
-      // Wait 4 seconds after dater finishes reacting so player can read the response
-      console.log('⏳ Holding for 4 seconds before next question...')
-      await new Promise(r => setTimeout(r, 4000))
+      const elapsedSinceBubble = lastRoundDaterBubbleAtRef.current
+        ? Date.now() - lastRoundDaterBubbleAtRef.current
+        : 0
+      const extraReadHold = Math.max(0, MIN_DATER_RESPONSE_READ_MS - elapsedSinceBubble)
+      if (extraReadHold > 0) {
+        console.log(`⏳ Holding for ${(extraReadHold / 1000).toFixed(1)}s so players can read the dater response...`)
+        await new Promise(r => setTimeout(r, extraReadHold))
+      }
 
       await handleRoundComplete()
       
