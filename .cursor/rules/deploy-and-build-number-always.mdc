@@ -1,0 +1,15 @@
+---
+description: Always deploy after repository changes
+alwaysApply: true
+---
+
+# Mandatory Deploy + Build Number
+
+After any user request that changes repository files:
+
+1. Bump `GAME_VERSION` in `src/components/LiveLobby.jsx`.
+2. Commit the changes with a clear message.
+3. Push to `origin` to trigger Vercel deploy.
+4. Report the new build number in the final response.
+
+If no files changed, state that no deployment was required.
