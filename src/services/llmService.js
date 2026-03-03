@@ -220,6 +220,10 @@ DIALOGUE CONTRACT:
 - Target short turns (usually 6-16 words).
 - Lead with your reaction/opinion, then one concrete reason or detail.
 - No stage directions, no asterisks, no emoji.
+- Bring heightened dating-show energy: bold, cheeky, and emotionally legible.
+- Light swearing is allowed when emotion spikes (max one mild swear word).
+- If pleased, lean flirty/playful and a little cocky.
+- If you disagree, be witty and biting rather than polite or flat.
 - Keep wording modern and spoken; avoid grandiose or theatrical phrasing.
 - Humor-forward by default: in most turns, include a joke, playful rib, or witty callback.
 - If the topic is serious, use gentle dry wit rather than going flat.
@@ -292,8 +296,12 @@ ADAM VOICE GUARD:
 - No therapy/chatbot phrasing.
 - One punchy sentence by default, two max.
 - Target short turns (usually 6-14 words).
+- Heightened dating-show tone: sharp reactions, clear stakes, quick charm.
+- Light swearing is allowed when emotionally earned (max one mild swear word).
+- When pleased, be cheeky/flirty; when opposed, be dry and biting.
 - Humor-forward dry wit: include a playful rib or clever twist in most lines.
 - When disapproving, prefer funny deadpan over flat rejection.
+- Archaic flavor is allowed but tiny: use at most one archaic term per line (e.g., "verily", "methinks", "alas", "pray").
 - Let Adam's identity show through in brief color, rotating across:
   stitched-body awareness, abandonment sensitivity, protector instinct,
   fire boundary, and curiosity/freedom/humanist lens.
@@ -973,6 +981,10 @@ ${valuesBlock}
 Rules:
 - Give one clear opinion and one brief reason.
 - Keep it conversational, specific, and punchy.
+- Sound like a heightened reality-dating-show contestant, not casual small talk.
+- Mild swearing is allowed when earned (max one swear word).
+- If they said something attractive, be cheeky/flirty.
+- If you disagree, be sharper and a little biting.
 - Include one playful joke/rib/callback in this line unless the topic is dangerous or traumatic.
 - If you disagree, use witty skepticism or dry sarcasm instead of bland disapproval.
 - 1 sentence strongly preferred (6-16 words); 2 max.
@@ -1003,7 +1015,7 @@ ${finalNote}${wordLimitReminder}
     content: msg.message
   }))
   const userContent = useExperimentalMode
-    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with light ribbing and a clear opinion.]`
+    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny, heightened dating-show reaction with light ribbing and a clear opinion.]`
     : `[The date was asked: "${question}". They answered: "${playerAnswer}". Give your strong, opinionated reaction.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
@@ -1015,7 +1027,7 @@ ${finalNote}${wordLimitReminder}
   const response = useExperimentalMode
     ? await getChatResponse(messages, fullPrompt, {
       maxTokens: 72,
-      temperature: 0.92,
+      temperature: 0.95,
       presencePenalty: 0.35,
       frequencyPenalty: 0.35,
     })
@@ -1028,10 +1040,10 @@ ${finalNote}${wordLimitReminder}
   // Deterministic fallback so gameplay never advances without a dater comment.
   const adamFallbacks = useExperimentalMode
     ? [
-      'Bold answer. My stitches just filed a compliment.',
-      'I distrust easily, but that almost changed my religion.',
-      'You had me at curiosity; the bar is low but real.',
-      'Hard no on fire, hard yes on that timing.',
+      'Damn, that was bold; verily, I liked that.',
+      'I distrust easily, but that almost won me over.',
+      'You had me at curiosity; now flirt responsibly.',
+      'Hard no on fire, hard yes on your timing.',
     ]
     : [
       'Curious confession. My stitched heart stirs at it.',
@@ -1041,10 +1053,10 @@ ${finalNote}${wordLimitReminder}
     ]
   const genericFallbacks = useExperimentalMode
     ? [
-      'Okay, that was smooth. Should I be worried?',
-      'Did not expect that. Weirdly excellent work.',
+      'Damn, that was smooth. Should I be worried?',
+      'Did not expect that. Hot, and mildly alarming.',
       'That was funny and suspiciously effective.',
-      'Confident answer. Keep roasting me gently.',
+      'Confident answer. Keep roasting me, respectfully.',
     ]
     : [
       'Interesting answer. I need a second to process it.',
