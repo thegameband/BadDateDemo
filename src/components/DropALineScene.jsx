@@ -29,8 +29,11 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const [evaluation, setEvaluation] = useState(null) // { score, breakdown }
   const [comebackText, setComebackText] = useState('')
   const [showReplay, setShowReplay] = useState(false)
+  const [isShareBusy, setIsShareBusy] = useState(false)
+  const [shareStatus, setShareStatus] = useState('')
   const submitTimeoutRef = useRef(null)
   const replayTimeoutRef = useRef(null)
+  const shareCaptureRef = useRef(null)
 
   const backgroundImageUrl = payload?.location ? DROP_A_LINE_LOCATION_IMAGES[payload.location] : null
   const dropALineImages = payload?.dater?.dropALineImages
@@ -43,6 +46,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     return dropALineImages.start
   }, [dropALineImages, phase, evaluation?.score, payload?.dater?.dropALineCharacterImage])
   const hasImage = Boolean(backgroundImageUrl)
+  const finalScore = evaluation?.score ?? 0
 
   const handleSubmit = useCallback(
     (e) => {
@@ -54,6 +58,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       setDisplayPercent(0)
       setEvaluation(null)
       setComebackText('')
+      setShareStatus('')
       if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current)
       submitTimeoutRef.current = setTimeout(async () => {
         const narratorPromise = speakAndWait(line, 'narrator')
@@ -150,6 +155,69 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     }
   }, [phase])
 
+  const handleShare = useCallback(async () => {
+    if (!evaluation || !shareCaptureRef.current || isShareBusy) return
+    setIsShareBusy(true)
+    setShareStatus('')
+    try {
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        await document.fonts.ready
+      }
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(shareCaptureRef.current, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((result) => {
+          if (!result) {
+            reject(new Error('Failed to render share image.'))
+            return
+          }
+          resolve(result)
+        }, 'image/png', 0.95)
+      })
+      const safeDater = String(daterName || 'date').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      const fileName = `${safeDater}-pickup-line-${evaluation.score}.png`
+      const file = new File([blob], fileName, { type: 'image/png' })
+
+      const canNativeShare =
+        typeof navigator !== 'undefined' &&
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+
+      if (canNativeShare) {
+        await navigator.share({
+          files: [file],
+          title: 'Bad Date Demo',
+          text: `I scored ${evaluation.score}% with ${daterName}.`,
+        })
+        setShareStatus('Shared!')
+      } else {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(url)
+        setShareStatus('Saved to your device.')
+      }
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        setShareStatus('')
+      } else {
+        setShareStatus('Share failed. Please try again.')
+      }
+    } finally {
+      setIsShareBusy(false)
+    }
+  }, [evaluation, isShareBusy, daterName, shareCaptureRef])
+
   return (
     <div
       className={`drop-a-line-scene${!hasImage ? ' drop-a-line-scene-no-image' : ''}${
@@ -240,13 +308,24 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <button
-                type="button"
-                className="drop-a-line-scene-replay"
-                onClick={onReplay ?? onBack}
-              >
-                Replay
-              </button>
+              <div className="drop-a-line-scene-actions">
+                <button
+                  type="button"
+                  className="drop-a-line-scene-replay"
+                  onClick={onReplay ?? onBack}
+                >
+                  Replay
+                </button>
+                <button
+                  type="button"
+                  className="drop-a-line-scene-share"
+                  onClick={handleShare}
+                  disabled={isShareBusy}
+                >
+                  {isShareBusy ? 'Preparing...' : 'Share'}
+                </button>
+              </div>
+              {shareStatus && <p className="drop-a-line-scene-share-status">{shareStatus}</p>}
             </motion.div>
           )}
         </div>
@@ -309,6 +388,33 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+
+      <div className="drop-a-line-share-capture-root" aria-hidden>
+        <div ref={shareCaptureRef} className="drop-a-line-share-capture">
+          <div
+            className="drop-a-line-share-backdrop"
+            style={{ backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined }}
+          />
+          {characterImageUrl && (
+            <img
+              src={characterImageUrl}
+              alt=""
+              className="drop-a-line-share-character"
+              role="presentation"
+            />
+          )}
+          <div className="drop-a-line-share-overlay" />
+          <div className="drop-a-line-share-top">
+            <p className="drop-a-line-share-line-title">Your Line</p>
+            <p className="drop-a-line-share-line">"{pickupLine.trim()}"</p>
+            <p className="drop-a-line-share-score">{finalScore}%</p>
+          </div>
+          <div className="drop-a-line-share-bottom">
+            <p className="drop-a-line-share-response-label">{daterName}</p>
+            <p className="drop-a-line-share-response">{comebackText}</p>
+          </div>
+        </div>
       </div>
 
     </div>
