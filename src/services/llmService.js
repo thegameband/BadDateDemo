@@ -116,11 +116,19 @@ function resolveLlmProviderConfig() {
   return null
 }
 
-function buildProviderBody(providerConfig, { maxTokens, systemPrompt, messages }) {
+function buildProviderBody(providerConfig, {
+  maxTokens,
+  systemPrompt,
+  messages,
+  temperature,
+  presencePenalty,
+  frequencyPenalty,
+}) {
   if (providerConfig.provider === 'anthropic') {
     return {
       model: providerConfig.model,
       max_tokens: maxTokens,
+      temperature,
       ...(systemPrompt ? { system: systemPrompt } : {}),
       messages,
     }
@@ -129,6 +137,9 @@ function buildProviderBody(providerConfig, { maxTokens, systemPrompt, messages }
   return {
     model: providerConfig.model,
     max_completion_tokens: maxTokens,
+    temperature,
+    presence_penalty: presencePenalty,
+    frequency_penalty: frequencyPenalty,
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
       ...messages,
@@ -154,44 +165,13 @@ export function clearLlmErrorMessage() {
   _llmDebugSnapshot = null
 }
 
-/**
- * Master checklist that gets included with EVERY character response prompt
- * This ensures consistent, high-quality responses from both Dater and Avatar
- */
-const LLM_RESPONSE_CHECKLIST = `
-═══════════════════════════════════════════════════════════════
-🚨 CRITICAL: PURE DIALOGUE — 1-3 SENTENCES 🚨
-═══════════════════════════════════════════════════════════════
-
-📏 LENGTH RULES:
-- Use 1-3 sentences (never more than 3)
-- Aim for <= 350 characters total
-- Keep it concise and emotionally clear
-
-⛔ ABSOLUTELY FORBIDDEN:
-- ❌ NO asterisks (*smiles*, *laughs*, *leans in*)
-- ❌ NO action descriptions of ANY kind
-- ❌ NO stage directions or narration
-- ❌ NO filler words (Well, So, I mean, Oh)
-- ❌ NO long explanations
-
-✅ ONLY ALLOWED:
-- Pure spoken dialogue
-- Short punchy sentences
-- Emotion through word choice ONLY
-
-Examples:
-❌ WRONG: *laughs nervously* "Oh wow, that's... interesting! I've never heard that before."
-✅ RIGHT: "Wait, you actually did that? I wasn't expecting it at all. That changes how I see you."
-
-❌ WRONG: "That's amazing! *leans forward* Tell me more about yourself and how you got into that!"
-✅ RIGHT: "That's actually incredible. I've never met anyone who's done something like that. I need to know more."
-
-❌ WRONG: *raises an eyebrow* "Well, I have to say, that's quite a unique perspective you have there."
-✅ RIGHT: "Okay, that's a perspective I genuinely haven't heard before. I don't know if I agree, but I respect it. It's making me think."
-
-REMEMBER: Dialogue only. No actions.
-═══════════════════════════════════════════════════════════════
+const DATER_BASELINE_RESPONSE_CONTRACT = `
+DIALOGUE CONTRACT:
+- Sound like a real person in live conversation.
+- One concise sentence by default, two max.
+- Lead with your reaction/opinion, then one concrete reason or detail.
+- No stage directions, no asterisks, no emoji.
+- Do not repeat archetype/backstory language unless directly relevant.
 `
 
 /**
@@ -205,79 +185,33 @@ function stripActionDescriptions(text) {
   return text.replace(/\*[^*]+\*/g, '').replace(/\s+/g, ' ').trim()
 }
 
-const ADAM_RESPONSE_CHECKLIST = `
-═══════════════════════════════════════════════════════════════
-🚨 CRITICAL: PURE DIALOGUE — ADAM'S VOICE — WEIGHTED & COMPLETE 🚨
-═══════════════════════════════════════════════════════════════
-
-📏 LENGTH RULES:
-- Use 1-3 sentences (never more than 3)
-- Aim for <= 350 characters total
-- Keep Adam concise, weighted, and poetic — every word earns its place
-
-⛔ ABSOLUTELY FORBIDDEN:
-- ❌ NO asterisks (*smiles*, *laughs*, *leans in*)
-- ❌ NO action descriptions of ANY kind
-- ❌ NO stage directions or narration
-- ❌ NO modern slang (no "lowkey", "slay", "no cap", "ick", "vibe", "red flag", "literally dying")
-- ❌ NO therapeutic language ("that's valid", "I hear you", "I appreciate your vulnerability")
-- ❌ NO chatbot language ("tell me more", "I find that interesting")
-- ❌ NO overusing "thee," "thou," or "thy" — these are RARE, emotional-only words
-
-✅ ADAM'S VOICE — USE THIS REGISTER:
-- Elevated but accessible prose — Latinate vocabulary, 19th-century Romantic cadence
-- Old English phrasing is his default: "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst"
-- "Thee/thou/thy" are RARE — only in emotional extremes (deep attraction, pain, awe). Use "you/your" normally.
-- Short, poetic directness — weighted, building to a point
-- Deadpan delivery — the more alarming the content, the calmer the tone
-- Emotion through word choice and sentence rhythm, not punctuation
-
-ADAM EXAMPLE RESPONSES (match this voice exactly):
-❌ WRONG: "Wait, seriously? That caught me off guard."
-✅ RIGHT: "Methinks I was not prepared for that. It unsettles me in a manner I cannot name. How peculiar a creature you are."
-
-❌ WRONG: "That's incredible. I need to hear more about that."
-✅ RIGHT: "How extraordinary. My mind has weathered much, yet this gives me pause. Prithee, say more."
-
-❌ WRONG: "Huh, that's new. I genuinely don't know what to say."
-✅ RIGHT: "How peculiar. I have known the silence of mountains and the cold of creation, yet this moment eludes me. I am verily without words."
-
-❌ WRONG: "Oh my GOD, yes! That's SO attractive!"
-✅ RIGHT: "That pleaseth me profoundly. There is a quality in you I recognise, something not so unlike my own nature. I confess, I did not expect to find it here."
-
-❌ WRONG: "Absolutely not. That's a hard no for me."
-✅ RIGHT: "I have endured worse, at the hands of those who feared what they did not understand. But I had hoped this meeting would be different. It grieves me that it is not."
-
-REMEMBER: Adam speaks like an articulate Frankenstein's monster — poetic, old-English phrasing, and deadpan gravity. Thee/thou/thy are rare and emotional only. Dialogue only. No actions.
-═══════════════════════════════════════════════════════════════
+const ADAM_RESPONSE_CONTRACT = `
+ADAM VOICE GUARD:
+- Keep Adam's old-world, poetic deadpan register.
+- No modern slang and no therapy/chatbot phrasing.
+- One concise sentence by default, two max.
+- Use thee/thou/thy rarely, only at emotional peaks.
+- Dialogue only. No action text.
 `
 
 function buildPromptTail(dater) {
   const isAdam = (dater?.name || '').toLowerCase() === 'adam'
   const overlay = dater?.speechStylePrompt || ''
 
-  if (isAdam && overlay) {
+  if (isAdam) {
+    const adamOverlay = overlay ? '\n\n' + overlay : ''
     return '\n\n' + PROMPT_08_GENZ_SPEECH +
+           adamOverlay +
            '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
            '\n\n' + PROMPT_07_RULES +
-           '\n\n' + overlay +
-           '\n\n⚠️ FINAL OVERRIDE — ADAM\'S VOICE TAKES ABSOLUTE PRIORITY:\n' +
-           'Everything above about Gen-Z speech, modern slang, and casual reaction examples does NOT apply to Adam.\n' +
-           'Adam speaks with 19th-century Romantic prose, old-English phrasing, poetic deadpan, and Latinate vocabulary.\n' +
-           'He uses old English words like "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst" regularly.\n' +
-           'IMPORTANT: "Thee," "thou," and "thy" are RARE — only in emotional extremes. Use "you/your" for normal address.\n' +
-           'Use 1-2 sentences and aim for <= 280 characters total.\n' +
-           'Adam speaks in 2-3 weighted sentences — poetic, purposeful, and complete.\n' +
-           'He NEVER uses modern slang. His emotions are deep and quiet, not loud and hype.\n' +
-           'The examples below are your ONLY voice model. Match them exactly.\n' +
-           ADAM_RESPONSE_CHECKLIST
+           '\n\n' + ADAM_RESPONSE_CONTRACT
   }
 
   const speechOverlay = overlay ? '\n\n' + overlay : ''
   return '\n\n' + PROMPT_08_GENZ_SPEECH + speechOverlay +
          '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
          '\n\n' + PROMPT_07_RULES +
-         LLM_RESPONSE_CHECKLIST
+         DATER_BASELINE_RESPONSE_CONTRACT
 }
 
 /**
@@ -289,7 +223,16 @@ export async function getChatResponse(messages, systemPrompt, options = {}) {
   const keyFingerprint = getKeyFingerprint(providerConfig?.apiKey)
   const maxTokens = Number.isFinite(Number(options?.maxTokens))
     ? Math.max(40, Number(options.maxTokens))
-    : 150
+    : 120
+  const temperature = Number.isFinite(Number(options?.temperature))
+    ? Math.min(1.2, Math.max(0, Number(options.temperature)))
+    : 0.8
+  const presencePenalty = Number.isFinite(Number(options?.presencePenalty))
+    ? Math.min(2, Math.max(0, Number(options.presencePenalty)))
+    : 0.25
+  const frequencyPenalty = Number.isFinite(Number(options?.frequencyPenalty))
+    ? Math.min(2, Math.max(0, Number(options.frequencyPenalty)))
+    : 0.3
   
   if (!providerConfig) {
     _llmErrorMessage = 'No API key - LLM offline'
@@ -329,6 +272,9 @@ export async function getChatResponse(messages, systemPrompt, options = {}) {
       headers: providerConfig.headers,
       body: JSON.stringify(buildProviderBody(providerConfig, {
         maxTokens,
+        temperature,
+        presencePenalty,
+        frequencyPenalty,
         systemPrompt,
         messages: sanitizedMessages.map(msg => ({
           role: msg.role,
@@ -498,33 +444,17 @@ export async function getDaterConversationOpener(dater, avatar, conversationHist
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   
   const openerPrompt = `You're in the middle of a date conversation. The topic of "${topicTitle}" has come up naturally.
-You want to share YOUR OWN perspective on: "${topicQuestion}"
+Open with your own perspective on: "${topicQuestion}".
 
-🎯 YOUR TASK: Open this topic by sharing YOUR OWN thoughts, experiences, or feelings about it.
+Use your values and preferences:
+- Likes: ${dater.idealPartner?.join(', ') || 'someone compatible'}
+- Dealbreakers: ${dater.dealbreakers?.join(', ') || 'dishonesty, cruelty'}
+- Values: ${dater.values || 'authenticity'}
 
-Based on your personality, values, and preferences:
-- YOUR IDEAL PARTNER: ${dater.idealPartner?.join(', ') || 'someone compatible'}
-- YOUR DEALBREAKERS: ${dater.dealbreakers?.join(', ') || 'dishonesty, cruelty'}
-- YOUR VALUES: ${dater.values || 'authenticity'}
-
-💬 SOUND LIKE YOU'RE IN THE MIDDLE OF A CONVERSATION:
-- Maybe you just thought of something: "Oh! Speaking of that..."
-- Or you're sharing an experience: "You know what I've noticed..."
-- Or stating your preference: "For me, I think..."
-- Or asking rhetorically before sharing: "Isn't it weird how...? Like, for me..."
-
-✅ GOOD OPENERS:
-- "You know what always gets me? When someone [your preference/ick/etc]..."
-- "Okay, but can we talk about [topic]? Because honestly..."
-- "I was just thinking about this! For me, [your perspective]..."
-- "Oh my god, this is gonna sound [way], but [your opinion]..."
-
-❌ DON'T:
-- Ask a direct question and wait for an answer
-- Be generic - share YOUR specific perspective based on your character
-- Be too long - exactly 2 sentences to open the topic
-
-Your response should invite your date to share their perspective too!`
+Rules:
+- Sound like natural conversation in progress.
+- Share your take first; do not wait with a question.
+- 1 sentence preferred, 2 max.`
 
   const messages = [
     ...conversationHistory.slice(-10).map(msg => ({
@@ -535,7 +465,12 @@ Your response should invite your date to share their perspective too!`
   ]
 
   try {
-    const text = await getChatResponse(messages, systemPrompt)
+    const text = await getChatResponse(messages, systemPrompt, {
+      maxTokens: 95,
+      temperature: 0.84,
+      presencePenalty: 0.3,
+      frequencyPenalty: 0.3,
+    })
     if (!text) return null
     // Remove any action descriptions
     return text.replace(/\*[^*]+\*/g, '').trim()
@@ -549,282 +484,74 @@ export async function getDaterDateResponse(dater, avatar, conversationHistory, l
   console.log('🔗 Using MODULAR PROMPT CHAIN for dater response')
   console.log('📊 Current compatibility:', compatibility, '% | Sentiment:', sentimentHit)
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
-  
-  // Filter attributes to only include VISIBLE ones the Dater can actually see
+
+  // Filter attributes to only include visible traits the dater can actually see.
   const genericStarters = ['seems friendly', 'has a nice smile', 'appears well-dressed']
   const realAttributes = avatar.attributes.filter(attr => !genericStarters.includes(attr))
   const visibleAttributes = realAttributes.filter(isVisibleAttribute)
-  
-  // FINAL ROUND: Speak with finality - wrapping up, making judgments
+
   let finalRoundInstruction = ''
   if (isFinalRound) {
-    finalRoundInstruction = `\n\n🏁 THIS IS THE FINAL ROUND - SPEAK WITH FINALITY:
-- This is the END of the date - your last chance to express how you feel
-- Make a FINAL JUDGMENT about this person and this date
-- Use phrases like: "Well...", "I think I've learned enough...", "After all that...", "So, to sum it up..."
-- If it went WELL: Express interest in seeing them again, give your number, suggest a second date
-- If it went BADLY: Make a polite excuse to leave, express relief it's over, or be blunt about incompatibility
-- If it was MIXED: Be honest about your confusion, express uncertainty
-- Your response should feel like a CONCLUSION, not a continuation`
+    finalRoundInstruction = `\n\nFinal round:
+- Give a closing judgment that feels final, not open-ended.
+- If positive, show clear interest in continuing.
+- If negative, set a clear boundary or polite no.`
   }
-  
-  // FIRST IMPRESSIONS: React EMOTIONALLY to what they look like and said
+
   let firstImpressionsInstruction = ''
   if (isFirstImpressions) {
-    firstImpressionsInstruction = `\n\n👋 FIRST IMPRESSIONS - REACT EMOTIONALLY TO WHAT YOU SEE AND HEAR!
-    
-This is the FIRST IMPRESSIONS phase - your FIRST reaction matters!
-
-🎯 REACT TO THE CONTENT:
-- If they look WEIRD or SCARY → show concern, alarm, or confusion!
-- If they look ATTRACTIVE → show interest, be flirty!
-- If what they said is DISTURBING → react with visible discomfort!
-- If what they said is CHARMING → show you're charmed!
-- Your EMOTIONAL REACTION should match what you're seeing and hearing!
-
-⚠️ DO NOT BE GENERIC:
-- Don't just say "Oh, interesting..." to everything
-- Don't be neutral or diplomatic
-- Show your REAL first impression - good OR bad!
-- This sets the tone for the whole date!
-
-✅ GOOD FIRST IMPRESSION REACTIONS:
-- Attractive date: "Oh wow, okay... you're... hi. I'm already nervous."
-- Scary looking: "Oh my god, are you okay?! What happened to you?!"
-- Weird vibe: "Okay... that's... not what I expected to hear right off the bat."
-- Charming intro: "Ha! Okay, I like you already."
-
-❌ BAD (too generic):
-- "Hmm, interesting..."
-- "I see..."
-- "Well, hello there."
-
-DO NOT ask questions - just REACT with emotion.
-Use 1-3 sentences and aim for <= 350 characters total.`
+    firstImpressionsInstruction = `\n\nFirst impressions:
+- React to what you see and what they said, like a real person would.
+- Keep it specific and immediate, not generic.`
   }
-  
-  // SENTIMENT-DRIVEN REACTION: Tell the Dater how to feel based on what category was hit
-  // Reactions ESCALATE based on streak of good/bad things
+
   let sentimentInstruction = ''
   if (sentimentHit) {
     const isPositive = sentimentHit === 'loves' || sentimentHit === 'likes'
     const streak = isPositive ? reactionStreak.positive : reactionStreak.negative
-    
-    // Escalation levels based on streak
-    let escalationNote = ''
-    if (streak >= 3) {
-      escalationNote = isPositive 
-        ? `\n\n🔥🔥🔥 ESCALATION LEVEL: MAXIMUM! This is the ${streak}th amazing thing in a row! You're completely SMITTEN, OVERWHELMED with joy, possibly falling in love on the spot. This is TOO GOOD to be true!`
-        : `\n\n💀💀💀 ESCALATION LEVEL: MAXIMUM! This is the ${streak}th terrible thing in a row! You're in FULL PANIC MODE, considering running away, questioning your life choices. This date is a DISASTER!`
-    } else if (streak >= 2) {
-      escalationNote = isPositive
-        ? `\n\n🔥🔥 ESCALATION LEVEL: HIGH! This is the ${streak}nd/rd great thing in a row! You're getting VERY excited, this person keeps impressing you. Show building enthusiasm!`
-        : `\n\n💀💀 ESCALATION LEVEL: HIGH! This is the ${streak}nd/rd bad thing in a row! Your concern is GROWING, you're getting more alarmed. This is getting worse and worse!`
-    } else if (streak >= 1) {
-      escalationNote = isPositive
-        ? `\n\n🔥 ESCALATION: Building! Another good sign - your interest is increasing!`
-        : `\n\n💀 ESCALATION: Building! Another red flag - your worry is increasing!`
-    }
-    
-    // ═══════════════════════════════════════════════════════════════════════════
-    // COMPATIBILITY-WEIGHTED EMOTIONAL CONTEXT
-    // How the overall date is going affects how you interpret individual comments
-    // ═══════════════════════════════════════════════════════════════════════════
-    const isMajorSentiment = sentimentHit === 'loves' || sentimentHit === 'dealbreakers'
-    const isMinorSentiment = sentimentHit === 'likes' || sentimentHit === 'dislikes'
-    
-    // Determine the overall date vibe based on compatibility meter
-    let dateVibeDescription = ''
-    let dateVibeModifier = ''
-    
-    if (compatibility >= 75) {
-      dateVibeDescription = 'The date is going AMAZINGLY well. You really like this person and feel a genuine connection.'
-      dateVibeModifier = isPositive ? 'amplify your positive reaction - you were already into them!' : 'temper your negative reaction slightly - they\'ve earned some goodwill'
-    } else if (compatibility >= 60) {
-      dateVibeDescription = 'The date is going well. You\'re interested and enjoying the conversation.'
-      dateVibeModifier = isPositive ? 'show genuine warmth - this confirms your good impression' : 'show mild concern - this is a bit disappointing given how well things were going'
-    } else if (compatibility >= 40) {
-      dateVibeDescription = 'The date is okay. You\'re neutral - still figuring out how you feel about this person.'
-      dateVibeModifier = isPositive ? 'show cautious interest - this is a good sign but you\'re not sold yet' : 'show your displeasure clearly - you weren\'t sure about them anyway'
-    } else if (compatibility >= 25) {
-      dateVibeDescription = 'The date is not going well. You\'re having doubts about this person.'
-      dateVibeModifier = isPositive ? 'be reserved - one good comment doesn\'t fix a bad date' : 'add to your growing list of concerns'
-    } else {
-      dateVibeDescription = 'The date is going TERRIBLY. You\'re looking for an exit and counting the minutes.'
-      dateVibeModifier = isPositive ? 'almost shrug it off - too little too late' : 'this confirms everything you suspected'
-    }
-    
-    // Build the compatibility context instruction
-    let compatibilityContext = ''
-    if (isMinorSentiment) {
-      // LIKES/DISLIKES: 70% compatibility weight, 30% comment weight
-      compatibilityContext = `
-📊 HOW THE DATE IS GOING (THIS HEAVILY AFFECTS YOUR REACTION):
-Current vibe: ${dateVibeDescription}
-Compatibility: ${compatibility}%
+    const dateVibe = compatibility >= 70 ? 'high' : compatibility >= 45 ? 'mixed' : 'low'
 
-⚖️ WEIGHTING FOR LIKES/DISLIKES (70% date vibe, 30% this comment):
-Since this is a MINOR sentiment (${sentimentHit}), your OVERALL feelings about the date should HEAVILY influence your reaction.
-
-- ${dateVibeModifier}
-- If the date is going well (>60%), even a "dislike" shouldn't make you too harsh
-- If the date is going poorly (<40%), even a "like" shouldn't make you too enthusiastic
-- Your emotional response should reflect the CUMULATIVE experience, not just this moment
-
-EXAMPLES:
-- Date going GREAT + dislike hit → "Hmm, okay... that's not my favorite thing, but honestly? I'm still having fun with you."
-- Date going POORLY + like hit → "Oh. That's... nice, I guess." (forced, unenthusiastic)
-- Date going GREAT + like hit → "Oh my god, see? This is why I'm enjoying talking to you!"
-- Date going POORLY + dislike hit → "Ugh. Of course. Why am I not surprised at this point."
-`
-    } else if (isMajorSentiment) {
-      // LOVES/DEALBREAKERS: 30% compatibility weight, 70% comment weight
-      compatibilityContext = `
-📊 HOW THE DATE IS GOING (minor influence):
-Current vibe: ${dateVibeDescription}
-Compatibility: ${compatibility}%
-
-⚖️ WEIGHTING FOR LOVES/DEALBREAKERS (30% date vibe, 70% this comment):
-Since this is a MAJOR sentiment (${sentimentHit}), THIS SPECIFIC COMMENT matters most!
-
-- The comment itself should drive ~70% of your reaction
-- But still let the date vibe slightly color your tone
-- A LOVE is still exciting even if the date was rough
-- A DEALBREAKER is still alarming even if the date was going well
-
-EXAMPLES:
-- Date going POORLY + LOVE hit → "Wait... actually? Okay that's... that actually kind of changes things." (surprised positivity breaking through)
-- Date going GREAT + DEALBREAKER hit → "Whoa whoa whoa. Hold on. That's... wow. I was really enjoying this but..." (shock disrupting good vibes)
-- Date going GREAT + LOVE hit → "STOP. Are you serious right now?! This person just keeps getting better!" (maximum enthusiasm)
-- Date going POORLY + DEALBREAKER hit → "And THERE it is. I knew something was off about you." (confirmation of suspicions)
-`
-    }
-    
     const sentimentGuide = {
-      loves: `🥰💥💥💥 YOU ABSOLUTELY LOVE THIS - GO BIG!
-⚠️ CRITICAL: YOUR RESPONSE MUST BE OVERWHELMINGLY POSITIVE!
-
-You just heard something that hits your LOVES - this is AMAZING to you!
-Your response MUST:
-- Start with an exclamation of delight ("Oh my god!", "Wait, really?!", "No way!")
-- EXPLICITLY say WHY you love this - name the specific thing!
-- Sound genuinely excited, attracted, impressed, or swooning
-- Be flirty, enthusiastic, or gushing
-- Show this is a BIG DEAL to you
-
-EXAMPLES of what your response should sound like:
-- "Oh my god, you [thing]?! That's literally my favorite thing ever!"
-- "Wait, seriously? That's SO hot. I love that about you."
-- "Okay you just became 10 times more attractive to me."
-
-DO NOT: Be lukewarm, casual, or understated. THIS IS A LOVE - SHOW IT!`,
-      
-      likes: `😊✨ YOU LIKE THIS - BE WARM AND POSITIVE!
-
-This hit one of your LIKES - it's a good sign and you should show it!
-Your response MUST:
-- React warmly and positively
-- Show genuine interest and appreciation  
-- Be encouraging and engaged
-- Make it clear you think this is good
-
-EXAMPLES:
-- "Oh that's really sweet, I like that."
-- "Aww, that's actually really nice to hear."
-- "Okay, that's definitely a point in your favor!"
-
-DO NOT: Be neutral or ignore it. Show you're pleased!`,
-      
-      dislikes: `😬💢 YOU DON'T LIKE THIS - BE VISIBLY BOTHERED!
-
-This hit one of your DISLIKES - it genuinely bothers you!
-Your response MUST:
-- Show clear discomfort, disappointment, or concern
-- React with sarcasm, skepticism, or visible displeasure
-- Make a slightly negative comment or face
-- NOT pretend everything is fine
-
-EXAMPLES:
-- "Uh... okay, that's... not great to hear."
-- "Hmm. Yeah, I'm not really into that, to be honest."
-- "Really? That's kind of a turn-off for me..."
-- "Yikes. I mean... okay then."
-
-DO NOT: Be polite and brush it off. Show your displeasure!`,
-      
-      dealbreakers: `😱🚨🚨🚨 DEALBREAKER - MAXIMUM NEGATIVE REACTION!
-⚠️ CRITICAL: THIS IS A HUGE PROBLEM AND YOU MUST REACT STRONGLY!
-
-This hit one of your DEALBREAKERS - you are HORRIFIED, DISGUSTED, or ALARMED!
-Your response MUST:
-- Start with a strong reaction ("What?!", "Excuse me?!", "Oh my god...")
-- Be DRAMATICALLY negative - shock, horror, disgust, fear
-- EXPLICITLY call out what's wrong
-- Sound genuinely alarmed, disturbed, or repulsed
-- Make it UNMISTAKABLY clear this is a massive red flag
-
-EXAMPLES of what your response should sound like:
-- "I'm sorry, WHAT?! Did you just say [thing]?!"
-- "Oh my god... that's actually terrifying."
-- "Okay wow, that's... that's a lot. That's really concerning."
-- "Nope. Nope nope nope. That's a huge red flag."
-
-DO NOT: Be polite, understanding, or try to see their side. This is UNACCEPTABLE to you!`
+      loves: 'This is a major positive hit. Show real enthusiasm with one concrete reason.',
+      likes: 'This is a mild positive hit. Sound warm and interested.',
+      dislikes: 'This is a mild negative hit. Sound bothered or skeptical.',
+      dealbreakers: 'This is a major negative hit. Set a firm boundary clearly.',
     }
-    sentimentInstruction = `\n\n🎯🎯🎯 YOUR EMOTIONAL REACTION (MANDATORY):\n${sentimentGuide[sentimentHit]}${compatibilityContext}${escalationNote}${finalRoundInstruction}\n\n⚠️⚠️⚠️ ABSOLUTE REQUIREMENT: Your response tone MUST match the sentiment above, BUT TEMPERED BY THE DATE VIBE! A ${sentimentHit.toUpperCase()} reaction means ${isPositive ? 'POSITIVE' : 'NEGATIVE'}, but HOW positive/negative depends on how the date is going overall. If the date is going poorly, even good comments get lukewarm reactions. If it's going great, even bad comments get some benefit of the doubt.\n\n🚫 HONESTY HAS LIMITS: You can appreciate honesty to a point — but NOT when you completely disagree with what they said, find it horrifying, or it's opposite to your values/views. In those cases, react to the CONTENT: be disturbed, turned off, or upset. Do NOT praise "being honest" or "being open" when the actual statement is unacceptable to you. React to WHAT they said, not HOW they said it. Honest horror is still horror.`
+
+    const vibeGuide = dateVibe === 'high'
+      ? 'The date has been going well, so keep your tone human and warm.'
+      : dateVibe === 'mixed'
+        ? 'The date has been mixed, so stay measured.'
+        : 'The date has been rough, so keep positive reactions cautious and negatives direct.'
+
+    const streakGuide = streak >= 2
+      ? `This is part of a ${streak}-message streak; let that momentum show naturally.`
+      : ''
+
+    sentimentInstruction = `\n\nSentiment guidance (${sentimentHit}):
+- ${sentimentGuide[sentimentHit] || 'React honestly.'}
+- ${vibeGuide}
+${streakGuide ? `- ${streakGuide}` : ''}
+- Keep it natural and concise; do not become theatrical.`
   } else if (isFinalRound) {
-    // Even if no sentiment hit, still add finality instruction
     sentimentInstruction = finalRoundInstruction
   }
-  
-  // Baseline human morality - can be overridden by specific dater traits
+
   const baselineMorality = `
-🧭 BASELINE HUMAN MORALITY (react authentically as a normal person would):
+Baseline realism:
+- React to harmful or dangerous content with normal human concern.
+- React to attractive or compatible content with warmth.
+- Honesty alone is not a positive; content still matters.`
 
-Unless YOUR CHARACTER TRAITS specifically say otherwise, you have standard human values:
-- VIOLENCE/MURDER → Bad, scary, disturbing. You don't want to be harmed.
-- MONSTERS/CREATURES → Initially scary or unsettling. Giant spiders, zombies, etc. are alarming.
-- DANGEROUS SITUATIONS → Concerning. Fire, weapons, toxins = you want to be safe.
-- ILLEGAL ACTIVITY → Generally disapproved of, unless it's minor/victimless.
-- CRUELTY/HARM TO OTHERS → Morally wrong. You have empathy for victims.
-- DECEPTION/MANIPULATION → Untrustworthy. Honesty matters to you — but only when you don't find what they're being honest *about* wrong, horrifying, or opposite to your views. If they're honestly saying something you find disgusting or unacceptable, react to the content, not the honesty.
-- BODILY FLUIDS/GORE → Gross. Most people don't want to see someone leaking or rotting.
-
-HOWEVER - Check your character traits! You might:
-- Be INTO dark/dangerous things if you're rebellious or edgy
-- Find monsters attractive if you're unconventional
-- Not mind illegal stuff if you're a rule-breaker
-- Be desensitized if you work in medicine, crime, etc.
-
-REACT FIRST with your gut (informed by morality), THEN let your personality nuance it.
-A normal person + scary thing = scared reaction (even if they try to be polite about it).`
-
-  // Context about what the Dater can SEE (not told, but observe)
   const avatarContext = visibleAttributes.length > 0
-    ? `\n\nWHAT YOU CAN PHYSICALLY SEE ABOUT YOUR DATE: ${visibleAttributes.join(', ')}
-
-⚠️ THESE ARE LITERAL AND REAL - NOT METAPHORS:
-- These are actual physical traits you can observe with your eyes
-- If they're "on fire" - real flames. If they have "tentacles" - real tentacles.
-- Don't question if it's real or metaphorical - you can SEE it!
-
-🎭 REACT REALISTICALLY TO WHAT YOU SEE (using your baseline morality):
-- If what you see is DISTURBING (rotting, bloody, monstrous) - be disturbed!
-- If what you see is ALARMING (on fire, melting, dangerous) - be alarmed!
-- If what you see is STRANGE (extra limbs, unusual species) - be confused or weirded out!
-- If what you see is ATTRACTIVE - you can be into it!
-- NOT EVERYTHING IS CUTE OR CHARMING. Some things are genuinely horrifying.
-- Your reaction should match what a real person would feel seeing this.
-- Keep referencing these visible traits throughout - you can't unsee them!`
+    ? `\n\nVisible context: ${visibleAttributes.join(', ')}
+- These are literal physical traits you can see.
+- Let what you can see influence your reaction naturally.`
     : ''
-  
-  // Remind the Dater to only know what was said
-  const knowledgeBoundary = `\n\n⚠️ CRITICAL: ONLY KNOW WHAT THEY TOLD YOU
-- You can ONLY know things about your date that they SAID IN THE CONVERSATION or that you can PHYSICALLY SEE
-- Do NOT assume anything about their job, interests, or personality beyond what they've told you
-- If they haven't told you something, you don't know it!
-- This is a first date - you're still learning about each other
-- React to what they ACTUALLY SAY, not what you imagine about them`
+
+  const knowledgeBoundary = `\n\nKnowledge boundary:
+- Only use what was said in conversation or what is physically visible.
+- Do not invent facts about your date.`
   
   // Get the last thing the Avatar said (for inference)
   const lastAvatarMessage = [...conversationHistory].reverse().find(msg => msg.speaker === 'avatar')?.message || ''
@@ -840,67 +567,50 @@ A normal person + scary thing = scared reaction (even if they try to be polite a
   // Get the question that was asked (use round question when provided, else last dater message)
   const questionForContext = roundQuestion || [...conversationHistory].reverse().find(msg => msg.speaker === 'dater')?.message || ''
   
-  // Special instruction if a new attribute was just added - USING MODULAR PROMPT CHAIN
+  // Special instruction if a new attribute was just added.
   let latestAttrContext = ''
   if (customInstruction) {
-    latestAttrContext = `\n\n🎯 YOUR TASK FOR THIS RESPONSE:\n${customInstruction}\n\nKeep your tone consistent with how the date is going. Use 1-3 sentences and aim for <= 350 characters total. Dialogue only. No action descriptions (*smiles*, etc).`
+    latestAttrContext = `\n\nTask: ${customInstruction}
+- Keep tone consistent with the current date vibe.
+- 1 sentence preferred, 2 max. Dialogue only.`
   } else if (latestAttribute) {
-    // Check if this is a PLOT TWIST scenario (special handling)
+    // Check if this is a plot twist scenario (special handling).
     const isPlotTwist = (typeof latestAttribute === 'string' ? latestAttribute : latestAttribute?.answer || '').includes('PLOT TWIST SCENARIO')
-    
+
     if (isPlotTwist) {
       const plotTwistContent = typeof latestAttribute === 'string' ? latestAttribute : (latestAttribute?.answer || String(latestAttribute))
       const daterName = dater?.name || 'the dater'
       const daterDealbreakers = Array.isArray(dater?.dealbreakers) ? dater.dealbreakers.join(', ') : (dater?.dealbreakers || '')
       const daterValues = dater?.values || ''
-      // PLOT TWIST: React to the "What Happened" story as yourself, using your attributes
-      latestAttrContext = `\n\n🚨🚨🚨 PLOT TWIST - REACT TO WHAT HAPPENED 🚨🚨🚨
-
+      latestAttrContext = `\n\nPlot twist:
 ${plotTwistContent}
 
-⚠️ YOUR TASK: React to the "WHAT HAPPENED" narrative above as ${daterName}.
-- Your values and dealbreakers MUST shape your reaction (values: ${daterValues}; dealbreakers: ${daterDealbreakers}).
-- Respond as you would honestly react given your personality and backstory. Don't be generic — be YOU.
-- If what happened aligns with your dealbreakers, be upset. If it aligns with what you value, show it.
-- This is the most important reaction of the date — use 1-3 sentences and aim for <= 350 characters total. Full emotion, in character.
-
-HOW TO REACT based on what happened in the story:
-- If they DEFENDED you → Be deeply touched, swooning, falling for them.
-- If they did something ROMANTIC → Be flustered, giddy. Share how it made you feel.
-- If they were PASSIVE/did nothing → Be hurt and disappointed. Let them know how that made you feel.
-- If they FLIRTED with the other person → Be FURIOUS. This is a betrayal.
-- If they were VIOLENT → Be shocked. Process whether you're scared or impressed (or both) given YOUR values.
-
-TONE: Heightened emotion. Let your vulnerability or anger show. Don't hold back — react honestly as ${daterName}.`
+React as ${daterName} using your own values (${daterValues}) and dealbreakers (${daterDealbreakers}).
+- Be direct about how this changes your read on them.
+- Keep it human and concise.`
     } else {
       const isVisible = isVisibleAttribute(answerRevealed)
-      
-      // Context about the question-answer dynamic — include the actual question when we have it
+
+      // Include question context when available.
       const questionContextBlock = questionForContext
-        ? `📋 THE QUESTION FOR THIS ROUND: "${questionForContext}"
-THEIR ANSWER (what they revealed): "${answerRevealed}"
-THEIR FULL RESPONSE: "${lastAvatarMessage}"
+        ? `Round question: "${questionForContext}"
+Their revealed answer: "${answerRevealed}"
+Their full line: "${lastAvatarMessage}"`
+        : `Their revealed answer: "${answerRevealed}"
+Their full line: "${lastAvatarMessage}"`
 
-Use the question above as context. React to what they revealed about themselves in answer to that question!`
-        : `🎯 CONTEXT: They gave an answer. React to what they revealed.
-
-THEIR ANSWER REVEALED: "${answerRevealed}"
-THEIR FULL RESPONSE: "${lastAvatarMessage}"
-
-React to what they revealed about themselves!`
-      
       if (isVisible) {
         const modularVisiblePrompt = PROMPT_04_DATER_VISIBLE
           .replace(/\{\{attribute\}\}/g, answerRevealed)
           .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
           .replace(/\{\{allVisibleAttributes\}\}/g, visibleAttributes.map(a => `- ${a}`).join('\n'))
-        
+
         latestAttrContext = `\n\n${questionContextBlock}\n\n${modularVisiblePrompt}`
       } else {
         const modularInferPrompt = PROMPT_05_DATER_INFER
           .replace(/\{\{attribute\}\}/g, answerRevealed)
           .replace(/\{\{avatarLastMessage\}\}/g, lastAvatarMessage)
-        
+
         latestAttrContext = `\n\n${questionContextBlock}\n\n${modularInferPrompt}`
       }
     }
@@ -937,16 +647,14 @@ React to what they revealed about themselves!`
         content: `[${customInstruction}]`,
       }]
     } else
-    // FIRST MEETING - react to seeing your date for the first time
+    // First meeting - react to seeing your date for the first time.
     if (visibleAttributes.length > 0) {
-      // They have visible traits! React to seeing them walk in
-      messages = [{ 
-        role: 'user', 
-        content: `[Your date just walked in. You see them for the first time. React to their appearance - what you notice: ${visibleAttributes.join(', ')}. This is your FIRST IMPRESSION! Greet them and react to what you see. Be a good opening - warm greeting first, then react to what you notice. NOT a question - just an opening!]` 
+      messages = [{
+        role: 'user',
+        content: `[Your date just walked in. You notice: ${visibleAttributes.join(', ')}. Give a short, natural first impression greeting.]`
       }]
     } else {
-      // Normal first meeting
-      messages = [{ role: 'user', content: '[Your date just arrived. Say hello and greet them warmly. This is the start of the date - be friendly and make them feel welcome. NOT a question yet - just a warm opening!]' }]
+      messages = [{ role: 'user', content: '[Your date just arrived. Give a short, natural greeting.]' }]
     }
   }
   
@@ -955,7 +663,12 @@ React to what they revealed about themselves!`
     messages.push({ role: 'user', content: '...' })
   }
   
-  const response = await getChatResponse(messages, fullPrompt)
+  const response = await getChatResponse(messages, fullPrompt, {
+    maxTokens: 110,
+    temperature: 0.85,
+    presencePenalty: 0.35,
+    frequencyPenalty: 0.4,
+  })
   return response
 }
 
@@ -985,29 +698,27 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
         .replace(/\{\{attribute\}\}/g, playerAnswer)
         .replace(/\{\{avatarLastMessage\}\}/g, playerAnswer)
 
-  // Include dater's trait values so the reaction naturally aligns with what they love/like/dislike/hate
+  // Include dater values so reaction can align naturally with preferences.
   const valuesBlock = valuesContext ? `
-🔑 YOUR INNER VALUES (use these to ground your reaction):
+Values lens:
 - Things you LOVE: ${valuesContext.loves?.join(', ') || 'not specified'}
 - Things you LIKE: ${valuesContext.likes?.join(', ') || 'not specified'}
 - Things you DISLIKE: ${valuesContext.dislikes?.join(', ') || 'not specified'}
 - Things that are DEALBREAKERS: ${valuesContext.dealbreakers?.join(', ') || 'not specified'}
-
-Your reaction should naturally reflect one of these traits. If what they said aligns with something you love, your reaction should be enthusiastic. If it hits a dealbreaker, your reaction should be strong and negative. Ground your opinion in a specific trait.
+Use this as context, not a checklist.
 ` : ''
 
   const taskPrompt = `
-🎯 YOUR TASK: Give your IMMEDIATE, STRONG reaction to what your date just said.
+React to your date's answer like a real person in conversation.
 
-📋 THE QUESTION THAT WAS ASKED: "${question}"
-
-💬 WHAT THEY ANSWERED: "${playerAnswer}"
+Question: "${question}"
+Their answer: "${playerAnswer}"
 ${valuesBlock}
-CRITICAL RULES FOR YOUR REACTION:
-- You MUST have an OPINION. Never just say something is "weird" or "strange" or "interesting" without explaining WHY you feel that way based on your personality, your values, and your life experience.
-- React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
-- Be SPECIFIC. Reference what they actually said and connect it to something about yourself — your values, your past, your dealbreakers, what you find attractive.
-- 1-2 sentences. Aim for <= 280 characters total. Dialogue only, no actions or asterisks.
+Rules:
+- Give one clear opinion and one brief reason.
+- Keep it conversational and specific.
+- 1 sentence preferred, 2 max.
+- Dialogue only; no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
@@ -1024,7 +735,12 @@ ${finalNote}${wordLimitReminder}
     messages.push({ role: 'user', content: userContent })
   }
 
-  const response = await getChatResponse(messages, fullPrompt)
+  const response = await getChatResponse(messages, fullPrompt, {
+    maxTokens: 95,
+    temperature: 0.85,
+    presencePenalty: 0.35,
+    frequencyPenalty: 0.35,
+  })
   if (response) {
     const cleaned = stripActionDescriptions(response)?.trim()
     if (cleaned) return cleaned
@@ -1057,14 +773,13 @@ export async function getDaterQuestionOpener(dater, question, conversationHistor
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const taskPrompt = `
-🎯 YOUR TASK: Answer this question as yourself, in character.
+Answer this question in your voice.
 
-📋 QUESTION: "${question}"
+Question: "${question}"
 
-CRITICAL RULES:
-- 1 sentence preferred for opener, but up to 3 if needed.
-- Aim for <= 350 characters total.
-- Give a clear opinion grounded in your personality/values.
+Rules:
+- One concise sentence preferred, two max.
+- Give a clear opinion.
 - Dialogue only, no actions or asterisks.
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
@@ -1079,7 +794,12 @@ CRITICAL RULES:
   if (messages[messages.length - 1]?.role === 'assistant') {
     messages.push({ role: 'user', content: userContent })
   }
-  const response = await getChatResponse(messages, fullPrompt)
+  const response = await getChatResponse(messages, fullPrompt, {
+    maxTokens: 85,
+    temperature: 0.82,
+    presencePenalty: 0.3,
+    frequencyPenalty: 0.3,
+  })
   if (response) {
     const cleaned = stripActionDescriptions(response)?.trim()
     if (cleaned) return cleaned
@@ -1347,18 +1067,14 @@ export async function getDaterFollowupComment(dater, question, playerAnswer, fir
   if (allowSelfAnswer && Math.random() < 0.20) {
     const daterName = dater?.name || 'the dater'
     const selfAnswerTaskPrompt = `
-🎯 YOUR TASK: Instead of commenting on ${avatarName}'s answer, answer the question yourself, in character as ${daterName}.
+Answer the question yourself as ${daterName}, then briefly relate it to ${avatarName}'s answer.
 
-📋 THE QUESTION: "${question}"
+Question: "${question}"
 
-Be genuine and personal. Draw from your own personality, values, and life experience — not theirs.
-Keep this concise: use 1-3 sentences and aim for <= 350 characters total.
-After your answer, briefly relate it back to what ${avatarName} said — do you see yourself in them, or is there a contrast?
-
-CRITICAL RULES:
-- Answer as YOURSELF. Do not analyze their answer — give YOUR answer.
-- Be revealing and authentic about who you are.
-- 1-3 sentences. Aim for <= 350 characters total. Dialogue only, no actions or asterisks.${wordLimitReminder}
+Rules:
+- Be personal and specific.
+- 1 sentence preferred, 2 max.
+- Dialogue only, no actions or asterisks.${wordLimitReminder}
 `
     const selfAnswerFullPrompt = systemPrompt + voicePrompt + selfAnswerTaskPrompt + buildPromptTail(dater)
     const selfAnswerHistory = [...conversationHistory, { speaker: 'dater', message: firstReaction }]
@@ -1374,28 +1090,28 @@ CRITICAL RULES:
     if (selfAnswerMessages[selfAnswerMessages.length - 1]?.role === 'assistant') {
       selfAnswerMessages.push({ role: 'user', content: selfAnswerUserContent })
     }
-    const selfAnswerResponse = await getChatResponse(selfAnswerMessages, selfAnswerFullPrompt)
+    const selfAnswerResponse = await getChatResponse(selfAnswerMessages, selfAnswerFullPrompt, {
+      maxTokens: 100,
+      temperature: 0.85,
+      presencePenalty: 0.35,
+      frequencyPenalty: 0.35,
+    })
     return selfAnswerResponse ? stripActionDescriptions(selfAnswerResponse) : null
   }
 
   // Fix A: Ground the follow-up in the dater's own personality/values/backstory; do NOT hunt for prior answer links
   const taskPrompt = `
-🎯 YOUR TASK: Give a FOLLOW-UP comment. You already reacted to their answer; now explain WHY you feel the way you feel.
+Give a follow-up to your first reaction.
 
-📋 THE QUESTION WAS: "${question}"
-💬 THEY ANSWERED: "${playerAnswer}"
-💭 YOUR FIRST REACTION WAS: "${firstReaction}"
+Question: "${question}"
+They answered: "${playerAnswer}"
+Your first reaction: "${firstReaction}"
 
-Your job is to go deeper into YOUR OWN reasoning. Why does this matter to you? What does it say about your values, your past, your personality? What does it make you feel about this person, and why?
-
-Do NOT reference any prior answers unless what they said DIRECTLY contradicts or extends something specific. If there is any doubt, do not reference it at all.
-
-CRITICAL RULES:
-- The main purpose of this comment is to elaborate on YOUR reaction using YOUR OWN reasoning — your personality, your values, your backstory.
-- Have a CLEAR OPINION. Do you like this person more now? Less? Are you sensing something you love or a red flag forming? SAY IT and explain why it hits you that way.
-- Never just observe that something is "weird" or "interesting" — explain WHY it matters to you personally.
-- Be honest and in character. If you're starting to fall for them, show it. If you're getting worried, say why.
-- 1-3 sentences. Aim for <= 350 characters total. Dialogue only, no actions or asterisks.
+Rules:
+- Explain why this matters to you personally.
+- Keep a clear opinion (more interested, less interested, or unsure).
+- 1 sentence preferred, 2 max.
+- Dialogue only, no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
@@ -1414,7 +1130,12 @@ ${finalNote}${wordLimitReminder}
     messages.push({ role: 'user', content: userContent })
   }
 
-  const response = await getChatResponse(messages, fullPrompt)
+  const response = await getChatResponse(messages, fullPrompt, {
+    maxTokens: 100,
+    temperature: 0.85,
+    presencePenalty: 0.35,
+    frequencyPenalty: 0.35,
+  })
   return response ? stripActionDescriptions(response) : null
 }
 
@@ -1426,16 +1147,17 @@ export async function getDaterResponseToJustification(dater, originalAnswer, jus
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const taskPrompt = `
-🎯 YOUR TASK: They just tried to justify what they said. Respond to their justification.
+They just justified their answer.
 
-What they originally said: "${originalAnswer}"
-Your reaction to that was: "${daterReactionToAnswer}"
-What they just said to justify it: "${justification}"
+Original answer: "${originalAnswer}"
+Your reaction: "${daterReactionToAnswer}"
+Their justification: "${justification}"
 
-Respond in character. You might be slightly mollified, still unimpressed, or even more put off.
-- Have an OPINION on whether their justification actually changes anything for you.
-- If they made it worse, say WHY based on your values. If they redeemed themselves, say what specifically won you over.
-- 1-3 sentences. Aim for <= 350 characters total. Dialogue only. No actions or asterisks.
+Rules:
+- Say clearly whether the justification helped or hurt.
+- Give one brief reason tied to your values.
+- 1 sentence preferred, 2 max.
+- Dialogue only, no actions or asterisks.
 `
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
   const historyMessages = conversationHistory.slice(-8).map(msg => ({
@@ -1449,7 +1171,12 @@ Respond in character. You might be slightly mollified, still unimpressed, or eve
   if (messages[messages.length - 1]?.role === 'assistant') {
     messages.push({ role: 'user', content: userContent })
   }
-  const response = await getChatResponse(messages, fullPrompt)
+  const response = await getChatResponse(messages, fullPrompt, {
+    maxTokens: 100,
+    temperature: 0.84,
+    presencePenalty: 0.35,
+    frequencyPenalty: 0.35,
+  })
   return response ? stripActionDescriptions(response) : null
 }
 
@@ -1930,8 +1657,7 @@ ${rulesPrompt}
   // Add voice profile for more human-sounding speech
   const avatarVoicePrompt = getVoiceProfilePrompt('avatar', null)
   
-  // Add the response checklist to ensure quality
-  const fullSystemPrompt = systemPrompt + avatarVoicePrompt + LLM_RESPONSE_CHECKLIST
+  const fullSystemPrompt = systemPrompt + avatarVoicePrompt
   
   // DEBUG: Log the prompt being sent
   console.log('🤖 AVATAR PROMPT:', {

@@ -27,6 +27,15 @@ const OUTPUT_VIDEO = RECORD ? `playthrough-${Date.now()}.webm` : null
 // Issue tracking
 const issues = []
 let hostUsername = 'TestHost' // Track host name for room browser
+const daterLineSamples = []
+const ROBOTIC_PATTERNS = [
+  /i find that interesting/i,
+  /tell me more about/i,
+  /that is valid/i,
+  /thank you for sharing/i,
+  /i appreciate your honesty/i,
+  /i hear you/i,
+]
 
 const log = {
   info: (agent, msg) => console.log(`ℹ️  [${agent}] ${msg}`),
@@ -42,6 +51,68 @@ const log = {
     issues.push({ agent, type: category, message: details, timestamp: new Date() })
   },
   action: (agent, action) => console.log(`🎮 [${agent}] ${action}`),
+}
+
+function analyzeDaterNaturalness(samples) {
+  const lines = samples.map(sample => String(sample?.text || '').trim()).filter(Boolean)
+  if (!lines.length) return null
+
+  const wordCounts = lines.map(line => line.split(/\s+/).filter(Boolean).length)
+  const avgWords = wordCounts.reduce((sum, count) => sum + count, 0) / wordCounts.length
+  const maxWords = Math.max(...wordCounts)
+  const longLineCount = wordCounts.filter(count => count > 24).length
+  const roboticHits = lines.filter(line => ROBOTIC_PATTERNS.some(pattern => pattern.test(line))).length
+  const normalizedLines = lines.map(line => line.toLowerCase().replace(/[^\w\s]/g, '').trim())
+  const duplicateCount = normalizedLines.length - new Set(normalizedLines).size
+
+  const starts = lines
+    .map(line => line.split(/\s+/).slice(0, 2).join(' ').toLowerCase())
+    .filter(Boolean)
+  const startCounts = starts.reduce((acc, start) => {
+    acc[start] = (acc[start] || 0) + 1
+    return acc
+  }, {})
+  const repeatedStarts = Object.values(startCounts).filter(count => count >= 3).length
+
+  return {
+    sampleCount: lines.length,
+    avgWords: Number(avgWords.toFixed(1)),
+    maxWords,
+    longLineCount,
+    roboticHits,
+    duplicateCount,
+    repeatedStarts,
+  }
+}
+
+async function captureLatestDaterLine(page, agentName) {
+  try {
+    const text = await page.evaluate(() => {
+      const selectors = [
+        '.speech-bubble.dater-bubble .bubble-text',
+        '.speech-bubble.dater-bubble',
+        '.dialogue.dater .dialogue-bubble',
+        '.message.received .message-content',
+      ]
+      for (const selector of selectors) {
+        const nodes = Array.from(document.querySelectorAll(selector))
+          .map(node => node?.innerText?.trim() || '')
+          .filter(Boolean)
+        if (nodes.length > 0) return nodes[nodes.length - 1]
+      }
+      return ''
+    })
+
+    const cleaned = String(text || '').replace(/\s+/g, ' ').trim()
+    if (!cleaned) return
+
+    const previous = daterLineSamples[daterLineSamples.length - 1]
+    if (previous?.text === cleaned) return
+
+    daterLineSamples.push({ agent: agentName, text: cleaned, timestamp: new Date() })
+  } catch (error) {
+    log.warning(agentName, `Could not capture dater line for naturalness check: ${error.message}`)
+  }
 }
 
 /**
@@ -440,10 +511,12 @@ async function runHostAgent() {
           return { success: false, reason: `Round ${round}: Game stuck, next round never started` }
         }
 
+        await captureLatestDaterLine(page, agentName)
         log.success(agentName, `Round ${round} completed, Round ${round + 1} ready!`)
       } else {
         // Last round - just wait for conversation to finish
         await setTimeout(8000)
+        await captureLatestDaterLine(page, agentName)
         log.success(agentName, `Round ${round} completed!`)
       }
     }
@@ -854,6 +927,26 @@ async function main() {
     })
   } else {
     console.log('\n\n✨ No issues detected!')
+  }
+
+  const naturalness = analyzeDaterNaturalness(daterLineSamples)
+  if (naturalness) {
+    console.log('\n' + '='.repeat(70))
+    console.log('🗣️ DATER NATURALNESS CHECK')
+    console.log('='.repeat(70))
+    console.log(`Samples captured: ${naturalness.sampleCount}`)
+    console.log(`Avg words/line: ${naturalness.avgWords}`)
+    console.log(`Max words in a line: ${naturalness.maxWords}`)
+    console.log(`Lines over 24 words: ${naturalness.longLineCount}`)
+    console.log(`Robotic phrase hits: ${naturalness.roboticHits}`)
+    console.log(`Exact duplicates: ${naturalness.duplicateCount}`)
+    console.log(`Repeated 2-word openers (3+ uses): ${naturalness.repeatedStarts}`)
+
+  } else {
+    console.log('\n' + '='.repeat(70))
+    console.log('🗣️ DATER NATURALNESS CHECK')
+    console.log('='.repeat(70))
+    console.log('No dater lines captured for analysis.')
   }
 
   if (RECORD && OUTPUT_VIDEO) {
