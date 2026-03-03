@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
-import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
+import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, decideLikesDislikesFromAnswer, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -346,7 +346,7 @@ function LiveDateScene() {
     boardPanelFlashTimeout.current = setTimeout(() => setBoardPanelFlash(false), 1200)
   }
 
-  const applyScoringDecision = async ({ question = '', playerAnswer = '', daterResponse = '', source = '' } = {}) => {
+  const applyScoringDecision = async ({ question = '', playerAnswer = '', daterResponse = '', source = '', mode1ScorePlan = null } = {}) => {
     if (!isHost) return
     const responseText = String(daterResponse || '').trim()
     if (!responseText) return
@@ -375,17 +375,22 @@ function LiveDateScene() {
         }
 
         const likesState = state.scoring?.likesMinusDislikes
-        const result = await evaluateLikesDislikesResponse({
-          dater: selectedDater,
-          question,
-          playerAnswer: normalizedAnswer,
-          daterResponse: responseText,
-          likes: likesState?.likes || [],
-          dislikes: likesState?.dislikes || [],
-          profileValues: daterValues,
-          includeChaos: isChaosMode,
-        })
-        syncLlmStatusMessage()
+        const hasPreScorePlan = mode1ScorePlan && (
+          Array.isArray(mode1ScorePlan.likes) || Array.isArray(mode1ScorePlan.dislikes)
+        )
+        const result = hasPreScorePlan
+          ? mode1ScorePlan
+          : await evaluateLikesDislikesResponse({
+            dater: selectedDater,
+            question,
+            playerAnswer: normalizedAnswer,
+            daterResponse: responseText,
+            likes: likesState?.likes || [],
+            dislikes: likesState?.dislikes || [],
+            profileValues: daterValues,
+            includeChaos: isChaosMode,
+          })
+        if (!hasPreScorePlan) syncLlmStatusMessage()
         const { newLikes, newDislikes, ratingsEffectApplied } = addLikesDislikesHits(result)
         const latestSummary = useGameStore.getState().getScoringSummary()
         setScoringSummary(latestSummary)
@@ -1931,8 +1936,26 @@ RULES:
     const isFinalRound = currentCycleForCheck >= maxCyclesForCheck - 1
     const currentCompat = useGameStore.getState().compatibility
     const conversationHistory = useGameStore.getState().dateConversation
+    const currentScoringMode = useGameStore.getState().scoring?.selectedMode || SCORING_MODES.LIKES_MINUS_DISLIKES
+    const isLikesMode = currentScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES || currentScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+    const isChaosMode = currentScoringMode === SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS
+    const likesState = useGameStore.getState().scoring?.likesMinusDislikes
 
     try {
+      let mode1ScorePlan = null
+      if (isLikesMode) {
+        mode1ScorePlan = await decideLikesDislikesFromAnswer({
+          dater: selectedDater,
+          question: llmQuestion,
+          playerAnswer,
+          likes: likesState?.likes || [],
+          dislikes: likesState?.dislikes || [],
+          profileValues: daterValues,
+          includeChaos: isChaosMode,
+        })
+        syncLlmStatusMessage()
+      }
+
       const daterQuickAnswer = String(daterQuickAnswerRef.current || '').trim() || await getDaterQuickAnswer(
         selectedDater,
         llmQuestion,
@@ -1950,7 +1973,8 @@ RULES:
         currentCompat,
         isFinalRound,
         daterValues,
-        currentCycleForCheck
+        currentCycleForCheck,
+        mode1ScorePlan
       )
       syncLlmStatusMessage()
       if (!daterReaction) {
@@ -1974,6 +1998,7 @@ RULES:
             daterMood,
             source: 'player answer reaction',
             daterQuickAnswer,
+            mode1ScorePlan,
           }
         ].filter(e => e.daterReaction),
         avatarWithNewAttr: { ...avatar, attributes: avatar.attributes.includes(playerAnswer) ? avatar.attributes : [...avatar.attributes, playerAnswer] }
@@ -2018,6 +2043,7 @@ RULES:
           playerAnswer: attribute,
           daterResponse: exchange.daterReaction,
           source: exchange.source || 'round quip',
+          mode1ScorePlan: exchange.mode1ScorePlan || null,
         })
 
         await syncConversationToPartyKit(undefined, undefined, true)

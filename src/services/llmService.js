@@ -1020,7 +1020,7 @@ Their full line: "${lastAvatarMessage}"`
  * Call this with the round question and the player's answer so the LLM has full context.
  * @returns {Promise<string|null>} The dater's reaction line (dialogue only).
  */
-export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null, cycleNumber = 0) {
+export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null, cycleNumber = 0, scoreDecision = null) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const responseMode = getDaterResponseModePreference()
@@ -1030,22 +1030,43 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? useExperimentalMode
+      ? useExperimentalMode
       ? '\nREMINDER — LENGTH: Keep it very short (1 sentence, usually 6-16 words, <= 160 chars).'
       : '\nREMINDER — LENGTH: Use 1-2 sentences and aim for <= 280 characters total.'
     : ''
+  const preScoredVerdict = Array.isArray(scoreDecision?.dislikes) && scoreDecision.dislikes.length > 0
+    ? 'dislike'
+    : Array.isArray(scoreDecision?.likes) && scoreDecision.likes.length > 0
+      ? 'like'
+      : null
   const valueHitCategory = useExperimentalMode ? findValueHitCategory(valuesContext, playerAnswer) : null
+  const toneBiasCategory = preScoredVerdict === 'like'
+    ? 'likes'
+    : preScoredVerdict === 'dislike'
+      ? 'dislikes'
+      : valueHitCategory
   const profileBiasBlock = useExperimentalMode
-    ? valueHitCategory === 'dealbreakers'
+    ? toneBiasCategory === 'dealbreakers'
       ? '\nPROFILE BIAS: This is close to a personal boundary for you; sound firm or wary.'
-      : valueHitCategory === 'dislikes'
+      : toneBiasCategory === 'dislikes'
         ? '\nPROFILE BIAS: This leans against your taste; show mild skepticism.'
-        : valueHitCategory === 'loves'
+        : toneBiasCategory === 'loves'
           ? '\nPROFILE BIAS: This strongly fits your taste; let warmth and interest show.'
-          : valueHitCategory === 'likes'
+          : toneBiasCategory === 'likes'
             ? '\nPROFILE BIAS: This somewhat fits your taste; lean gently positive.'
             : '\nPROFILE BIAS: Let one subtle piece of your worldview tint the line without naming labels.'
     : ''
+  const scoreToneLockBlock = useExperimentalMode && preScoredVerdict === 'like'
+    ? `\nSCORE LOCK (MANDATORY):
+- This turn is pre-scored as LIKE.
+- Be flirty, warm, playful, and approving.
+- Do NOT use barbs, digs, or cutting sarcasm.`
+    : useExperimentalMode && preScoredVerdict === 'dislike'
+      ? `\nSCORE LOCK (MANDATORY):
+- This turn is pre-scored as DISLIKE.
+- Be skeptical, biting, or boundary-setting.
+- Do NOT be flirty, praising, or approving.`
+      : ''
   const lastDaterLine = [...conversationHistory].reverse().find((msg) => msg.speaker === 'dater')?.message || ''
   const adamIdentityBlock = useExperimentalMode && isAdam
     ? `
@@ -1094,8 +1115,8 @@ Rules:
 - Keep it conversational, specific, and punchy.
 - Sound like a heightened reality-dating-show contestant, not casual small talk.
 - Mild swearing is allowed when earned (max one swear word).
-- If they said something attractive, be cheeky/flirty.
-- If you disagree, be sharper and a little biting.
+- If your scored verdict is positive, be cheeky/flirty.
+- If your scored verdict is negative, be sharper and a little biting.
 - Include one playful joke/rib/callback in this line unless the topic is dangerous or traumatic.
 - If you disagree, use witty skepticism or dry sarcasm instead of bland disapproval.
 - If you are Adam, use exactly one archaic term in the final line.
@@ -1104,7 +1125,7 @@ Rules:
 - Keep profile influence subtle; do not name archetypes, trait labels, or profile fields.
 - Avoid neutral filler phrasing ("interesting", "fair", "I hear you", "valid").
 - Dialogue only; no actions or asterisks.
-${finalNote}${wordLimitReminder}${profileBiasBlock}${adamIdentityBlock}
+${finalNote}${wordLimitReminder}${scoreToneLockBlock}${profileBiasBlock}${adamIdentityBlock}
 `
     : `
 🎯 YOUR TASK: Give your IMMEDIATE, STRONG reaction to what your date just said.
@@ -1127,7 +1148,7 @@ ${finalNote}${wordLimitReminder}
     content: msg.message
   }))
   const userContent = useExperimentalMode
-    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny, heightened dating-show reaction with light ribbing and a clear opinion.]`
+    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny, heightened dating-show reaction with a clear opinion. If this turn is scored positive, be flirty. If scored negative, be barbed.]`
     : `[The date was asked: "${question}". They answered: "${playerAnswer}". Give your strong, opinionated reaction.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
@@ -1151,12 +1172,28 @@ ${finalNote}${wordLimitReminder}
 
   // Deterministic fallback so gameplay never advances without a dater comment.
   const adamFallbacks = useExperimentalMode
-    ? [
-      'Damn, that was bold; verily, I liked that.',
-      'I distrust easily, but that almost won me over.',
-      'You had me at curiosity; now flirt responsibly.',
-      'Hard no on fire, hard yes on your timing.',
-    ]
+    ? (
+      toneBiasCategory === 'loves' || toneBiasCategory === 'likes'
+        ? [
+          'Damn, that was smooth; verily, keep talking.',
+          'I liked that answer more than I planned to.',
+          'That was hot, and yes, I hate admitting it.',
+          'You just made this fun for me, honestly.',
+        ]
+        : toneBiasCategory === 'dislikes' || toneBiasCategory === 'dealbreakers'
+          ? [
+            'Nope, that is not my lane at all.',
+            'Hard pass; that answer does not help your case.',
+            'That is a miss for me, and I mean it.',
+            'I heard you, and unfortunately that made it worse.',
+          ]
+          : [
+            'Bold answer. My stitches are listening.',
+            'You had me curious; now prove it.',
+            'That was suspiciously effective, I will admit.',
+            'I am intrigued, but keep going.',
+          ]
+    )
     : [
       'Curious confession. My stitched heart stirs at it.',
       'That answer lands strangely, but not without intrigue.',
@@ -1164,12 +1201,28 @@ ${finalNote}${wordLimitReminder}
       'A fierce answer. It awakens old thoughts.',
     ]
   const genericFallbacks = useExperimentalMode
-    ? [
-      'Damn, that was smooth. Should I be worried?',
-      'Did not expect that. Hot, and mildly alarming.',
-      'That was funny and suspiciously effective.',
-      'Confident answer. Keep roasting me, respectfully.',
-    ]
+    ? (
+      toneBiasCategory === 'loves' || toneBiasCategory === 'likes'
+        ? [
+          'Okay, that was smooth. Keep flirting like that.',
+          'Well damn, that actually works for me.',
+          'That was hot and annoyingly charming.',
+          'You might be trouble, and I like it.',
+        ]
+        : toneBiasCategory === 'dislikes' || toneBiasCategory === 'dealbreakers'
+          ? [
+            'Nope, that is not doing it for me.',
+            'That answer is a miss, full stop.',
+            'Hard pass on that vibe.',
+            'Yeah, that moved you the wrong direction.',
+          ]
+          : [
+            'Damn, that was smooth. Should I be worried?',
+            'Did not expect that. Hot, and mildly alarming.',
+            'That was funny and suspiciously effective.',
+            'Confident answer. Keep roasting me, respectfully.',
+          ]
+    )
     : [
       'Interesting answer. I need a second to process it.',
       'I did not expect that, but I hear you.',
@@ -3530,6 +3583,110 @@ const pickClosestTraitLabel = (labels = [], text = '') => {
   })
 
   return bestLabel
+}
+
+export async function decideLikesDislikesFromAnswer({
+  dater,
+  question = '',
+  playerAnswer = '',
+  likes = [],
+  dislikes = [],
+  profileValues = null,
+  includeChaos = false,
+}) {
+  const likePool = normalizeStringList(likes)
+  const dislikePool = normalizeStringList(dislikes)
+  if (likePool.length === 0 && dislikePool.length === 0) {
+    return includeChaos ? { likes: [], dislikes: [], ratingsEffect: 'no_change' } : { likes: [], dislikes: [] }
+  }
+
+  const likeMap = new Map(likePool.map((label) => [normalizeLabelKey(label), label]))
+  const dislikeMap = new Map(dislikePool.map((label) => [normalizeLabelKey(label), label]))
+  const profileSnapshot = buildMode1ProfileSnapshot(dater, profileValues)
+  const evaluationText = [question, playerAnswer].filter(Boolean).join(' | ')
+
+  const systemPrompt = `You are ${dater?.name || 'the dater'} deciding Mode 1 daily scoring BEFORE writing a dater response.
+
+Evaluate only the question and player's answer (do NOT evaluate any dater reaction).
+
+SCORING GOAL:
+- Every turn must award EXACTLY ONE point: either Like or Dislike.
+- Never award both. Never award neither.
+
+Classification rules:
+- "like" when the player's stance/behavior is net positive relative to preferences.
+- "dislike" when the player's stance/behavior is net negative relative to preferences.
+- If they reject a negative trait, that is usually a positive signal, not a dislike.
+- Ground the decision in the character profile and values provided.
+- Use semantic matching, not exact phrase matching.
+
+Output rules:
+- Return JSON only.
+- matchedValue must be an exact label from the chosen side's provided list.
+${includeChaos ? `
+- Also return ratingsEffect: "increase" | "decrease" | "no_change".
+  - "increase" if the answer is entertaining/surprising/bold.
+  - "decrease" only when clearly dull/flat.
+  - "no_change" for in-between.` : ''}`
+
+  const userPrompt = `QUESTION:
+"${question}"
+
+PLAYER ANSWER:
+"${playerAnswer}"
+
+CHARACTER PROFILE SNAPSHOT:
+${profileSnapshot}
+
+LIKES:
+${likePool.map((item) => `- ${item}`).join('\n') || '- none'}
+
+DISLIKES:
+${dislikePool.map((item) => `- ${item}`).join('\n') || '- none'}
+
+Return JSON:
+{
+  "profileVerdict": "like" | "dislike",
+  "matchedValue": "exact label from the chosen side",
+  "reason": "short explanation"${includeChaos ? ',\n  "ratingsEffect": "increase" | "decrease" | "no_change"' : ''}
+}`
+
+  const response = await getChatResponse([{ role: 'user', content: userPrompt }], systemPrompt, { maxTokens: includeChaos ? 260 : 220 })
+  const parsed = safeJsonObject(response)
+  const parsedVerdict = toMode1Verdict(parsed?.profileVerdict || parsed?.verdict || parsed?.result || parsed?.category || parsed?.sentiment)
+  const candidate = parsed?.matchedValue || parsed?.label || parsed?.trait || parsed?.shortLabel || ''
+
+  let finalVerdict = parsedVerdict
+  const candidateKey = normalizeLabelKey(candidate)
+  if (!finalVerdict && candidateKey && dislikeMap.has(candidateKey)) {
+    finalVerdict = 'dislike'
+  } else if (!finalVerdict && candidateKey && likeMap.has(candidateKey)) {
+    finalVerdict = 'like'
+  }
+  if (!finalVerdict) {
+    finalVerdict = 'like'
+  }
+
+  // Keep verdict valid even if a side has no labels.
+  if (finalVerdict === 'dislike' && dislikePool.length === 0) finalVerdict = 'like'
+  if (finalVerdict === 'like' && likePool.length === 0) finalVerdict = 'dislike'
+
+  const parsedChaos = Number(parsed?.chaosScore ?? parsed?.chaos ?? parsed?.chaosLevel ?? parsed?.chaos_level)
+  const parsedRatingsEffect = toRatingsEffect(parsed?.ratingsEffect || parsed?.ratings || parsed?.chaosEffect || parsed?.ratingImpact)
+  const normalizedRatingsEffect = parsedRatingsEffect || deriveRatingsEffectFallback(playerAnswer, Number.isFinite(parsedChaos) ? parsedChaos : null)
+  const appendModeExtras = (payload) => (includeChaos ? { ...payload, ratingsEffect: normalizedRatingsEffect } : payload)
+
+  if (finalVerdict === 'dislike') {
+    const canonical = dislikeMap.get(candidateKey)
+      || pickClosestTraitLabel(dislikePool, `${evaluationText} ${candidate}`)
+      || dislikePool[0]
+    return canonical ? appendModeExtras({ likes: [], dislikes: [canonical] }) : appendModeExtras({ likes: [], dislikes: [] })
+  }
+
+  const canonical = likeMap.get(candidateKey)
+    || pickClosestTraitLabel(likePool, `${evaluationText} ${candidate}`)
+    || likePool[0]
+  return canonical ? appendModeExtras({ likes: [canonical], dislikes: [] }) : appendModeExtras({ likes: [], dislikes: [] })
 }
 
 export async function evaluateLikesDislikesResponse({
