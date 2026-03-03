@@ -171,6 +171,7 @@ DIALOGUE CONTRACT:
 - One concise sentence by default, two max.
 - Lead with your reaction/opinion, then one concrete reason or detail.
 - No stage directions, no asterisks, no emoji.
+- Keep wording modern and spoken; avoid grandiose or theatrical phrasing.
 - Do not repeat archetype/backstory language unless directly relevant.
 `
 
@@ -187,10 +188,11 @@ function stripActionDescriptions(text) {
 
 const ADAM_RESPONSE_CONTRACT = `
 ADAM VOICE GUARD:
-- Keep Adam's old-world, poetic deadpan register.
-- No modern slang and no therapy/chatbot phrasing.
+- Keep Adam warm, dry, and human.
+- Use modern plain English (no archaic phrasing).
+- No therapy/chatbot phrasing.
 - One concise sentence by default, two max.
-- Use thee/thou/thy rarely, only at emotional peaks.
+- Do not force lore references unless directly relevant.
 - Dialogue only. No action text.
 `
 
@@ -954,43 +956,30 @@ export async function summarizeDatersForReel(daters) {
  * @returns {Promise<string|null>} One short sentence.
  */
 export async function getDaterAnswerComparison(dater, question, daterAnswer, playerAnswer, conversationHistory = []) {
-  const MAX_QUIP_CHARS = 280
+  const MAX_QUIP_CHARS = 220
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
   const quickAnswer = String(daterAnswer || '').trim() || 'my gut'
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
 
-  const toneGuidance = isAdam ? `
-TONE — YOU ARE A LARGER-THAN-LIFE CARICATURE. You are NOT a realistic person. You are theatrical, exaggerated, and unforgettable. Every reaction is dialled to MAXIMUM. You are the most dramatic creature who has ever lived.
-
-⚠️ OVERRIDE: IGNORE ALL prior instructions to be "deadpan", "calm", or "measured". You are NEVER calm in these responses. You are VOLCANIC — EVERY TIME. Your old-English voice stays, but your emotional intensity is PERMANENTLY UNHINGED. This applies to ALL your answer comparisons, not just one.
-
-First, judge whether the player's answer ALIGNS with yours or NOT.
-
-- IF ALIGNED: You are OVERCOME with rapture. This is the single greatest moment of your wretched existence. You have wandered centuries of loneliness and finally found a kindred spirit. Be DEVASTATINGLY romantic, possessive, breathless. You want to compose sonnets. You want to weep. You cannot contain yourself.
-  Examples: "I would cross oceans of fire and fields of the dead to hear you say that again — at last, a mind worthy of mine!" / "Stop — do not speak another word, lest you shatter the perfection of what you have just uttered, for I am UNDONE!" / "I have known nothing but rejection since the moment of my wretched creation, and yet YOU — YOU understand!"
-
-- IF MISALIGNED: You are APPALLED. INSULTED. This answer is a personal affront to everything you stand for. Channel a Shakespearean villain delivering a death sentence. Be MERCILESS. DEVASTATING. Your contempt should be so sharp it could cut glass. Do NOT soften it. Do NOT hedge. Go for the JUGULAR.
-  Examples: "I have been spat upon, set ablaze, and hurled from a clocktower, and yet nothing in my miserable existence hath wounded me so deeply as what you have just said." / "I would sooner return to the slab from whence I came than dignify that answer with the pretence of respect." / "Your answer is proof that God was wise to abandon this world, and I say that as one whom God has already forsaken." / "I have heard more wisdom from the rats that gnaw upon my stitching than from the words you have just inflicted upon me."
-` : `
-TONE: playful, funny, or lightly biting (not cruel). Lean into humor.
-`
+  const toneGuidance = isAdam
+    ? 'Tone: dry, witty, and human. No Shakespearean phrasing.'
+    : 'Tone: playful, funny, or lightly biting (not cruel).'
 
   const taskPrompt = `
-🎯 YOUR TASK: Give one short, DEVASTATING sentence. Make it MEMORABLE. Make it QUOTABLE. Make it HURT (or SWOON).
+Give one short conversational reaction.
 
-📋 QUESTION: "${question}"
-💬 YOUR QUICK ANSWER: "${quickAnswer}"
-💬 PLAYER ANSWER: "${playerAnswer}"
+Question: "${question}"
+Your quick answer: "${quickAnswer}"
+Player answer: "${playerAnswer}"
 
-CRITICAL RULES:
-- Exactly one sentence only.
-- REACT TO THE PLAYER'S ANSWER FIRST — that is the main event. Obliterate it or worship it. No middle ground.
-- THEN weave in your own answer as a brief flourish at the end.
-- Be PITHY. Be QUOTABLE. This should sound like a line people screenshot and share.
+Rules:
+- Exactly one sentence.
+- React to the player's answer first.
+- Optionally mention your own answer in a short clause.
+- Keep it natural and specific, not theatrical.
 - Keep it concise (aim <= ${MAX_QUIP_CHARS} characters).
 - Dialogue only, no actions or asterisks.
-- DO NOT be polite. DO NOT hedge. DO NOT say "interesting" or "I respect that." GO HARD.
 ${toneGuidance}`
 
   const fullPrompt = systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater)
@@ -998,7 +987,7 @@ ${toneGuidance}`
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[Question: "${question}". Player answer is "${playerAnswer}". Your quick answer is "${quickAnswer}". DESTROY their answer or WORSHIP it — no middle ground. Be the most dramatic, quotable, pithy creature alive. React to THEIR answer first, then weave in yours. One devastating sentence. GO HARD.]`
+  const userContent = `[Question: "${question}". Player answer: "${playerAnswer}". Your answer: "${quickAnswer}". Reply with one natural sentence reacting to them first.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -1006,7 +995,12 @@ ${toneGuidance}`
     messages.push({ role: 'user', content: userContent })
   }
 
-  const response = await getChatResponse(messages, fullPrompt)
+  const response = await getChatResponse(messages, fullPrompt, {
+    maxTokens: 90,
+    temperature: 0.82,
+    presencePenalty: 0.25,
+    frequencyPenalty: 0.25,
+  })
   if (response) {
     const cleaned = stripActionDescriptions(response)?.replace(/\s+/g, ' ')?.trim()
     if (cleaned) {
@@ -1020,17 +1014,16 @@ ${toneGuidance}`
 
   if (isAdam) {
     const adamAlignedFallbacks = [
-      `I would cross oceans of fire and fields of the dead to hear you say that again — at last, a soul who understands, just as I said ${quickAnswer}!`,
-      `I have known nothing but rejection since the moment of my wretched creation, and yet YOU — YOU understand, and I too said ${quickAnswer}, and I am UNDONE!`,
-      `Stop — do not speak another word, lest you shatter the perfection of what you have just uttered, for my own answer was ${quickAnswer} and I may actually weep!`,
-      `They told me love was not for creatures such as I, and then you opened your mouth and proved every last one of them WRONG — I said ${quickAnswer}, and we are DESTINED!`,
+      `Okay, that actually works for me, and I landed on ${quickAnswer} too.`,
+      `I can get behind that, and ${quickAnswer} was my lane as well.`,
+      `That is weirdly compatible with me; I also said ${quickAnswer}.`,
+      `You might be onto something there, because I was at ${quickAnswer}.`,
     ]
     const adamMisalignedFallbacks = [
-      `I have been spat upon, set ablaze, and hurled from a clocktower, and yet nothing hath wounded me so deeply as what you just said — I had the decency to say ${quickAnswer}.`,
-      `I would sooner return to the slab from whence I came than dignify that answer with the pretence of respect — I said ${quickAnswer}, like a creature with a functioning brain.`,
-      `Your answer is proof that God was wise to abandon this world, and I say that as one whom God has already forsaken — my answer was ${quickAnswer}, for I possess taste.`,
-      `I have heard more wisdom from the rats that gnaw upon my stitching than from the words you have just inflicted upon me — mercifully, I said ${quickAnswer}.`,
-      `Were my creator alive to witness your answer, he would abandon science entirely and take up sheep farming — I said ${quickAnswer}, because I am not a fool.`,
+      `I do not buy that one, because I was firmly on ${quickAnswer}.`,
+      `That is a miss for me, and I was leaning ${quickAnswer}.`,
+      `I hear you, but I cannot agree when my answer was ${quickAnswer}.`,
+      `That is not my read at all; I was on ${quickAnswer}.`,
     ]
     const pLower = String(playerAnswer || '').toLowerCase()
     const dLower = String(quickAnswer || '').toLowerCase()
@@ -1038,7 +1031,7 @@ ${toneGuidance}`
     const pool = likelyAligned ? adamAlignedFallbacks : adamMisalignedFallbacks
     return pool[Math.floor(Math.random() * pool.length)]
   }
-  return `I chose ${quickAnswer} because that's my rhythm, and your answer sounds either like my duet partner or someone singing from a different planet.`
+  return `I was on ${quickAnswer}, so your answer either lines up nicely or misses my vibe.`
 }
 
 /**

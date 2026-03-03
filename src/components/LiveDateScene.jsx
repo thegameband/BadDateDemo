@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.div, etc.)
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
-import { getDaterDateResponse, getDaterQuickAnswer, getDaterAnswerComparison, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
+import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import AnimatedText from './AnimatedText'
@@ -195,7 +195,7 @@ function LiveDateScene() {
   const [ttsEnabled] = useState(true) // Enabled by default
   const lastSpokenDater = useRef('')
   const [hasSubmittedPlotTwist, setHasSubmittedPlotTwist] = useState(false)
-  const [plotTwistDaterAnswerDone, setPlotTwistDaterAnswerDone] = useState(false)
+  const [_plotTwistDaterAnswerDone, setPlotTwistDaterAnswerDone] = useState(false)
   const [plotTwistNarratorDone, setPlotTwistNarratorDone] = useState(false)
   const plotTwistTimerRef = useRef(null)
   const plotTwistAnimationRef = useRef(null)
@@ -1942,21 +1942,24 @@ RULES:
         daterQuickAnswerRef.current = daterQuickAnswer
       }
 
-      const daterComparison = await getDaterAnswerComparison(
+      const daterReaction = await getDaterResponseToPlayerAnswer(
         selectedDater,
         llmQuestion,
-        daterQuickAnswer || 'my gut',
         playerAnswer,
-        conversationHistory
+        conversationHistory,
+        currentCompat,
+        isFinalRound,
+        daterValues,
+        currentCycleForCheck
       )
       syncLlmStatusMessage()
-      if (!daterComparison) {
+      if (!daterReaction) {
         setIsPreGenerating(false)
         if (partyClient) partyClient.syncState({ isPreGenerating: false })
         return null
       }
 
-      const lowerReaction = String(daterComparison || '').toLowerCase()
+      const lowerReaction = String(daterReaction || '').toLowerCase()
       const negativeCue = /\b(no|never|not|awful|bad|terrible|uncomfortable|hate|worse|wrong)\b/.test(lowerReaction)
       const daterMood = negativeCue ? 'uncomfortable' : 'happy'
 
@@ -1967,9 +1970,9 @@ RULES:
         exchanges: [
           {
             avatarResponse: null,
-            daterReaction: daterComparison,
+            daterReaction,
             daterMood,
-            source: 'round quip',
+            source: 'player answer reaction',
             daterQuickAnswer,
           }
         ].filter(e => e.daterReaction),
