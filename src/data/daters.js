@@ -191,7 +191,13 @@ export const daters = [
       favoriteFood: 'Vegetarian',
       redFlags: 'Cruelty, Crudeness, and Fire',
     },
-    dropALineCharacterImage: '/images/drop-a-line/characters/adam.jpg',
+    dropALineCharacterImage: '/images/drop-a-line/characters/adam-start.png',
+    dropALineImages: {
+      start: '/images/drop-a-line/characters/adam-start.png',
+      happy: '/images/drop-a-line/characters/adam-happy.png',
+      disappointed: '/images/drop-a-line/characters/adam-disappointed.png',
+    },
+    dropALineProfileImage: '/images/drop-a-line/characters/adam-profile.png',
     archetype: 'The Hopeful Monster',
     tagline: 'I didn\'t ask to be here, but I\'m glad I stayed ⚡',
     

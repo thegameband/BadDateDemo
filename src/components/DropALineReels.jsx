@@ -62,7 +62,7 @@ export default function DropALineReels({ daters = [], onContinue }) {
 
   useEffect(() => {
     if (!daterNames.length) return
-    setFinalLocationIndex(Math.floor(Math.random() * DROP_A_LINE_LOCATIONS.length))
+    setFinalLocationIndex(0)
     setSpinning(true)
     setShowContinue(false)
     setReelsCompleteCount(0)

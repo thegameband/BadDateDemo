@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { evaluatePickupLine, generatePickupLineComeback } from '../services/llmService'
 import { speak, speakAndWait, waitForAllAudio, setVoice } from '../services/ttsService'
@@ -33,7 +33,15 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const replayTimeoutRef = useRef(null)
 
   const backgroundImageUrl = payload?.location ? DROP_A_LINE_LOCATION_IMAGES[payload.location] : null
-  const characterImageUrl = payload?.dater?.dropALineCharacterImage ?? null
+  const dropALineImages = payload?.dater?.dropALineImages
+  const characterImageUrl = useMemo(() => {
+    if (!dropALineImages) return payload?.dater?.dropALineCharacterImage ?? null
+    if (phase === 'comeback' || phase === 'reveal' || phase === 'stamp') {
+      const score = evaluation?.score ?? 0
+      return score >= SUCCESS_THRESHOLD ? dropALineImages.happy : dropALineImages.disappointed
+    }
+    return dropALineImages.start
+  }, [dropALineImages, phase, evaluation?.score, payload?.dater?.dropALineCharacterImage])
   const hasImage = Boolean(backgroundImageUrl)
 
   const handleSubmit = useCallback(
@@ -279,6 +287,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
+              <p className="drop-a-line-scene-submitted-label">Your Line</p>
               <p className="drop-a-line-scene-submitted-line">"{pickupLine.trim()}"</p>
               <p className="drop-a-line-scene-evaluating-text">Evaluating your line…</p>
             </motion.div>
@@ -293,6 +302,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
+              <p className="drop-a-line-scene-submitted-label">Your Line</p>
               <p className="drop-a-line-scene-submitted-line">"{pickupLine.trim()}"</p>
               <p className="drop-a-line-scene-comeback-label">{daterName}:</p>
               <p className="drop-a-line-scene-comeback-bubble">{comebackText}</p>
