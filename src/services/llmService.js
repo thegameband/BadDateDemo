@@ -4071,6 +4071,54 @@ Return JSON only.`
   }
 }
 
+/**
+ * Generate dater comeback after pickup line scoring.
+ * Tone rules:
+ * - score >= 75: flirty + cheeky
+ * - score < 75: crude + rejecting
+ */
+export async function generatePickupLineComeback(pickupLine, dater, location, score) {
+  const cleanedLine = String(pickupLine || '').trim()
+  const line = cleanedLine || '...'
+  const locationText = String(location || 'somewhere')
+  const systemPrompt = buildDaterAgentPrompt(dater, 'date')
+  const voicePrompt = getVoiceProfilePrompt(dater)
+  const isPositive = Number(score) >= 75
+  const toneInstruction = isPositive
+    ? 'Respond with flirty, cheeky energy. You are amused and intrigued.'
+    : 'Respond with crude, rejecting energy. You are dismissive and cutting.'
+
+  const taskPrompt = `\n\nDROP A LINE MODE — COMEBACK TASK:
+- You are reacting to a pickup line addressed to you.
+- Give exactly 1 or 2 short spoken lines.
+- Keep total length around 80-220 characters.
+- React to their line first, then add your own flavor.
+- ${toneInstruction}
+- Do NOT use markdown, asterisks, stage directions, or narration.
+
+Context:
+- Location: ${locationText}
+- Pickup line: "${line}"
+- Score: ${Number.isFinite(Number(score)) ? Math.round(Number(score)) : 0}%`
+
+  try {
+    const response = await getChatResponse(
+      [{ role: 'user', content: 'Give the comeback now.' }],
+      systemPrompt + voicePrompt + taskPrompt + buildPromptTail(dater),
+      { maxTokens: 180 }
+    )
+    const finalized = finalizeDaterDialogueLine(response, dater, { enforceAdamArchaic: true })
+    if (finalized) return finalized
+  } catch (err) {
+    console.error('generatePickupLineComeback error:', err)
+  }
+
+  if (isPositive) {
+    return 'Thy line hath a dangerous charm to it. Keep speaking thus, and I may surrender my number gladly.'
+  }
+  return 'That line is a social calamity in miniature. Leave now, lest thou worsen the damage.'
+}
+
 function getFallbackPickupLineEvaluation() {
   return {
     score: 50,
