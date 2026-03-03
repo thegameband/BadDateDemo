@@ -243,6 +243,114 @@ function stripActionDescriptions(text) {
   return text.replace(/\*[^*]+\*/g, '').replace(/\s+/g, ' ').trim()
 }
 
+const ADAM_ARCHAIC_NORMALIZE_MAP = {
+  methinks: 'I think',
+  verily: 'really',
+  alas: 'sadly',
+  pray: 'please',
+  mayhap: 'maybe',
+  prithee: 'please',
+  thee: 'you',
+  thou: 'you',
+  thy: 'your',
+  thine: 'your',
+  art: 'are',
+  hast: 'have',
+  hath: 'has',
+  dost: 'do',
+  doth: 'does',
+  wouldst: 'would',
+  couldst: 'could',
+  shouldst: 'should',
+  ere: 'before',
+  nay: 'no',
+  yea: 'yes',
+}
+
+const ADAM_ARCHAIC_REPLACEMENT_RULES = [
+  { pattern: /\bi think\b/i, replacement: 'methinks', score: 200 },
+  { pattern: /\bhonestly\b/i, replacement: 'verily', score: 140 },
+  { pattern: /\breally\b/i, replacement: 'verily', score: 130 },
+  { pattern: /\btruly\b/i, replacement: 'verily', score: 120 },
+  { pattern: /\bplease\b/i, replacement: 'pray', score: 115 },
+  { pattern: /\bsadly\b/i, replacement: 'alas', score: 110 },
+  { pattern: /\bunfortunately\b/i, replacement: 'alas', score: 108 },
+  { pattern: /\bmaybe\b/i, replacement: 'mayhap', score: 105 },
+  { pattern: /\bperhaps\b/i, replacement: 'mayhap', score: 100 },
+]
+
+const ADAM_ARCHAIC_NORMALIZE_PATTERN = new RegExp(
+  `\\b(?:${Object.keys(ADAM_ARCHAIC_NORMALIZE_MAP).join('|')})\\b`,
+  'gi'
+)
+
+function preserveReplacementCase(source, replacement) {
+  if (!source || !replacement) return replacement
+  if (source === source.toUpperCase()) return replacement.toUpperCase()
+  if (source[0] === source[0].toUpperCase()) {
+    return replacement[0].toUpperCase() + replacement.slice(1)
+  }
+  return replacement
+}
+
+function normalizeAdamArchaicToModern(text) {
+  return String(text || '').replace(ADAM_ARCHAIC_NORMALIZE_PATTERN, (match) => {
+    const modern = ADAM_ARCHAIC_NORMALIZE_MAP[match.toLowerCase()]
+    return modern ? preserveReplacementCase(match, modern) : match
+  })
+}
+
+function selectAdamArchaicReplacementCandidate(text) {
+  let best = null
+
+  for (const rule of ADAM_ARCHAIC_REPLACEMENT_RULES) {
+    const match = rule.pattern.exec(text)
+    if (!match) continue
+    const candidate = {
+      index: match.index,
+      length: match[0].length,
+      matchedText: match[0],
+      replacement: rule.replacement,
+      score: rule.score,
+    }
+    if (!best || candidate.score > best.score || (candidate.score === best.score && candidate.index < best.index)) {
+      best = candidate
+    }
+  }
+
+  return best
+}
+
+function enforceExactlyOneAdamArchaicTerm(text) {
+  const modernized = normalizeAdamArchaicToModern(String(text || '')).replace(/\s+/g, ' ').trim()
+  if (!modernized) return modernized
+
+  const candidate = selectAdamArchaicReplacementCandidate(modernized)
+  if (candidate) {
+    const replacement = preserveReplacementCase(candidate.matchedText, candidate.replacement)
+    return `${modernized.slice(0, candidate.index)}${replacement}${modernized.slice(candidate.index + candidate.length)}`
+  }
+
+  const negativeCue = /\b(no|not|never|hate|dealbreaker|awful|terrible|wrong|disagree|hard no)\b/i.test(modernized)
+  const prefix = negativeCue ? 'Alas' : 'Verily'
+  return `${prefix}, ${modernized}`
+}
+
+function shouldForceAdamArchaicTerm(dater) {
+  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
+  if (!isAdam) return false
+  return getDaterResponseModePreference() === DATER_RESPONSE_MODES.EXPERIMENTAL
+}
+
+function finalizeDaterDialogueLine(text, dater) {
+  const cleaned = stripActionDescriptions(text)?.replace(/\s+/g, ' ')?.trim()
+  if (!cleaned) return ''
+  if (shouldForceAdamArchaicTerm(dater)) {
+    return enforceExactlyOneAdamArchaicTerm(cleaned)
+  }
+  return cleaned
+}
+
 const MAIN_ADAM_RESPONSE_CHECKLIST = `
 ═══════════════════════════════════════════════════════════════
 🚨 CRITICAL: PURE DIALOGUE — ADAM'S VOICE — WEIGHTED & COMPLETE 🚨
@@ -301,7 +409,7 @@ ADAM VOICE GUARD:
 - When pleased, be cheeky/flirty; when opposed, be dry and biting.
 - Humor-forward dry wit: include a playful rib or clever twist in most lines.
 - When disapproving, prefer funny deadpan over flat rejection.
-- Archaic flavor is allowed but tiny: use at most one archaic term per line (e.g., "verily", "methinks", "alas", "pray").
+- Use exactly one archaic term per message (e.g., "verily", "methinks", "alas", "pray").
 - Let Adam's identity show through in brief color, rotating across:
   stitched-body awareness, abandonment sensitivity, protector instinct,
   fire boundary, and curiosity/freedom/humanist lens.
@@ -704,8 +812,8 @@ Rules:
       frequencyPenalty: 0.3,
     })
     if (!text) return null
-    // Remove any action descriptions
-    return text.replace(/\*[^*]+\*/g, '').trim()
+    const finalized = finalizeDaterDialogueLine(text, dater)
+    return finalized || null
   } catch (error) {
     console.error('Error getting dater opener:', error)
     return null
@@ -901,7 +1009,8 @@ Their full line: "${lastAvatarMessage}"`
     presencePenalty: 0.35,
     frequencyPenalty: 0.4,
   })
-  return response
+  const finalized = finalizeDaterDialogueLine(response, dater)
+  return finalized || null
 }
 
 /**
@@ -987,6 +1096,7 @@ Rules:
 - If you disagree, be sharper and a little biting.
 - Include one playful joke/rib/callback in this line unless the topic is dangerous or traumatic.
 - If you disagree, use witty skepticism or dry sarcasm instead of bland disapproval.
+- If you are Adam, use exactly one archaic term in the final line.
 - 1 sentence strongly preferred (6-16 words); 2 max.
 - End on the funniest or sharpest beat.
 - Keep profile influence subtle; do not name archetypes, trait labels, or profile fields.
@@ -1033,8 +1143,8 @@ ${finalNote}${wordLimitReminder}
     })
     : await getChatResponse(messages, fullPrompt)
   if (response) {
-    const cleaned = stripActionDescriptions(response)?.trim()
-    if (cleaned) return cleaned
+    const finalized = finalizeDaterDialogueLine(response, dater)
+    if (finalized) return finalized
   }
 
   // Deterministic fallback so gameplay never advances without a dater comment.
@@ -1065,7 +1175,8 @@ ${finalNote}${wordLimitReminder}
       'Huh. That says more than you might think.',
     ]
   const fallbackPool = isAdam ? adamFallbacks : genericFallbacks
-  return fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
+  const fallback = fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
+  return finalizeDaterDialogueLine(fallback, dater) || fallback
 }
 
 /**
@@ -1105,8 +1216,8 @@ Rules:
     frequencyPenalty: 0.3,
   })
   if (response) {
-    const cleaned = stripActionDescriptions(response)?.trim()
-    if (cleaned) return cleaned
+    const finalized = finalizeDaterDialogueLine(response, dater)
+    if (finalized) return finalized
   }
 
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
@@ -1123,7 +1234,8 @@ Rules:
     'I would answer directly, then back it up.'
   ]
   const openerPool = isAdam ? adamOpeners : genericOpeners
-  return openerPool[Math.floor(Math.random() * openerPool.length)]
+  const fallback = openerPool[Math.floor(Math.random() * openerPool.length)]
+  return finalizeDaterDialogueLine(fallback, dater) || fallback
 }
 
 /**
@@ -1304,7 +1416,7 @@ ${toneGuidance}`
     frequencyPenalty: 0.25,
   })
   if (response) {
-    const cleaned = stripActionDescriptions(response)?.replace(/\s+/g, ' ')?.trim()
+    const cleaned = finalizeDaterDialogueLine(response, dater)
     if (cleaned) {
       const firstSentence = cleaned.match(/[^.!?]+[.!?]/)?.[0]?.trim() || cleaned
       if (firstSentence.length <= MAX_QUIP_CHARS) return firstSentence
@@ -1331,7 +1443,8 @@ ${toneGuidance}`
     const dLower = String(quickAnswer || '').toLowerCase()
     const likelyAligned = pLower === dLower || pLower.includes(dLower) || dLower.includes(pLower)
     const pool = likelyAligned ? adamAlignedFallbacks : adamMisalignedFallbacks
-    return pool[Math.floor(Math.random() * pool.length)]
+    const fallback = pool[Math.floor(Math.random() * pool.length)]
+    return finalizeDaterDialogueLine(fallback, dater) || fallback
   }
   return `I was on ${quickAnswer}, so your answer either lines up nicely or misses my vibe.`
 }
@@ -1391,7 +1504,8 @@ Rules:
       presencePenalty: 0.35,
       frequencyPenalty: 0.35,
     })
-    return selfAnswerResponse ? stripActionDescriptions(selfAnswerResponse) : null
+    const finalized = finalizeDaterDialogueLine(selfAnswerResponse, dater)
+    return finalized || null
   }
 
   // Fix A: Ground the follow-up in the dater's own personality/values/backstory; do NOT hunt for prior answer links
@@ -1431,7 +1545,8 @@ ${finalNote}${wordLimitReminder}
     presencePenalty: 0.35,
     frequencyPenalty: 0.35,
   })
-  return response ? stripActionDescriptions(response) : null
+  const finalized = finalizeDaterDialogueLine(response, dater)
+  return finalized || null
 }
 
 /**
@@ -1472,7 +1587,8 @@ Rules:
     presencePenalty: 0.35,
     frequencyPenalty: 0.35,
   })
-  return response ? stripActionDescriptions(response) : null
+  const finalized = finalizeDaterDialogueLine(response, dater)
+  return finalized || null
 }
 
 /**
