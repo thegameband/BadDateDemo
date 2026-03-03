@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { evaluatePickupLine, generatePickupLineComeback } from '../services/llmService'
-import { speak, waitForAllAudio } from '../services/ttsService'
+import { speak, speakAndWait, waitForAllAudio, setVoice } from '../services/ttsService'
 import { DROP_A_LINE_LOCATION_PHRASES, DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
@@ -48,6 +48,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       setComebackText('')
       if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current)
       submitTimeoutRef.current = setTimeout(async () => {
+        const narratorPromise = speakAndWait(line, 'narrator')
         const result = await evaluatePickupLine(line, payload?.dater, payload?.location)
         const comeback = await generatePickupLineComeback(
           line,
@@ -55,6 +56,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
           payload?.location,
           result?.score ?? 0
         )
+        await narratorPromise
         setEvaluation(result)
         setComebackText(comeback)
         setPhase('comeback')
@@ -67,6 +69,12 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current)
     if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current)
   }, [])
+
+  useEffect(() => {
+    if (!payload?.dater?.voiceId) return
+    const isMale = (payload?.dater?.pronouns ?? '').toLowerCase().includes('he')
+    setVoice('dater', payload.dater.voiceId, isMale)
+  }, [payload?.dater])
 
   // Speak the comeback and wait for VO before revealing score/breakdown.
   useEffect(() => {
@@ -207,6 +215,32 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
               </motion.li>
             ))}
           </ul>
+          {phase === 'stamp' && (
+            <motion.div
+              className={`drop-a-line-scene-stamp ${success ? 'drop-a-line-scene-stamp-success' : 'drop-a-line-scene-stamp-rejected'}`}
+              initial={{ scale: 0.2, rotate: -10, opacity: 0 }}
+              animate={{ scale: 1, rotate: -6, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 15 }}
+            >
+              {success ? `Got ${possessive} Number!` : 'REJECTED!'}
+            </motion.div>
+          )}
+          {showReplay && (
+            <motion.div
+              className="drop-a-line-scene-replay-wrap"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <button
+                type="button"
+                className="drop-a-line-scene-replay"
+                onClick={onReplay ?? onBack}
+              >
+                Replay
+              </button>
+            </motion.div>
+          )}
         </div>
       )}
 
@@ -245,6 +279,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
+              <p className="drop-a-line-scene-submitted-line">"{pickupLine.trim()}"</p>
               <p className="drop-a-line-scene-evaluating-text">Evaluating your line…</p>
             </motion.div>
           )}
@@ -258,6 +293,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
+              <p className="drop-a-line-scene-submitted-line">"{pickupLine.trim()}"</p>
               <p className="drop-a-line-scene-comeback-label">{daterName}:</p>
               <p className="drop-a-line-scene-comeback-bubble">{comebackText}</p>
             </motion.div>
@@ -265,34 +301,6 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
         </AnimatePresence>
       </div>
 
-      {phase === 'stamp' && (
-        <div className="drop-a-line-scene-stamp-layer">
-          <motion.div
-            className={`drop-a-line-scene-stamp ${success ? 'drop-a-line-scene-stamp-success' : 'drop-a-line-scene-stamp-rejected'}`}
-            initial={{ scale: 0.2, rotate: -10, opacity: 0 }}
-            animate={{ scale: 1, rotate: -6, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 15 }}
-          >
-            {success ? `Got ${possessive} Number!` : 'REJECTED!'}
-          </motion.div>
-          {showReplay && (
-            <motion.div
-              className="drop-a-line-scene-replay-wrap"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <button
-                type="button"
-                className="drop-a-line-scene-replay"
-                onClick={onReplay ?? onBack}
-              >
-                Replay
-              </button>
-            </motion.div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

@@ -229,6 +229,15 @@
   margin: 0;
 }
 
+.drop-a-line-scene-submitted-line {
+  margin: 0 0 10px 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.98rem;
+  line-height: 1.35;
+  font-style: italic;
+  text-align: center;
+}
+
 .drop-a-line-scene-comeback {
   padding: 16px;
 }
@@ -258,11 +267,13 @@
   position: absolute;
   inset: 0;
   z-index: 4;
-  pointer-events: none;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 76px 14px 170px;
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding: 76px 14px 28px;
 }
 
 .drop-a-line-scene-reveal-score {
@@ -321,19 +332,6 @@
   color: #ff6b6b;
 }
 
-/* Stamp layer */
-.drop-a-line-scene-stamp-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  pointer-events: none;
-  padding: 20px;
-}
-
 .drop-a-line-scene-stamp {
   pointer-events: none;
   font-family: 'Bebas Neue', sans-serif;
@@ -347,6 +345,7 @@
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
   text-align: center;
   background: rgba(10, 10, 14, 0.45);
+  margin-top: 20px;
 }
 
 .drop-a-line-scene-stamp-success {
