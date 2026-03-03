@@ -459,17 +459,7 @@ function tokenizeProfileText(text) {
     .filter((token) => token.length >= 3 && !PROFILE_MATCH_STOPWORDS.has(token))
 }
 
-function truncateWords(text, maxWords = 10) {
-  return String(text || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, maxWords)
-    .join(' ')
-}
-
-function findMatchedValueAnchor(valuesContext, playerAnswer) {
+function findValueHitCategory(valuesContext, playerAnswer) {
   if (!valuesContext) return null
 
   const answerTokens = new Set(tokenizeProfileText(playerAnswer))
@@ -480,51 +470,13 @@ function findMatchedValueAnchor(valuesContext, playerAnswer) {
     const values = Array.isArray(valuesContext?.[category]) ? valuesContext[category] : []
     for (const value of values) {
       const valueTokens = tokenizeProfileText(value)
-      const matchedToken = valueTokens.find((token) => answerTokens.has(token))
-      if (matchedToken) {
-        const cueByCategory = {
-          dealbreakers: `hard boundary on ${matchedToken}`,
-          dislikes: `not into ${matchedToken}`,
-          loves: `huge yes on ${matchedToken}`,
-          likes: `soft spot for ${matchedToken}`,
-        }
-        return {
-          source: 'value_hit',
-          category,
-          cue: cueByCategory[category] || `opinion on ${matchedToken}`,
-          raw: value,
-        }
+      if (valueTokens.some((token) => answerTokens.has(token))) {
+        return category
       }
     }
   }
 
   return null
-}
-
-function buildProfileAnchor(dater, valuesContext, playerAnswer, cycleNumber = 0) {
-  const matched = findMatchedValueAnchor(valuesContext, playerAnswer)
-  if (matched) return matched
-
-  const candidates = []
-  const archetype = truncateWords(dater?.archetype, 6)
-  const quirk = truncateWords(dater?.quirk, 12)
-  const values = truncateWords(dater?.values, 12)
-  const talkingTrait = Array.isArray(dater?.talkingTraits) && dater.talkingTraits.length
-    ? truncateWords(dater.talkingTraits[0], 3)
-    : ''
-  const preferred = Array.isArray(dater?.idealPartner) && dater.idealPartner.length
-    ? truncateWords(dater.idealPartner[0], 5)
-    : ''
-
-  if (archetype) candidates.push(`vibe: ${archetype}`)
-  if (talkingTrait) candidates.push(`tone: ${talkingTrait}`)
-  if (preferred) candidates.push(`prefers: ${preferred}`)
-  if (quirk) candidates.push(`quirk: ${quirk}`)
-  if (values) candidates.push(`values: ${values}`)
-
-  if (!candidates.length) return null
-  const index = Math.abs(Number(cycleNumber) || 0) % candidates.length
-  return { source: 'profile', category: 'profile', cue: candidates[index], raw: candidates[index] }
 }
 
 /**
@@ -778,15 +730,16 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
   const wordLimitReminder = cycleNumber >= 4
     ? '\nREMINDER — LENGTH: Keep it very short (1 sentence, usually 6-16 words, <= 160 chars).'
     : ''
-  const profileAnchor = buildProfileAnchor(dater, valuesContext, playerAnswer, cycleNumber)
-  const profileAnchorBlock = profileAnchor
-    ? `
-Profile anchor (required once):
-- Include one tiny in-character cue based on: "${profileAnchor.cue}".
-- Keep the cue to 3-7 words, then return to the main reaction.
-- Do not repeat the cue more than once.
-`
-    : ''
+  const valueHitCategory = findValueHitCategory(valuesContext, playerAnswer)
+  const profileBiasBlock = valueHitCategory === 'dealbreakers'
+    ? '\nPROFILE BIAS: This is close to a personal boundary for you; sound firm or wary.'
+    : valueHitCategory === 'dislikes'
+      ? '\nPROFILE BIAS: This leans against your taste; show mild skepticism.'
+      : valueHitCategory === 'loves'
+        ? '\nPROFILE BIAS: This strongly fits your taste; let warmth and interest show.'
+        : valueHitCategory === 'likes'
+          ? '\nPROFILE BIAS: This somewhat fits your taste; lean gently positive.'
+          : '\nPROFILE BIAS: Let one subtle piece of your worldview tint the line without naming labels.'
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
   const isVisible = isVisibleAttribute(playerAnswer)
@@ -821,9 +774,9 @@ Rules:
 - Add one small charming/funny beat when natural (light tease or warm joke).
 - 1 sentence strongly preferred (6-16 words); 2 max.
 - End on the funniest or sharpest beat.
-- Keep profile references brief and subtle (one short phrase max).
+- Keep profile influence subtle; do not name archetypes, trait labels, or profile fields.
 - Dialogue only; no actions or asterisks.
-${finalNote}${wordLimitReminder}${profileAnchorBlock}
+${finalNote}${wordLimitReminder}${profileBiasBlock}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
 
@@ -831,7 +784,7 @@ ${finalNote}${wordLimitReminder}${profileAnchorBlock}
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with a clear opinion.${profileAnchor ? ` Use this profile cue once: "${profileAnchor.cue}".` : ''}]`
+  const userContent = `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with a clear opinion.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
