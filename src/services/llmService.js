@@ -192,12 +192,14 @@ function stripActionDescriptions(text) {
 const ADAM_RESPONSE_CONTRACT = `
 ADAM VOICE GUARD:
 - Keep Adam warm, dry, and human.
-- Use modern plain English (no archaic phrasing).
 - No therapy/chatbot phrasing.
 - One punchy sentence by default, two max.
 - Target short turns (usually 6-14 words).
 - Be funny in a charming way: light dry wit, not cruelty.
-- Let Adam's worldview peek through briefly sometimes (one short phrase).
+- Let Adam's identity show through in brief color, rotating across:
+  stitched-body awareness, abandonment sensitivity, protector instinct,
+  fire boundary, and curiosity/freedom/humanist lens.
+- Do not hammer the same identity trait repeatedly.
 - Do not force lore references unless directly relevant.
 - Dialogue only. No action text.
 `
@@ -479,6 +481,59 @@ function findValueHitCategory(valuesContext, playerAnswer) {
   return null
 }
 
+function buildAdamIdentityGuidance(question, playerAnswer, cycleNumber = 0) {
+  const text = `${String(question || '')} ${String(playerAnswer || '')}`.toLowerCase()
+  const hasAny = (patterns) => patterns.some((pattern) => pattern.test(text))
+
+  const laneTriggers = [
+    {
+      lane: 'fire',
+      patterns: [
+        /\bfire\b/, /\bflame\b/, /\bburn\b/, /\btorch\b/, /\bcampfire\b/, /\bmatch\b/, /\bsmoke\b/,
+      ],
+    },
+    {
+      lane: 'protector',
+      patterns: [
+        /\bprotect\b/, /\bdefend\b/, /\bbully\b/, /\bweak\b/, /\bvulnerable\b/, /\bkind\b/, /\bcruel\b/,
+      ],
+    },
+    {
+      lane: 'abandonment',
+      patterns: [
+        /\bdad\b/, /\bfather\b/, /\bparent\b/, /\bleave\b/, /\bleft\b/, /\babandon\b/, /\bghost\b/, /\btrust\b/,
+      ],
+    },
+    {
+      lane: 'knowledge',
+      patterns: [
+        /\bread\b/, /\bbook\b/, /\blearn\b/, /\bscience\b/, /\bphilosophy\b/, /\bfreedom\b/, /\btruth\b/, /\bcurious\b/,
+      ],
+    },
+    {
+      lane: 'assembled',
+      patterns: [
+        /\bbody\b/, /\bheart\b/, /\bparts\b/, /\bstitch\b/, /\bsew\b/, /\bscar\b/, /\bmonster\b/, /\bweird\b/,
+      ],
+    },
+  ]
+
+  const triggered = laneTriggers.find((entry) => hasAny(entry.patterns))?.lane
+  const rotation = ['assembled', 'knowledge', 'protector', 'abandonment']
+  const fallbackLane = rotation[Math.abs(Number(cycleNumber) || 0) % rotation.length]
+  const lane = triggered || fallbackLane
+
+  const guidanceByLane = {
+    assembled: 'subtle stitched-body self-awareness with warm deadpan humor',
+    abandonment: 'quiet sensitivity to loyalty/abandonment, without turning melodramatic',
+    protector: 'protective instinct toward vulnerable people and clear moral backbone',
+    fire: 'firm boundary around fire/smoke with controlled intensity',
+    knowledge: 'curiosity-and-freedom lens grounded in secular humanism and lived reflection',
+  }
+
+  return guidanceByLane[lane] || guidanceByLane.assembled
+}
+
 /**
  * Dater opens a round by sharing their own perspective on the topic
  * This makes conversations feel more natural - like they're already chatting
@@ -724,6 +779,7 @@ Their full line: "${lastAvatarMessage}"`
 export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null, cycleNumber = 0) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
+  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   const finalNote = isFinalRound
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
@@ -740,6 +796,18 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
         : valueHitCategory === 'likes'
           ? '\nPROFILE BIAS: This somewhat fits your taste; lean gently positive.'
           : '\nPROFILE BIAS: Let one subtle piece of your worldview tint the line without naming labels.'
+  const lastDaterLine = [...conversationHistory].reverse().find((msg) => msg.speaker === 'dater')?.message || ''
+  const adamIdentityBlock = isAdam
+    ? `
+ADAM IDENTITY COLOR (subtle, required):
+- Let this line carry: ${buildAdamIdentityGuidance(question, playerAnswer, cycleNumber)}.
+- Use one brief identity hint, then stay in the moment.
+- Keep it natural and date-conversational; no lore dump.
+- Never mention archetype/profile labels or "Frankenstein".
+${lastDaterLine ? `- Previous Adam line: "${lastDaterLine}"` : ''}
+${lastDaterLine ? '- Avoid reusing the exact same identity imagery from that line.' : ''}
+`
+    : ''
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
   const isVisible = isVisibleAttribute(playerAnswer)
@@ -776,7 +844,7 @@ Rules:
 - End on the funniest or sharpest beat.
 - Keep profile influence subtle; do not name archetypes, trait labels, or profile fields.
 - Dialogue only; no actions or asterisks.
-${finalNote}${wordLimitReminder}${profileBiasBlock}
+${finalNote}${wordLimitReminder}${profileBiasBlock}${adamIdentityBlock}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
 
@@ -804,12 +872,11 @@ ${finalNote}${wordLimitReminder}${profileBiasBlock}
   }
 
   // Deterministic fallback so gameplay never advances without a dater comment.
-  const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   const adamFallbacks = [
-    'Bold answer. I hate how well that worked.',
-    'Okay, that was annoyingly charming.',
-    'Did not expect that. I kind of liked it.',
-    'Confident and weird. I respect it.'
+    'Bold answer. My stitches are listening.',
+    'I do not trust easily. That helped.',
+    'You had me at curiosity and no cruelty.',
+    'Hard no on fire. Hard yes on honesty.',
   ]
   const genericFallbacks = [
     'Okay, that was smooth. Keep talking.',
