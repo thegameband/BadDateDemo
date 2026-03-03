@@ -1067,6 +1067,15 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
 - Be skeptical, biting, or boundary-setting.
 - Do NOT be flirty, praising, or approving.`
       : ''
+  const scoreHumorLockBlock = useExperimentalMode && preScoredVerdict === 'like'
+    ? `\nHUMOR LOCK (MANDATORY):
+- Include one flirty joke or playful tease.
+- Do NOT be neutral, dry, or purely polite.`
+    : useExperimentalMode && preScoredVerdict === 'dislike'
+      ? `\nHUMOR LOCK (MANDATORY):
+- Include one witty barb, sarcastic jab, or darkly funny line.
+- Do NOT give flat rejection without a joke.`
+      : ''
   const lastDaterLine = [...conversationHistory].reverse().find((msg) => msg.speaker === 'dater')?.message || ''
   const adamIdentityBlock = useExperimentalMode && isAdam
     ? `
@@ -1117,15 +1126,15 @@ Rules:
 - Mild swearing is allowed when earned (max one swear word).
 - If your scored verdict is positive, be cheeky/flirty.
 - If your scored verdict is negative, be sharper and a little biting.
-- Include one playful joke/rib/callback in this line unless the topic is dangerous or traumatic.
+- Include one joke/rib/callback in this line unless the topic is dangerous or traumatic.
 - If you disagree, use witty skepticism or dry sarcasm instead of bland disapproval.
 - If you are Adam, use exactly one archaic term in the final line.
 - 1 sentence strongly preferred (6-16 words); 2 max.
 - End on the funniest or sharpest beat.
 - Keep profile influence subtle; do not name archetypes, trait labels, or profile fields.
-- Avoid neutral filler phrasing ("interesting", "fair", "I hear you", "valid").
+- Avoid neutral filler phrasing ("interesting", "fair", "I hear you", "valid", "noted", "okay").
 - Dialogue only; no actions or asterisks.
-${finalNote}${wordLimitReminder}${scoreToneLockBlock}${profileBiasBlock}${adamIdentityBlock}
+${finalNote}${wordLimitReminder}${scoreToneLockBlock}${scoreHumorLockBlock}${profileBiasBlock}${adamIdentityBlock}
 `
     : `
 🎯 YOUR TASK: Give your IMMEDIATE, STRONG reaction to what your date just said.
@@ -1148,7 +1157,7 @@ ${finalNote}${wordLimitReminder}
     content: msg.message
   }))
   const userContent = useExperimentalMode
-    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny, heightened dating-show reaction with a clear opinion. If this turn is scored positive, be flirty. If scored negative, be barbed.]`
+    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny, heightened dating-show reaction with a clear opinion and at least one joke. If this turn is scored positive, be flirty. If scored negative, be barbed.]`
     : `[The date was asked: "${question}". They answered: "${playerAnswer}". Give your strong, opinionated reaction.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
@@ -1175,17 +1184,17 @@ ${finalNote}${wordLimitReminder}
     ? (
       toneBiasCategory === 'loves' || toneBiasCategory === 'likes'
         ? [
-          'Damn, that was smooth; verily, keep talking.',
-          'I liked that answer more than I planned to.',
-          'That was hot, and yes, I hate admitting it.',
-          'You just made this fun for me, honestly.',
+          'Damn, that was smooth; verily, flirt with me again.',
+          'I liked that answer more than my dignity allows.',
+          'That was hot, and now I am annoyed about it.',
+          'You just made this date dangerous in a good way.',
         ]
         : toneBiasCategory === 'dislikes' || toneBiasCategory === 'dealbreakers'
           ? [
-            'Nope, that is not my lane at all.',
-            'Hard pass; that answer does not help your case.',
-            'That is a miss for me, and I mean it.',
-            'I heard you, and unfortunately that made it worse.',
+            'Nope, that answer belongs in a cautionary tale.',
+            'Hard pass; even my stitches just winced.',
+            'That is a miss so loud my neck bolts heard it.',
+            'I heard you, and somehow it got worse on replay.',
           ]
           : [
             'Bold answer. My stitches are listening.',
@@ -1205,16 +1214,16 @@ ${finalNote}${wordLimitReminder}
       toneBiasCategory === 'loves' || toneBiasCategory === 'likes'
         ? [
           'Okay, that was smooth. Keep flirting like that.',
-          'Well damn, that actually works for me.',
+          'Well damn, that worked and now I am blushing.',
           'That was hot and annoyingly charming.',
-          'You might be trouble, and I like it.',
+          'You might be trouble, and I am taking notes.',
         ]
         : toneBiasCategory === 'dislikes' || toneBiasCategory === 'dealbreakers'
           ? [
-            'Nope, that is not doing it for me.',
-            'That answer is a miss, full stop.',
-            'Hard pass on that vibe.',
-            'Yeah, that moved you the wrong direction.',
+            'Nope, that is not doing it for me at all.',
+            'That answer is a miss, full stop, no encore.',
+            'Hard pass on that vibe; respect the effort though.',
+            'Yeah, that moved you backward with confidence.',
           ]
           : [
             'Damn, that was smooth. Should I be worried?',
