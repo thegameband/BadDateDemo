@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { summarizeDatersForReel } from '../services/llmService'
 import { DROP_A_LINE_LOCATIONS } from '../data/dropALineLocations'
 import './DropALineReels.css'
 
@@ -47,52 +46,27 @@ function ReelStrip({ options, finalIndex, onComplete }) {
   )
 }
 
-const MAX_REEL_CHARS = 50
-
-function capReel(s) {
-  const t = String(s || '').trim()
-  return t.length > MAX_REEL_CHARS ? t.slice(0, MAX_REEL_CHARS) : t || '?'
+function findAdamIndex(daters) {
+  if (!Array.isArray(daters) || !daters.length) return 0
+  const idx = daters.findIndex((d) => d?.name === 'Adam')
+  return idx >= 0 ? idx : 0
 }
 
 export default function DropALineReels({ daters = [], onContinue }) {
-  const [daterSummaries, setDaterSummaries] = useState([])
-  const [loading, setLoading] = useState(true)
+  const daterNames = useMemo(() => (Array.isArray(daters) ? daters.map((d) => d?.name ?? '?') : []), [daters])
+  const adamIndex = useMemo(() => findAdamIndex(daters), [daters])
   const [spinning, setSpinning] = useState(true)
-  const [finalDaterIndex, setFinalDaterIndex] = useState(0)
   const [finalLocationIndex, setFinalLocationIndex] = useState(0)
   const [showContinue, setShowContinue] = useState(false)
   const [reelsCompleteCount, setReelsCompleteCount] = useState(0)
 
   useEffect(() => {
-    if (!Array.isArray(daters) || !daters.length) {
-      setLoading(false)
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    summarizeDatersForReel(daters)
-      .then((summaries) => {
-        if (!cancelled && summaries.length) setDaterSummaries(summaries.map(capReel))
-      })
-      .catch(() => {
-        if (!cancelled) setDaterSummaries(daters.map((d) => capReel(d.archetype || d.description?.split('.')[0] || d.name)))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [daters])
-
-  useEffect(() => {
-    if (loading || daterSummaries.length === 0) return
-    const n = daterSummaries.length
-    const locN = DROP_A_LINE_LOCATIONS.length
-    setFinalDaterIndex(Math.floor(Math.random() * n))
-    setFinalLocationIndex(Math.floor(Math.random() * locN))
+    if (!daterNames.length) return
+    setFinalLocationIndex(Math.floor(Math.random() * DROP_A_LINE_LOCATIONS.length))
     setSpinning(true)
     setShowContinue(false)
     setReelsCompleteCount(0)
-  }, [loading, daterSummaries.length])
+  }, [daterNames.length])
 
   const handleReelComplete = () => {
     setReelsCompleteCount((c) => {
@@ -106,21 +80,12 @@ export default function DropALineReels({ daters = [], onContinue }) {
   }
 
   const handleContinue = () => {
-    const dater = daters[finalDaterIndex] ?? daters[0]
-    const daterSummary = daterSummaries[finalDaterIndex] ?? ''
+    const dater = daters[adamIndex] ?? daters[0]
     const location = DROP_A_LINE_LOCATIONS[finalLocationIndex] ?? DROP_A_LINE_LOCATIONS[0]
-    onContinue?.({ dater, daterSummary, location })
+    onContinue?.({ dater, location })
   }
 
-  if (loading) {
-    return (
-      <div className="drop-a-line-reels drop-a-line-loading">
-        <p>Loading characters…</p>
-      </div>
-    )
-  }
-
-  if (!daterSummaries.length) {
+  if (!daterNames.length) {
     return (
       <div className="drop-a-line-reels drop-a-line-loading">
         <p>No characters available.</p>
@@ -134,8 +99,8 @@ export default function DropALineReels({ daters = [], onContinue }) {
         <div className="drop-a-line-reel-column">
           <div className="drop-a-line-reel-title">Dater</div>
           <ReelStrip
-            options={daterSummaries}
-            finalIndex={finalDaterIndex}
+            options={daterNames}
+            finalIndex={adamIndex}
             onComplete={handleReelComplete}
           />
         </div>

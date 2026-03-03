@@ -183,6 +183,14 @@ export const daters = [
       dislikes: '/images/daters/adam/adam-dislike.png',
       dealbreakers: '/images/daters/adam/adam-dealbreaker.png',
     },
+    dropALineProfile: {
+      age: '1.5 years old (technically)',
+      pronouns: 'He / Him',
+      occupation: 'In Between Jobs',
+      hobbies: 'Reading, Being in Nature, Jogging (usually from angry mobs)',
+      favoriteFood: 'Vegetarian',
+      redFlags: 'Cruelty, Crudeness, and Fire',
+    },
     archetype: 'The Hopeful Monster',
     tagline: 'I didn\'t ask to be here, but I\'m glad I stayed ⚡',
     

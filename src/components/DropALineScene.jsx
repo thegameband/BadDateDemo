@@ -5,7 +5,7 @@ import './DropALineScene.css'
 
 /**
  * Full-screen 9:16 portrait scene for writing a pickup line.
- * Props: payload { dater, daterSummary, location }, onBack()
+ * Props: payload { dater, location }, onBack()
  */
 export default function DropALineScene({ payload, onBack }) {
   const [sceneImage, setSceneImage] = useState(null)

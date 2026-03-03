@@ -5,8 +5,10 @@ import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services
 import PartySocket from 'partysocket'
 import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
 import DropALineReels from './DropALineReels'
+import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
 import './DropALineReels.css'
+import './DropALineProfile.css'
 import './DropALineScene.css'
 import './LiveLobby.css'
 
@@ -14,7 +16,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.03.11'
+const GAME_VERSION = '0.03.12'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -51,8 +53,8 @@ function LiveLobby() {
   const [dropALineEnabled, setDropALineEnabled] = useState(
     () => localStorage.getItem('dropALineEnabled') === 'true'
   )
-  const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'next'
-  const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, daterSummary, location }
+  const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene'
+  const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, location }
   const hasOpenAiKey = Boolean(import.meta.env.VITE_OPENAI_API_KEY)
   const hasAnthropicKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
   
@@ -786,14 +788,26 @@ function LiveLobby() {
     )
   }
 
-  // Drop a Line (Pick Up Mode – reels then full-screen scene)
+  // Drop a Line (Pick Up Mode – reels → profile → scene)
   if (view === 'drop-a-line') {
     const handleBackToMain = () => {
       setDropALineScreen('reels')
       setDropALinePayload(null)
       setView('main')
     }
-    if (dropALineScreen === 'next') {
+    if (dropALineScreen === 'profile') {
+      return (
+        <>
+          <div className="version-number">v{GAME_VERSION}</div>
+          <DropALineProfile
+            payload={dropALinePayload}
+            onContinue={() => setDropALineScreen('scene')}
+            onBack={() => setDropALineScreen('reels')}
+          />
+        </>
+      )
+    }
+    if (dropALineScreen === 'scene') {
       return (
         <>
           <div className="version-number">v{GAME_VERSION}</div>
@@ -829,7 +843,7 @@ function LiveLobby() {
             daters={daters}
             onContinue={(payload) => {
               setDropALinePayload(payload)
-              setDropALineScreen('next')
+              setDropALineScreen('profile')
             }}
           />
         </motion.div>
