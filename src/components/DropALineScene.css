@@ -195,3 +195,131 @@
   text-align: center;
   padding: 12px 0;
 }
+
+/* Evaluating */
+.drop-a-line-scene-evaluating {
+  text-align: center;
+  padding: 24px 18px;
+}
+
+.drop-a-line-scene-evaluating-text {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.05rem;
+  color: rgba(255,255,255,0.9);
+  margin: 0;
+}
+
+/* Score & result */
+.drop-a-line-scene-score-panel {
+  text-align: center;
+  padding: 24px 18px;
+}
+
+.drop-a-line-scene-percent-wrap {
+  margin-bottom: 8px;
+}
+
+.drop-a-line-scene-percent {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.5rem, 8vw, 3.5rem);
+  color: #ff8fab;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 24px rgba(255, 143, 171, 0.4);
+}
+
+.drop-a-line-scene-result {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.4rem, 4.5vw, 1.9rem);
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+.drop-a-line-scene-result-success {
+  color: #7cff7c;
+  text-shadow: 0 0 20px rgba(124, 255, 124, 0.5);
+}
+
+.drop-a-line-scene-result-rejected {
+  color: #ff6b6b;
+  text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+}
+
+/* Wrap up */
+.drop-a-line-scene-wrapup {
+  padding: 20px 18px 24px;
+}
+
+.drop-a-line-scene-wrapup-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.3rem, 4vw, 1.6rem);
+  color: #ff8fab;
+  margin: 0 0 14px 0;
+  letter-spacing: 0.02em;
+}
+
+.drop-a-line-scene-wrapup-list {
+  list-style: none;
+  margin: 0 0 20px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drop-a-line-scene-wrapup-item {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.9);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.drop-a-line-scene-wrapup-item.positive {
+  border-color: rgba(124, 255, 124, 0.35);
+  background: rgba(124, 255, 124, 0.08);
+}
+
+.drop-a-line-scene-wrapup-item.negative {
+  border-color: rgba(255, 107, 107, 0.35);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.drop-a-line-scene-wrapup-symbol {
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.drop-a-line-scene-wrapup-item.positive .drop-a-line-scene-wrapup-symbol {
+  color: #7cff7c;
+}
+
+.drop-a-line-scene-wrapup-item.negative .drop-a-line-scene-wrapup-symbol {
+  color: #ff6b6b;
+}
+
+.drop-a-line-scene-replay-wrap {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.drop-a-line-scene-replay {
+  padding: 14px 28px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff4d6d 0%, #ff8fab 100%);
+  color: #fff;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.drop-a-line-scene-replay:hover {
+  filter: brightness(1.12);
+}

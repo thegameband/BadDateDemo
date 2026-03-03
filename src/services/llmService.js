@@ -3698,3 +3698,80 @@ Return JSON only:
       : 'No, I would not do a second date. I do not think this is the right fit.'),
   }
 }
+
+/**
+ * Evaluate a pickup line for Drop a Line mode.
+ * Returns { score: 0-100, breakdown: [{ text: string, positive: boolean }, ...] }
+ * Criteria: cleverness, profile match (attributes, red flags), use of location/attributes.
+ */
+export async function evaluatePickupLine(pickupLine, dater, location) {
+  const profile = dater?.dropALineProfile || {}
+  const locationPhrase = typeof location === 'string' ? location : 'somewhere'
+  const name = dater?.name ?? 'The dater'
+
+  const systemPrompt = `You are judging a pickup line in a dating game. The player wrote a pickup line to ${name} at "${locationPhrase}".
+
+Dater profile (what the player saw):
+- Name: ${name}
+- Age: ${profile.age ?? '—'}
+- Pronouns: ${profile.pronouns ?? '—'}
+- Occupation: ${profile.occupation ?? '—'}
+- Hobbies: ${profile.hobbies ?? '—'}
+- Favorite food: ${profile.favoriteFood ?? '—'}
+- Red flags to AVOID: ${profile.redFlags ?? '—'}
+
+Score the pickup line 0–100 based on:
+1. Cleverness: wordplay, wit, originality.
+2. Profile fit: references their attributes (hobbies, occupation, food, etc.), avoids their red flags, feels tailored to them.
+3. Attention to context: mentions or nods to the location or situation so it feels like they paid attention.
+
+Return ONLY valid JSON, no markdown or extra text:
+{
+  "score": <number 0-100>,
+  "breakdown": [
+    { "text": "<short reason, e.g. Clever wordplay>", "positive": true },
+    { "text": "<short reason>", "positive": false }
+  ]
+}
+Include 3–6 breakdown items. Mix positives and negatives where appropriate. "positive": true for things that helped the score, "positive": false for things that hurt it. Keep each "text" under 60 characters.`
+
+  const userContent = `Pickup line: "${String(pickupLine || '').trim() || '(empty)'}"
+
+Return JSON only.`
+
+  try {
+    const response = await getChatResponse(
+      [{ role: 'user', content: userContent }],
+      systemPrompt,
+      { maxTokens: 420 }
+    )
+    const parsed = safeJsonObject(response)
+    if (!parsed || typeof parsed.score !== 'number') {
+      return getFallbackPickupLineEvaluation()
+    }
+    const score = Math.min(100, Math.max(0, Math.round(parsed.score)))
+    const breakdown = Array.isArray(parsed.breakdown)
+      ? parsed.breakdown
+          .slice(0, 8)
+          .map((item) => ({
+            text: String(item?.text ?? '').trim() || '—',
+            positive: Boolean(item?.positive),
+          }))
+          .filter((item) => item.text !== '—')
+      : []
+    return { score, breakdown }
+  } catch (err) {
+    console.error('evaluatePickupLine error:', err)
+    return getFallbackPickupLineEvaluation()
+  }
+}
+
+function getFallbackPickupLineEvaluation() {
+  return {
+    score: 50,
+    breakdown: [
+      { text: 'Evaluation unavailable', positive: false },
+      { text: 'Try again with a different line', positive: true },
+    ],
+  }
+}
