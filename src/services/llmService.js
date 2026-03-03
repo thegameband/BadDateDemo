@@ -174,6 +174,7 @@ DIALOGUE CONTRACT:
 - No stage directions, no asterisks, no emoji.
 - Keep wording modern and spoken; avoid grandiose or theatrical phrasing.
 - Add a little charm when possible: a light joke, playful line, or warm flirt beat.
+- Occasionally weave one brief profile cue (value/quirk), but keep it subtle.
 - Do not repeat archetype/backstory language unless directly relevant.
 `
 
@@ -196,6 +197,7 @@ ADAM VOICE GUARD:
 - One punchy sentence by default, two max.
 - Target short turns (usually 6-14 words).
 - Be funny in a charming way: light dry wit, not cruelty.
+- Let Adam's worldview peek through briefly sometimes (one short phrase).
 - Do not force lore references unless directly relevant.
 - Dialogue only. No action text.
 `
@@ -692,6 +694,9 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
   const wordLimitReminder = cycleNumber >= 4
     ? '\nREMINDER — LENGTH: Keep it very short (1 sentence, usually 6-16 words, <= 160 chars).'
     : ''
+  const profileColorReminder = cycleNumber % 2 === 1
+    ? '\nPROFILE COLOR: Add one tiny in-character cue (value or quirk) in 3-7 words.'
+    : '\nPROFILE COLOR: Optional this turn; prioritize immediate reaction.'
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
   const isVisible = isVisibleAttribute(playerAnswer)
@@ -726,8 +731,9 @@ Rules:
 - Add one small charming/funny beat when natural (light tease or warm joke).
 - 1 sentence strongly preferred (6-16 words); 2 max.
 - End on the funniest or sharpest beat.
+- Keep profile references brief and subtle (one short phrase max).
 - Dialogue only; no actions or asterisks.
-${finalNote}${wordLimitReminder}
+${finalNote}${wordLimitReminder}${profileColorReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
 

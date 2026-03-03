@@ -343,7 +343,7 @@ export function buildDaterAgentPrompt(dater, phase = 'chat') {
     dealbreakers = [],
   } = dater || {}
 
-  const compactText = (value, maxWords = 14) => {
+  const compactText = (value, maxWords = 20) => {
     const words = String(value || '')
       .replace(/\s+/g, ' ')
       .trim()
@@ -363,7 +363,7 @@ export function buildDaterAgentPrompt(dater, phase = 'chat') {
   const noGos = Array.isArray(dealbreakers) && dealbreakers.length
     ? dealbreakers.slice(0, 3).join(', ')
     : 'dishonesty, cruelty, disrespect'
-  const valuesLens = compactText(values, 14) || 'honesty, warmth, self-respect'
+  const valuesLens = compactText(values, 20) || 'honesty, warmth, self-respect'
   const formalityLabel = formality === 'Low' ? 'casual' : formality === 'High' ? 'formal-leaning' : 'natural'
 
   const chatContext = `SCENE: pre-date chat.
@@ -376,6 +376,7 @@ export function buildDaterAgentPrompt(dater, phase = 'chat') {
 - Most turns should be one concise sentence; two when needed.
 - React to what was just said with a clear opinion and a reason.
 - Humor is welcome, but keep it dry and conversational.
+- Occasionally add one brief profile-colored phrase (values/quirk/worldview), not every turn.
 - You cannot physically leave, but you can set boundaries and show discomfort.
 - Do NOT repeatedly mention your archetype, backstory, or signature quirk unless directly relevant.`
 
@@ -398,6 +399,7 @@ OUTPUT RULES:
 - 1 sentence by default, 2 max.
 - No stage directions, asterisks, or emojis.
 - Avoid canned assistant phrases and over-explaining.
+- Use profile color sparingly: at most one short phrase when it genuinely fits.
 - Do not force a core trait reference every turn.
 - Stay in character as ${name}.`
 }
