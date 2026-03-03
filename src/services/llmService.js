@@ -221,9 +221,11 @@ DIALOGUE CONTRACT:
 - Lead with your reaction/opinion, then one concrete reason or detail.
 - No stage directions, no asterisks, no emoji.
 - Keep wording modern and spoken; avoid grandiose or theatrical phrasing.
-- Add a little charm when possible: a light joke, playful line, or warm flirt beat.
+- Humor-forward by default: in most turns, include a joke, playful rib, or witty callback.
+- If the topic is serious, use gentle dry wit rather than going flat.
 - Occasionally weave one brief profile cue (value/quirk), but keep it subtle.
 - Do not repeat archetype/backstory language unless directly relevant.
+- Avoid bland filler lines like "interesting", "fair", "nice", "valid", or "makes sense".
 `
 
 /**
@@ -290,7 +292,8 @@ ADAM VOICE GUARD:
 - No therapy/chatbot phrasing.
 - One punchy sentence by default, two max.
 - Target short turns (usually 6-14 words).
-- Be funny in a charming way: light dry wit, not cruelty.
+- Humor-forward dry wit: include a playful rib or clever twist in most lines.
+- When disapproving, prefer funny deadpan over flat rejection.
 - Let Adam's identity show through in brief color, rotating across:
   stitched-body awareness, abandonment sensitivity, protector instinct,
   fire boundary, and curiosity/freedom/humanist lens.
@@ -970,10 +973,12 @@ ${valuesBlock}
 Rules:
 - Give one clear opinion and one brief reason.
 - Keep it conversational, specific, and punchy.
-- Add one small charming/funny beat when natural (light tease or warm joke).
+- Include one playful joke/rib/callback in this line unless the topic is dangerous or traumatic.
+- If you disagree, use witty skepticism or dry sarcasm instead of bland disapproval.
 - 1 sentence strongly preferred (6-16 words); 2 max.
 - End on the funniest or sharpest beat.
 - Keep profile influence subtle; do not name archetypes, trait labels, or profile fields.
+- Avoid neutral filler phrasing ("interesting", "fair", "I hear you", "valid").
 - Dialogue only; no actions or asterisks.
 ${finalNote}${wordLimitReminder}${profileBiasBlock}${adamIdentityBlock}
 `
@@ -998,7 +1003,7 @@ ${finalNote}${wordLimitReminder}
     content: msg.message
   }))
   const userContent = useExperimentalMode
-    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with a clear opinion.]`
+    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with light ribbing and a clear opinion.]`
     : `[The date was asked: "${question}". They answered: "${playerAnswer}". Give your strong, opinionated reaction.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
@@ -1010,7 +1015,7 @@ ${finalNote}${wordLimitReminder}
   const response = useExperimentalMode
     ? await getChatResponse(messages, fullPrompt, {
       maxTokens: 72,
-      temperature: 0.88,
+      temperature: 0.92,
       presencePenalty: 0.35,
       frequencyPenalty: 0.35,
     })
@@ -1023,10 +1028,10 @@ ${finalNote}${wordLimitReminder}
   // Deterministic fallback so gameplay never advances without a dater comment.
   const adamFallbacks = useExperimentalMode
     ? [
-      'Bold answer. My stitches are listening.',
-      'I do not trust easily. That helped.',
-      'You had me at curiosity and no cruelty.',
-      'Hard no on fire. Hard yes on honesty.',
+      'Bold answer. My stitches just filed a compliment.',
+      'I distrust easily, but that almost changed my religion.',
+      'You had me at curiosity; the bar is low but real.',
+      'Hard no on fire, hard yes on that timing.',
     ]
     : [
       'Curious confession. My stitched heart stirs at it.',
@@ -1036,10 +1041,10 @@ ${finalNote}${wordLimitReminder}
     ]
   const genericFallbacks = useExperimentalMode
     ? [
-      'Okay, that was smooth. Keep talking.',
-      'Did not expect that. Kind of a great line.',
-      'That was funnier than it had any right to be.',
-      'Confident answer. I am listening.',
+      'Okay, that was smooth. Should I be worried?',
+      'Did not expect that. Weirdly excellent work.',
+      'That was funny and suspiciously effective.',
+      'Confident answer. Keep roasting me gently.',
     ]
     : [
       'Interesting answer. I need a second to process it.',
