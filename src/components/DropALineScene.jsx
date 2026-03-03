@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { generateSceneImage } from '../services/geminiImageService'
 import { evaluatePickupLine } from '../services/llmService'
-import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
+import { DROP_A_LINE_LOCATION_PHRASES, DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
 const PAUSE_AFTER_SUBMIT_MS = 1000
@@ -23,9 +22,6 @@ function getPossessive(pronouns) {
  * Props: payload { dater, location }, onBack(), onReplay()
  */
 export default function DropALineScene({ payload, onBack, onReplay }) {
-  const [sceneImage, setSceneImage] = useState(null)
-  const [loadingImage, setLoadingImage] = useState(true)
-  const [sceneError, setSceneError] = useState(null)
   const [pickupLine, setPickupLine] = useState('')
   const [phase, setPhase] = useState('input') // 'input' | 'evaluating' | 'score' | 'result' | 'wrapup'
   const [displayPercent, setDisplayPercent] = useState(0)
@@ -34,24 +30,9 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const submitTimeoutRef = useRef(null)
   const [showReplay, setShowReplay] = useState(false)
 
-  useEffect(() => {
-    if (!payload?.dater || !payload?.location) {
-      setLoadingImage(false)
-      return
-    }
-    let cancelled = false
-    setLoadingImage(true)
-    setSceneImage(null)
-    setSceneError(null)
-    generateSceneImage(payload.dater, payload.location).then(({ dataUrl, error }) => {
-      if (!cancelled) {
-        setSceneImage(dataUrl ?? null)
-        setSceneError(error ?? null)
-        setLoadingImage(false)
-      }
-    })
-    return () => { cancelled = true }
-  }, [payload?.dater, payload?.location])
+  const backgroundImageUrl = payload?.location ? DROP_A_LINE_LOCATION_IMAGES[payload.location] : null
+  const characterImageUrl = payload?.dater?.dropALineCharacterImage ?? null
+  const hasImage = Boolean(backgroundImageUrl)
 
   const handleSubmit = useCallback(
     (e) => {
@@ -113,16 +94,18 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   }, [phase, replayDelay])
 
   return (
-    <div className={`drop-a-line-scene${!hasImage && !loadingImage ? ' drop-a-line-scene-no-image' : ''}`}>
+    <div className={`drop-a-line-scene${!hasImage ? ' drop-a-line-scene-no-image' : ''}`}>
       <div
         className="drop-a-line-scene-backdrop"
-        style={{ backgroundImage: hasImage ? `url(${sceneImage})` : undefined }}
+        style={{ backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined }}
       />
-      {loadingImage && <div className="drop-a-line-scene-loading" />}
-      {sceneError && !loadingImage && (
-        <p className="drop-a-line-scene-debug" aria-live="polite">
-          Scene art: {sceneError}
-        </p>
+      {characterImageUrl && (
+        <img
+          src={characterImageUrl}
+          alt=""
+          className="drop-a-line-scene-character"
+          role="presentation"
+        />
       )}
 
       <div className="drop-a-line-scene-top">
