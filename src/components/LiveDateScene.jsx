@@ -4,7 +4,7 @@ import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, decideLikesDislikesFromAnswer, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
-import AnimatedText from './AnimatedText'
+import AnimatedText, { EMOTION_SPEEDS } from './AnimatedText'
 import './LiveDateScene.css'
 
 // PartyKit replaces Firebase for real-time state sync
@@ -4405,7 +4405,11 @@ BAD examples (do NOT do this):
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: -10 }}
                 >
-                  <AnimatedText text={daterBubble} emotion={daterEmotion} />
+                  <AnimatedText
+                    text={daterBubble}
+                    emotion={daterEmotion}
+                    charDelay={Math.max(14, Math.round((EMOTION_SPEEDS[daterEmotion] || EMOTION_SPEEDS.default) * 0.6))}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
