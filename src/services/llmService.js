@@ -172,6 +172,7 @@ DIALOGUE CONTRACT:
 - Lead with your reaction/opinion, then one concrete reason or detail.
 - No stage directions, no asterisks, no emoji.
 - Keep wording modern and spoken; avoid grandiose or theatrical phrasing.
+- Add a little charm when possible: a light joke, playful line, or warm flirt beat.
 - Do not repeat archetype/backstory language unless directly relevant.
 `
 
@@ -192,6 +193,7 @@ ADAM VOICE GUARD:
 - Use modern plain English (no archaic phrasing).
 - No therapy/chatbot phrasing.
 - One concise sentence by default, two max.
+- Be funny in a charming way: light dry wit, not cruelty.
 - Do not force lore references unless directly relevant.
 - Dialogue only. No action text.
 `
@@ -719,6 +721,7 @@ ${valuesBlock}
 Rules:
 - Give one clear opinion and one brief reason.
 - Keep it conversational and specific.
+- Add one small charming/funny beat when natural (light tease or warm joke).
 - 1 sentence preferred, 2 max.
 - Dialogue only; no actions or asterisks.
 ${finalNote}${wordLimitReminder}
@@ -751,16 +754,16 @@ ${finalNote}${wordLimitReminder}
   // Deterministic fallback so gameplay never advances without a dater comment.
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   const adamFallbacks = [
-    'Curious confession. My stitched heart stirs at it.',
-    'That answer lands strangely, but not without intrigue.',
-    'I did not foresee that. It lingers in me.',
-    'A fierce answer. It awakens old thoughts.'
+    'Okay, that caught me off guard in a good way.',
+    'That answer has charm; I respect the confidence.',
+    'I did not expect that, and now I am smiling about it.',
+    'Bold answer. Annoyingly, it kind of works on me.'
   ]
   const genericFallbacks = [
-    'Interesting answer. I need a second to process it.',
-    'I did not expect that, but I hear you.',
-    'That gives me a lot to think about.',
-    'Huh. That says more than you might think.'
+    'Okay, that was smooth; I can work with that.',
+    'Did not expect that, but I kind of like your style.',
+    'That is a fun answer; you might be onto something.',
+    'Huh, confident and weirdly charming. Noted.'
   ]
   const fallbackPool = isAdam ? adamFallbacks : genericFallbacks
   return fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
