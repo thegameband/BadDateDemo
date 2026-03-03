@@ -1,15 +1,11 @@
-/* 9:16 portrait scene – full viewport, visual-novel style */
+/* 9:16 portrait scene – fills phone-frame parent */
 .drop-a-line-scene {
-  position: fixed;
+  position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
-  max-width: 450px;
   width: 100%;
-  height: 100vh;
-  margin: 0 auto;
-  left: 50%;
-  transform: translateX(-50%);
+  height: 100%;
   overflow: hidden;
   background: linear-gradient(180deg, #1a0a12 0%, #2d1520 50%, #1a0a12 100%);
 }

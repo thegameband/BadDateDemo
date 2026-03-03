@@ -18,9 +18,9 @@ export const DROP_A_LINE_LOCATION_PHRASES = {
 
 /** Static background image path per location (pre-baked, no Gemini) */
 export const DROP_A_LINE_LOCATION_IMAGES = {
-  'Aquarium': '/images/drop-a-line/backgrounds/aquarium.png',
-  'Elevator': '/images/drop-a-line/backgrounds/elevator.png',
-  'Auto Garage': '/images/drop-a-line/backgrounds/auto-garage.png',
-  'Pawn Shop': '/images/drop-a-line/backgrounds/pawn-shop.png',
-  'Meeting of the United Nations': '/images/drop-a-line/backgrounds/united-nations.png',
+  'Aquarium': '/images/drop-a-line/backgrounds/aquarium.jpg',
+  'Elevator': '/images/drop-a-line/backgrounds/elevator.jpg',
+  'Auto Garage': '/images/drop-a-line/backgrounds/auto-garage.jpg',
+  'Pawn Shop': '/images/drop-a-line/backgrounds/pawn-shop.jpg',
+  'Meeting of the United Nations': '/images/drop-a-line/backgrounds/united-nations.jpg',
 }

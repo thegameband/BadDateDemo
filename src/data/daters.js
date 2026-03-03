@@ -191,7 +191,7 @@ export const daters = [
       favoriteFood: 'Vegetarian',
       redFlags: 'Cruelty, Crudeness, and Fire',
     },
-    dropALineCharacterImage: '/images/drop-a-line/characters/adam.png',
+    dropALineCharacterImage: '/images/drop-a-line/characters/adam.jpg',
     archetype: 'The Hopeful Monster',
     tagline: 'I didn\'t ask to be here, but I\'m glad I stayed ⚡',
     

@@ -3420,7 +3420,7 @@ BAD examples (do NOT do this):
   }
   
   return (
-    <div className="live-date-scene">
+    <div className="live-date-scene phone-frame">
       
       {/* Tutorial Overlay */}
       <AnimatePresence>

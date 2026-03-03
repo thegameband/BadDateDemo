@@ -3,10 +3,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: 100%;
-  padding: 20px 16px 28px;
+  justify-content: flex-start;
+  flex: 1;
+  min-height: 0;
+  padding: 24px 20px 32px;
   background: linear-gradient(180deg, #1a0a12 0%, #2d1520 50%, #1a0a12 100%);
+  overflow-y: auto;
 }
 
 .drop-a-line-profile-inner {
@@ -14,12 +16,7 @@
   max-width: 420px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  background: rgba(20, 8, 14, 0.9);
-  border: 1px solid rgba(255, 143, 171, 0.25);
-  border-radius: 16px;
-  padding: 20px 20px 24px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  gap: 24px;
 }
 
 .drop-a-line-profile-back {
@@ -40,19 +37,21 @@
 
 .drop-a-line-profile-header {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   gap: 16px;
+  padding-top: 8px;
 }
 
-/* Head-and-shoulders crop: corner frame */
 .drop-a-line-profile-photo-wrap {
   flex-shrink: 0;
-  width: 100px;
-  height: 100px;
-  border-radius: 12px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
   overflow: hidden;
-  border: 2px solid rgba(255, 143, 171, 0.35);
+  border: 3px solid rgba(255, 143, 171, 0.5);
   background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 24px rgba(255, 77, 109, 0.2);
 }
 
 .drop-a-line-profile-photo {
@@ -64,43 +63,54 @@
 
 .drop-a-line-profile-name {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(1.5rem, 4vw, 1.9rem);
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
   color: #fff;
   margin: 0;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   text-shadow: 0 0 20px rgba(255, 77, 109, 0.3);
-  padding-top: 4px;
+  text-align: center;
 }
 
 .drop-a-line-profile-details {
   list-style: none;
   margin: 0;
-  padding: 0 0 0 4px;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .drop-a-line-profile-row {
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 143, 171, 0.12);
 }
 
 .drop-a-line-profile-label {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 0.72rem;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
   color: #ff8fab;
 }
 
 .drop-a-line-profile-value {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 500;
   color: rgba(255, 255, 255, 0.95);
+  line-height: 1.4;
 }
 
 .drop-a-line-profile-continue {
-  margin-top: 8px;
-  padding: 14px 28px;
-  font-size: 1.05rem;
+  margin-top: auto;
+  padding: 16px 28px;
+  font-size: 1.1rem;
   font-weight: 600;
   border-radius: 14px;
   border: 2px solid rgba(255, 141, 171, 0.5);

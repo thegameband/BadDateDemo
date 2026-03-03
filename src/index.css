@@ -224,6 +224,41 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ============================================
+   PHONE FRAME – Unified 9:16 container
+   ============================================ */
+.phone-frame {
+  position: relative;
+  width: 100%;
+  max-width: min(450px, calc(100dvh * 9 / 16));
+  aspect-ratio: 9 / 16;
+  margin: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+}
+
+@media (min-width: 769px) {
+  .phone-frame {
+    border-radius: 32px;
+    box-shadow:
+      0 0 0 4px #1a1a1a,
+      0 0 0 6px #333,
+      0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 768px) {
+  .phone-frame {
+    max-width: 100%;
+    aspect-ratio: unset;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* ============================================
    MOBILE RESPONSIVE STYLES
    ============================================ */
 

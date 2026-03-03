@@ -83,7 +83,6 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const daterName = payload?.dater?.name ?? 'Someone'
   const locationPhrase =
     (payload?.location && DROP_A_LINE_LOCATION_PHRASES[payload.location]) ?? payload?.location ?? 'somewhere'
-  const hasImage = Boolean(sceneImage)
 
   const breakdownCount = evaluation?.breakdown?.length ?? 0
   const replayDelay = breakdownCount * (WRAPUP_ITEM_STAGGER_MS / 1000) + 0.5

@@ -7,6 +7,7 @@ import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
+import { DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
 import './DropALineReels.css'
 import './DropALineProfile.css'
 import './DropALineScene.css'
@@ -16,7 +17,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.03.32'
+const GAME_VERSION = '0.04.00'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -308,7 +309,7 @@ function LiveLobby() {
   // QR Join view - Streamlined join from QR code scan
   if (view === 'qr-join' && qrRoomCode) {
     return (
-      <div className="live-lobby qr-join-lobby">
+      <div className="live-lobby qr-join-lobby phone-frame">
         {/* Version number */}
         <div className="version-number">v{GAME_VERSION}</div>
         
@@ -437,7 +438,7 @@ function LiveLobby() {
   // Main view - Choose Host or Join
   if (view === 'main') {
     return (
-      <div className="live-lobby main-lobby">
+      <div className="live-lobby main-lobby phone-frame">
         {/* Version number */}
         <div className="version-number">v{GAME_VERSION}</div>
         
@@ -834,14 +835,14 @@ function LiveLobby() {
     }
     if (dropALineScreen === 'profile') {
       return (
-        <>
+        <div className="phone-frame">
           <div className="version-number">v{GAME_VERSION}</div>
           <DropALineProfile
             payload={dropALinePayload}
             onContinue={() => setDropALineScreen('scene')}
             onBack={() => setDropALineScreen('reels')}
           />
-        </>
+        </div>
       )
     }
     if (dropALineScreen === 'scene') {
@@ -850,18 +851,18 @@ function LiveLobby() {
         setDropALinePayload(null)
       }
       return (
-        <>
+        <div className="phone-frame">
           <div className="version-number">v{GAME_VERSION}</div>
           <DropALineScene
             payload={dropALinePayload}
             onBack={handleBackToMain}
             onReplay={handleReplay}
           />
-        </>
+        </div>
       )
     }
     return (
-      <div className="live-lobby main-lobby">
+      <div className="live-lobby main-lobby phone-frame">
         <div className="version-number">v{GAME_VERSION}</div>
         <motion.div
           className="live-lobby-card"
@@ -886,6 +887,10 @@ function LiveLobby() {
             onContinue={(payload) => {
               setDropALinePayload(payload)
               setDropALineScreen('profile')
+              const bgSrc = payload?.location ? DROP_A_LINE_LOCATION_IMAGES[payload.location] : null
+              const charSrc = payload?.dater?.dropALineCharacterImage ?? null
+              if (bgSrc) { const img = new Image(); img.src = bgSrc }
+              if (charSrc) { const img = new Image(); img.src = charSrc }
             }}
           />
         </motion.div>
@@ -896,7 +901,7 @@ function LiveLobby() {
   // Multiplayer Mode – Archive (Create / Join)
   if (view === 'multiplayer') {
     return (
-      <div className="live-lobby">
+      <div className="live-lobby phone-frame">
         <div className="version-number">v{GAME_VERSION}</div>
         <motion.div
           className="live-lobby-card room-browser-card"
@@ -970,7 +975,7 @@ function LiveLobby() {
   // Host view - Create room (kept for backwards compatibility, not currently used)
   if (view === 'host') {
     return (
-      <div className="live-lobby">
+      <div className="live-lobby phone-frame">
         <motion.div 
           className="live-lobby-card"
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -1036,7 +1041,7 @@ function LiveLobby() {
   // Join view - Room browser
   if (view === 'join') {
     return (
-      <div className="live-lobby">
+      <div className="live-lobby phone-frame">
         <motion.div 
           className="live-lobby-card room-browser-card"
           initial={{ opacity: 0, y: 20, scale: 0.95 }}

@@ -6,9 +6,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 450px;
-  margin: 0 auto;
-  height: 100vh;
+  height: 100%;
   background: var(--bg-primary);
   overflow: hidden;
 }
@@ -2855,19 +2853,7 @@
   box-shadow: 0 6px 20px rgba(255, 77, 109, 0.5);
 }
 
-/* ============================================
-   DESKTOP VIEW - Center the portrait layout
-   ============================================ */
-@media (min-width: 769px) {
-  .live-date-scene {
-    max-height: 100vh;
-    border-radius: 24px;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    margin: 20px auto;
-    height: calc(100vh - 40px);
-  }
-}
+/* DESKTOP VIEW – sizing handled by .phone-frame parent */
 
 /* ============================================
    MOBILE - Full screen
@@ -2906,10 +2892,7 @@
   }
 
   .live-date-scene {
-    max-width: 100%;
-    border-radius: 0;
-    height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for mobile */
+    height: 100%;
   }
   
   .live-header {
@@ -3316,21 +3299,12 @@
 
 /* App.css override for live mode */
 .app.live-mode {
-  background: var(--bg-primary);
+  background: #000;
 }
 
 .app.live-mode .main-content {
   padding: 0;
   max-width: none;
-}
-
-.live-main {
-  padding: 0 !important;
-  max-width: none !important;
-  height: 100vh !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Pre-generating conversation indicator */

@@ -1,34 +1,23 @@
 .app {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  background: #000;
 }
 
 .main-content {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Live Mode styles */
 .app.live-mode {
-  background: var(--bg-dark);
+  background: #000;
 }
 
 .app.live-mode .main-content.live-main {
   padding: 0;
   max-width: none;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-/* Ensure live date scene fills properly */
-@media (max-width: 768px) {
-  .app.live-mode .main-content.live-main {
-    height: 100dvh;
-    align-items: stretch;
-  }
 }
