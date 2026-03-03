@@ -168,7 +168,8 @@ export function clearLlmErrorMessage() {
 const DATER_BASELINE_RESPONSE_CONTRACT = `
 DIALOGUE CONTRACT:
 - Sound like a real person in live conversation.
-- One concise sentence by default, two max.
+- One punchy sentence by default, two max.
+- Target short turns (usually 6-16 words).
 - Lead with your reaction/opinion, then one concrete reason or detail.
 - No stage directions, no asterisks, no emoji.
 - Keep wording modern and spoken; avoid grandiose or theatrical phrasing.
@@ -192,7 +193,8 @@ ADAM VOICE GUARD:
 - Keep Adam warm, dry, and human.
 - Use modern plain English (no archaic phrasing).
 - No therapy/chatbot phrasing.
-- One concise sentence by default, two max.
+- One punchy sentence by default, two max.
+- Target short turns (usually 6-14 words).
 - Be funny in a charming way: light dry wit, not cruelty.
 - Do not force lore references unless directly relevant.
 - Dialogue only. No action text.
@@ -688,7 +690,7 @@ export async function getDaterResponseToPlayerAnswer(dater, question, playerAnsw
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? '\nREMINDER — LENGTH: Use 1-2 sentences and aim for <= 280 characters total.'
+    ? '\nREMINDER — LENGTH: Keep it very short (1 sentence, usually 6-16 words, <= 160 chars).'
     : ''
 
   // Classify what the player said — visible (physical) or inferred (personality/preference)
@@ -720,9 +722,10 @@ Their answer: "${playerAnswer}"
 ${valuesBlock}
 Rules:
 - Give one clear opinion and one brief reason.
-- Keep it conversational and specific.
+- Keep it conversational, specific, and punchy.
 - Add one small charming/funny beat when natural (light tease or warm joke).
-- 1 sentence preferred, 2 max.
+- 1 sentence strongly preferred (6-16 words); 2 max.
+- End on the funniest or sharpest beat.
 - Dialogue only; no actions or asterisks.
 ${finalNote}${wordLimitReminder}
 `
@@ -732,7 +735,7 @@ ${finalNote}${wordLimitReminder}
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[The date was asked: "${question}". They answered: "${playerAnswer}". Give your strong, opinionated reaction.]`
+  const userContent = `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with a clear opinion.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -741,8 +744,8 @@ ${finalNote}${wordLimitReminder}
   }
 
   const response = await getChatResponse(messages, fullPrompt, {
-    maxTokens: 95,
-    temperature: 0.85,
+    maxTokens: 72,
+    temperature: 0.88,
     presencePenalty: 0.35,
     frequencyPenalty: 0.35,
   })
@@ -754,16 +757,16 @@ ${finalNote}${wordLimitReminder}
   // Deterministic fallback so gameplay never advances without a dater comment.
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   const adamFallbacks = [
-    'Okay, that caught me off guard in a good way.',
-    'That answer has charm; I respect the confidence.',
-    'I did not expect that, and now I am smiling about it.',
-    'Bold answer. Annoyingly, it kind of works on me.'
+    'Bold answer. I hate how well that worked.',
+    'Okay, that was annoyingly charming.',
+    'Did not expect that. I kind of liked it.',
+    'Confident and weird. I respect it.'
   ]
   const genericFallbacks = [
-    'Okay, that was smooth; I can work with that.',
-    'Did not expect that, but I kind of like your style.',
-    'That is a fun answer; you might be onto something.',
-    'Huh, confident and weirdly charming. Noted.'
+    'Okay, that was smooth. Keep talking.',
+    'Did not expect that. Kind of a great line.',
+    'That was funnier than it had any right to be.',
+    'Confident answer. I am listening.'
   ]
   const fallbackPool = isAdam ? adamFallbacks : genericFallbacks
   return fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
