@@ -21,6 +21,11 @@ export const SCORING_MODES = {
   BINGO_ACTIONS_OPEN: 'bingo-actions-open',
 }
 
+export const DATER_RESPONSE_MODES = {
+  MAIN: 'main',
+  EXPERIMENTAL: 'experimental',
+}
+
 const BINGO_LINES = [
   [0, 1, 2, 3],
   [4, 5, 6, 7],
@@ -286,6 +291,7 @@ const initialLiveState = {
   // Game settings (set from lobby)
   showAttributesByDefault: false, // Whether to show sentiment categories by default
   llmProvider: 'openai', // 'openai' | 'anthropic' | 'auto'
+  daterResponseMode: DATER_RESPONSE_MODES.MAIN, // 'main' | 'experimental'
   // Quality-based scoring state
   qualityHits: [], // { id, name, rank, type: 'positive'|'dealbreaker', points, roundNumber }
   // Daily scoring modes state
@@ -916,6 +922,10 @@ export const useGameStore = create((set, get) => ({
   },
   setShowAttributesByDefault: (show) => set({ showAttributesByDefault: show }),
   setLlmProvider: (provider) => set({ llmProvider: provider }),
+  setDaterResponseMode: (mode) => {
+    if (!Object.values(DATER_RESPONSE_MODES).includes(mode)) return
+    set({ daterResponseMode: mode })
+  },
   
   // PartyKit client
   partyClient: null,

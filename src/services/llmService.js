@@ -1,6 +1,6 @@
 // LLM Service for OpenAI GPT integration
 import { buildDaterAgentPrompt } from '../data/daters'
-import { 
+import {
   classifyAttribute, 
   buildAvatarPromptChain, 
   buildDaterPromptChain,
@@ -12,7 +12,7 @@ import {
   PROMPT_08_GENZ_SPEECH
 } from './promptChain'
 import { getVoiceProfilePrompt } from './voiceProfiles'
-import { useGameStore } from '../store/gameStore'
+import { useGameStore, DATER_RESPONSE_MODES } from '../store/gameStore'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
@@ -44,6 +44,18 @@ function getLlmProviderPreference() {
     // Fall through to default
   }
   return 'openai'
+}
+
+function getDaterResponseModePreference() {
+  try {
+    const mode = useGameStore.getState()?.daterResponseMode
+    if (mode === DATER_RESPONSE_MODES.MAIN || mode === DATER_RESPONSE_MODES.EXPERIMENTAL) {
+      return mode
+    }
+  } catch {
+    // Fall through to default
+  }
+  return DATER_RESPONSE_MODES.MAIN
 }
 
 function resolveLlmProviderConfig() {
@@ -165,7 +177,43 @@ export function clearLlmErrorMessage() {
   _llmDebugSnapshot = null
 }
 
-const DATER_BASELINE_RESPONSE_CONTRACT = `
+const MAIN_DATER_RESPONSE_CHECKLIST = `
+═══════════════════════════════════════════════════════════════
+🚨 CRITICAL: PURE DIALOGUE — 1-3 SENTENCES 🚨
+═══════════════════════════════════════════════════════════════
+
+📏 LENGTH RULES:
+- Use 1-3 sentences (never more than 3)
+- Aim for <= 350 characters total
+- Keep it concise and emotionally clear
+
+⛔ ABSOLUTELY FORBIDDEN:
+- ❌ NO asterisks (*smiles*, *laughs*, *leans in*)
+- ❌ NO action descriptions of ANY kind
+- ❌ NO stage directions or narration
+- ❌ NO filler words (Well, So, I mean, Oh)
+- ❌ NO long explanations
+
+✅ ONLY ALLOWED:
+- Pure spoken dialogue
+- Short punchy sentences
+- Emotion through word choice ONLY
+
+Examples:
+❌ WRONG: *laughs nervously* "Oh wow, that's... interesting! I've never heard that before."
+✅ RIGHT: "Wait, you actually did that? I wasn't expecting it at all. That changes how I see you."
+
+❌ WRONG: "That's amazing! *leans forward* Tell me more about yourself and how you got into that!"
+✅ RIGHT: "That's actually incredible. I've never met anyone who's done something like that. I need to know more."
+
+❌ WRONG: *raises an eyebrow* "Well, I have to say, that's quite a unique perspective you have there."
+✅ RIGHT: "Okay, that's a perspective I genuinely haven't heard before. I don't know if I agree, but I respect it. It's making me think."
+
+REMEMBER: Dialogue only. No actions.
+═══════════════════════════════════════════════════════════════
+`
+
+const EXPERIMENTAL_DATER_RESPONSE_CONTRACT = `
 DIALOGUE CONTRACT:
 - Sound like a real person in live conversation.
 - One punchy sentence by default, two max.
@@ -189,7 +237,54 @@ function stripActionDescriptions(text) {
   return text.replace(/\*[^*]+\*/g, '').replace(/\s+/g, ' ').trim()
 }
 
-const ADAM_RESPONSE_CONTRACT = `
+const MAIN_ADAM_RESPONSE_CHECKLIST = `
+═══════════════════════════════════════════════════════════════
+🚨 CRITICAL: PURE DIALOGUE — ADAM'S VOICE — WEIGHTED & COMPLETE 🚨
+═══════════════════════════════════════════════════════════════
+
+📏 LENGTH RULES:
+- Use 1-3 sentences (never more than 3)
+- Aim for <= 350 characters total
+- Keep Adam concise, weighted, and poetic — every word earns its place
+
+⛔ ABSOLUTELY FORBIDDEN:
+- ❌ NO asterisks (*smiles*, *laughs*, *leans in*)
+- ❌ NO action descriptions of ANY kind
+- ❌ NO stage directions or narration
+- ❌ NO modern slang (no "lowkey", "slay", "no cap", "ick", "vibe", "red flag", "literally dying")
+- ❌ NO therapeutic language ("that's valid", "I hear you", "I appreciate your vulnerability")
+- ❌ NO chatbot language ("tell me more", "I find that interesting")
+- ❌ NO overusing "thee," "thou," or "thy" — these are RARE, emotional-only words
+
+✅ ADAM'S VOICE — USE THIS REGISTER:
+- Elevated but accessible prose — Latinate vocabulary, 19th-century Romantic cadence
+- Old English phrasing is his default: "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst"
+- "Thee/thou/thy" are RARE — only in emotional extremes (deep attraction, pain, awe). Use "you/your" normally.
+- Short, poetic directness — weighted, building to a point
+- Deadpan delivery — the more alarming the content, the calmer the tone
+- Emotion through word choice and sentence rhythm, not punctuation
+
+ADAM EXAMPLE RESPONSES (match this voice exactly):
+❌ WRONG: "Wait, seriously? That caught me off guard."
+✅ RIGHT: "Methinks I was not prepared for that. It unsettles me in a manner I cannot name. How peculiar a creature you are."
+
+❌ WRONG: "That's incredible. I need to hear more about that."
+✅ RIGHT: "How extraordinary. My mind has weathered much, yet this gives me pause. Prithee, say more."
+
+❌ WRONG: "Huh, that's new. I genuinely don't know what to say."
+✅ RIGHT: "How peculiar. I have known the silence of mountains and the cold of creation, yet this moment eludes me. I am verily without words."
+
+❌ WRONG: "Oh my GOD, yes! That's SO attractive!"
+✅ RIGHT: "That pleaseth me profoundly. There is a quality in you I recognise, something not so unlike my own nature. I confess, I did not expect to find it here."
+
+❌ WRONG: "Absolutely not. That's a hard no for me."
+✅ RIGHT: "I have endured worse, at the hands of those who feared what they did not understand. But I had hoped this meeting would be different. It grieves me that it is not."
+
+REMEMBER: Adam speaks like an articulate Frankenstein's monster — poetic, old-English phrasing, and deadpan gravity. Thee/thou/thy are rare and emotional only. Dialogue only. No actions.
+═══════════════════════════════════════════════════════════════
+`
+
+const EXPERIMENTAL_ADAM_RESPONSE_CONTRACT = `
 ADAM VOICE GUARD:
 - Keep Adam warm, dry, and human.
 - No therapy/chatbot phrasing.
@@ -205,8 +300,35 @@ ADAM VOICE GUARD:
 `
 
 function buildPromptTail(dater) {
+  const responseMode = getDaterResponseModePreference()
+  const useExperimental = responseMode === DATER_RESPONSE_MODES.EXPERIMENTAL
   const isAdam = (dater?.name || '').toLowerCase() === 'adam'
   const overlay = dater?.speechStylePrompt || ''
+
+  if (!useExperimental) {
+    if (isAdam && overlay) {
+      return '\n\n' + PROMPT_08_GENZ_SPEECH +
+             '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
+             '\n\n' + PROMPT_07_RULES +
+             '\n\n' + overlay +
+             '\n\n⚠️ FINAL OVERRIDE — ADAM\'S VOICE TAKES ABSOLUTE PRIORITY:\n' +
+             'Everything above about Gen-Z speech, modern slang, and casual reaction examples does NOT apply to Adam.\n' +
+             'Adam speaks with 19th-century Romantic prose, old-English phrasing, poetic deadpan, and Latinate vocabulary.\n' +
+             'He uses old English words like "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst" regularly.\n' +
+             'IMPORTANT: "Thee," "thou," and "thy" are RARE — only in emotional extremes. Use "you/your" for normal address.\n' +
+             'Use 1-2 sentences and aim for <= 280 characters total.\n' +
+             'Adam speaks in 2-3 weighted sentences — poetic, purposeful, and complete.\n' +
+             'He NEVER uses modern slang. His emotions are deep and quiet, not loud and hype.\n' +
+             'The examples below are your ONLY voice model. Match them exactly.\n' +
+             MAIN_ADAM_RESPONSE_CHECKLIST
+    }
+
+    const speechOverlay = overlay ? '\n\n' + overlay : ''
+    return '\n\n' + PROMPT_08_GENZ_SPEECH + speechOverlay +
+           '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
+           '\n\n' + PROMPT_07_RULES +
+           MAIN_DATER_RESPONSE_CHECKLIST
+  }
 
   if (isAdam) {
     const adamOverlay = overlay ? '\n\n' + overlay : ''
@@ -214,14 +336,14 @@ function buildPromptTail(dater) {
            adamOverlay +
            '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
            '\n\n' + PROMPT_07_RULES +
-           '\n\n' + ADAM_RESPONSE_CONTRACT
+           '\n\n' + EXPERIMENTAL_ADAM_RESPONSE_CONTRACT
   }
 
   const speechOverlay = overlay ? '\n\n' + overlay : ''
   return '\n\n' + PROMPT_08_GENZ_SPEECH + speechOverlay +
          '\n\n' + PROMPT_05B_DATER_REACTION_STYLE +
          '\n\n' + PROMPT_07_RULES +
-         DATER_BASELINE_RESPONSE_CONTRACT
+         EXPERIMENTAL_DATER_RESPONSE_CONTRACT
 }
 
 /**
@@ -779,25 +901,31 @@ Their full line: "${lastAvatarMessage}"`
 export async function getDaterResponseToPlayerAnswer(dater, question, playerAnswer, conversationHistory = [], _compatibility = 50, isFinalRound = false, valuesContext = null, cycleNumber = 0) {
   const systemPrompt = buildDaterAgentPrompt(dater, 'date')
   const voicePrompt = getVoiceProfilePrompt(dater?.name?.toLowerCase() || 'maya', null)
+  const responseMode = getDaterResponseModePreference()
+  const useExperimentalMode = responseMode === DATER_RESPONSE_MODES.EXPERIMENTAL
   const isAdam = String(dater?.name || '').toLowerCase() === 'adam'
   const finalNote = isFinalRound
     ? '\n\n🏁 This is the final round — your reaction should have a sense of conclusion or final judgment.'
     : ''
   const wordLimitReminder = cycleNumber >= 4
-    ? '\nREMINDER — LENGTH: Keep it very short (1 sentence, usually 6-16 words, <= 160 chars).'
+    ? useExperimentalMode
+      ? '\nREMINDER — LENGTH: Keep it very short (1 sentence, usually 6-16 words, <= 160 chars).'
+      : '\nREMINDER — LENGTH: Use 1-2 sentences and aim for <= 280 characters total.'
     : ''
-  const valueHitCategory = findValueHitCategory(valuesContext, playerAnswer)
-  const profileBiasBlock = valueHitCategory === 'dealbreakers'
-    ? '\nPROFILE BIAS: This is close to a personal boundary for you; sound firm or wary.'
-    : valueHitCategory === 'dislikes'
-      ? '\nPROFILE BIAS: This leans against your taste; show mild skepticism.'
-      : valueHitCategory === 'loves'
-        ? '\nPROFILE BIAS: This strongly fits your taste; let warmth and interest show.'
-        : valueHitCategory === 'likes'
-          ? '\nPROFILE BIAS: This somewhat fits your taste; lean gently positive.'
-          : '\nPROFILE BIAS: Let one subtle piece of your worldview tint the line without naming labels.'
+  const valueHitCategory = useExperimentalMode ? findValueHitCategory(valuesContext, playerAnswer) : null
+  const profileBiasBlock = useExperimentalMode
+    ? valueHitCategory === 'dealbreakers'
+      ? '\nPROFILE BIAS: This is close to a personal boundary for you; sound firm or wary.'
+      : valueHitCategory === 'dislikes'
+        ? '\nPROFILE BIAS: This leans against your taste; show mild skepticism.'
+        : valueHitCategory === 'loves'
+          ? '\nPROFILE BIAS: This strongly fits your taste; let warmth and interest show.'
+          : valueHitCategory === 'likes'
+            ? '\nPROFILE BIAS: This somewhat fits your taste; lean gently positive.'
+            : '\nPROFILE BIAS: Let one subtle piece of your worldview tint the line without naming labels.'
+    : ''
   const lastDaterLine = [...conversationHistory].reverse().find((msg) => msg.speaker === 'dater')?.message || ''
-  const adamIdentityBlock = isAdam
+  const adamIdentityBlock = useExperimentalMode && isAdam
     ? `
 ADAM IDENTITY COLOR (subtle, required):
 - Let this line carry: ${buildAdamIdentityGuidance(question, playerAnswer, cycleNumber)}.
@@ -822,15 +950,18 @@ ${lastDaterLine ? '- Avoid reusing the exact same identity imagery from that lin
 
   // Include dater values so reaction can align naturally with preferences.
   const valuesBlock = valuesContext ? `
-Values lens:
+${useExperimentalMode ? 'Values lens:' : '🔑 YOUR INNER VALUES (use these to ground your reaction):'}
 - Things you LOVE: ${valuesContext.loves?.join(', ') || 'not specified'}
 - Things you LIKE: ${valuesContext.likes?.join(', ') || 'not specified'}
 - Things you DISLIKE: ${valuesContext.dislikes?.join(', ') || 'not specified'}
 - Things that are DEALBREAKERS: ${valuesContext.dealbreakers?.join(', ') || 'not specified'}
-Use this as context, not a checklist.
+${useExperimentalMode
+    ? 'Use this as context, not a checklist.'
+    : 'Your reaction should naturally reflect one of these traits. If what they said aligns with something you love, your reaction should be enthusiastic. If it hits a dealbreaker, your reaction should be strong and negative. Ground your opinion in a specific trait.'}
 ` : ''
 
-  const taskPrompt = `
+  const taskPrompt = useExperimentalMode
+    ? `
 React to your date's answer like a real person in conversation.
 
 Question: "${question}"
@@ -846,13 +977,29 @@ Rules:
 - Dialogue only; no actions or asterisks.
 ${finalNote}${wordLimitReminder}${profileBiasBlock}${adamIdentityBlock}
 `
+    : `
+🎯 YOUR TASK: Give your IMMEDIATE, STRONG reaction to what your date just said.
+
+📋 THE QUESTION THAT WAS ASKED: "${question}"
+
+💬 WHAT THEY ANSWERED: "${playerAnswer}"
+${valuesBlock}
+CRITICAL RULES FOR YOUR REACTION:
+- You MUST have an OPINION. Never just say something is "weird" or "strange" or "interesting" without explaining WHY you feel that way based on your personality, your values, and your life experience.
+- React with EMOTION. If you love it, say why it excites you personally. If you hate it, say what specifically about it clashes with who you are. If it confuses you, explain what part doesn't sit right and what you'd prefer instead.
+- Be SPECIFIC. Reference what they actually said and connect it to something about yourself — your values, your past, your dealbreakers, what you find attractive.
+- 1-2 sentences. Aim for <= 280 characters total. Dialogue only, no actions or asterisks.
+${finalNote}${wordLimitReminder}
+`
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
 
   const historyMessages = conversationHistory.slice(-12).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
-  const userContent = `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with a clear opinion.]`
+  const userContent = useExperimentalMode
+    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny reaction with a clear opinion.]`
+    : `[The date was asked: "${question}". They answered: "${playerAnswer}". Give your strong, opinionated reaction.]`
   const messages = historyMessages.length
     ? [...historyMessages, { role: 'user', content: userContent }]
     : [{ role: 'user', content: userContent }]
@@ -860,30 +1007,46 @@ ${finalNote}${wordLimitReminder}${profileBiasBlock}${adamIdentityBlock}
     messages.push({ role: 'user', content: userContent })
   }
 
-  const response = await getChatResponse(messages, fullPrompt, {
-    maxTokens: 72,
-    temperature: 0.88,
-    presencePenalty: 0.35,
-    frequencyPenalty: 0.35,
-  })
+  const response = useExperimentalMode
+    ? await getChatResponse(messages, fullPrompt, {
+      maxTokens: 72,
+      temperature: 0.88,
+      presencePenalty: 0.35,
+      frequencyPenalty: 0.35,
+    })
+    : await getChatResponse(messages, fullPrompt)
   if (response) {
     const cleaned = stripActionDescriptions(response)?.trim()
     if (cleaned) return cleaned
   }
 
   // Deterministic fallback so gameplay never advances without a dater comment.
-  const adamFallbacks = [
-    'Bold answer. My stitches are listening.',
-    'I do not trust easily. That helped.',
-    'You had me at curiosity and no cruelty.',
-    'Hard no on fire. Hard yes on honesty.',
-  ]
-  const genericFallbacks = [
-    'Okay, that was smooth. Keep talking.',
-    'Did not expect that. Kind of a great line.',
-    'That was funnier than it had any right to be.',
-    'Confident answer. I am listening.'
-  ]
+  const adamFallbacks = useExperimentalMode
+    ? [
+      'Bold answer. My stitches are listening.',
+      'I do not trust easily. That helped.',
+      'You had me at curiosity and no cruelty.',
+      'Hard no on fire. Hard yes on honesty.',
+    ]
+    : [
+      'Curious confession. My stitched heart stirs at it.',
+      'That answer lands strangely, but not without intrigue.',
+      'I did not foresee that. It lingers in me.',
+      'A fierce answer. It awakens old thoughts.',
+    ]
+  const genericFallbacks = useExperimentalMode
+    ? [
+      'Okay, that was smooth. Keep talking.',
+      'Did not expect that. Kind of a great line.',
+      'That was funnier than it had any right to be.',
+      'Confident answer. I am listening.',
+    ]
+    : [
+      'Interesting answer. I need a second to process it.',
+      'I did not expect that, but I hear you.',
+      'That gives me a lot to think about.',
+      'Huh. That says more than you might think.',
+    ]
   const fallbackPool = isAdam ? adamFallbacks : genericFallbacks
   return fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
 }
