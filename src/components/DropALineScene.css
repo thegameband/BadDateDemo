@@ -34,18 +34,6 @@
   background: rgba(8, 8, 12, 0.72);
 }
 
-.drop-a-line-scene-character {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  max-height: 65vh;
-  width: auto;
-  z-index: 1;
-  pointer-events: none;
-  object-fit: contain;
-}
-
 .drop-a-line-scene-loading {
   position: absolute;
   inset: 0;
@@ -455,16 +443,6 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-}
-
-.drop-a-line-share-character {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  max-height: 72%;
-  width: auto;
-  object-fit: contain;
 }
 
 .drop-a-line-share-overlay {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { evaluatePickupLine, generatePickupLineComeback } from '../services/llmService'
 import { speak, speakAndWait, waitForAllAudio, setVoice } from '../services/ttsService'
-import { DROP_A_LINE_LOCATION_PHRASES, DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
+import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
 const PAUSE_AFTER_SUBMIT_MS = 1000
@@ -35,9 +35,8 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const replayTimeoutRef = useRef(null)
   const shareCaptureRef = useRef(null)
 
-  const backgroundImageUrl = payload?.location ? DROP_A_LINE_LOCATION_IMAGES[payload.location] : null
   const dropALineImages = payload?.dater?.dropALineImages
-  const characterImageUrl = useMemo(() => {
+  const sceneImageUrl = useMemo(() => {
     if (!dropALineImages) return payload?.dater?.dropALineCharacterImage ?? null
     if (phase === 'comeback' || phase === 'reveal' || phase === 'stamp') {
       const score = evaluation?.score ?? 0
@@ -45,7 +44,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     }
     return dropALineImages.start
   }, [dropALineImages, phase, evaluation?.score, payload?.dater?.dropALineCharacterImage])
-  const hasImage = Boolean(backgroundImageUrl)
+  const hasImage = Boolean(sceneImageUrl)
   const finalScore = evaluation?.score ?? 0
 
   const handleSubmit = useCallback(
@@ -226,16 +225,8 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     >
       <div
         className="drop-a-line-scene-backdrop"
-        style={{ backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined }}
+        style={{ backgroundImage: sceneImageUrl ? `url(${sceneImageUrl})` : undefined }}
       />
-      {characterImageUrl && (
-        <img
-          src={characterImageUrl}
-          alt=""
-          className="drop-a-line-scene-character"
-          role="presentation"
-        />
-      )}
       {isDimmed && (
         <motion.div
           className="drop-a-line-scene-dimmer"
@@ -394,16 +385,8 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
         <div ref={shareCaptureRef} className="drop-a-line-share-capture">
           <div
             className="drop-a-line-share-backdrop"
-            style={{ backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined }}
+            style={{ backgroundImage: sceneImageUrl ? `url(${sceneImageUrl})` : undefined }}
           />
-          {characterImageUrl && (
-            <img
-              src={characterImageUrl}
-              alt=""
-              className="drop-a-line-share-character"
-              role="presentation"
-            />
-          )}
           <div className="drop-a-line-share-overlay" />
           <div className="drop-a-line-share-top">
             <p className="drop-a-line-share-line-title">Your Line</p>
