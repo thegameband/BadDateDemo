@@ -1,4 +1,5 @@
 .app {
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -10,6 +11,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 0;
+}
+
+.main-content > .phone-frame {
+  height: 100%;
 }
 
 /* Live Mode styles */
@@ -20,4 +26,11 @@
 .app.live-mode .main-content.live-main {
   padding: 0;
   max-width: none;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    align-items: stretch;
+    justify-content: stretch;
+  }
 }
