@@ -14,10 +14,6 @@
   min-height: 0;
 }
 
-.main-content > .phone-frame {
-  height: 100%;
-}
-
 /* Live Mode styles */
 .app.live-mode {
   background: #000;
@@ -32,5 +28,9 @@
   .main-content {
     align-items: stretch;
     justify-content: stretch;
+  }
+
+  .main-content > .phone-frame {
+    height: 100%;
   }
 }
