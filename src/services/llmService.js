@@ -565,7 +565,7 @@ function buildJokeRetryUserContent({
       ? 'Tone lock: barbed, skeptical, disapproving.'
       : 'Tone lock: cheeky, bold, opinionated.'
   const priorLineBlock = previousLine
-    ? `\nFailed draft to rewrite (do not paraphrase): "${previousLine}"`
+    ? `\nFailed line to rewrite (do not paraphrase): "${previousLine}"`
     : ''
 
   return `[Retry ${attempt} - strict rewrite]
@@ -4597,7 +4597,7 @@ Output only the line.`
   let bestCandidate = primary || ''
 
   const rewritePrompt = `Rewrite this into a stronger standalone bar pickup line.
-Draft: "${primary || clipPromptText(response || '', 120)}"
+Line: "${primary || clipPromptText(response || '', 120)}"
 
 Rules:
 - One sentence only
@@ -4667,7 +4667,7 @@ Output only the line.`
 }
 
 /**
- * Generate all Speed Date Draft one-liners in one batch call to enforce cross-line variety.
+ * Generate all Speed Date one-liners in one batch call to enforce cross-line variety.
  * Returns a key->line map aligned with input linePlan keys.
  * Output values can be null if generation failed quality gates.
  */
@@ -5030,7 +5030,7 @@ Return JSON with this exact shape:
 
 /**
  * Infer a compact player profile summary from their submitted lines.
- * Used so daters can target the player's taste/style in Speed Date Draft.
+ * Used so daters can target the player's taste/style in Speed Date.
  */
 export async function inferSpeedDatingPlayerProfile(playerLines = []) {
   const lines = Array.isArray(playerLines)

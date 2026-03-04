@@ -11,7 +11,7 @@ import {
   setVoice,
   stopAllAudio,
 } from '../services/ttsService'
-import './SpeedDateDraftMode.css'
+import './SpeedDateMode.css'
 
 const PLAYER_ID = 'player'
 const PLAYER_NAME = 'You'
@@ -70,7 +70,7 @@ function pickTwoDaters(daters = [], nonce = 0) {
   return [...preferred, ...remaining].slice(0, 2)
 }
 
-function buildSpeedDraftSequence(selectedDaters = []) {
+function buildSpeedSequence(selectedDaters = []) {
   if (!Array.isArray(selectedDaters) || selectedDaters.length < 2) return []
   const [kickflip, adam] = selectedDaters
   return [
@@ -163,10 +163,10 @@ function toSenderLookup(selectedDaters = []) {
   return map
 }
 
-export default function SpeedDateDraftMode({ daters = [], onBack }) {
+export default function SpeedDateMode({ daters = [], onBack }) {
   const [runNonce, setRunNonce] = useState(0)
   const selectedDaters = useMemo(() => pickTwoDaters(daters, runNonce), [daters, runNonce])
-  const sequence = useMemo(() => buildSpeedDraftSequence(selectedDaters), [selectedDaters])
+  const sequence = useMemo(() => buildSpeedSequence(selectedDaters), [selectedDaters])
 
   const [stage, setStage] = useState('intro') // intro | run | pick | results
   const [stepIndex, setStepIndex] = useState(0)
@@ -314,7 +314,7 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
       const timeoutMs = estimateTtsTimeout(line)
       await withTimeout(speakAndWait(line, speaker), timeoutMs)
     } catch (error) {
-      console.warn('SpeedDateDraft TTS skipped due to timeout/failure:', error)
+      console.warn('SpeedDate TTS skipped due to timeout/failure:', error)
       stopAllAudio()
     }
   }, [estimateTtsTimeout, withTimeout])
@@ -359,7 +359,7 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
         })
       } catch (error) {
         if (prefetchStateRef.current.runId === runId) {
-          console.error('SpeedDateDraft prefetch error:', error)
+          console.error('SpeedDate prefetch error:', error)
           settleAllPendingAsNull()
         }
       }
@@ -430,7 +430,7 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
     try {
       return await deferred.promise
     } catch (error) {
-      console.warn('SpeedDateDraft prefetched line unavailable:', error)
+      console.warn('SpeedDate prefetched line unavailable:', error)
       return null
     }
   }, [batchLinePlan, ensurePrefetchReady])
@@ -562,7 +562,7 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
         setStepIndex((prev) => prev + 1)
       } catch (error) {
         if (!cancelled) {
-          console.error('SpeedDateDraft ai_pair error:', error)
+          console.error('SpeedDate ai_pair error:', error)
           setErrorText('Could not generate an exchange line. Try replaying this run.')
         }
       } finally {
@@ -620,8 +620,8 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
         Number.isFinite(Number(llmDebug?.status)) ? `status=${llmDebug.status}` : '',
       ].filter(Boolean)
       const summary = debugParts.join(' | ')
-      console.error('SpeedDateDraft start prefetch error:', error)
-      console.error('SpeedDateDraft start prefetch debug:', {
+      console.error('SpeedDate start prefetch error:', error)
+      console.error('SpeedDate start prefetch debug:', {
         llmError,
         llmDebug,
         linePlanKeys: batchLinePlan.map((entry) => entry?.key),
@@ -709,7 +709,7 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
 
       setStepIndex((prev) => prev + 1)
     } catch (error) {
-      console.error('SpeedDateDraft player round error:', error)
+      console.error('SpeedDate player round error:', error)
       setErrorText('Could not complete this round. You can try replaying.')
     } finally {
       setIsWorking(false)
@@ -770,7 +770,7 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
       setStage('results')
       setStatusText('Picks locked.')
     } catch (error) {
-      console.error('SpeedDateDraft lock-in error:', error)
+      console.error('SpeedDate lock-in error:', error)
       setErrorText('Could not resolve picks. Please replay this run.')
     } finally {
       setIsWorking(false)
@@ -781,10 +781,10 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
 
   if (selectedDaters.length < 2) {
     return (
-      <div className="speed-date-draft">
-        <div className="speed-date-draft-header">
+      <div className="speed-date">
+        <div className="speed-date-header">
           <button type="button" className="speed-date-back" onClick={handleBackClick}>← Back</button>
-          <h2 className="speed-date-title">Speed Date Draft</h2>
+          <h2 className="speed-date-title">Speed Date</h2>
         </div>
         <div className="speed-date-fallback">Need at least two daters to run this mode.</div>
       </div>
@@ -792,10 +792,10 @@ export default function SpeedDateDraftMode({ daters = [], onBack }) {
   }
 
   return (
-    <div className="speed-date-draft">
-      <div className="speed-date-draft-header">
+    <div className="speed-date">
+      <div className="speed-date-header">
         <button type="button" className="speed-date-back" onClick={handleBackClick}>← Back</button>
-        <h2 className="speed-date-title">Speed Date Draft</h2>
+        <h2 className="speed-date-title">Speed Date</h2>
         <p className="speed-date-subtitle">Kickflip and Adam. Fast one-liners. You make the final call.</p>
       </div>
 

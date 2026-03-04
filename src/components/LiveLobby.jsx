@@ -7,7 +7,7 @@ import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
-import SpeedDateDraftMode from './SpeedDateDraftMode'
+import SpeedDateMode from './SpeedDateMode'
 import { DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
 import './DropALineReels.css'
 import './DropALineProfile.css'
@@ -18,7 +18,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.27'
+const GAME_VERSION = '0.04.28'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -41,7 +41,7 @@ function LiveLobby() {
   const daterResponseMode = useGameStore((state) => state.daterResponseMode)
   const setDaterResponseMode = useGameStore((state) => state.setDaterResponseMode)
   const daters = useGameStore((state) => state.daters)
-  const [view, setView] = useState('main') // 'main', 'speed-date-draft', 'drop-a-line', 'multiplayer', 'host', 'join', 'qr-join'
+  const [view, setView] = useState('main') // 'main', 'speed-date', 'drop-a-line', 'multiplayer', 'host', 'join', 'qr-join'
   const [availableRooms, setAvailableRooms] = useState([])
   const [username, setUsernameLocal] = useState('')
   const [error, setError] = useState('')
@@ -816,12 +816,12 @@ function LiveLobby() {
             </div>
             <motion.button
               className="mode-btn speed-date-btn"
-              onClick={() => setView('speed-date-draft')}
+              onClick={() => setView('speed-date')}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
               <span className="btn-icon">⚡</span>
-              <span className="btn-text">Speed Date Draft</span>
+              <span className="btn-text">Speed Date</span>
             </motion.button>
           </div>
           
@@ -840,11 +840,11 @@ function LiveLobby() {
     )
   }
 
-  if (view === 'speed-date-draft') {
+  if (view === 'speed-date') {
     return (
       <div className="phone-frame">
         <div className="version-number">v{GAME_VERSION}</div>
-        <SpeedDateDraftMode
+        <SpeedDateMode
           daters={daters}
           onBack={() => setView('main')}
         />
