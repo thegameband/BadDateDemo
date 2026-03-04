@@ -135,6 +135,7 @@ function buildProviderBody(providerConfig, {
   temperature,
   presencePenalty,
   frequencyPenalty,
+  responseFormat,
 }) {
   if (providerConfig.provider === 'anthropic') {
     return {
@@ -152,6 +153,7 @@ function buildProviderBody(providerConfig, {
     temperature,
     presence_penalty: presencePenalty,
     frequency_penalty: frequencyPenalty,
+    ...(responseFormat ? { response_format: responseFormat } : {}),
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
       ...messages,
@@ -161,7 +163,36 @@ function buildProviderBody(providerConfig, {
 
 function extractProviderText(provider, data) {
   if (provider === 'anthropic') return data?.content?.[0]?.text || ''
-  return data?.choices?.[0]?.message?.content || ''
+
+  const message = data?.choices?.[0]?.message
+  const content = message?.content
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    const joined = content
+      .map((part) => {
+        if (typeof part === 'string') return part
+        if (part && typeof part === 'object') {
+          if (typeof part.text === 'string') return part.text
+          if (typeof part.output_text === 'string') return part.output_text
+        }
+        return ''
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim()
+    if (joined) return joined
+  }
+  if (message?.parsed && typeof message.parsed === 'object') {
+    try {
+      return JSON.stringify(message.parsed)
+    } catch {
+      // continue
+    }
+  }
+  if (typeof message?.refusal === 'string' && message.refusal.trim()) {
+    return message.refusal.trim()
+  }
+  return ''
 }
 
 export function getLlmErrorMessage() {
@@ -356,6 +387,14 @@ const BLAND_DATER_LINE_PATTERN = /\b(interesting|fair|noted|i hear you|makes sen
 const FUNNY_SIGNAL_PATTERN = /\b(plot twist|rom-com|audition|speedrun|boss fight|main character|resume|respectfully|dangerous in a good way|cautionary tale|jump scare|oscar|episode|spin-off|character arc|punchline|suspiciously|standards|winced|cheeky|flirty)\b/i
 const FLIRTY_SIGNAL_PATTERN = /\b(hot|cute|charming|smooth|spark|chemistry|kiss|blush|flirt|trouble|keep flirting|keep talking|into it)\b/i
 const BARBED_SIGNAL_PATTERN = /\b(nope|hard pass|dealbreaker|cautionary tale|winced|miss|red flag|no thanks|bad idea|yikes|foul|taxing|nightmare|pass)\b/i
+const PICKUP_SIGNAL_PATTERN = /\b(date|drink|drinks|kiss|number|tonight|dinner|coffee|text me|call me|ask you out|take you out|come with me|go out|you and me|afterparty|bar|dance|shot|weekend|steal a kiss)\b/i
+const PICKUP_POETIC_PATTERN = /\b(universe|destiny|fate|cosmic|gravity|galaxy|constellation|starlight|poetry|pretend)\b/i
+const PICKUP_COMEDY_PATTERN = /\b(trouble|bad idea|reckless|dangerous|illegal|court|plot twist|chaos|unhinged|disaster|crime|felony|bail money|witness|bad influence|poor decision|questionable|scandal|roast|sinful|liability)\b/i
+const PICKUP_REPLY_PATTERN = /\b(you said|your line|that line|as you said|in reply|reply|back at you|same to you|you too|again|fair enough|exactly|good point|i agree|i disagree)\b/i
+const PICKUP_INVITE_PATTERN = /\b(let's|lets|give me|give you|buy you|buy me|come with me|come over|text me|call me|ask me|take me|take you|steal|grab|meet me)\b/i
+const PICKUP_CLICHE_PATTERN = /\b(you look like trouble|you seem like trouble|did it hurt when you fell|did it hurt when you fell from heaven|are you from tennessee|do you come here often|what'?s your sign|is your dad a thief|stole the stars|love at first sight)\b/i
+const PICKUP_CLICHE_OPENER_PATTERN = /^(you look like\b|you seem like\b|did it hurt\b|are you (a|an|from)\b|do you come here often\b|what'?s your sign\b|is your dad a thief\b)/i
+const PICKUP_STALE_FRAME_PATTERN = /\b(you('|’)ve got [a-z-]+ energy|you bring the vibe|come get a drink with me|grab a drink with me|buy you a drink|buy me a drink|join me for (a )?drink|trade it for a tequila date)\b/i
 
 function toOneSentence(text) {
   const cleaned = String(text || '').replace(/\s+/g, ' ').trim()
@@ -366,6 +405,80 @@ function toOneSentence(text) {
 
 function countWords(text) {
   return String(text || '').split(/\s+/).filter(Boolean).length
+}
+
+function escapeRegExp(text) {
+  return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function buildNamePatterns(names = []) {
+  return names
+    .map((name) => String(name || '').trim())
+    .filter(Boolean)
+    .flatMap((name) =>
+      name
+        .split(/\s+/)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 2 && !/^(you|player|dater)$/i.test(part))
+    )
+    .filter(Boolean)
+    .map((token) => new RegExp(`\\b${escapeRegExp(token)}\\b`, 'gi'))
+}
+
+function scrubForbiddenNamesFromPickupLine(text, namePatterns = []) {
+  let line = String(text || '')
+  namePatterns.forEach((pattern) => {
+    line = line.replace(pattern, 'you')
+  })
+  return line.replace(/\byou,\s*you\b/gi, 'you').replace(/\s+/g, ' ').trim()
+}
+
+function mentionsForbiddenPickupName(text, namePatterns = []) {
+  const line = String(text || '')
+  return namePatterns.some((pattern) => {
+    const local = new RegExp(pattern.source, 'i')
+    return local.test(line)
+  })
+}
+
+function normalizePickupLineForComparison(text = '') {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9'\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractPickupOpener(text = '', wordCount = 4) {
+  const normalized = normalizePickupLineForComparison(text)
+  if (!normalized) return ''
+  const words = normalized.split(' ').filter(Boolean)
+  return words.slice(0, Math.min(wordCount, words.length)).join(' ')
+}
+
+function extractPickupTail(text = '', wordCount = 4) {
+  const normalized = normalizePickupLineForComparison(text)
+  if (!normalized) return ''
+  const words = normalized.split(' ').filter(Boolean)
+  if (!words.length) return ''
+  return words.slice(Math.max(0, words.length - wordCount)).join(' ')
+}
+
+function hasClichePickupPhrase(text = '') {
+  const normalized = normalizePickupLineForComparison(text)
+  if (!normalized) return false
+  return PICKUP_CLICHE_PATTERN.test(normalized) || PICKUP_CLICHE_OPENER_PATTERN.test(normalized)
+}
+
+function detectPickupInviteCategory(text = '') {
+  const normalized = normalizePickupLineForComparison(text)
+  if (!normalized) return 'other'
+  if (/\b(drink|drinks|shot|tequila|cocktail|bar)\b/.test(normalized)) return 'drink'
+  if (/\b(kiss|make out|steal a kiss)\b/.test(normalized)) return 'kiss'
+  if (/\b(number|text me|call me)\b/.test(normalized)) return 'number'
+  if (/\b(date|dinner|coffee|take you out|go out|weekend)\b/.test(normalized)) return 'date'
+  if (/\b(dare|bet|race|challenge|double-dog|prove it)\b/.test(normalized)) return 'challenge'
+  return 'other'
 }
 
 function clampOneLinerWords(text, maxWords = 22) {
@@ -3568,8 +3681,18 @@ Return ONLY the 3-sentence narration, nothing else.`
 }
 
 const safeJsonObject = (text) => {
+  if (text && typeof text === 'object') return text
   if (!text || typeof text !== 'string') return null
-  const match = text.match(/\{[\s\S]*\}/)
+
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    // try loose object extraction below
+  }
+
+  const match = trimmed.match(/\{[\s\S]*\}/)
   if (!match) return null
   try {
     return JSON.parse(match[0])
@@ -4225,6 +4348,980 @@ Context:
     return 'Thy line hath a dangerous charm to it. Keep speaking thus, and I may surrender my number gladly.'
   }
   return 'That line is a social calamity in miniature. Leave now, lest thou worsen the damage.'
+}
+
+const SPEED_DATING_PLAYER_CANON_PROFILE = [
+  'Player background:',
+  '- Profession: game developer at The Game Band',
+  '- Notable games: Blaseball, Where Cards Fall, Dead Man\'s Party',
+].join('\n')
+
+function buildSpeedDatingTargetProfile(target, targetType = 'dater', playerProfileSummary = '') {
+  if (targetType === 'player') {
+    const summary = clipPromptText(playerProfileSummary || '', 260)
+    return `Target is the player.
+${SPEED_DATING_PLAYER_CANON_PROFILE}
+Style summary: ${summary || 'No clear data yet; go for broad charm and humor.'}`
+  }
+
+  const archetype = target?.archetype || 'Unknown'
+  const desc = clipPromptText(target?.description || '', 280) || 'No description provided.'
+  const values = clipPromptText(target?.values || '', 220) || 'No values specified.'
+  const likes = normalizePromptList(target?.idealPartner || [], 'not specified')
+  const dealbreakers = normalizePromptList(target?.dealbreakers || [], 'not specified')
+  return `Target profile:
+- Archetype: ${archetype}
+- Description: ${desc}
+- Values lens: ${values}
+- Usually likes: ${likes}
+- Dealbreakers: ${dealbreakers}`
+}
+
+function normalizeRecentSpeedDatingExchanges(exchanges = [], limit = 8) {
+  if (!Array.isArray(exchanges) || !exchanges.length) return 'No prior exchange context.'
+  const lines = exchanges
+    .slice(-limit)
+    .map((entry) => {
+      const from = entry?.fromName || 'Someone'
+      const to = entry?.toName || 'someone'
+      const text = clipPromptText(entry?.text || '', 140) || '...'
+      return `- ${from} -> ${to}: "${text}"`
+    })
+    .filter(Boolean)
+  return lines.length ? lines.join('\n') : 'No prior exchange context.'
+}
+
+async function getChatResponseWithSoftTimeout(messages, systemPrompt, options = {}, timeoutMs = 12000) {
+  return Promise.race([
+    getChatResponse(messages, systemPrompt, options),
+    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ])
+}
+
+/**
+ * Generate one short speed-dating line from one dater to a target.
+ * Output is LLM-generated only (no canned static fallback lines).
+ */
+export async function generateSpeedDatingOneLiner({
+  speaker,
+  target,
+  targetType = 'dater', // 'dater' | 'player'
+  playerProfileSummary = '',
+  recentExchanges = [],
+  recentGeneratedLines = [],
+}) {
+  if (!speaker) return null
+
+  const speakerName = speaker?.name || 'Dater'
+  const targetName = targetType === 'player' ? 'the player' : (target?.name || 'the other dater')
+  const forbiddenNamePatterns = buildNamePatterns([speakerName, target?.name, targetName])
+  const normalizedRecentLines = Array.isArray(recentGeneratedLines)
+    ? recentGeneratedLines
+      .map((line) => String(line || '').trim())
+      .filter(Boolean)
+      .slice(-12)
+    : []
+  const recentLineSet = new Set(
+    normalizedRecentLines
+      .map((line) => normalizePickupLineForComparison(line))
+      .filter(Boolean)
+  )
+  const recentOpenerList = [...new Set(
+    normalizedRecentLines
+      .map((line) => extractPickupOpener(line, 4))
+      .filter(Boolean)
+  )].slice(-8)
+  const recentOpenerSet = new Set(recentOpenerList)
+  const recentTailList = [...new Set(
+    normalizedRecentLines
+      .map((line) => extractPickupTail(line, 4))
+      .filter(Boolean)
+  )].slice(-8)
+  const recentTailSet = new Set(recentTailList)
+  const recentInviteCategories = normalizedRecentLines
+    .map((line) => detectPickupInviteCategory(line))
+    .filter(Boolean)
+  const inviteCategoryCounts = recentInviteCategories.reduce((acc, category) => {
+    acc[category] = (acc[category] || 0) + 1
+    return acc
+  }, {})
+  const overusedInviteCategories = Object.entries(inviteCategoryCounts)
+    .filter(([category, count]) => category !== 'other' && count >= 3)
+    .map(([category]) => category)
+  const recentOpenerBlock = recentOpenerList.length
+    ? recentOpenerList.map((opener) => `- "${opener}"`).join('\n')
+    : '- none yet'
+  const overusedInviteBlock = overusedInviteCategories.length
+    ? overusedInviteCategories.join(', ')
+    : 'none'
+  const speakerLikes = normalizePromptList(speaker?.idealPartner || [], 'chemistry, humor, confidence')
+  const speakerDealbreakers = normalizePromptList(speaker?.dealbreakers || [], 'disrespect, dishonesty')
+  const speakerStyle = clipPromptText(
+    [
+      speaker?.archetype ? `Archetype: ${speaker.archetype}` : '',
+      speaker?.quirk ? `Quirk: ${speaker.quirk}` : '',
+      Array.isArray(speaker?.talkingTraits) && speaker.talkingTraits.length
+        ? `Traits: ${speaker.talkingTraits.slice(0, 3).join(', ')}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' | '),
+    220
+  )
+  const targetProfile = buildSpeedDatingTargetProfile(target, targetType, playerProfileSummary)
+  const recentBlock = normalizeRecentSpeedDatingExchanges(recentExchanges, 3)
+  const hasRepeatedRecentOpener = (line = '') => {
+    const opener = extractPickupOpener(line, 4)
+    return Boolean(opener && recentOpenerSet.has(opener))
+  }
+  const hasRepeatedRecentTail = (line = '') => {
+    const tail = extractPickupTail(line, 4)
+    return Boolean(tail && recentTailSet.has(tail))
+  }
+  const isNearDuplicateOfRecentLine = (line = '') => {
+    const normalized = normalizePickupLineForComparison(line)
+    if (!normalized) return false
+    return recentLineSet.has(normalized)
+  }
+
+  const finalizePickupCandidate = (line = '') => {
+    const finalized = finalizeDaterDialogueLine(line, speaker, { enforceAdamArchaic: targetType === 'player' })
+    if (!finalized) return ''
+    const dequoted = finalized.replace(/^["'`]+|["'`]+$/g, '').trim()
+    const oneSentence = clampOneLinerWords(dequoted, 16)
+    if (!oneSentence) return ''
+    const noNames = scrubForbiddenNamesFromPickupLine(oneSentence, forbiddenNamePatterns)
+      .replace(/\s+([,.!?;:])/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim()
+    return clampOneLinerWords(noNames, 16)
+  }
+
+  const looksLikeStandalonePickupLine = (line = '') => {
+    const text = String(line || '').trim()
+    if (!text) return false
+    const words = countWords(text)
+    if (words < 6 || words > 16) return false
+    if (isLikelyBlandDaterLine(text)) return false
+    if (mentionsForbiddenPickupName(text, forbiddenNamePatterns)) return false
+    if (PICKUP_REPLY_PATTERN.test(text)) return false
+    if (hasClichePickupPhrase(text)) return false
+    if (PICKUP_STALE_FRAME_PATTERN.test(text)) return false
+    if (hasRepeatedRecentOpener(text)) return false
+    if (hasRepeatedRecentTail(text)) return false
+    if (isNearDuplicateOfRecentLine(text)) return false
+    if (overusedInviteCategories.includes(detectPickupInviteCategory(text))) return false
+    if (!/\byou\b/i.test(text)) return false
+    const hasPickupHook = PICKUP_SIGNAL_PATTERN.test(text) || FLIRTY_SIGNAL_PATTERN.test(text) || PICKUP_INVITE_PATTERN.test(text)
+    if (!hasPickupHook) return false
+    if (PICKUP_POETIC_PATTERN.test(text) && !PICKUP_SIGNAL_PATTERN.test(text)) return false
+    const hasComedyBeat = hasHumorSignal(text) || PICKUP_COMEDY_PATTERN.test(text) || /[!?]/.test(text)
+    if (!hasComedyBeat) return false
+    return true
+  }
+
+  const isAcceptableBackupPickupLine = (line = '') => {
+    const text = String(line || '').trim()
+    if (!text) return false
+    const words = countWords(text)
+    if (words < 6 || words > 16) return false
+    if (mentionsForbiddenPickupName(text, forbiddenNamePatterns)) return false
+    if (PICKUP_REPLY_PATTERN.test(text)) return false
+    if (hasClichePickupPhrase(text)) return false
+    if (PICKUP_STALE_FRAME_PATTERN.test(text)) return false
+    if (hasRepeatedRecentTail(text)) return false
+    if (isNearDuplicateOfRecentLine(text)) return false
+    if (overusedInviteCategories.includes(detectPickupInviteCategory(text))) return false
+    if (!/\byou\b/i.test(text)) return false
+    const hasPickupHook = PICKUP_SIGNAL_PATTERN.test(text) || FLIRTY_SIGNAL_PATTERN.test(text) || PICKUP_INVITE_PATTERN.test(text)
+    if (!hasPickupHook) return false
+    return true
+  }
+
+  const isBareMinimumEmergencyPickupLine = (line = '') => {
+    const text = String(line || '').trim()
+    if (!text) return false
+    const words = countWords(text)
+    if (words < 5 || words > 18) return false
+    if (mentionsForbiddenPickupName(text, forbiddenNamePatterns)) return false
+    if (PICKUP_REPLY_PATTERN.test(text)) return false
+    if (hasClichePickupPhrase(text)) return false
+    if (!/\byou\b/i.test(text)) return false
+    return true
+  }
+
+  const prompt = `You are ${speakerName} in a speed-dating showdown.
+Target: ${targetName}
+
+Attraction lens:
+- Likes: ${speakerLikes}
+- Dealbreakers: ${speakerDealbreakers}
+${speakerStyle ? `\nVoice cues:\n- ${speakerStyle}` : ''}
+
+${targetProfile}
+
+Room context (for vibe only; do NOT reference or reply to it):
+${recentBlock}
+
+Write exactly one funny, flirty pickup line to win this target over.
+Rules:
+- One sentence only
+- 7-13 words (hard max 16)
+- This is a cold open at a bar, not a reply
+- Must include a concrete flirt/invite beat (date, drink, kiss, number, ask-out)
+- Use "you" to address the target; do not use any names
+- Swaggering, playful, a little dangerous, and clearly funny
+- Structure: bold hook first, then flirty invite
+- Avoid dry phrasing; make the final words the punchline
+- Do not reference anything the other person already said
+- Freshness rule: no cliche pickup templates.
+- Never use or paraphrase "you look like trouble."
+- Never start with "you look like...", "you seem like...", "are you...", or "did it hurt..."
+- Avoid stale frames like "you've got ___ energy" and "buy you a drink."
+- Do not reuse opener starts already used this run:
+${recentOpenerBlock}
+- Do not reuse ending cadence from recent lines.
+- Overused invite categories to avoid right now: ${overusedInviteBlock}
+- Avoid bland words like "interesting", "fair", "valid", "noted"
+- No stage directions, no emojis, no asterisks
+- End on the joke beat
+Output only the line.`
+
+  const response = await getSingleResponseWithTimeout(prompt, {
+    maxTokens: 64,
+    timeoutMs: 3600,
+  })
+  const primary = finalizePickupCandidate(response)
+  if (looksLikeStandalonePickupLine(primary)) return primary
+
+  let bestCandidate = primary || ''
+
+  const rewritePrompt = `Rewrite this into a stronger standalone bar pickup line.
+Draft: "${primary || clipPromptText(response || '', 120)}"
+
+Rules:
+- One sentence only
+- 7-13 words (hard max 16)
+- Cold open only; do not reply to anyone
+- No names, use "you"
+- Make it cheeky, funny, and flirty
+- Include a clear invite beat (drink, date, kiss, number)
+- Remove cliches and stale openings ("you look like trouble", "are you...", "did it hurt...")
+- Remove stale frames like "you've got ___ energy" and "buy you a drink."
+- Use a new opening cadence not used yet:
+${recentOpenerBlock}
+- Use a new ending cadence not used yet.
+- Avoid these overused invite categories: ${overusedInviteBlock}
+- End on the punchline
+Output only the rewritten line.`
+
+  const rewriteResponse = await getSingleResponseWithTimeout(rewritePrompt, {
+    maxTokens: 64,
+    timeoutMs: 3000,
+  })
+  const rewritten = finalizePickupCandidate(rewriteResponse)
+  if (looksLikeStandalonePickupLine(rewritten)) return rewritten
+  if (rewritten) bestCandidate = rewritten
+
+  const rescuePrompt = `Give one funny, swaggering bar pickup line.
+Requirements:
+- One sentence, 7-13 words (hard max 16)
+- Address only as "you" (no names)
+- Cold open, not a reply
+- Must include a flirty invite (drink/date/kiss/number)
+- No cliche pickup templates; avoid "you look like trouble"
+- Avoid stale frames like "you've got ___ energy" and "buy you a drink."
+- Start with a fresh opener (not in this list):
+${recentOpenerBlock}
+- Avoid these overused invite categories: ${overusedInviteBlock}
+Output only the line.`
+  const rescue = await getSingleResponseWithTimeout(rescuePrompt, {
+    maxTokens: 56,
+    timeoutMs: 6500,
+  })
+  const rescued = finalizePickupCandidate(rescue)
+  if (looksLikeStandalonePickupLine(rescued)) return rescued
+  if (isAcceptableBackupPickupLine(rescued)) return rescued
+  if (isAcceptableBackupPickupLine(bestCandidate)) return bestCandidate
+
+  const emergencyPrompt = `One line only.
+Give a short, original, funny pickup line to "you".
+No names. No reply. No cliches like "you look like trouble", "are you...", or "did it hurt...".
+Include a flirty invite beat (drink/date/kiss/number).
+7-13 words preferred, hard max 16.
+Output only the line.`
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const emergency = await getSingleResponseWithTimeout(emergencyPrompt, {
+      maxTokens: 56,
+      timeoutMs: 7000,
+    })
+    const emergencyLine = finalizePickupCandidate(emergency)
+    if (looksLikeStandalonePickupLine(emergencyLine)) return emergencyLine
+    if (isAcceptableBackupPickupLine(emergencyLine)) return emergencyLine
+    if (isBareMinimumEmergencyPickupLine(emergencyLine)) return emergencyLine
+  }
+
+  if (isBareMinimumEmergencyPickupLine(bestCandidate)) return bestCandidate
+  return null
+}
+
+/**
+ * Generate all Speed Date Draft one-liners in one batch call to enforce cross-line variety.
+ * Returns a key->line map aligned with input linePlan keys.
+ * Output values can be null if generation failed quality gates.
+ */
+export async function generateSpeedDatingOneLinerBatch({
+  linePlan = [],
+  playerProfileSummary = '',
+}) {
+  clearLlmErrorMessage()
+
+  const entries = (Array.isArray(linePlan) ? linePlan : [])
+    .map((entry, idx) => ({
+      key: String(entry?.key || `line-${idx + 1}`),
+      speaker: entry?.speaker || null,
+      target: entry?.target || null,
+      targetType: entry?.targetType === 'player' ? 'player' : 'dater',
+      index: idx + 1,
+    }))
+    .filter((entry) => entry.speaker && entry.target)
+
+  if (!entries.length) return {}
+
+  const providerConfig = resolveLlmProviderConfig()
+  if (!providerConfig) {
+    _llmErrorMessage = 'No API key - LLM offline'
+    _llmDebugSnapshot = {
+      source: 'generateSpeedDatingOneLinerBatch',
+      stage: 'preflight',
+      reason: 'missing_api_key',
+      requiredKeys: entries.map((entry) => entry.key),
+      providerPreference: getLlmProviderPreference(),
+    }
+    return Object.fromEntries(entries.map((entry) => [entry.key, null]))
+  }
+
+  const buildEntrySpecBlock = (entry) => {
+    const speaker = entry.speaker || {}
+    const target = entry.target || {}
+    const speakerName = String(speaker?.name || `Dater ${entry.index}`)
+    const targetName = entry.targetType === 'player' ? 'Player' : String(target?.name || 'Other Dater')
+    const targetArchetype = entry.targetType === 'player'
+      ? 'Player'
+      : String(target?.archetype || 'Unknown')
+    const targetDesc = entry.targetType === 'player'
+      ? clipPromptText(playerProfileSummary || '', 180) || 'confident, witty, playful'
+      : clipPromptText(String(target?.description || ''), 180) || 'no description'
+    const targetValues = entry.targetType === 'player'
+      ? SPEED_DATING_PLAYER_CANON_PROFILE.replace(/\n/g, ' | ')
+      : clipPromptText(String(target?.values || ''), 180) || 'no values specified'
+    const targetTagline = entry.targetType === 'player'
+      ? 'Game developer at The Game Band'
+      : clipPromptText(String(target?.tagline || ''), 120) || 'no tagline'
+    return [
+      `- key: ${entry.key}`,
+      `  speaker: ${speakerName}`,
+      `  target: ${targetName} (${targetArchetype})`,
+      `  target tagline: ${targetTagline}`,
+      `  target profile hint: ${targetDesc}`,
+      `  target values hint: ${targetValues}`,
+    ].join('\n')
+  }
+
+  const specBlock = entries.map((entry) => buildEntrySpecBlock(entry)).join('\n')
+  const keyList = entries.map((entry) => entry.key).join(', ')
+  const forbiddenNames = [...new Set(
+    entries.flatMap((entry) => [entry?.speaker?.name, entry?.target?.name])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean)
+  )].join(', ')
+
+  const systemPrompt = `You write punchy, funny, flirty speed-dating pickup lines.
+Output JSON only with no markdown.`
+
+  const parseLinesFromResponse = (parsed, rawText = '') => {
+    const out = new Map()
+
+    if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.lines)) {
+        parsed.lines.forEach((item) => {
+          const key = String(item?.key || '').trim()
+          const text = String(item?.text || item?.line || '').trim()
+          if (key && text) out.set(key, text)
+        })
+      }
+
+      if (parsed.lines && typeof parsed.lines === 'object' && !Array.isArray(parsed.lines)) {
+        Object.entries(parsed.lines).forEach(([key, value]) => {
+          const normalizedKey = String(key || '').trim()
+          const normalizedText = String(value || '').trim()
+          if (normalizedKey && normalizedText) out.set(normalizedKey, normalizedText)
+        })
+      }
+
+      entries.forEach((entry) => {
+        const direct = parsed?.[entry.key]
+        if (typeof direct === 'string' && direct.trim()) out.set(entry.key, direct.trim())
+      })
+    }
+
+    const raw = String(rawText || '')
+    entries.forEach((entry) => {
+      if (out.has(entry.key)) return
+      const escapedKey = escapeRegExp(entry.key)
+      const jsonKeyMatch = raw.match(new RegExp(`"${escapedKey}"\\s*:\\s*"([^"]+)"`, 'i'))
+      if (jsonKeyMatch?.[1]) {
+        out.set(entry.key, jsonKeyMatch[1].trim())
+        return
+      }
+      const lineMatch = raw.match(new RegExp(`${escapedKey}\\s*[:\\-]\\s*([^\\n]+)`, 'i'))
+      if (lineMatch?.[1]) {
+        out.set(entry.key, lineMatch[1].replace(/^["'`]+|["'`]+$/g, '').trim())
+      }
+    })
+    return out
+  }
+
+  const sanitizeBatchLine = (entry, rawLine = '') => {
+    const speaker = entry?.speaker || {}
+    const target = entry?.target || {}
+    const line = String(rawLine || '').trim()
+    if (!line) return ''
+
+    const finalized = finalizeDaterDialogueLine(line, speaker, { enforceAdamArchaic: entry.targetType === 'player' }) || line
+    const firstSentence = toOneSentence(finalized)
+    const patterns = buildNamePatterns([speaker?.name, target?.name])
+    let scrubbed = scrubForbiddenNamesFromPickupLine(firstSentence, patterns)
+      .replace(/\s+([,.!?;:])/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!scrubbed) return ''
+
+    if (!/\byou\b/i.test(scrubbed)) {
+      scrubbed = `You, ${scrubbed}`
+    }
+    return clampOneLinerWords(scrubbed, 18)
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  const userPrompt = `Generate one ORIGINAL one-line joke for EACH required key.
+Required keys: ${keyList}
+
+Rules for each line:
+- One sentence only
+- 6-16 words
+- Genuinely funny and character-specific about the TARGET
+- Directly address "you"
+- Focus on one punchline and one comedic idea
+- Do NOT mention any names (forbidden names: ${forbiddenNames || 'none'})
+- Ignore the speaker's own profile and goals
+- Do NOT ask for a date, drink, kiss, number, text, or meetup
+- Do NOT write call-and-response replies
+- Do NOT use cliche pickup templates
+
+Batch quality rules:
+- Keep lines clearly distinct in structure, rhythm, and comedic angle
+- Avoid repeating opener phrases or sentence skeletons
+
+Line specs:
+${specBlock}
+
+Return JSON with this exact shape:
+{
+  "lines": {
+    "<key>": "<line>"
+  }
+}`
+
+  const requiredKeyList = entries.map((entry) => entry.key)
+  const linesSchemaProperties = Object.fromEntries(
+    requiredKeyList.map((key) => [key, { type: 'string' }])
+  )
+  const responseFormat = providerConfig.provider === 'openai'
+    ? {
+      type: 'json_schema',
+      json_schema: {
+        name: 'speed_date_batch_lines',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            lines: {
+              type: 'object',
+              additionalProperties: false,
+              properties: linesSchemaProperties,
+              required: requiredKeyList,
+            },
+          },
+          required: ['lines'],
+        },
+      },
+    }
+    : null
+
+  const requestBatchResponse = async ({ allowSchema = true, timeoutMs = 18000 } = {}) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await fetch(providerConfig.apiUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: providerConfig.headers,
+        body: JSON.stringify(buildProviderBody(providerConfig, {
+          maxTokens: 520,
+          temperature: 0.95,
+          presencePenalty: 0.35,
+          frequencyPenalty: 0.3,
+          systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+          responseFormat: allowSchema ? responseFormat : null,
+        })),
+      })
+      if (!response.ok) {
+        let errorBody = ''
+        let parsedError = null
+        try {
+          parsedError = await response.json()
+          errorBody = JSON.stringify(parsedError, null, 2)
+        } catch {
+          try {
+            errorBody = await response.text()
+          } catch {
+            errorBody = ''
+          }
+        }
+        const rawErrorMessage = parsedError?.error?.message || parsedError?.message || ''
+        _llmErrorMessage = `Batch HTTP ${response.status}${rawErrorMessage ? `: ${rawErrorMessage}` : ''}`
+        _llmDebugSnapshot = {
+          source: 'generateSpeedDatingOneLinerBatch',
+          stage: 'http_error',
+          provider: providerConfig.provider,
+          model: providerConfig.model,
+          status: response.status,
+          statusText: response.statusText,
+          rawErrorMessage,
+          errorBody,
+          allowSchema,
+          timeoutMs,
+          requiredKeys: requiredKeyList,
+        }
+        return {
+          ok: false,
+          status: response.status,
+          rawText: '',
+          responseJson: null,
+          errorBody,
+          errorType: 'http_error',
+          errorMessage: rawErrorMessage || '',
+        }
+      }
+      const data = await response.json()
+      const rawText = extractProviderText(providerConfig.provider, data)
+      return {
+        ok: true,
+        status: response.status,
+        rawText,
+        responseJson: data,
+        errorBody: '',
+        errorType: '',
+        errorMessage: '',
+      }
+    } catch (error) {
+      const isAbort = error?.name === 'AbortError'
+      _llmErrorMessage = isAbort ? 'Batch generation timed out' : `Batch request failed: ${error?.message || 'unknown'}`
+      _llmDebugSnapshot = {
+        source: 'generateSpeedDatingOneLinerBatch',
+        stage: isAbort ? 'timeout' : 'network_error',
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+        errorName: error?.name || 'unknown',
+        errorMessage: error?.message || String(error),
+        allowSchema,
+        timeoutMs,
+        requiredKeys: requiredKeyList,
+      }
+      return {
+        ok: false,
+        status: 0,
+        rawText: '',
+        responseJson: null,
+        errorBody: '',
+        errorType: isAbort ? 'timeout' : 'network_error',
+        errorMessage: error?.message || String(error || ''),
+      }
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  const shouldUseSchema = providerConfig.provider === 'openai'
+  const batchResult = await requestBatchResponse({
+    allowSchema: shouldUseSchema,
+    timeoutMs: 18000,
+  })
+  if (!batchResult?.ok) {
+    _llmDebugSnapshot = {
+      ...(_llmDebugSnapshot || {}),
+      source: 'generateSpeedDatingOneLinerBatch',
+      stage: (_llmDebugSnapshot?.stage || batchResult?.errorType || 'request_failed'),
+      provider: providerConfig.provider,
+      model: providerConfig.model,
+      shouldUseSchema,
+      requiredKeys: requiredKeyList,
+      transport: batchResult,
+    }
+    console.error('SpeedDate batch request failed before parse:', _llmDebugSnapshot)
+    return Object.fromEntries(entries.map((entry) => [entry.key, null]))
+  }
+
+  const rawResponse = batchResult?.rawText || ''
+  const parsed = safeJsonObject(rawResponse)
+
+  const rawByKey = parseLinesFromResponse(parsed, rawResponse)
+  const linesByKey = {}
+  const perKeyDebug = {}
+  entries.forEach((entry) => {
+    const raw = rawByKey.get(entry.key) || ''
+    const sanitized = sanitizeBatchLine(entry, raw)
+    linesByKey[entry.key] = sanitized || null
+    perKeyDebug[entry.key] = {
+      raw,
+      sanitized: sanitized || null,
+    }
+  })
+
+  const missingKeys = entries
+    .map((entry) => entry.key)
+    .filter((key) => !String(linesByKey[key] || '').trim())
+
+  const snapshot = {
+    source: 'generateSpeedDatingOneLinerBatch',
+    stage: missingKeys.length ? 'missing_lines' : 'success',
+    provider: providerConfig.provider,
+    model: providerConfig.model,
+    shouldUseSchema,
+    requiredKeys: requiredKeyList,
+    parsedKeys: [...rawByKey.keys()],
+    missingKeys,
+    rawResponse,
+    parsedResponse: parsed,
+    linesByKey,
+    perKeyDebug,
+    transport: batchResult,
+  }
+  _llmDebugSnapshot = snapshot
+  _llmErrorMessage = missingKeys.length
+    ? `Batch missing ${missingKeys.length}/${entries.length} lines`
+    : null
+
+  console.log('SpeedDate batch debug snapshot:', snapshot)
+  return linesByKey
+}
+
+/**
+ * Infer a compact player profile summary from their submitted lines.
+ * Used so daters can target the player's taste/style in Speed Date Draft.
+ */
+export async function inferSpeedDatingPlayerProfile(playerLines = []) {
+  const lines = Array.isArray(playerLines)
+    ? playerLines.map((line) => clipPromptText(line, 140)).filter(Boolean)
+    : []
+  if (!lines.length) {
+    return 'No player line yet; first impression pending.'
+  }
+
+  const systemPrompt = `You summarize a player's dating style from a few one-liners.
+Return exactly one sentence, 8-20 words, plain text only.
+Focus on: humor style, confidence level, flirt vibe, and likely preferences.`
+  const userPrompt = `Player lines:
+${lines.map((line, i) => `${i + 1}. "${line}"`).join('\n')}
+
+Summarize the player's style in one sentence.`
+  const response = await getChatResponseWithSoftTimeout(
+    [{ role: 'user', content: userPrompt }],
+    systemPrompt,
+    { maxTokens: 72, temperature: 0.7, presencePenalty: 0.2, frequencyPenalty: 0.25 },
+    9000
+  )
+  const finalized = stripActionDescriptions(response)?.replace(/\s+/g, ' ')?.trim()
+  if (!finalized) {
+    return `Player style reads as: ${lines.slice(-2).join(' / ')}`
+  }
+  return clampOneLinerWords(finalized, 22)
+}
+
+function normalizeChooserKeywordList(values = []) {
+  const source = Array.isArray(values) ? values : [values]
+  return source
+    .flatMap((value) => String(value || '').toLowerCase().split(/[,\n/]/))
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3)
+}
+
+const SPEED_DATE_PLAYER_ID = 'player'
+const SPEED_DATE_PLAYER_BASE_PICK_BIAS = 14
+const SPEED_DATE_PLAYER_TIE_MARGIN = 7
+
+function computePlayerPickBias(lineText = '') {
+  const text = String(lineText || '').trim()
+  if (!text) return SPEED_DATE_PLAYER_BASE_PICK_BIAS - 6
+
+  let bonus = SPEED_DATE_PLAYER_BASE_PICK_BIAS
+  if (hasHumorSignal(text)) bonus += 5
+  if (!isLikelyBlandDaterLine(text)) bonus += 3
+  if (hasClichePickupPhrase(text)) bonus -= 6
+  if (PICKUP_STALE_FRAME_PATTERN.test(text)) bonus -= 4
+  if (countWords(text) >= 6 && countWords(text) <= 16) bonus += 2
+
+  return Math.max(4, Math.min(24, bonus))
+}
+
+function applyPlayerBiasToScoredRows(scoredRows = [], incomingLines = []) {
+  const incomingBySender = new Map(
+    (Array.isArray(incomingLines) ? incomingLines : []).map((line, idx) => {
+      const senderId = String(line?.senderId || `sender-${idx}`)
+      return [senderId, String(line?.line || line?.text || '')]
+    })
+  )
+
+  return scoredRows.map((row) => {
+    if (String(row?.senderId) !== SPEED_DATE_PLAYER_ID) return row
+    const playerLine = incomingBySender.get(SPEED_DATE_PLAYER_ID) || ''
+    const bonus = computePlayerPickBias(playerLine)
+    const boosted = Math.max(0, Math.min(100, Math.round(Number(row?.score || 0) + bonus)))
+    const reason = String(row?.reason || '').trim()
+    const augmentedReason = reason
+      ? `${reason}; player bias +${bonus}`
+      : `player bias +${bonus}`
+    return {
+      ...row,
+      score: boosted,
+      reason: clipPromptText(augmentedReason, 72),
+    }
+  })
+}
+
+function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
+  const chooserName = chooser?.name || 'Dater'
+  const chooserId = String(chooser?.id ?? chooserName)
+  const likes = normalizeChooserKeywordList(chooser?.idealPartner || [])
+  const dealbreakers = normalizeChooserKeywordList(chooser?.dealbreakers || [])
+
+  const scored = incomingLines.map((line, idx) => {
+    const senderId = String(line?.senderId || `sender-${idx}`)
+    const senderName = String(line?.senderName || `Sender ${idx + 1}`)
+    const text = String(line?.line || line?.text || '').trim()
+    const normalized = text.toLowerCase()
+
+    let score = 42
+    if (hasHumorSignal(text)) score += 18
+    if (FLIRTY_SIGNAL_PATTERN.test(text) || PICKUP_SIGNAL_PATTERN.test(text) || PICKUP_INVITE_PATTERN.test(text)) score += 16
+    if (PICKUP_STALE_FRAME_PATTERN.test(text)) score -= 12
+    if (hasClichePickupPhrase(text)) score -= 18
+    if (isLikelyBlandDaterLine(text)) score -= 10
+
+    likes.forEach((keyword) => {
+      if (keyword && normalized.includes(keyword)) score += 5
+    })
+    dealbreakers.forEach((keyword) => {
+      if (keyword && normalized.includes(keyword)) score -= 8
+    })
+
+    // Stable tie-break noise based on senderId characters.
+    const tieBreaker = senderId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 5
+    score += tieBreaker
+    score = Math.max(0, Math.min(100, Math.round(score)))
+
+    const reason = score >= 75
+      ? 'funny and flirty with strong chemistry'
+      : score >= 60
+        ? 'good energy with a clear invite'
+        : 'line landed, but lacked spark'
+
+    return { senderId, senderName, score, reason }
+  })
+
+  const biasedScored = applyPlayerBiasToScoredRows(scored, incomingLines)
+  biasedScored.sort((a, b) => b.score - a.score)
+  const highest = biasedScored[0] || null
+  const playerRow = biasedScored.find((row) => String(row.senderId) === SPEED_DATE_PLAYER_ID) || null
+  const picked = (highest && playerRow && (highest.score - playerRow.score) <= SPEED_DATE_PLAYER_TIE_MARGIN)
+    ? playerRow
+    : highest
+
+  if (!picked) return null
+
+  return {
+    chooserId,
+    chooserName,
+    pickedId: picked.senderId,
+    pickedName: picked.senderName,
+    scores: biasedScored,
+    rationale: `${chooserName} picked the strongest mix of humor, chemistry, and fit.`,
+  }
+}
+
+/**
+ * Dater chooses who they want to date based on the lines sent to them.
+ * Returns JSON-like object:
+ * {
+ *   chooserId, chooserName, pickedId, pickedName,
+ *   scores: [{ senderId, senderName, score, reason }],
+ *   rationale
+ * }
+ */
+export async function decideSpeedDatingPick({
+  chooser,
+  incomingLines = [],
+  playerProfileSummary = '',
+}) {
+  if (!chooser || !Array.isArray(incomingLines) || incomingLines.length === 0) return null
+
+  const chooserName = chooser?.name || 'Dater'
+  const chooserLikes = normalizePromptList(chooser?.idealPartner || [], 'humor, confidence, chemistry')
+  const chooserDealbreakers = normalizePromptList(chooser?.dealbreakers || [], 'dishonesty, disrespect')
+  const optionBlock = incomingLines
+    .map((line, idx) => {
+      const senderId = String(line?.senderId || `sender-${idx}`)
+      const senderName = String(line?.senderName || `Sender ${idx + 1}`)
+      const text = clipPromptText(line?.line || line?.text || '', 180) || '...'
+      return `${idx + 1}. senderId=${senderId} | senderName=${senderName} | line="${text}"`
+    })
+    .join('\n')
+
+  const systemPrompt = `You are ${chooserName} deciding who you want to date in a speed-dating game.
+Judge only the lines sent directly to you.
+
+Your attraction lens:
+- Usually drawn to: ${chooserLikes}
+- Usually turned off by: ${chooserDealbreakers}
+
+Player profile summary:
+${SPEED_DATING_PLAYER_CANON_PROFILE}
+- Style summary: ${clipPromptText(playerProfileSummary || '', 220) || 'Not enough data yet.'}
+
+Return ONLY JSON:
+{
+  "pickedId": "<senderId>",
+  "scores": [
+    { "senderId": "<senderId>", "score": <0-100 integer>, "reason": "<max 12 words>" }
+  ],
+  "rationale": "<max 20 words>"
+}
+
+Rules:
+- Score every sender provided.
+- Higher score means stronger romantic interest.
+- Weighting: profile fit 40%, chemistry/flirty energy 35%, humor/punchline 25%.
+- Soft player bias: if player score is close, lean player.
+- Picked sender must be the highest score after applying that bias.`
+
+  const userPrompt = `Incoming lines addressed to you:
+${optionBlock}
+
+Choose now. JSON only.`
+  const senderMap = new Map(
+    incomingLines.map((line, idx) => {
+      const senderId = String(line?.senderId || `sender-${idx}`)
+      return [senderId, {
+        senderId,
+        senderName: String(line?.senderName || `Sender ${idx + 1}`),
+      }]
+    })
+  )
+  const senderNameKeyMap = new Map(
+    [...senderMap.values()].map((sender) => [
+      String(sender.senderName || '').trim().toLowerCase(),
+      sender.senderId,
+    ])
+  )
+
+  const decisionMessages = [{ role: 'user', content: userPrompt }]
+  const decisionOptions = { maxTokens: 280, temperature: 0.7, presencePenalty: 0.15, frequencyPenalty: 0.2 }
+  const decisionTimeoutMs = 9000
+
+  let parsed = null
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = await getChatResponseWithSoftTimeout(
+      decisionMessages,
+      systemPrompt,
+      decisionOptions,
+      decisionTimeoutMs
+    )
+    parsed = safeJsonObject(response)
+    if (parsed && (Array.isArray(parsed.scores) || parsed.pickedId || parsed.pickedName)) break
+    decisionMessages.push({
+      role: 'user',
+      content: 'Retry with strict JSON only. No markdown fences, no prose, and include pickedId plus scores array.',
+    })
+  }
+  if (!parsed) {
+    return buildHeuristicSpeedDatingDecision({ chooser, incomingLines })
+  }
+
+  const parsedScores = Array.isArray(parsed?.scores) ? parsed.scores : []
+  const normalized = parsedScores
+    .map((item) => {
+      const rawSenderId = String(item?.senderId || '').trim()
+      const rawSenderName = String(item?.senderName || '').trim().toLowerCase()
+      const resolvedSenderId = senderMap.has(rawSenderId)
+        ? rawSenderId
+        : (senderNameKeyMap.get(rawSenderName) || '')
+      if (!senderMap.has(resolvedSenderId)) return null
+      const sender = senderMap.get(resolvedSenderId)
+      const rawScore = Number(item?.score)
+      const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, Math.round(rawScore))) : null
+      if (!Number.isFinite(score)) return null
+      const reason = clipPromptText(item?.reason || '', 72) || 'No reason provided'
+      return { senderId: resolvedSenderId, senderName: sender.senderName, score, reason }
+    })
+    .filter(Boolean)
+  if (!normalized.length) {
+    return buildHeuristicSpeedDatingDecision({ chooser, incomingLines })
+  }
+
+  const defaultsBySender = new Map(
+    [...senderMap.values()].map((sender) => [sender.senderId, {
+      senderId: sender.senderId,
+      senderName: sender.senderName,
+      score: 0,
+      reason: 'No score returned',
+    }])
+  )
+  normalized.forEach((row) => defaultsBySender.set(row.senderId, row))
+  const scores = applyPlayerBiasToScoredRows([...defaultsBySender.values()], incomingLines)
+
+  scores.sort((a, b) => b.score - a.score)
+  const highest = scores[0]
+  const playerRow = scores.find((row) => String(row.senderId) === SPEED_DATE_PLAYER_ID)
+  const parsedPickedId = parsed?.pickedId ? String(parsed.pickedId).trim() : ''
+  const parsedPickedName = String(parsed?.pickedName || '').trim().toLowerCase()
+  const resolvedPickedId = senderMap.has(parsedPickedId)
+    ? parsedPickedId
+    : (senderNameKeyMap.get(parsedPickedName) || '')
+  if (!senderMap.has(resolvedPickedId)) {
+    if (!highest?.senderId) {
+      return buildHeuristicSpeedDatingDecision({ chooser, incomingLines })
+    }
+  }
+  const tiePreferredId = (highest?.senderId && playerRow && (highest.score - playerRow.score) <= SPEED_DATE_PLAYER_TIE_MARGIN)
+    ? playerRow.senderId
+    : ''
+  const pickedId = tiePreferredId || highest?.senderId || resolvedPickedId
+  const picked = senderMap.get(pickedId) || { senderId: pickedId, senderName: pickedId || 'Unknown' }
+
+  return {
+    chooserId: String(chooser?.id ?? chooserName),
+    chooserName,
+    pickedId: picked.senderId,
+    pickedName: picked.senderName,
+    scores,
+    rationale: clipPromptText(parsed?.rationale || '', 100) || `${chooserName} went with the strongest line.`,
+  }
 }
 
 function getFallbackPickupLineEvaluation() {
