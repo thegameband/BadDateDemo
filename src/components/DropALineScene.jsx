@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { evaluatePickupLine, generatePickupLineComeback } from '../services/llmService'
-import { speak, speakAndWait, waitForAllAudio, setVoice } from '../services/ttsService'
+import { speak, speakAndWait, waitForAllAudio, setVoice, preloadSpeech, speakPreloaded } from '../services/ttsService'
 import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
@@ -34,6 +34,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const submitTimeoutRef = useRef(null)
   const replayTimeoutRef = useRef(null)
   const shareCaptureRef = useRef(null)
+  const preloadedComebackRef = useRef(null)
 
   const dropALineImages = payload?.dater?.dropALineImages
   const sceneImageUrl = useMemo(() => {
@@ -84,6 +85,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       setEvaluation(null)
       setComebackText('')
       setShareStatus('')
+      preloadedComebackRef.current = null
       if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current)
       submitTimeoutRef.current = setTimeout(async () => {
         const narratorPromise = speakAndWait(line, 'narrator')
@@ -94,6 +96,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
           payload?.location,
           result?.score ?? 0
         )
+        preloadedComebackRef.current = preloadSpeech(comeback, 'dater')
         await narratorPromise
         setEvaluation(result)
         setComebackText(comeback)
@@ -120,8 +123,14 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     let cancelled = false
     const run = async () => {
       try {
-        await speak(comebackText, 'dater')
-        await waitForAllAudio()
+        const preloaded = preloadedComebackRef.current ? await preloadedComebackRef.current : null
+        preloadedComebackRef.current = null
+        if (preloaded?.audioUrl) {
+          await speakPreloaded(preloaded, { waitForEnd: true })
+        } else {
+          await speak(comebackText, 'dater')
+          await waitForAllAudio()
+        }
       } catch {
         // Continue even if VO fails.
       }

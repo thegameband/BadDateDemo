@@ -41,6 +41,59 @@ let onTTSStatusCallbacks = []
 // Track pending audio completion promises (reserved for future use)
 let _currentAudioEndResolve = null
 
+function sanitizeSpeechText(text) {
+  if (!text || text.trim().length === 0) return ''
+
+  let cleanText = text
+    .replace(/\*[^*]+\*/g, '')
+    .replace(/\([^)]+\)/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const lastEnd = Math.max(cleanText.lastIndexOf('.'), cleanText.lastIndexOf('!'), cleanText.lastIndexOf('?'))
+  if (lastEnd !== -1 && lastEnd < cleanText.length - 1) {
+    const after = cleanText.slice(lastEnd + 1).trim()
+    if (after.length > 0 && (after.length > 60 || /^[a-z]/.test(after) || /^[^a-zA-Z]/.test(after))) {
+      cleanText = cleanText.slice(0, lastEnd + 1).trim()
+    }
+  }
+
+  return cleanText
+}
+
+async function fetchElevenLabsAudioUrl(text, voiceId, speaker) {
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+    {
+      method: 'POST',
+      headers: {
+        'xi-api-key': API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: speaker === 'dater' ? 0.35 : speaker === 'narrator' ? 0.55 : 0.5,
+          similarity_boost: 0.75,
+          style: speaker === 'dater' ? 0.75 : speaker === 'narrator' ? 0.5 : 0.5,
+          use_speaker_boost: true,
+        },
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`ElevenLabs API error (${response.status}): ${errorText}`)
+  }
+
+  const audioBlob = await response.blob()
+  return URL.createObjectURL(audioBlob)
+}
+
 /**
  * Register a callback for when audio starts playing
  * @param {function} callback - Called with (text, speaker) when audio starts
@@ -163,23 +216,7 @@ export async function speak(text, speaker = 'avatar', options = {}) {
     return { started: false, immediate: true }
   }
 
-  // Sanitize for speech: remove LLM artifacts and trailing nonsense so we don't speak gibberish
-  let cleanText = text
-    .replace(/\*[^*]+\*/g, '') // Remove *actions*
-    .replace(/\([^)]+\)/g, '') // Remove (parenthetical actions)
-    .replace(/<[^>]+>/g, '') // Remove XML/HTML tags
-    .replace(/\[[^\]]*\]/g, '') // Remove [bracketed] content
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  // Trim to last natural sentence end — drop trailing nonsense the LLM sometimes appends
-  const lastEnd = Math.max(cleanText.lastIndexOf('.'), cleanText.lastIndexOf('!'), cleanText.lastIndexOf('?'))
-  if (lastEnd !== -1 && lastEnd < cleanText.length - 1) {
-    const after = cleanText.slice(lastEnd + 1).trim()
-    if (after.length > 0 && (after.length > 60 || /^[a-z]/.test(after) || /^[^a-zA-Z]/.test(after))) {
-      cleanText = cleanText.slice(0, lastEnd + 1).trim()
-    }
-  }
+  const cleanText = sanitizeSpeechText(text)
 
   if (cleanText.length === 0) {
     return { started: false, immediate: true }
@@ -195,11 +232,66 @@ export async function speak(text, speaker = 'avatar', options = {}) {
       voiceId, 
       speaker,
       useBrowserTTS: !API_KEY,
+      preloadedAudioUrl: null,
       onStart: waitForEnd ? null : () => resolve({ started: true, immediate: false }),
       onEnd: waitForEnd ? (duration) => resolve({ started: true, immediate: false, duration }) : null
     })
     
     // Process queue if not already playing
+    if (!isPlaying) {
+      processQueue()
+    }
+  })
+}
+
+/**
+ * Preload ElevenLabs audio so playback can begin immediately later.
+ * Returns null if preload is unavailable (e.g., browser fallback mode).
+ * @param {string} text
+ * @param {'dater' | 'avatar' | 'narrator'} speaker
+ * @returns {Promise<{text: string, speaker: string, voiceId: string, audioUrl: string} | null>}
+ */
+export async function preloadSpeech(text, speaker = 'avatar') {
+  if (!ttsEnabled) return null
+  if (!API_KEY) return null
+
+  const cleanText = sanitizeSpeechText(text)
+  if (!cleanText) return null
+
+  const voiceId = VOICES[speaker] || VOICES.avatar
+  try {
+    const audioUrl = await fetchElevenLabsAudioUrl(cleanText, voiceId, speaker)
+    return { text: cleanText, speaker, voiceId, audioUrl }
+  } catch (error) {
+    console.error('❌ TTS preload error:', error)
+    return null
+  }
+}
+
+/**
+ * Queue a preloaded speech clip for playback.
+ * @param {{text: string, speaker: string, voiceId: string, audioUrl: string}} preloaded
+ * @param {object} options
+ * @param {boolean} options.waitForEnd
+ * @returns {Promise<{started: boolean, immediate: boolean, duration?: number}>}
+ */
+export async function speakPreloaded(preloaded, options = {}) {
+  const { waitForEnd = false } = options
+  if (!ttsEnabled || !preloaded?.audioUrl || !preloaded?.text) {
+    return { started: false, immediate: true }
+  }
+
+  return new Promise((resolve) => {
+    audioQueue.push({
+      text: preloaded.text,
+      voiceId: preloaded.voiceId || VOICES[preloaded.speaker] || VOICES.avatar,
+      speaker: preloaded.speaker || 'avatar',
+      useBrowserTTS: false,
+      preloadedAudioUrl: preloaded.audioUrl,
+      onStart: waitForEnd ? null : () => resolve({ started: true, immediate: false }),
+      onEnd: waitForEnd ? (duration) => resolve({ started: true, immediate: false, duration }) : null,
+    })
+
     if (!isPlaying) {
       processQueue()
     }
@@ -248,7 +340,7 @@ async function processQueue() {
   }
   
   isPlaying = true
-  const { text, voiceId, speaker, useBrowserTTS, onStart, onEnd } = audioQueue.shift()
+  const { text, voiceId, speaker, useBrowserTTS, preloadedAudioUrl, onStart, onEnd } = audioQueue.shift()
   
   let startTime = null
 
@@ -319,38 +411,7 @@ async function processQueue() {
   
   try {
     console.log(`🎙️ Speaking as ${speaker}:`, text.substring(0, 50) + '...')
-    
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-      {
-        method: 'POST',
-        headers: {
-          'xi-api-key': API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: {
-            stability: speaker === 'dater' ? 0.35 : speaker === 'narrator' ? 0.55 : 0.5, // Narrator: sultry warmth; Dater: more emotion
-            similarity_boost: 0.75,
-            style: speaker === 'dater' ? 0.75 : speaker === 'narrator' ? 0.5 : 0.5, // Narrator: expressive but smooth
-            use_speaker_boost: true,
-          },
-        }),
-      }
-    )
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ ElevenLabs API error:', response.status, errorText)
-      fallbackToBrowserTTS(`ElevenLabs audio failed (${response.status}); using browser voice fallback.`)
-      return
-    }
-    
-    // Convert response to audio blob
-    const audioBlob = await response.blob()
-    const audioUrl = URL.createObjectURL(audioBlob)
+    const audioUrl = preloadedAudioUrl || (await fetchElevenLabsAudioUrl(text, voiceId, speaker))
     
     // Create and play audio
     currentAudio = new Audio(audioUrl)
