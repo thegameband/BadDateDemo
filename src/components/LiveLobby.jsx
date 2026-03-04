@@ -53,9 +53,11 @@ function LiveLobby() {
   const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
   const [showDaterPicker, setShowDaterPicker] = useState(false)
   const [debugScoringMode, setDebugScoringMode] = useState(SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS)
-  const [dropALineEnabled, setDropALineEnabled] = useState(
-    () => localStorage.getItem('dropALineEnabled') === 'true'
-  )
+  const [dropALineEnabled, setDropALineEnabled] = useState(() => {
+    const stored = localStorage.getItem('dropALineEnabled')
+    if (stored == null) return true
+    return stored === 'true'
+  })
   const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene'
   const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, location }
   const hasOpenAiKey = Boolean(import.meta.env.VITE_OPENAI_API_KEY)

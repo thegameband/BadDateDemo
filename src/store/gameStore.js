@@ -291,7 +291,7 @@ const initialLiveState = {
   // Game settings (set from lobby)
   showAttributesByDefault: false, // Whether to show sentiment categories by default
   llmProvider: 'openai', // 'openai' | 'anthropic' | 'auto'
-  daterResponseMode: DATER_RESPONSE_MODES.MAIN, // 'main' | 'experimental'
+  daterResponseMode: DATER_RESPONSE_MODES.EXPERIMENTAL, // 'main' | 'experimental'
   // Quality-based scoring state
   qualityHits: [], // { id, name, rank, type: 'positive'|'dealbreaker', points, roundNumber }
   // Daily scoring modes state
