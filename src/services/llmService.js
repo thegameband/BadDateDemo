@@ -352,6 +352,122 @@ function finalizeDaterDialogueLine(text, dater, { enforceAdamArchaic = false } =
   return cleaned
 }
 
+const BLAND_DATER_LINE_PATTERN = /\b(interesting|fair|noted|i hear you|makes sense|okay\.?$|i see|valid|understood|got it|alright)\b/i
+const FUNNY_SIGNAL_PATTERN = /\b(plot twist|rom-com|audition|speedrun|boss fight|main character|resume|respectfully|dangerous in a good way|cautionary tale|jump scare|oscar|episode|spin-off|character arc|punchline|suspiciously|standards|winced|cheeky|flirty)\b/i
+const FLIRTY_SIGNAL_PATTERN = /\b(hot|cute|charming|smooth|spark|chemistry|kiss|blush|flirt|trouble|keep flirting|keep talking|into it)\b/i
+const BARBED_SIGNAL_PATTERN = /\b(nope|hard pass|dealbreaker|cautionary tale|winced|miss|red flag|no thanks|bad idea|yikes|foul|taxing|nightmare|pass)\b/i
+
+function toOneSentence(text) {
+  const cleaned = String(text || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  const first = cleaned.match(/[^.!?]+[.!?]/)?.[0]?.trim() || cleaned
+  return first
+}
+
+function countWords(text) {
+  return String(text || '').split(/\s+/).filter(Boolean).length
+}
+
+function clampOneLinerWords(text, maxWords = 22) {
+  const sentence = toOneSentence(text)
+  const words = sentence.split(/\s+/).filter(Boolean)
+  if (words.length <= maxWords) return sentence
+  const clipped = words.slice(0, maxWords).join(' ').replace(/[.,!?;:]+$/g, '')
+  return `${clipped}.`
+}
+
+function isLikelyBlandDaterLine(text) {
+  const line = String(text || '').trim()
+  if (!line) return true
+  if (BLAND_DATER_LINE_PATTERN.test(line)) return true
+  return countWords(line) < 6
+}
+
+function hasHumorSignal(text) {
+  const line = String(text || '').trim()
+  if (!line) return false
+  if (FUNNY_SIGNAL_PATTERN.test(line)) return true
+  // Accept punchier lines that land with emphasis and some personal framing.
+  return /[!?]/.test(line) && /\b(i|me|my|you|your|we)\b/i.test(line)
+}
+
+function isToneAlignedWithPolarity(text, polarity = 'neutral') {
+  const line = String(text || '').trim()
+  if (!line || polarity === 'neutral') return true
+
+  if (polarity === 'like') {
+    return FLIRTY_SIGNAL_PATTERN.test(line) && !BARBED_SIGNAL_PATTERN.test(line)
+  }
+  if (polarity === 'dislike') {
+    return BARBED_SIGNAL_PATTERN.test(line) && !FLIRTY_SIGNAL_PATTERN.test(line)
+  }
+  return true
+}
+
+function isStrongFunnyOneLiner(text, polarity = 'neutral') {
+  const line = String(text || '').trim()
+  if (!line) return false
+  const words = countWords(line)
+  if (words < 6 || words > 22) return false
+  if (isLikelyBlandDaterLine(line)) return false
+  if (!hasHumorSignal(line)) return false
+  if (!isToneAlignedWithPolarity(line, polarity)) return false
+  return true
+}
+
+function resolveDaterReplyPolarity(preScoredVerdict, toneBiasCategory) {
+  if (preScoredVerdict === 'like') return 'like'
+  if (preScoredVerdict === 'dislike') return 'dislike'
+  if (toneBiasCategory === 'loves' || toneBiasCategory === 'likes') return 'like'
+  if (toneBiasCategory === 'dislikes' || toneBiasCategory === 'dealbreakers') return 'dislike'
+  return 'neutral'
+}
+
+function scoreFunnyOneLinerCandidate(text, polarity = 'neutral') {
+  const line = String(text || '').trim()
+  if (!line) return -100
+  let score = 0
+  const words = countWords(line)
+
+  if (words >= 6 && words <= 22) score += 3
+  else score -= Math.min(6, Math.abs(14 - words))
+
+  if (!isLikelyBlandDaterLine(line)) score += 2
+  if (hasHumorSignal(line)) score += 4
+  if (/[!?]/.test(line)) score += 1
+  if (isToneAlignedWithPolarity(line, polarity)) score += 3
+  return score
+}
+
+function buildJokeRetryUserContent({
+  question,
+  playerAnswer,
+  polarity = 'neutral',
+  previousLine = '',
+  attempt = 1,
+}) {
+  const toneRule = polarity === 'like'
+    ? 'Tone lock: flirty, approving, playful.'
+    : polarity === 'dislike'
+      ? 'Tone lock: barbed, skeptical, disapproving.'
+      : 'Tone lock: cheeky, bold, opinionated.'
+  const priorLineBlock = previousLine
+    ? `\nFailed draft to rewrite (do not paraphrase): "${previousLine}"`
+    : ''
+
+  return `[Retry ${attempt} - strict rewrite]
+Question: "${question}"
+Player answer: "${playerAnswer}"${priorLineBlock}
+Write exactly one funny one-liner comeback with a clear punchline.
+- 8-20 words
+- one sentence only
+- no filler ("interesting", "fair", "valid", "I hear you")
+- dialogue only, no stage directions
+- end on the strongest joke beat
+${toneRule}
+Output only the line.`
+}
+
 const MAIN_ADAM_RESPONSE_CHECKLIST = `
 ═══════════════════════════════════════════════════════════════
 🚨 CRITICAL: PURE DIALOGUE — ADAM'S VOICE — WEIGHTED & COMPLETE 🚨
@@ -1129,7 +1245,8 @@ Rules:
 - Include one joke/rib/callback in this line unless the topic is dangerous or traumatic.
 - If you disagree, use witty skepticism or dry sarcasm instead of bland disapproval.
 - If you are Adam, use exactly one archaic term in the final line.
-- 1 sentence strongly preferred (6-16 words); 2 max.
+- EXACT FORMAT: output exactly ONE sentence as a one-liner comeback.
+- Target 8-20 words.
 - End on the funniest or sharpest beat.
 - Keep profile influence subtle; do not name archetypes, trait labels, or profile fields.
 - Avoid neutral filler phrasing ("interesting", "fair", "I hear you", "valid", "noted", "okay").
@@ -1151,96 +1268,87 @@ CRITICAL RULES FOR YOUR REACTION:
 ${finalNote}${wordLimitReminder}
 `
   const fullPrompt = systemPrompt + voicePrompt + '\n\n' + perceptionPrompt + taskPrompt + buildPromptTail(dater)
+  const responsePolarity = resolveDaterReplyPolarity(preScoredVerdict, toneBiasCategory)
 
   const historyMessages = conversationHistory.slice(-12).map(msg => ({
     role: msg.speaker === 'dater' ? 'assistant' : 'user',
     content: msg.message
   }))
   const userContent = useExperimentalMode
-    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give a short, punchy, funny, heightened dating-show reaction with a clear opinion and at least one joke. If this turn is scored positive, be flirty. If scored negative, be barbed.]`
+    ? `[The date was asked: "${question}". They answered: "${playerAnswer}". Give exactly one funny one-liner comeback with a clear punchline. Tone lock: ${responsePolarity}. If tone lock is like, be flirty. If tone lock is dislike, be barbed.]`
     : `[The date was asked: "${question}". They answered: "${playerAnswer}". Give your strong, opinionated reaction.]`
-  const messages = historyMessages.length
-    ? [...historyMessages, { role: 'user', content: userContent }]
-    : [{ role: 'user', content: userContent }]
-  if (messages[messages.length - 1]?.role === 'assistant') {
-    messages.push({ role: 'user', content: userContent })
-  }
-
-  const response = useExperimentalMode
-    ? await getChatResponse(messages, fullPrompt, {
+  const llmOptions = useExperimentalMode
+    ? {
       maxTokens: 72,
       temperature: 0.95,
       presencePenalty: 0.35,
       frequencyPenalty: 0.35,
-    })
-    : await getChatResponse(messages, fullPrompt)
-  if (response) {
-    const finalized = finalizeDaterDialogueLine(response, dater, { enforceAdamArchaic: true })
-    if (finalized) return finalized
+    }
+    : null
+
+  const buildMessagesWithContent = (content) => {
+    const out = historyMessages.length
+      ? [...historyMessages, { role: 'user', content }]
+      : [{ role: 'user', content }]
+    if (out[out.length - 1]?.role === 'assistant') {
+      out.push({ role: 'user', content })
+    }
+    return out
   }
 
-  // Deterministic fallback so gameplay never advances without a dater comment.
-  const adamFallbacks = useExperimentalMode
-    ? (
-      toneBiasCategory === 'loves' || toneBiasCategory === 'likes'
-        ? [
-          'Damn, that was smooth; verily, flirt with me again.',
-          'I liked that answer more than my dignity allows.',
-          'That was hot, and now I am annoyed about it.',
-          'You just made this date dangerous in a good way.',
-        ]
-        : toneBiasCategory === 'dislikes' || toneBiasCategory === 'dealbreakers'
-          ? [
-            'Nope, that answer belongs in a cautionary tale.',
-            'Hard pass; even my stitches just winced.',
-            'That is a miss so loud my neck bolts heard it.',
-            'I heard you, and somehow it got worse on replay.',
-          ]
-          : [
-            'Bold answer. My stitches are listening.',
-            'You had me curious; now prove it.',
-            'That was suspiciously effective, I will admit.',
-            'I am intrigued, but keep going.',
-          ]
+  let bestCandidate = ''
+  let bestScore = -100
+  const registerCandidate = (rawText) => {
+    if (!rawText) return ''
+    const finalized = finalizeDaterDialogueLine(rawText, dater, { enforceAdamArchaic: true })
+    const oneLiner = clampOneLinerWords(finalized, 22)
+    if (!oneLiner) return ''
+    const score = scoreFunnyOneLinerCandidate(oneLiner, responsePolarity)
+    if (score > bestScore) {
+      bestScore = score
+      bestCandidate = oneLiner
+    }
+    return oneLiner
+  }
+
+  const primaryResponse = useExperimentalMode
+    ? await getChatResponse(buildMessagesWithContent(userContent), fullPrompt, llmOptions)
+    : await getChatResponse(buildMessagesWithContent(userContent), fullPrompt)
+  const primaryCandidate = registerCandidate(primaryResponse)
+
+  if (!useExperimentalMode) {
+    return primaryCandidate || null
+  }
+
+  if (isStrongFunnyOneLiner(primaryCandidate, responsePolarity)) {
+    return primaryCandidate
+  }
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const retryUserContent = buildJokeRetryUserContent({
+      question,
+      playerAnswer,
+      polarity: responsePolarity,
+      previousLine: bestCandidate || primaryCandidate,
+      attempt,
+    })
+    const retryResponse = await getChatResponse(
+      buildMessagesWithContent(retryUserContent),
+      fullPrompt,
+      {
+        maxTokens: 68,
+        temperature: 0.98,
+        presencePenalty: 0.4,
+        frequencyPenalty: 0.38,
+      }
     )
-    : [
-      'Curious confession. My stitched heart stirs at it.',
-      'That answer lands strangely, but not without intrigue.',
-      'I did not foresee that. It lingers in me.',
-      'A fierce answer. It awakens old thoughts.',
-    ]
-  const genericFallbacks = useExperimentalMode
-    ? (
-      toneBiasCategory === 'loves' || toneBiasCategory === 'likes'
-        ? [
-          'Okay, that was smooth. Keep flirting like that.',
-          'Well damn, that worked and now I am blushing.',
-          'That was hot and annoyingly charming.',
-          'You might be trouble, and I am taking notes.',
-        ]
-        : toneBiasCategory === 'dislikes' || toneBiasCategory === 'dealbreakers'
-          ? [
-            'Nope, that is not doing it for me at all.',
-            'That answer is a miss, full stop, no encore.',
-            'Hard pass on that vibe; respect the effort though.',
-            'Yeah, that moved you backward with confidence.',
-          ]
-          : [
-            'Damn, that was smooth. Should I be worried?',
-            'Did not expect that. Hot, and mildly alarming.',
-            'That was funny and suspiciously effective.',
-            'Confident answer. Keep roasting me, respectfully.',
-          ]
-    )
-    : [
-      'Interesting answer. I need a second to process it.',
-      'I did not expect that, but I hear you.',
-      'That gives me a lot to think about.',
-      'Huh. That says more than you might think.',
-    ]
-  const fallbackPool = isAdam ? adamFallbacks : genericFallbacks
-  const fallback = fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
-  return finalizeDaterDialogueLine(fallback, dater, { enforceAdamArchaic: true }) || fallback
+    const retryCandidate = registerCandidate(retryResponse)
+    if (isStrongFunnyOneLiner(retryCandidate, responsePolarity)) {
+      return retryCandidate
+    }
+  }
+
+  return bestCandidate || null
 }
 
 /**

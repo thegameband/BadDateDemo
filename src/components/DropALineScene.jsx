@@ -54,6 +54,10 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   }, [dropALineImages, phase, evaluation?.score, payload?.dater?.dropALineCharacterImage])
   const hasImage = Boolean(sceneImageUrl)
   const finalScore = evaluation?.score ?? 0
+  const daterName = payload?.dater?.name ?? 'Someone'
+  const locationPhrase =
+    (payload?.location && DROP_A_LINE_LOCATION_PHRASES[payload.location]) ?? payload?.location ?? 'somewhere'
+  const possessive = getPossessive(payload?.dater?.pronouns ?? payload?.dater?.dropALineProfile?.pronouns)
 
   const buildShareImage = useCallback(async () => {
     if (!evaluation || !shareCaptureRef.current) return null
@@ -189,10 +193,6 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   }, [phase, evaluation])
 
   const success = evaluation != null && evaluation.score >= SUCCESS_THRESHOLD
-  const possessive = getPossessive(payload?.dater?.pronouns ?? payload?.dater?.dropALineProfile?.pronouns)
-  const daterName = payload?.dater?.name ?? 'Someone'
-  const locationPhrase =
-    (payload?.location && DROP_A_LINE_LOCATION_PHRASES[payload.location]) ?? payload?.location ?? 'somewhere'
 
   const breakdownCount = evaluation?.breakdown?.length ?? 0
   const slamStaggerMs =
@@ -252,7 +252,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     } finally {
       setIsShareBusy(false)
     }
-  }, [evaluation, isShareBusy, buildShareImage, shareCaptureRef])
+  }, [evaluation, isShareBusy, buildShareImage, shareCaptureRef, daterName])
 
   const handleDownload = useCallback(async () => {
     if (!evaluation || !shareCaptureRef.current || isShareBusy) return
