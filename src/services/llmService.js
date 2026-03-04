@@ -4737,7 +4737,9 @@ export async function generateSpeedDatingOneLinerBatch({
       .filter(Boolean)
   )].join(', ')
 
-  const systemPrompt = `You write punchy, funny, flirty speed-dating pickup lines.
+  const systemPrompt = `You write short, funny, flirty speed-dating one-liners.
+Tone target: playful attraction, warm teasing, clear charm.
+No cruelty, no contempt, no mean-spirited put-downs.
 Output JSON only with no markdown.`
 
   const parseLinesFromResponse = (parsed, rawText = '') => {
@@ -4816,11 +4818,15 @@ Rules for each line:
 - Genuinely funny and character-specific about the TARGET
 - Directly address "you"
 - Focus on one punchline and one comedic idea
+- Tone must read as flirty/playful, not hostile
+- Roast energy must be affectionate and light
+- Sound like you are genuinely into the target
 - Do NOT mention any names (forbidden names: ${forbiddenNames || 'none'})
 - Ignore the speaker's own profile and goals
 - Do NOT ask for a date, drink, kiss, number, text, or meetup
 - Do NOT write call-and-response replies
 - Do NOT use cliche pickup templates
+- Do NOT use insults or contempt words (loser, pathetic, boring, cringe, desperate, annoying)
 
 Batch quality rules:
 - Keep lines clearly distinct in structure, rhythm, and comedic angle
