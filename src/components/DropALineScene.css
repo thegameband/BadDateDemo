@@ -22,8 +22,8 @@
 .drop-a-line-scene-backdrop {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
+  background-size: auto 100%;
+  background-position: center 22%;
   background-repeat: no-repeat;
 }
 
@@ -106,7 +106,7 @@
 
 .drop-a-line-scene-title {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(1.4rem, 4vw, 1.8rem);
+  font-size: clamp(1.12rem, 3.2vw, 1.42rem);
   color: #fff;
   margin: 0;
   letter-spacing: 0.02em;
@@ -407,6 +407,27 @@
 }
 
 .drop-a-line-scene-share:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.drop-a-line-scene-download {
+  padding: 14px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.12rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.drop-a-line-scene-download:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.drop-a-line-scene-download:disabled {
   opacity: 0.65;
   cursor: default;
 }

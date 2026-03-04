@@ -1,7 +1,7 @@
 {
   "name": "baddatedemo",
   "private": true,
-  "version": "0.02.85",
+  "version": "0.02.86",
   "type": "module",
   "scripts": {
     "dev": "vite",

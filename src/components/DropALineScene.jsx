@@ -47,6 +47,32 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const hasImage = Boolean(sceneImageUrl)
   const finalScore = evaluation?.score ?? 0
 
+  const buildShareImage = useCallback(async () => {
+    if (!evaluation || !shareCaptureRef.current) return null
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready
+    }
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(shareCaptureRef.current, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    })
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (!result) {
+          reject(new Error('Failed to render share image.'))
+          return
+        }
+        resolve(result)
+      }, 'image/png', 0.95)
+    })
+    const safeDater = String(daterName || 'date').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    const fileName = `${safeDater}-pickup-line-${evaluation.score}.png`
+    return { blob, fileName }
+  }, [evaluation, daterName])
+
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault()
@@ -159,27 +185,9 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     setIsShareBusy(true)
     setShareStatus('')
     try {
-      if (typeof document !== 'undefined' && document.fonts?.ready) {
-        await document.fonts.ready
-      }
-      const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(shareCaptureRef.current, {
-        backgroundColor: null,
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      })
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob((result) => {
-          if (!result) {
-            reject(new Error('Failed to render share image.'))
-            return
-          }
-          resolve(result)
-        }, 'image/png', 0.95)
-      })
-      const safeDater = String(daterName || 'date').toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      const fileName = `${safeDater}-pickup-line-${evaluation.score}.png`
+      const shareImage = await buildShareImage()
+      if (!shareImage) return
+      const { blob, fileName } = shareImage
       const file = new File([blob], fileName, { type: 'image/png' })
 
       const canNativeShare =
@@ -215,7 +223,31 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     } finally {
       setIsShareBusy(false)
     }
-  }, [evaluation, isShareBusy, daterName, shareCaptureRef])
+  }, [evaluation, isShareBusy, buildShareImage, shareCaptureRef])
+
+  const handleDownload = useCallback(async () => {
+    if (!evaluation || !shareCaptureRef.current || isShareBusy) return
+    setIsShareBusy(true)
+    setShareStatus('')
+    try {
+      const shareImage = await buildShareImage()
+      if (!shareImage) return
+      const { blob, fileName } = shareImage
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setShareStatus('Downloaded!')
+    } catch {
+      setShareStatus('Download failed. Please try again.')
+    } finally {
+      setIsShareBusy(false)
+    }
+  }, [evaluation, isShareBusy, buildShareImage, shareCaptureRef])
 
   return (
     <div
@@ -314,6 +346,14 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
                   disabled={isShareBusy}
                 >
                   {isShareBusy ? 'Preparing...' : 'Share'}
+                </button>
+                <button
+                  type="button"
+                  className="drop-a-line-scene-download"
+                  onClick={handleDownload}
+                  disabled={isShareBusy}
+                >
+                  {isShareBusy ? 'Preparing...' : 'Download'}
                 </button>
               </div>
               {shareStatus && <p className="drop-a-line-scene-share-status">{shareStatus}</p>}
