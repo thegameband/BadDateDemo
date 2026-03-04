@@ -7,7 +7,6 @@ import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
-import SpeedDateDraftMode from './SpeedDateDraftMode'
 import { DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
 import './DropALineReels.css'
 import './DropALineProfile.css'
@@ -18,7 +17,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.15'
+const GAME_VERSION = '0.04.04'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -41,7 +40,7 @@ function LiveLobby() {
   const daterResponseMode = useGameStore((state) => state.daterResponseMode)
   const setDaterResponseMode = useGameStore((state) => state.setDaterResponseMode)
   const daters = useGameStore((state) => state.daters)
-  const [view, setView] = useState('main') // 'main', 'speed-date-draft', 'drop-a-line', 'multiplayer', 'host', 'join', 'qr-join'
+  const [view, setView] = useState('main') // 'main', 'multiplayer', 'host', 'join', 'qr-join'
   const [availableRooms, setAvailableRooms] = useState([])
   const [username, setUsernameLocal] = useState('')
   const [error, setError] = useState('')
@@ -790,39 +789,28 @@ function LiveLobby() {
             </motion.div>
           )}
           
-          {/* Main Action buttons */}
-          <div className="main-buttons-stack">
-            <div className="main-buttons main-buttons-top">
-              <motion.button
-                className="mode-btn play-now-btn"
-                onClick={handlePlayNow}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <span className="btn-icon">🎮</span>
-                <span className="btn-text">Play Now</span>
-              </motion.button>
-              {dropALineEnabled && (
-                <motion.button
-                  className="mode-btn drop-a-line-btn"
-                  onClick={() => setView('drop-a-line')}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span className="btn-icon">🎣</span>
-                  <span className="btn-text">Drop a Line</span>
-                </motion.button>
-              )}
-            </div>
+          {/* Main Action: Play Now (single-player) */}
+          <div className="main-buttons">
             <motion.button
-              className="mode-btn speed-date-btn"
-              onClick={() => setView('speed-date-draft')}
+              className="mode-btn play-now-btn"
+              onClick={handlePlayNow}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <span className="btn-icon">⚡</span>
-              <span className="btn-text">Speed Date Draft</span>
+              <span className="btn-icon">🎮</span>
+              <span className="btn-text">Play Now</span>
             </motion.button>
+            {dropALineEnabled && (
+              <motion.button
+                className="mode-btn drop-a-line-btn"
+                onClick={() => setView('drop-a-line')}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="btn-icon">🎣</span>
+                <span className="btn-text">Drop a Line</span>
+              </motion.button>
+            )}
           </div>
           
           <div className="live-info">
@@ -836,18 +824,6 @@ function LiveLobby() {
             </div>
           </div>
         </motion.div>
-      </div>
-    )
-  }
-
-  if (view === 'speed-date-draft') {
-    return (
-      <div className="phone-frame">
-        <div className="version-number">v{GAME_VERSION}</div>
-        <SpeedDateDraftMode
-          daters={daters}
-          onBack={() => setView('main')}
-        />
       </div>
     )
   }
