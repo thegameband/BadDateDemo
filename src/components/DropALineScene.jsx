@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { evaluatePickupLine, generatePickupLineComeback } from '../services/llmService'
-import { speak, speakAndWait, waitForAllAudio, setVoice, preloadSpeech, speakPreloaded } from '../services/ttsService'
+import {
+  speakAndWait,
+  setVoice,
+  preloadSpeech,
+  speakPreloaded,
+  stopAllAudio,
+} from '../services/ttsService'
 import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
@@ -10,6 +16,7 @@ const SCORE_ANIMATION_MS = 2500
 const FINAL_SLAM_LEAD_MS = 220
 const STAMP_REPLAY_DELAY_MS = 1000
 const SUCCESS_THRESHOLD = 75
+const COMEBACK_VO_TIMEOUT_MS = 12000
 
 function getPossessive(pronouns) {
   const p = (pronouns || '').toLowerCase()
@@ -121,18 +128,31 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   useEffect(() => {
     if (phase !== 'comeback' || !comebackText) return
     let cancelled = false
+    const withTimeout = (promise, ms) =>
+      Promise.race([
+        promise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`VO timeout after ${ms}ms`)), ms)
+        ),
+      ])
+
     const run = async () => {
       try {
         const preloaded = preloadedComebackRef.current ? await preloadedComebackRef.current : null
         preloadedComebackRef.current = null
         if (preloaded?.audioUrl) {
-          await speakPreloaded(preloaded, { waitForEnd: true })
+          await withTimeout(speakPreloaded(preloaded, { waitForEnd: true }), COMEBACK_VO_TIMEOUT_MS)
         } else {
-          await speak(comebackText, 'dater')
-          await waitForAllAudio()
+          await withTimeout(speakAndWait(comebackText, 'dater'), COMEBACK_VO_TIMEOUT_MS)
         }
       } catch {
-        // Continue even if VO fails.
+        // Hard fail-safe: never let VO lock the scene.
+        stopAllAudio()
+        try {
+          await withTimeout(speakAndWait(comebackText, 'dater'), 5000)
+        } catch {
+          // Continue even if fallback VO fails.
+        }
       }
       if (!cancelled) {
         setDisplayPercent(0)
