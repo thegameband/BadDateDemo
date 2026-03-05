@@ -175,12 +175,19 @@ function FieldInput({ field, value, onChange, onGenerate, generating }) {
   )
 }
 
-function RevealCard({ profile, title }) {
+function RevealCard({ profile, title, emphasis = 'default' }) {
   if (!profile) return null
 
   return (
     <div className="roses-reveal-card">
-      <h3 className="roses-reveal-stage-title">{title}</h3>
+      <h3
+        className={[
+          'roses-reveal-stage-title',
+          emphasis === 'loser' ? 'is-loser' : '',
+        ].filter(Boolean).join(' ')}
+      >
+        {title}
+      </h3>
       <div className="roses-reveal-ranks">
         <span>All-Time Rank: #{profile?.ranks?.allTime || '-'}</span>
         <span>Weekly Rank: #{profile?.ranks?.weekly || '-'}</span>
@@ -1140,8 +1147,8 @@ function RosesMode({ onBack }) {
     return (
       <div className="roses-mode">
         <div className="roses-card">
-          <RevealCard profile={reveal?.loser} title="Not Chosen" />
-          <button type="button" className="roses-primary" onClick={() => setStage('reveal-winner')}>
+          <RevealCard profile={reveal?.loser} title="ADMIRER NOT CHOSEN" emphasis="loser" />
+          <button type="button" className="roses-reveal-cta" onClick={() => setStage('reveal-winner')}>
             Reveal Rose Winner
           </button>
         </div>

@@ -798,6 +798,15 @@
   color: #fce7f3;
 }
 
+.roses-reveal-stage-title.is-loser {
+  font-size: clamp(1.55rem, 3.8vw, 2.2rem);
+  line-height: 1.03;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #ffe4ec;
+  text-shadow: 0 0 22px rgba(244, 63, 94, 0.42);
+}
+
 .roses-reveal-ranks {
   display: flex;
   flex-wrap: wrap;
@@ -855,6 +864,33 @@
   font-size: 0.8rem;
   line-height: 1.36;
   padding: 7px 8px;
+}
+
+.roses-reveal-cta {
+  width: 100%;
+  min-height: 62px;
+  border: 1px solid rgba(251, 191, 36, 0.52);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, #f59e0b 0%, #f97316 45%, #ef4444 100%);
+  color: #fff7ed;
+  padding: 14px 18px;
+  font-size: 1.18rem;
+  font-weight: 850;
+  letter-spacing: 0.015em;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.28), 0 8px 22px rgba(239, 68, 68, 0.26);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+
+.roses-reveal-cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.34), 0 10px 24px rgba(239, 68, 68, 0.32);
+}
+
+.roses-reveal-cta:active {
+  transform: translateY(0);
 }
 
 .roses-dev-note {
