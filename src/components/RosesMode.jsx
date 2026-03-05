@@ -194,8 +194,8 @@ function RevealCard({ profile, title }) {
       <div className="roses-reveal-block"><strong>Bio:</strong> {profile.fields.bio}</div>
       <div className="roses-reveal-block"><strong>Intro Tagline:</strong> {profile.fields.introTagline}</div>
       <div className="roses-reveal-ranks">
-        <span>Shown/Chatted: {profile?.stats?.shownCount ?? 0}</span>
-        <span>Roses: {profile?.stats?.roseCount ?? 0}</span>
+        <span>Times Chatted: {profile?.stats?.shownCount ?? 0}</span>
+        <span>Roses Won: {profile?.stats?.roseCount ?? 0}</span>
         <span>Weekly Roses: {profile?.stats?.weeklyRoses ?? 0}</span>
       </div>
     </div>
@@ -1172,11 +1172,11 @@ function RosesMode({ onBack }) {
                 <h3 className="roses-panel-title">Stats</h3>
                 <div className="roses-profile-grid roses-panel-grid">
                   <div className="roses-panel-item">
-                    <span className="roses-panel-label">Shown/Chatted</span>
+                    <span className="roses-panel-label">Times Chatted</span>
                     <span className="roses-panel-value">{profile?.stats?.shownCount ?? 0}</span>
                   </div>
                   <div className="roses-panel-item">
-                    <span className="roses-panel-label">Roses</span>
+                    <span className="roses-panel-label">Roses Won</span>
                     <span className="roses-panel-value">{profile?.stats?.roseCount ?? 0}</span>
                   </div>
                   <div className="roses-panel-item">
