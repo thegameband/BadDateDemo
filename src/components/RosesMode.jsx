@@ -1333,7 +1333,7 @@ function RosesMode({ onBack }) {
           <>
             <div className="roses-dashboard-actions">
               <button type="button" className="roses-primary" onClick={handleStartRound} disabled={!canPlay}>
-                Give a Rose
+                Judge Profiles
               </button>
               <button
                 type="button"
