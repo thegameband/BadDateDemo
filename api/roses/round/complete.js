@@ -14,6 +14,7 @@ import {
 
 const QUESTION_COUNT = 3
 const DISCORD_TIMEOUT_MS = 2500
+const SLACK_NOTIFIER_TIMEOUT_MS = 2500
 
 function getDiscordWebhookUrl() {
   const rosesWebhook = String(process.env.ROSES_DISCORD_WEBHOOK_URL || '').trim()
@@ -21,15 +22,19 @@ function getDiscordWebhookUrl() {
   return String(process.env.DISCORD_WEBHOOK_URL || '').trim()
 }
 
-async function postDiscordRoseAward({ profile, rank, totalProfiles }) {
-  const webhookUrl = getDiscordWebhookUrl()
-  if (!webhookUrl) return
-
+function buildRoseAwardLine({ profile, rank, totalProfiles }) {
   const name = String(profile?.fields?.name || '').trim() || 'A profile'
   const roseCount = Number(profile?.stats?.roseCount || 0)
   const safeRank = Number.isFinite(Number(rank)) && Number(rank) > 0 ? Number(rank) : '?'
   const safeTotal = Number.isFinite(Number(totalProfiles)) && Number(totalProfiles) > 0 ? Number(totalProfiles) : '?'
-  const line = `${name} just got a Rose! They have ${roseCount} roses, in ${safeRank}/${safeTotal} place.`
+  return `${name} just got a Rose! They have ${roseCount} roses, in ${safeRank}/${safeTotal} place.`
+}
+
+async function postDiscordRoseAward({ profile, rank, totalProfiles }) {
+  const webhookUrl = getDiscordWebhookUrl()
+  if (!webhookUrl) return
+
+  const line = buildRoseAwardLine({ profile, rank, totalProfiles })
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), DISCORD_TIMEOUT_MS)
@@ -53,6 +58,55 @@ async function postDiscordRoseAward({ profile, rank, totalProfiles }) {
     if (!response.ok) {
       const bodyText = await response.text()
       throw new Error(`Webhook responded with ${response.status}: ${bodyText.slice(0, 200)}`)
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+function getSlackNotifierConfig() {
+  const url = String(process.env.ROSES_SLACK_NOTIFIER_URL || '').trim()
+  const sharedSecret = String(process.env.ROSES_SLACK_NOTIFIER_SECRET || '').trim()
+  return { url, sharedSecret }
+}
+
+async function postSlackRoseAward({ profile, rank, totalProfiles }) {
+  const config = getSlackNotifierConfig()
+  if (!config.url) return
+
+  const name = String(profile?.fields?.name || '').trim() || 'A profile'
+  const roseCount = Number(profile?.stats?.roseCount || 0)
+  const safeRank = Number.isFinite(Number(rank)) && Number(rank) > 0 ? Number(rank) : null
+  const safeTotal = Number.isFinite(Number(totalProfiles)) && Number(totalProfiles) > 0 ? Number(totalProfiles) : null
+  const line = buildRoseAwardLine({ profile, rank, totalProfiles })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), SLACK_NOTIFIER_TIMEOUT_MS)
+
+  try {
+    const headers = {
+      'content-type': 'application/json',
+    }
+    if (config.sharedSecret) {
+      headers['x-roses-notifier-secret'] = config.sharedSecret
+    }
+
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        event: 'rose_awarded',
+        profileName: name,
+        roseCount,
+        rank: safeRank,
+        totalProfiles: safeTotal,
+        message: line,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const bodyText = await response.text()
+      throw new Error(`Notifier responded with ${response.status}: ${bodyText.slice(0, 200)}`)
     }
   } finally {
     clearTimeout(timeout)
@@ -211,6 +265,16 @@ export default async function handler(req, res) {
       })
     } catch (discordError) {
       console.error('Roses Discord webhook error:', discordError)
+    }
+
+    try {
+      await postSlackRoseAward({
+        profile: winnerProfile,
+        rank: rankings.allTimeRanks?.[winnerId],
+        totalProfiles: rankings.allTimeSorted?.length || 0,
+      })
+    } catch (slackError) {
+      console.error('Roses Slack notifier error:', slackError)
     }
 
     sendJson(res, 200, {
