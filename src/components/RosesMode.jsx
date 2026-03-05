@@ -180,19 +180,21 @@ function RevealCard({ profile, title }) {
 
   return (
     <div className="roses-reveal-card">
-      <h3>{title}</h3>
+      <h3 className="roses-reveal-stage-title">{title}</h3>
       <div className="roses-reveal-ranks">
         <span>All-Time Rank: #{profile?.ranks?.allTime || '-'}</span>
         <span>Weekly Rank: #{profile?.ranks?.weekly || '-'}</span>
       </div>
-      <div className="roses-profile-grid reveal">
-        <div><strong>Name:</strong> {profile.fields.name}</div>
-        <div><strong>Age:</strong> {profile.fields.age}</div>
-        <div><strong>Pronouns:</strong> {profile.fields.pronouns}</div>
-        <div><strong>Occupation:</strong> {profile.fields.occupation}</div>
+
+      <div className="roses-reveal-identity">
+        <div className="roses-reveal-name">{profile?.fields?.name || 'Unknown'}</div>
+        <div className="roses-reveal-subhead">
+          {[profile?.fields?.pronouns, profile?.fields?.age].filter(Boolean).join(' · ') || '-'}
+        </div>
+        <div className="roses-reveal-subhead occupation">{profile?.fields?.occupation || '-'}</div>
+        <p className="roses-reveal-bio">{profile?.fields?.bio || '-'}</p>
       </div>
-      <div className="roses-reveal-block"><strong>Bio:</strong> {profile.fields.bio}</div>
-      <div className="roses-reveal-block"><strong>Intro Tagline:</strong> {profile.fields.introTagline}</div>
+
       <div className="roses-reveal-ranks">
         <span>Times Chatted: {profile?.stats?.shownCount ?? 0}</span>
         <span>Roses Won: {profile?.stats?.roseCount ?? 0}</span>
