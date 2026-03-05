@@ -226,8 +226,61 @@ function getPrimaryScoreForBoard(entry, mode) {
     : Number(entry?.stats?.roseCount || 0)
 }
 
+function buildLeaderboardDisplayRows({ entries = [], mode = 'allTime', currentPlayerId = '' }) {
+  const normalizedEntries = Array.isArray(entries) ? entries : []
+  if (normalizedEntries.length <= 10) {
+    return normalizedEntries.slice(0, 10).map((entry, absoluteIndex) => ({
+      type: 'entry',
+      entry,
+      absoluteIndex,
+    }))
+  }
+
+  const playerIndex = normalizedEntries.findIndex(
+    (entry) => String(entry?.playerId || '') === String(currentPlayerId || ''),
+  )
+
+  if (playerIndex < 0) {
+    return normalizedEntries.slice(0, 10).map((entry, absoluteIndex) => ({
+      type: 'entry',
+      entry,
+      absoluteIndex,
+    }))
+  }
+
+  const playerRank = getRankForBoard(normalizedEntries[playerIndex], mode, playerIndex)
+  if (playerRank <= 10) {
+    return normalizedEntries.slice(0, 10).map((entry, absoluteIndex) => ({
+      type: 'entry',
+      entry,
+      absoluteIndex,
+    }))
+  }
+
+  const topRows = normalizedEntries.slice(0, 5).map((entry, absoluteIndex) => ({
+    type: 'entry',
+    entry,
+    absoluteIndex,
+  }))
+
+  const aroundStart = Math.max(0, playerIndex - 2)
+  const aroundEnd = Math.min(normalizedEntries.length, playerIndex + 3)
+  const aroundRows = normalizedEntries.slice(aroundStart, aroundEnd).map((entry, offset) => ({
+    type: 'entry',
+    entry,
+    absoluteIndex: aroundStart + offset,
+  }))
+
+  return [
+    ...topRows,
+    { type: 'gap', key: `gap-${mode}-${currentPlayerId || 'unknown'}` },
+    ...aroundRows,
+  ]
+}
+
 function LeaderboardPanel({ title, mode, entries = [], currentPlayerId = '', weekKey = '' }) {
   const weekLabel = mode === 'weekly' ? formatWeekStartLabel(weekKey) : ''
+  const displayRows = buildLeaderboardDisplayRows({ entries, mode, currentPlayerId })
 
   return (
     <section className="roses-lb-panel">
@@ -244,8 +297,17 @@ function LeaderboardPanel({ title, mode, entries = [], currentPlayerId = '', wee
 
       {entries.length > 0 && (
         <ol className="roses-lb-list">
-          {entries.map((entry, index) => {
-            const rank = getRankForBoard(entry, mode, index)
+          {displayRows.map((row) => {
+            if (row.type === 'gap') {
+              return (
+                <li key={row.key} className="roses-lb-gap" aria-hidden="true">
+                  <span>...</span>
+                </li>
+              )
+            }
+
+            const entry = row.entry
+            const rank = getRankForBoard(entry, mode, row.absoluteIndex)
             const isYou = String(entry?.playerId || '') === String(currentPlayerId || '')
             const primaryScore = getPrimaryScoreForBoard(entry, mode)
             const displayName = String(entry?.name || '').trim() || 'Unnamed'
@@ -1195,13 +1257,13 @@ function RosesMode({ onBack }) {
               <LeaderboardPanel
                 title="All-Time Roses"
                 mode="allTime"
-                entries={leaderboard.allTime.slice(0, 10)}
+                entries={leaderboard.allTime}
                 currentPlayerId={playerId}
               />
               <LeaderboardPanel
                 title="Top Roses This Week"
                 mode="weekly"
-                entries={leaderboard.weekly.slice(0, 10)}
+                entries={leaderboard.weekly}
                 currentPlayerId={playerId}
                 weekKey={leaderboard.weekKey}
               />

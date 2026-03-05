@@ -458,6 +458,17 @@
   border-bottom: none;
 }
 
+.roses-lb-gap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0 5px;
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.92rem;
+  letter-spacing: 0.12em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .roses-lb-row.is-you {
   background: rgba(244, 114, 182, 0.08);
 }
