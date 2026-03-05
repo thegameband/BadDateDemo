@@ -1120,7 +1120,7 @@ function RosesMode({ onBack }) {
           <>
             <div className="roses-dashboard-actions">
               <button type="button" className="roses-primary" onClick={handleStartRound} disabled={!canPlay}>
-                Start Roses Round
+                Give a Rose
               </button>
               <button
                 type="button"
@@ -1129,7 +1129,7 @@ function RosesMode({ onBack }) {
                 disabled={!canEditToday}
                 title={canEditToday ? 'Edit profile' : 'Edit available once per local day'}
               >
-                {canEditToday ? 'Edit Profile' : 'Edit Locked Today'}
+                {canEditToday ? 'Edit Profile' : 'One Edit Daily'}
               </button>
             </div>
 

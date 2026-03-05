@@ -98,6 +98,8 @@ function buildSeedProfileTemplates(nowMs = Date.now()) {
       createdAt: nowMs,
       updatedAt: nowMs,
       lastEditedLocalDay: null,
+      firstPublishedLocalDay: null,
+      firstDayEditUsed: false,
       lastEditedTimezone: 'UTC',
       fields: normalizeProfileFields({
         name: dater?.name,
@@ -213,6 +215,8 @@ async function ensureSeedProfiles() {
           ...existing,
           version: 1,
           updatedAt: Date.now(),
+          firstPublishedLocalDay: existing.firstPublishedLocalDay || null,
+          firstDayEditUsed: Boolean(existing.firstDayEditUsed),
           fields: template.fields,
           stats: normalizeStats(existing.stats || {}),
           sentimentKeywords: Array.isArray(existing.sentimentKeywords) ? existing.sentimentKeywords : [],
@@ -385,7 +389,13 @@ export function createOrUpdateProfile({
     return { error: 'All profile fields are required before publish.' }
   }
 
-  if (existingProfile && existingProfile.lastEditedLocalDay === localDay) {
+  const firstPublishedLocalDay = String(existingProfile?.firstPublishedLocalDay || localDay || '')
+  const wasEditedToday = Boolean(existingProfile && existingProfile.lastEditedLocalDay === localDay)
+  const isFirstPublishedDay = Boolean(firstPublishedLocalDay && firstPublishedLocalDay === localDay)
+  const firstDayEditUsed = Boolean(existingProfile?.firstDayEditUsed)
+  const usingFirstDayBonusEdit = wasEditedToday && isFirstPublishedDay && !firstDayEditUsed
+
+  if (wasEditedToday && !usingFirstDayBonusEdit) {
     return { error: 'You can publish edits once per local calendar day.' }
   }
 
@@ -399,6 +409,8 @@ export function createOrUpdateProfile({
     createdAt: existingProfile?.createdAt || nowMs,
     updatedAt: nowMs,
     lastEditedLocalDay: localDay,
+    firstPublishedLocalDay,
+    firstDayEditUsed: firstDayEditUsed || usingFirstDayBonusEdit,
     lastEditedTimezone: timezone || 'UTC',
     fields: normalized,
     stats,
@@ -406,4 +418,16 @@ export function createOrUpdateProfile({
   }
 
   return { profile }
+}
+
+export function canEditProfileToday(profile, localDay) {
+  if (!profile) return true
+  if (!localDay) return true
+
+  if (profile.lastEditedLocalDay !== localDay) return true
+
+  const firstPublishedLocalDay = String(profile.firstPublishedLocalDay || '')
+  const isFirstPublishedDay = Boolean(firstPublishedLocalDay && firstPublishedLocalDay === localDay)
+  const firstDayEditUsed = Boolean(profile.firstDayEditUsed)
+  return isFirstPublishedDay && !firstDayEditUsed
 }

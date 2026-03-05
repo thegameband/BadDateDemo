@@ -1,6 +1,7 @@
 import { requirePost, readJsonBody, sendJson } from '../_json.js'
 import {
   buildRankings,
+  canEditProfileToday,
   createOrUpdateProfile,
   getAllProfiles,
   getProfile,
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
       ok: true,
       profile: profileToView(result.profile, rankings),
       canPlay: isCompleteProfile(result.profile.fields),
-      canEditToday: false,
+      canEditToday: canEditProfileToday(result.profile, localDay),
       weekKey: rankings.weekKey,
     })
   } catch (error) {

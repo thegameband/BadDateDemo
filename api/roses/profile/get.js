@@ -1,5 +1,5 @@
 import { requirePost, readJsonBody, sendJson } from '../_json.js'
-import { buildRankings, getAllProfiles, getProfile, isCompleteProfile, profileToView } from '../_state.js'
+import { buildRankings, canEditProfileToday, getAllProfiles, getProfile, isCompleteProfile, profileToView } from '../_state.js'
 
 export default async function handler(req, res) {
   if (!requirePost(req, res)) return
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const view = profileToView(profile, rankings)
 
     const canPlay = Boolean(profile && isCompleteProfile(profile.fields))
-    const canEditToday = !profile || (profile.lastEditedLocalDay !== localDay)
+    const canEditToday = canEditProfileToday(profile, localDay)
 
     sendJson(res, 200, {
       ok: true,
