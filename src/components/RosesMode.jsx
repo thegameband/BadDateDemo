@@ -205,13 +205,18 @@ function RevealCard({ profile, title }) {
 function formatWeekStartLabel(weekKey) {
   const raw = String(weekKey || '').trim()
   if (!raw) return ''
-  const date = new Date(`${raw}T00:00:00Z`)
-  if (Number.isNaN(date.getTime())) return raw
-  return new Intl.DateTimeFormat(undefined, {
+  const startDate = new Date(`${raw}T00:00:00Z`)
+  if (Number.isNaN(startDate.getTime())) return raw
+  const endDate = new Date(startDate)
+  endDate.setUTCDate(endDate.getUTCDate() + 6)
+
+  const formatter = new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',
-  }).format(date)
+  })
+
+  return `${formatter.format(startDate)}-${formatter.format(endDate)}`
 }
 
 function getRankForBoard(entry, mode, index) {
@@ -287,7 +292,7 @@ function LeaderboardPanel({ title, mode, entries = [], currentPlayerId = '', wee
       <div className="roses-lb-panel-head">
         <h3>{title}</h3>
         {mode === 'weekly' && weekLabel && (
-          <span className="roses-lb-subhead">Week of {weekLabel} UTC</span>
+          <span className="roses-lb-subhead">Week of {weekLabel}</span>
         )}
       </div>
 
