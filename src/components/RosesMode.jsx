@@ -34,8 +34,8 @@ const TURN_COUNT = 3
 const INTRO_PHASE_HOLD_MS = 220
 const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
-const TTS_MIN_TIMEOUT_MS = 4500
-const TTS_MAX_TIMEOUT_MS = 15000
+const TTS_MIN_TIMEOUT_MS = 7000
+const TTS_MAX_TIMEOUT_MS = 45000
 const ADMIRER_SLOTS = ['A', 'B', 'C']
 const QUESTION_FILL_PROMPTS = [
   "What's your biggest _____?",
@@ -559,9 +559,11 @@ function RosesMode({ onBack }) {
     ])
   ), [])
 
-  const estimateTtsTimeout = useCallback((text = '') => {
+  const estimateTtsTimeout = useCallback((text = '', speaker = 'avatar') => {
     const words = String(text || '').split(/\s+/).filter(Boolean).length
-    const estimated = 2200 + (words * 380)
+    const base = speaker === 'dater' ? 4200 : 2400
+    const perWord = speaker === 'dater' ? 520 : 380
+    const estimated = base + (words * perWord)
     return Math.max(TTS_MIN_TIMEOUT_MS, Math.min(TTS_MAX_TIMEOUT_MS, estimated))
   }, [])
 
@@ -589,11 +591,14 @@ function RosesMode({ onBack }) {
       if (answerKey) {
         setActiveSpeechAnswerKey(answerKey)
       }
-      const timeoutMs = estimateTtsTimeout(line)
+      const timeoutMs = estimateTtsTimeout(line, speaker)
       await withTimeout(speakAndWait(line, speaker), timeoutMs)
     } catch (speechError) {
+      const isTimeout = /TTS timeout/i.test(String(speechError?.message || ''))
       console.warn('Roses TTS skipped due to timeout/failure:', speechError)
-      stopAllAudio()
+      if (!isTimeout) {
+        stopAllAudio()
+      }
     } finally {
       if (slot) {
         setActiveSpeechSlot((current) => (current === slot ? '' : current))
