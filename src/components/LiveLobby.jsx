@@ -10,6 +10,7 @@ import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
 import SpeedDateMode from './SpeedDateMode'
 import RosesMode from './RosesMode'
+import { useWebHaptics } from 'web-haptics/react'
 import './DropALineReels.css'
 import './DropALineProfile.css'
 import './DropALineScene.css'
@@ -19,7 +20,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.67'
+const GAME_VERSION = '0.04.68'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -27,6 +28,7 @@ const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RAND
 // Main game entry screen - Bad Date
 
 function LiveLobby() {
+  const { trigger: triggerHaptic } = useWebHaptics()
   const setPhase = useGameStore((state) => state.setPhase)
   const setUsername = useGameStore((state) => state.setUsername)
   const setRoomCode = useGameStore((state) => state.setRoomCode)
@@ -153,6 +155,7 @@ function LiveLobby() {
   
   // Single-player: Play → Dater Bio Page → START THE DATE → 3 questions → date
   const handlePlayNow = () => {
+    void triggerHaptic('medium')
     const playerName = username.trim() || getRandomFallbackName()
     const odId = generatePlayerId()
     const dater = daters.find((d) => d.name === selectedDaterName) || daters[0]
@@ -167,6 +170,11 @@ function LiveLobby() {
     setScoringMode(debugScoringMode)
     initializeScoringForDater(dater)
     setPhase('dater-bio')
+  }
+
+  const handleSelectMode = (nextView) => {
+    void triggerHaptic('medium')
+    setView(nextView)
   }
 
   const handleCreate = async () => {
@@ -719,7 +727,11 @@ function LiveLobby() {
                       <div className="debug-section-label">Modes</div>
                       <motion.button
                         className="debug-action-btn"
-                        onClick={() => { setShowAdminModal(false); setShowDaterPicker(false); setView('multiplayer') }}
+                        onClick={() => {
+                          setShowAdminModal(false)
+                          setShowDaterPicker(false)
+                          handleSelectMode('multiplayer')
+                        }}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                       >
@@ -820,7 +832,7 @@ function LiveLobby() {
               {dropALineEnabled && (
                 <motion.button
                   className="mode-btn drop-a-line-btn"
-                  onClick={() => setView('drop-a-line')}
+                  onClick={() => handleSelectMode('drop-a-line')}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -832,7 +844,7 @@ function LiveLobby() {
             <div className="main-buttons main-buttons-bottom">
               <motion.button
                 className="mode-btn speed-date-btn"
-                onClick={() => setView('speed-date')}
+                onClick={() => handleSelectMode('speed-date')}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -841,7 +853,7 @@ function LiveLobby() {
               </motion.button>
               <motion.button
                 className="mode-btn roses-btn"
-                onClick={() => setView('roses')}
+                onClick={() => handleSelectMode('roses')}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
