@@ -201,7 +201,7 @@ function RevealCard({ profile, title, emphasis = 'default' }) {
       <div className="roses-reveal-ranks">
         <span>Times Chatted: {profile?.stats?.shownCount ?? 0}</span>
         <span>Roses Won: {profile?.stats?.roseCount ?? 0}</span>
-        <span>Weekly Roses: {profile?.stats?.weeklyRoses ?? 0}</span>
+        <span>Roses This Week: {profile?.stats?.weeklyRoses ?? 0}</span>
       </div>
     </div>
   )
