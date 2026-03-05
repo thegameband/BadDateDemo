@@ -20,7 +20,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.73'
+const GAME_VERSION = '0.04.74'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -155,7 +155,7 @@ function LiveLobby() {
   
   // Single-player: Play → Dater Bio Page → START THE DATE → 3 questions → date
   const handlePlayNow = () => {
-    void triggerHaptic('medium')
+    void triggerHaptic('heavy')
     const playerName = username.trim() || getRandomFallbackName()
     const odId = generatePlayerId()
     const dater = daters.find((d) => d.name === selectedDaterName) || daters[0]
@@ -173,7 +173,7 @@ function LiveLobby() {
   }
 
   const handleSelectMode = (nextView) => {
-    void triggerHaptic('medium')
+    void triggerHaptic('heavy')
     setView(nextView)
   }
 

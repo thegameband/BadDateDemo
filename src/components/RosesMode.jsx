@@ -34,8 +34,6 @@ const TURN_COUNT = 3
 const INTRO_PHASE_HOLD_MS = 220
 const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
-const TTS_MIN_TIMEOUT_MS = 4500
-const TTS_MAX_TIMEOUT_MS = 15000
 const ADMIRER_SLOTS = ['A', 'B', 'C']
 const QUESTION_FILL_PROMPTS = [
   "What's your biggest _____?",
@@ -552,19 +550,6 @@ function RosesMode({ onBack }) {
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const hasSentimentKeywords = sentimentKeywords.length > 0
 
-  const withTimeout = useCallback((promise, ms) => (
-    Promise.race([
-      promise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`TTS timeout (${ms}ms)`)), ms)),
-    ])
-  ), [])
-
-  const estimateTtsTimeout = useCallback((text = '') => {
-    const words = String(text || '').split(/\s+/).filter(Boolean).length
-    const estimated = 2200 + (words * 380)
-    return Math.max(TTS_MIN_TIMEOUT_MS, Math.min(TTS_MAX_TIMEOUT_MS, estimated))
-  }, [])
-
   const speakRosesLine = useCallback(async ({
     text,
     speaker = 'dater',
@@ -589,10 +574,9 @@ function RosesMode({ onBack }) {
       if (answerKey) {
         setActiveSpeechAnswerKey(answerKey)
       }
-      const timeoutMs = estimateTtsTimeout(line)
-      await withTimeout(speakAndWait(line, speaker), timeoutMs)
+      await speakAndWait(line, speaker)
     } catch (speechError) {
-      console.warn('Roses TTS skipped due to timeout/failure:', speechError)
+      console.warn('Roses TTS failed:', speechError)
       stopAllAudio()
     } finally {
       if (slot) {
@@ -602,7 +586,7 @@ function RosesMode({ onBack }) {
         setActiveSpeechAnswerKey((current) => (current === answerKey ? '' : current))
       }
     }
-  }, [admirerVoiceByCandidateId, estimateTtsTimeout, withTimeout])
+  }, [admirerVoiceByCandidateId])
 
   useEffect(() => {
     if (stage !== 'chat') return
@@ -619,9 +603,9 @@ function RosesMode({ onBack }) {
   useEffect(() => {
     return onAudioStart((_text, speaker) => {
       if (speaker !== 'dater' && speaker !== 'avatar') return
-      void triggerHaptic('medium')
+      void triggerHaptic('heavy')
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        navigator.vibrate(24)
+        navigator.vibrate(40)
       }
     })
   }, [triggerHaptic])
@@ -739,7 +723,7 @@ function RosesMode({ onBack }) {
     setError('')
     setStatus('')
     setGeneratingField(fieldId)
-    void triggerHaptic('light')
+    void triggerHaptic('heavy')
 
     try {
       const value = await generateRosesField(fieldId, fields)
@@ -818,7 +802,7 @@ function RosesMode({ onBack }) {
   const handlePublishProfile = async () => {
     setError('')
     setStatus('')
-    void triggerHaptic('medium')
+    void triggerHaptic('heavy')
 
     const normalized = sanitizeRosesFields(fields)
     const allEmpty = Object.values(normalized).every((value) => !String(value || '').trim())
@@ -907,7 +891,7 @@ function RosesMode({ onBack }) {
     await primeTTSPlayback()
     setError('')
     setStatus('Starting Roses round...')
-    void triggerHaptic('medium')
+    void triggerHaptic('heavy')
 
     try {
       const response = await startRosesRound({ playerId })
@@ -957,7 +941,7 @@ function RosesMode({ onBack }) {
     await primeTTSPlayback()
     setSendingQuestion(true)
     setError('')
-    void triggerHaptic('medium')
+    void triggerHaptic('heavy')
 
     try {
       const buildsPriorTurns = (candidateId) => chatLog
@@ -1076,7 +1060,7 @@ function RosesMode({ onBack }) {
 
   const handleUseSuggestedQuestion = () => {
     if (sendingQuestion || introActive) return
-    void triggerHaptic('selection')
+    void triggerHaptic('heavy')
     setQuestionPromptIndexes((prev) => {
       const next = [...prev]
       const turnIndex = Math.min(TURN_COUNT - 1, chatLog.length)
