@@ -1156,6 +1156,16 @@ function RosesMode({ onBack }) {
                     <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
                   </div>
                 </div>
+
+                <div className="roses-panel-section">
+                  <h4 className="roses-panel-subtitle">Intro Tagline</h4>
+                  <p className="roses-panel-body">{profile?.fields?.introTagline || '-'}</p>
+                </div>
+
+                <div className="roses-panel-section">
+                  <h4 className="roses-panel-subtitle">Bio</h4>
+                  <p className="roses-panel-body">{profile?.fields?.bio || '-'}</p>
+                </div>
               </section>
 
               <section className="roses-info-panel">
@@ -1179,16 +1189,22 @@ function RosesMode({ onBack }) {
                   </div>
                 </div>
               </section>
+            </div>
 
-              <section className="roses-info-panel">
-                <h3 className="roses-panel-title">Intro Tagline</h3>
-                <p className="roses-panel-body">{profile?.fields?.introTagline || '-'}</p>
-              </section>
-
-              <section className="roses-info-panel">
-                <h3 className="roses-panel-title">Bio</h3>
-                <p className="roses-panel-body">{profile?.fields?.bio || '-'}</p>
-              </section>
+            <div className="roses-leaderboards">
+              <LeaderboardPanel
+                title="All-Time Roses"
+                mode="allTime"
+                entries={leaderboard.allTime.slice(0, 10)}
+                currentPlayerId={playerId}
+              />
+              <LeaderboardPanel
+                title="Top Roses This Week"
+                mode="weekly"
+                entries={leaderboard.weekly.slice(0, 10)}
+                currentPlayerId={playerId}
+                weekKey={leaderboard.weekKey}
+              />
             </div>
 
             {hasSentimentKeywords && (
@@ -1207,22 +1223,6 @@ function RosesMode({ onBack }) {
                 </div>
               </div>
             )}
-
-            <div className="roses-leaderboards">
-              <LeaderboardPanel
-                title="All-Time Roses"
-                mode="allTime"
-                entries={leaderboard.allTime.slice(0, 10)}
-                currentPlayerId={playerId}
-              />
-              <LeaderboardPanel
-                title="Top Roses This Week"
-                mode="weekly"
-                entries={leaderboard.weekly.slice(0, 10)}
-                currentPlayerId={playerId}
-                weekKey={leaderboard.weekKey}
-              />
-            </div>
           </>
         )}
 

@@ -339,6 +339,22 @@
   color: #f8fafc;
 }
 
+.roses-panel-section {
+  margin-top: 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(5, 9, 20, 0.48);
+  padding: 6px 8px;
+}
+
+.roses-panel-subtitle {
+  margin: 0 0 4px;
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
 .roses-dashboard-actions {
   width: 100%;
   justify-content: center;
