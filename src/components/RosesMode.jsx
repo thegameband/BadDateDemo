@@ -834,7 +834,8 @@ function RosesMode({ onBack }) {
   const handleSendQuestion = async (overrideBlank = '') => {
     if (!round || sendingQuestion || introActive) return
 
-    const blankSource = String(overrideBlank || '').trim() || String(questionInput || '').trim()
+    const explicitBlank = typeof overrideBlank === 'string' ? overrideBlank.trim() : ''
+    const blankSource = explicitBlank || String(questionInput || '').trim()
     const question = fillQuestionTemplate(activePromptTemplate, blankSource).trim()
     if (!question) return
     const normalizedQuestion = normalizeQuestionForDuplicateCheck(question)
@@ -1151,7 +1152,7 @@ function RosesMode({ onBack }) {
               <button
                 type="button"
                 className="roses-primary"
-                onClick={handleSendQuestion}
+                onClick={() => handleSendQuestion()}
                 disabled={sendingQuestion || introActive || !questionInput.trim()}
               >
                 {sendingQuestion ? 'Getting All Answers...' : 'Ask All Admirers'}
