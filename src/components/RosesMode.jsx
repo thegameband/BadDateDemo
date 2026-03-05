@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   completeRosesRound,
   fetchRosesLeaderboard,
@@ -821,10 +821,11 @@ function RosesMode({ onBack }) {
     }
   }
 
-  const handleSendQuestion = async () => {
+  const handleSendQuestion = async (overrideBlank = '') => {
     if (!round || sendingQuestion || introActive) return
 
-    const question = String(composedQuestion || '').trim()
+    const blankSource = String(overrideBlank || '').trim() || String(questionInput || '').trim()
+    const question = fillQuestionTemplate(activePromptTemplate, blankSource).trim()
     if (!question) return
 
     if ((Number(round.turnIndex) || 0) >= TURN_COUNT) {
@@ -978,6 +979,7 @@ function RosesMode({ onBack }) {
     const nextValue = String(value || '').trim()
     if (!nextValue) return
     setQuestionInput(nextValue)
+    handleSendQuestion(nextValue)
   }
 
   const handleExitRound = () => {
@@ -1114,7 +1116,7 @@ function RosesMode({ onBack }) {
               onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
               onKeyDown={handleQuestionKeyDown}
               onFocus={handleQuestionFocus}
-              placeholder="Fill in the blank"
+              placeholder="Or any custom text!"
               disabled={sendingQuestion || introActive}
             />
             <div className="roses-question-actions">
@@ -1144,47 +1146,63 @@ function RosesMode({ onBack }) {
   }
 
   if (stage === 'choose') {
-    const answersFor = (candidateId) => chatLog.map((turn) => {
-      const answer = (turn.answers || []).find((item) => String(item.candidateId) === String(candidateId))
-      return {
-        turnNumber: turn.turnNumber,
-        question: turn.question,
-        response: answer?.response || 'No answer logged.',
-      }
-    })
-
     return (
       <div className="roses-mode">
         <div className="roses-card">
           <h2>Award One Rose</h2>
           <p className="roses-muted">Choose your favorite admirer. You must pick one.</p>
-          <div className="roses-compare-grid">
-            {orderedCandidates.map((candidate, index) => {
-              const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
-              const answers = answersFor(candidate.playerId)
-              return (
-              <div key={candidate?.playerId || `candidate-${index}`} className="roses-choice-card compare">
-                <h3>{admirerLabelFromSlot(slot)}</h3>
-                <p className="roses-choice-tagline">{candidate?.fields?.introTagline || '-'}</p>
-                <div className="roses-choice-answers">
-                  {answers.map((item) => (
-                    <div key={`${candidate?.playerId || 'x'}-a-${item.turnNumber}`} className="roses-choice-answer-row">
-                      <div className="roses-choice-question">Q{item.turnNumber}: {item.question}</div>
-                      <div className="roses-choice-answer">{item.response}</div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="roses-primary"
-                  onClick={() => candidate?.playerId && handleChooseWinner(candidate.playerId)}
-                  disabled={choosingWinner || !candidate?.playerId}
-                >
-                  {choosingWinner ? 'Submitting...' : `Give Rose to ${admirerLabelFromSlot(slot)}`}
-                </button>
-              </div>
-              )
-            })}
+          <div className="roses-award-board-wrap">
+            <div className="roses-award-board">
+              <div className="roses-award-head-cell roses-award-head-question">Questions</div>
+              {orderedCandidates.map((candidate, index) => {
+                const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
+                return (
+                  <div key={`head-${candidate?.playerId || index}`} className="roses-award-head-cell">
+                    <div className="roses-award-admirer-name">{admirerLabelFromSlot(slot)}</div>
+                    <div className="roses-award-admirer-tagline">{candidate?.fields?.introTagline || '-'}</div>
+                  </div>
+                )
+              })}
+
+              {chatLog.map((turn) => (
+                <Fragment key={`turn-row-${turn.turnNumber}`}>
+                  <div className="roses-award-question-cell">Q{turn.turnNumber}: {turn.question}</div>
+                  {orderedCandidates.map((candidate, index) => {
+                    const answer = (turn.answers || []).find(
+                      (item) => String(item.candidateId) === String(candidate?.playerId || ''),
+                    )
+                    const responseText = String(answer?.response || 'No answer logged.')
+                    return (
+                      <div
+                        key={`turn-${turn.turnNumber}-cand-${candidate?.playerId || index}`}
+                        className={[
+                          'roses-award-answer-cell',
+                          responseText === 'No answer logged.' ? 'is-empty' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        {responseText}
+                      </div>
+                    )
+                  })}
+                </Fragment>
+              ))}
+
+              <div className="roses-award-pick-label">Pick one</div>
+              {orderedCandidates.map((candidate, index) => {
+                const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
+                return (
+                  <button
+                    key={`pick-${candidate?.playerId || index}`}
+                    type="button"
+                    className="roses-award-pick-btn"
+                    onClick={() => candidate?.playerId && handleChooseWinner(candidate.playerId)}
+                    disabled={choosingWinner || !candidate?.playerId}
+                  >
+                    {choosingWinner ? 'Submitting...' : `Give Rose to ${admirerLabelFromSlot(slot)}`}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>

@@ -750,6 +750,111 @@
   gap: 10px;
 }
 
+.roses-award-board-wrap {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(244, 63, 94, 0.09) 0%, rgba(15, 23, 42, 0.18) 100%),
+    rgba(255, 255, 255, 0.03);
+  padding: 8px;
+  overflow-x: auto;
+}
+
+.roses-award-board {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.25fr) repeat(3, minmax(170px, 1fr));
+  gap: 8px;
+  min-width: 830px;
+}
+
+.roses-award-head-cell {
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(4, 7, 15, 0.72);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roses-award-head-question {
+  justify-content: center;
+  color: #bfdbfe;
+  font-size: 0.84rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.roses-award-admirer-name {
+  color: #f9a8d4;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.12;
+}
+
+.roses-award-admirer-tagline {
+  color: #fce7f3;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+.roses-award-question-cell {
+  border-radius: 9px;
+  border: 1px solid rgba(147, 197, 253, 0.28);
+  background: rgba(30, 58, 138, 0.18);
+  color: #dbeafe;
+  padding: 8px;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  font-weight: 620;
+}
+
+.roses-award-answer-cell {
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(4, 7, 15, 0.76);
+  color: #fbcfe8;
+  padding: 8px;
+  font-size: 0.84rem;
+  line-height: 1.32;
+  min-height: 44px;
+}
+
+.roses-award-answer-cell.is-empty {
+  color: rgba(248, 250, 252, 0.64);
+}
+
+.roses-award-pick-label {
+  border-radius: 9px;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  color: rgba(248, 250, 252, 0.78);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
+  font-size: 0.79rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+}
+
+.roses-award-pick-btn {
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #f43f5e 0%, #fb7185 50%, #db2777 100%);
+  color: #fff;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  font-weight: 720;
+  cursor: pointer;
+  min-height: 42px;
+}
+
+.roses-award-pick-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .roses-choice-card {
   background: rgba(255, 255, 255, 0.04);
   border-radius: 10px;
