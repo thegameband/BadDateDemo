@@ -355,23 +355,32 @@ export function findRoundCandidates({
       const lastSeenAt = Number(history?.[profile.playerId] || 0)
       const wasSeen = Number.isFinite(lastSeenAt) && lastSeenAt > 0
       const withinLockout = wasSeen && ((nowMs - lastSeenAt) < lockoutMs)
-      const group = wasSeen ? (withinLockout ? 2 : 1) : 0
       return {
         profile,
-        group,
-        shownCount: profileShownCount(profile),
-        random: Math.random(),
+        withinLockout,
       }
     })
 
-  candidates.sort((a, b) => {
-    if (a.group !== b.group) return a.group - b.group
-    if (a.shownCount !== b.shownCount) return a.shownCount - b.shownCount
-    if (a.random !== b.random) return a.random - b.random
-    return String(a.profile.playerId).localeCompare(String(b.profile.playerId))
-  })
+  const shuffle = (list = []) => {
+    const next = [...list]
+    for (let i = next.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const tmp = next[i]
+      next[i] = next[j]
+      next[j] = tmp
+    }
+    return next
+  }
 
-  return candidates.slice(0, targetCount).map((entry) => entry.profile)
+  const unlocked = shuffle(candidates.filter((entry) => !entry.withinLockout))
+  const locked = shuffle(candidates.filter((entry) => entry.withinLockout))
+
+  const selected = [
+    ...unlocked.slice(0, targetCount),
+    ...locked.slice(0, Math.max(0, targetCount - unlocked.length)),
+  ]
+
+  return selected.slice(0, targetCount).map((entry) => entry.profile)
 }
 
 export function createOrUpdateProfile({
