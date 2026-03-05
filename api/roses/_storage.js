@@ -6,6 +6,7 @@ let _vercelKv = undefined
 let _redisClient = undefined
 const LOCAL_STORE_FILE = path.join(os.tmpdir(), 'bad-date-roses-kv-v1.json')
 let _fileStoreQueue = Promise.resolve()
+const REDIS_URL_ENV_KEYS = ['REDIS_URL', 'UPSTASH_REDIS_URL', 'STORAGE_URL']
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -86,8 +87,34 @@ function hasVercelKvEnv() {
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
 }
 
+function getRedisUrl() {
+  for (const key of REDIS_URL_ENV_KEYS) {
+    const value = String(process.env[key] || '').trim()
+    if (value) return value
+  }
+  return ''
+}
+
 function hasRedisUrl() {
-  return Boolean(process.env.REDIS_URL)
+  return Boolean(getRedisUrl())
+}
+
+function requiresDurableStorage() {
+  // Vercel instances are ephemeral; local filesystem/memory fallback is unsafe there.
+  return Boolean(process.env.VERCEL)
+}
+
+function throwDurableStorageUnavailable(op) {
+  const details = [
+    hasVercelKvEnv() ? 'kv-env:present' : 'kv-env:missing',
+    hasRedisUrl() ? 'redis-url:present' : 'redis-url:missing',
+    `redis-url-key:${REDIS_URL_ENV_KEYS.find((key) => Boolean(process.env[key])) || 'none'}`,
+  ].join(', ')
+  const error = new Error(
+    `Roses storage unavailable during ${op}. Configure Redis/KV for Vercel (${details}).`
+  )
+  error.code = 'ROSES_STORAGE_UNAVAILABLE'
+  throw error
 }
 
 function getMemoryStore() {
@@ -186,7 +213,7 @@ async function getRedisClient() {
 
   try {
     const redis = await import('redis')
-    const client = redis.createClient({ url: process.env.REDIS_URL })
+    const client = redis.createClient({ url: getRedisUrl() })
     client.on('error', (error) => {
       console.error('Roses Redis error:', error)
     })
@@ -224,6 +251,10 @@ export async function kvGetJSON(key) {
     } catch (error) {
       console.warn('Roses storage: redis read failed, memory fallback.', error)
     }
+  }
+
+  if (requiresDurableStorage()) {
+    throwDurableStorageUnavailable('kvGetJSON')
   }
 
   const fileEntry = await getLocalFileEntry(key)
@@ -275,6 +306,10 @@ export async function kvSetJSON(key, value, options = {}) {
     } catch (error) {
       console.warn('Roses storage: redis write failed, memory fallback.', error)
     }
+  }
+
+  if (requiresDurableStorage()) {
+    throwDurableStorageUnavailable('kvSetJSON')
   }
 
   const expiresAt = typeof options.exSeconds === 'number'
