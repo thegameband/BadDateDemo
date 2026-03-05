@@ -126,7 +126,7 @@
 .roses-reveal-block {
   background: rgba(255, 255, 255, 0.04);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   line-height: 1.45;
 }
 
@@ -280,6 +280,65 @@
   padding: 12px 16px;
 }
 
+.roses-dashboard-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.roses-info-panel {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(96, 165, 250, 0.08) 0%, rgba(15, 23, 42, 0.2) 100%),
+    rgba(255, 255, 255, 0.03);
+  padding: 8px 10px;
+}
+
+.roses-panel-title {
+  margin: 0 0 6px;
+  font-size: 1.04rem;
+  line-height: 1.15;
+}
+
+.roses-panel-grid {
+  gap: 6px;
+}
+
+.roses-panel-item {
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(5, 9, 20, 0.55);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roses-panel-label {
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 0.73rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.roses-panel-value {
+  color: #f8fafc;
+  font-size: 0.98rem;
+  line-height: 1.22;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.roses-panel-body {
+  margin: 0;
+  line-height: 1.38;
+  color: #f8fafc;
+}
+
 .roses-dashboard-actions {
   width: 100%;
   justify-content: center;
@@ -295,9 +354,12 @@
 }
 
 .roses-word-cloud-wrap {
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(15, 23, 42, 0.2) 100%),
+    rgba(255, 255, 255, 0.03);
   border-radius: 10px;
-  padding: 12px;
+  padding: 8px 10px;
 }
 
 .roses-word-cloud-wrap h3,
@@ -326,10 +388,10 @@
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .roses-lb-panel-head {
@@ -369,10 +431,10 @@
 
 .roses-lb-row {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 4px;
-  padding: 8px 0;
+  gap: 2px;
+  padding: 7px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -386,7 +448,7 @@
 
 .roses-lb-rank {
   color: rgba(226, 232, 240, 0.9);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-align: left;
   white-space: nowrap;
@@ -395,7 +457,7 @@
 .roses-lb-name {
   min-width: 0;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   color: #f8fafc;
   white-space: nowrap;
   overflow: hidden;
@@ -736,6 +798,6 @@
   }
 
   .roses-lb-row {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
   }
 }

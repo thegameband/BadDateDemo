@@ -337,6 +337,8 @@ function RosesMode({ onBack }) {
   const candidateA = candidates.find((candidate) => candidate.slot === 'A') || candidates[0] || null
   const candidateB = candidates.find((candidate) => candidate.slot === 'B') || candidates[1] || null
   const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
+  const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
+  const hasSentimentKeywords = sentimentKeywords.length > 0
 
   const withTimeout = useCallback((promise, ms) => (
     Promise.race([
@@ -1133,41 +1135,78 @@ function RosesMode({ onBack }) {
               </button>
             </div>
 
-            <div className="roses-profile-grid">
-              <div><strong>Name:</strong> {profile?.fields?.name || '-'}</div>
-              <div><strong>Age:</strong> {profile?.fields?.age || '-'}</div>
-              <div><strong>Pronouns:</strong> {profile?.fields?.pronouns || '-'}</div>
-              <div><strong>Occupation:</strong> {profile?.fields?.occupation || '-'}</div>
-              <div><strong>Shown/Chatted:</strong> {profile?.stats?.shownCount ?? 0}</div>
-              <div><strong>Roses:</strong> {profile?.stats?.roseCount ?? 0}</div>
-              <div><strong>All-Time Rank:</strong> #{profile?.ranks?.allTime || '-'}</div>
-              <div><strong>Weekly Rank:</strong> #{profile?.ranks?.weekly || '-'}</div>
+            <div className="roses-dashboard-panels">
+              <section className="roses-info-panel">
+                <h3 className="roses-panel-title">Profile</h3>
+                <div className="roses-profile-grid roses-panel-grid">
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">Name</span>
+                    <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
+                  </div>
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">Age</span>
+                    <span className="roses-panel-value">{profile?.fields?.age || '-'}</span>
+                  </div>
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">Pronouns</span>
+                    <span className="roses-panel-value">{profile?.fields?.pronouns || '-'}</span>
+                  </div>
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">Occupation</span>
+                    <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="roses-info-panel">
+                <h3 className="roses-panel-title">Stats</h3>
+                <div className="roses-profile-grid roses-panel-grid">
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">Shown/Chatted</span>
+                    <span className="roses-panel-value">{profile?.stats?.shownCount ?? 0}</span>
+                  </div>
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">Roses</span>
+                    <span className="roses-panel-value">{profile?.stats?.roseCount ?? 0}</span>
+                  </div>
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">All-Time Rank</span>
+                    <span className="roses-panel-value">#{profile?.ranks?.allTime || '-'}</span>
+                  </div>
+                  <div className="roses-panel-item">
+                    <span className="roses-panel-label">Weekly Rank</span>
+                    <span className="roses-panel-value">#{profile?.ranks?.weekly || '-'}</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="roses-info-panel">
+                <h3 className="roses-panel-title">Intro Tagline</h3>
+                <p className="roses-panel-body">{profile?.fields?.introTagline || '-'}</p>
+              </section>
+
+              <section className="roses-info-panel">
+                <h3 className="roses-panel-title">Bio</h3>
+                <p className="roses-panel-body">{profile?.fields?.bio || '-'}</p>
+              </section>
             </div>
 
-            <div className="roses-text-block">
-              <strong>Intro Tagline:</strong> {profile?.fields?.introTagline || '-'}
-            </div>
-            <div className="roses-text-block">
-              <strong>Bio:</strong> {profile?.fields?.bio || '-'}
-            </div>
-
-            <div className="roses-word-cloud-wrap">
-              <h3>Bachelor Question Keywords</h3>
-              <div className="roses-word-cloud">
-                {(profile?.sentimentKeywords || []).length === 0 && (
-                  <span className="roses-muted">No keyword data yet. Complete rounds to build this.</span>
-                )}
-                {(profile?.sentimentKeywords || []).map((item) => (
-                  <span
-                    key={item.word}
-                    className="roses-word"
-                    style={{ fontSize: scoreWordSize(item.count) }}
-                  >
-                    {item.word}
-                  </span>
-                ))}
+            {hasSentimentKeywords && (
+              <div className="roses-word-cloud-wrap">
+                <h3>Bachelor Question Keywords</h3>
+                <div className="roses-word-cloud">
+                  {sentimentKeywords.map((item) => (
+                    <span
+                      key={item.word}
+                      className="roses-word"
+                      style={{ fontSize: scoreWordSize(item.count) }}
+                    >
+                      {item.word}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="roses-leaderboards">
               <LeaderboardPanel
