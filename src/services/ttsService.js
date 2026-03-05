@@ -41,9 +41,33 @@ let onTTSStatusCallbacks = []
 // Track pending audio completion promises (reserved for future use)
 let _currentAudioEndResolve = null
 let _serverElevenLabsAvailable = null
+let sharedAudioElement = null
+let currentObjectUrl = null
+let mediaPlaybackPrimed = false
+
+const SILENT_WAV_DATA_URI =
+  'data:audio/wav;base64,UklGRjoAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+const PLAY_START_TIMEOUT_MS = 1600
 
 if (typeof window !== 'undefined') {
   fetchRuntimeCapabilities().catch(() => {})
+}
+
+function getSharedAudioElement() {
+  if (typeof Audio === 'undefined') return null
+  if (!sharedAudioElement) {
+    sharedAudioElement = new Audio()
+    sharedAudioElement.preload = 'auto'
+    sharedAudioElement.playsInline = true
+    sharedAudioElement.setAttribute?.('playsinline', '')
+  }
+  return sharedAudioElement
+}
+
+function clearCurrentObjectUrl() {
+  if (!currentObjectUrl) return
+  URL.revokeObjectURL(currentObjectUrl)
+  currentObjectUrl = null
 }
 
 function isMobileBrowser() {
@@ -210,13 +234,46 @@ export function isTTSEnabled() {
 export function stopAllAudio() {
   if (currentAudio) {
     currentAudio.pause()
+    currentAudio.removeAttribute?.('src')
+    currentAudio.load?.()
     currentAudio = null
   }
+  clearCurrentObjectUrl()
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel()
   }
   audioQueue = []
   isPlaying = false
+}
+
+export async function primeTTSPlayback() {
+  const audio = getSharedAudioElement()
+  if (!audio || mediaPlaybackPrimed || isPlaying) return mediaPlaybackPrimed
+
+  const previousMuted = audio.muted
+  const previousSrc = audio.currentSrc || audio.src || ''
+
+  try {
+    audio.src = SILENT_WAV_DATA_URI
+    audio.muted = true
+    audio.currentTime = 0
+    await audio.play()
+    audio.pause()
+    audio.currentTime = 0
+    mediaPlaybackPrimed = true
+    return true
+  } catch (error) {
+    console.warn('TTS playback priming failed:', error)
+    return false
+  } finally {
+    audio.muted = previousMuted
+    if (previousSrc && previousSrc !== SILENT_WAV_DATA_URI) {
+      audio.src = previousSrc
+    } else {
+      audio.removeAttribute('src')
+      audio.load()
+    }
+  }
 }
 
 /**
@@ -404,19 +461,39 @@ async function processQueue() {
     utterance.rate = speaker === 'narrator' ? 0.92 : speaker === 'dater' ? getDaterPlaybackRate() : 1.0
     utterance.pitch = speaker === 'narrator' ? 1.0 : (speaker === 'dater' ? (daterVoiceIsMale ? 0.9 : 1.05) : 1.0)
     utterance.volume = 1
+    let didStart = false
+    let didFinish = false
+    const startTimeoutId = setTimeout(() => {
+      if (didStart || didFinish) return
+      didFinish = true
+      console.warn('⚠️ Browser TTS start timeout')
+      window.speechSynthesis.cancel()
+      if (onStart) onStart()
+      if (onEnd) onEnd(0)
+      processQueue()
+    }, PLAY_START_TIMEOUT_MS)
 
     utterance.onstart = () => {
+      if (didFinish) return
+      didStart = true
+      clearTimeout(startTimeoutId)
       startTime = Date.now()
       notifyAudioStart(text, speaker)
       if (onStart) onStart()
     }
     utterance.onend = () => {
+      if (didFinish) return
+      didFinish = true
+      clearTimeout(startTimeoutId)
       const duration = startTime ? Date.now() - startTime : 0
       notifyAudioEnd(text, speaker)
       if (onEnd) onEnd(duration)
       processQueue()
     }
     utterance.onerror = (err) => {
+      if (didFinish) return
+      didFinish = true
+      clearTimeout(startTimeoutId)
       console.error('❌ Browser TTS error:', err)
       if (onStart) onStart()
       if (onEnd) onEnd(0)
@@ -439,13 +516,30 @@ async function processQueue() {
     const audioUrl = preloadedAudioUrl || (await fetchElevenLabsAudioUrl(text, voiceId, speaker))
     
     // Create and play audio
-    currentAudio = new Audio(audioUrl)
+    currentAudio = getSharedAudioElement() || new Audio()
+    clearCurrentObjectUrl()
+    currentObjectUrl = audioUrl.startsWith('blob:') ? audioUrl : null
+    currentAudio.pause?.()
+    currentAudio.src = audioUrl
+    currentAudio.load?.()
     currentAudio.playbackRate = speaker === 'dater' ? getDaterPlaybackRate() : 1.0
+    let didStart = false
+    let didFinish = false
+    const startTimeoutId = setTimeout(() => {
+      if (didStart || didFinish) return
+      didFinish = true
+      console.warn('⚠️ HTMLAudioElement start timeout')
+      currentAudio?.pause?.()
+      fallbackToBrowserTTS('ElevenLabs audio start timed out; using browser voice fallback.')
+    }, PLAY_START_TIMEOUT_MS)
     
     currentAudio.onended = () => {
+      if (didFinish) return
+      didFinish = true
+      clearTimeout(startTimeoutId)
       const duration = startTime ? Date.now() - startTime : 0
       console.log(`⏹️ Audio ended for ${speaker} (${duration}ms)`)
-      URL.revokeObjectURL(audioUrl)
+      clearCurrentObjectUrl()
       currentAudio = null
       // Notify listeners that audio ended
       notifyAudioEnd(text, speaker)
@@ -456,15 +550,20 @@ async function processQueue() {
     }
     
     currentAudio.onerror = (err) => {
+      if (didFinish) return
+      didFinish = true
+      clearTimeout(startTimeoutId)
       console.error('❌ Audio playback error:', err)
-      URL.revokeObjectURL(audioUrl)
+      clearCurrentObjectUrl()
       currentAudio = null
-      if (onEnd) onEnd(0)
-      processQueue()
+      fallbackToBrowserTTS('ElevenLabs audio playback failed; using browser voice fallback.')
     }
     
     // Notify when audio actually starts playing
     currentAudio.onplay = () => {
+      if (didFinish) return
+      didStart = true
+      clearTimeout(startTimeoutId)
       startTime = Date.now()
       console.log(`▶️ Audio started for ${speaker}`)
       notifyTTSStatus({ code: 'ELEVENLABS_OK', level: 'ok', message: '' })
