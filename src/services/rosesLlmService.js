@@ -40,7 +40,7 @@ const GENERATED_FIELD_STYLE = {
     maxTokens: 180,
   },
   introTagline: {
-    brief: 'One punchy opening line spoken aloud. Hooky, flirty, and memorable.',
+    brief: 'One spoken line the character would actually say out loud on first contact. Memorable and character-authored.',
     maxTokens: 70,
   },
 }
@@ -118,6 +118,57 @@ const BIO_UNPROMPTED_DOMESTICITY_PATTERN = /\b(?:cook|cooks|cooking|chef|kitchen
 const BIO_DOMESTICITY_CONTEXT_PATTERN = /\b(?:cook|chef|kitchen|bak(?:e|ing|er|ery)|food|restaurant|barista|tea|coffee|wine|domestic|cozy|farmer|gardener)\b/i
 const BIO_VOICE_MARKER_PATTERN = /\b(?:i|me|my)\b/i
 const BIO_EXTREME_WORD_PATTERN = /\b(?:collect|collected|built|ruined|conquered|hunt|hunted|command|despise|adore|obsessed|worship|devour|stole|survived|destroy|haunt|win|victory|trophy|grudge|empire|chaos)\b/i
+
+const TAGLINE_STYLE_MODES = [
+  {
+    name: 'command',
+    instruction: 'Make it a command, order, or drill-sergeant line if that fits the character.',
+  },
+  {
+    name: 'warning',
+    instruction: 'Make it a threat, warning, or line in the sand if the character has danger in them.',
+  },
+  {
+    name: 'boast',
+    instruction: 'Make it a flex, challenge, or declaration of superiority.',
+  },
+  {
+    name: 'credo',
+    instruction: 'Make it sound like a personal rule, worldview, or hard principle.',
+  },
+  {
+    name: 'dare',
+    instruction: 'Make it a pointed dare or challenge that invites response without turning cutesy.',
+  },
+  {
+    name: 'invitation',
+    instruction: 'Make it an invitation only if the character would naturally talk that way. Keep it specific, not generic flirt copy.',
+  },
+]
+
+const TAGLINE_GENERIC_PATTERNS = [
+  /\bstep closer\b/i,
+  /\bwinner gets\b/i,
+  /\bloser gets\b/i,
+  /\bwicked grin\b/i,
+  /\bmake me laugh\b/i,
+  /\bslow burns?\b/i,
+  /\bbold energy\b/i,
+  /\bbring snacks\b/i,
+  /\bmatch your chaos\b/i,
+  /\bworst idea first\b/i,
+  /\bsurprise me\b/i,
+  /\bcharm me fast\b/i,
+  /\blast dumpling\b/i,
+  /\bdry humor\b/i,
+  /\bpartner in crime\b/i,
+  /\bsecret soft(?:ie| spot)\b/i,
+  /\bif you can handle me\b/i,
+]
+
+const TAGLINE_IMPERATIVE_START_PATTERN = /^(?:drop|tell|come|look|watch|kneel|run|stand|prove|show|bring|try|say|speak|step|back|leave|listen|give)\b/i
+const TAGLINE_SPOKEN_MARKER_PATTERN = /\b(?:i|i'm|i'll|i'd|me|my|you|your|you're|you'll|gonna|won't|can't|dont|don't)\b/i
+const TAGLINE_SHARP_VERB_PATTERN = /\b(?:pay|handle|bleed|kneel|run|fight|prove|survive|earn|break|burn|obey|leave|watch|listen|stand|drop|bring|touch)\b/i
 
 function unwrapCodeFence(value = '') {
   const raw = String(value || '').trim()
@@ -231,6 +282,10 @@ function pickBioStyleModes(count = 3) {
   return shuffleList(BIO_STYLE_MODES).slice(0, Math.max(1, Math.min(count, BIO_STYLE_MODES.length)))
 }
 
+function pickTaglineStyleModes(count = 3) {
+  return shuffleList(TAGLINE_STYLE_MODES).slice(0, Math.max(1, Math.min(count, TAGLINE_STYLE_MODES.length)))
+}
+
 function bioHasGenericDatingProfileTone(rawValue = '', fields = {}) {
   const text = normalizeWhitespace(rawValue)
   if (!text) return false
@@ -276,6 +331,63 @@ function scoreBioCandidate(rawValue = '', fields = {}) {
   if (bioHasGenericDatingProfileTone(text, fields)) score -= 240
   if (/[;|]/.test(text)) score -= 18
   if (text.length < 28) score -= 15
+
+  return score
+}
+
+function taglineHasGenericHookTone(rawValue = '', fields = {}) {
+  const text = normalizeWhitespace(rawValue)
+  if (!text) return false
+
+  if (TAGLINE_GENERIC_PATTERNS.some((pattern) => pattern.test(text))) {
+    return true
+  }
+
+  if (/\bif you can keep up\b/i.test(text)) {
+    return true
+  }
+
+  const sourceText = normalizeWhitespace([
+    fields?.occupation || '',
+    fields?.bio || '',
+  ].join(' '))
+
+  if (!BIO_DOMESTICITY_CONTEXT_PATTERN.test(sourceText) && BIO_UNPROMPTED_DOMESTICITY_PATTERN.test(text)) {
+    return true
+  }
+
+  return false
+}
+
+function taglineHasSpokenShape(rawValue = '') {
+  const text = normalizeWhitespace(rawValue)
+  if (!text) return false
+
+  return (
+    TAGLINE_IMPERATIVE_START_PATTERN.test(text) ||
+    TAGLINE_SPOKEN_MARKER_PATTERN.test(text) ||
+    /[!?]$/.test(text) ||
+    /\.\.\./.test(text)
+  )
+}
+
+function scoreTaglineCandidate(rawValue = '', fields = {}) {
+  const text = normalizeWhitespace(rawValue)
+  if (!text) return Number.NEGATIVE_INFINITY
+
+  const words = text.split(/\s+/).filter(Boolean)
+  let score = Math.min(40, text.length)
+
+  if (words.length >= 3 && words.length <= 16) score += 14
+  else score -= 24
+
+  if (taglineHasSpokenShape(text)) score += 12
+  if (TAGLINE_IMPERATIVE_START_PATTERN.test(text)) score += 10
+  if (TAGLINE_SHARP_VERB_PATTERN.test(text)) score += 8
+  if (taglineHasGenericHookTone(text, fields)) score -= 220
+  if (taglineLooksLikeProfileSummary(text, fields)) score -= 90
+  if (!taglineHasSpokenShape(text)) score -= 30
+  if (/[;|]/.test(text)) score -= 18
 
   return score
 }
@@ -421,11 +533,11 @@ function taglineLooksLikeProfileSummary(rawValue = '', fields = {}) {
 }
 
 const TAGLINE_RESCUE_FALLBACKS = [
-  'Tell me your worst idea first.',
-  'If you can make me laugh, I am already curious.',
-  'Charm me fast, I do not do slow burns.',
-  'Bring bold energy or bring snacks.',
-  'Surprise me and I will match your chaos.',
+  'Say something worth my time.',
+  'Prove you belong here.',
+  'Try not to disappoint me.',
+  'If you flinch, you lose.',
+  'Lead with the dangerous part.',
 ]
 
 function profileContext(fields = {}) {
@@ -486,11 +598,13 @@ export async function generateRosesField(field, fields = {}) {
       ]
       : field === 'introTagline'
         ? [
-          'Intro Tagline rules: this is a spoken opener in chat, not a profile summary.',
-          'Intro Tagline rules: one punchy sentence with a hook.',
+          'Intro Tagline rules: this is a spoken line the character says out loud, not a profile summary.',
+          'Intro Tagline rules: think PS2 fighting-game character-select voice line.',
+          'Intro Tagline rules: one punchy spoken sentence only.',
           'Intro Tagline rules: no age, no pronouns, no occupation labels, no field-list fragments.',
-          'Intro Tagline rules: no semicolon list structure and no resume-style phrasing.',
-          'Intro Tagline rules: sound bold, playful, and enticing.',
+          'Intro Tagline rules: do not paraphrase the bio or reuse its gimmicks.',
+          'Intro Tagline rules: no semicolon list structure, no resume phrasing, and no app-dating banter.',
+          'Intro Tagline rules: prefer command, threat, brag, credo, dare, or challenge over generic flirting.',
         ]
     : []
 
@@ -552,6 +666,8 @@ export async function generateRosesField(field, fields = {}) {
       return (
         !taglineEchoesProfileFields(value, fields) &&
         !taglineLooksLikeProfileSummary(value, fields) &&
+        !taglineHasGenericHookTone(value, fields) &&
+        taglineHasSpokenShape(value) &&
         taglineIsPunchyEnough(value)
       )
     }
@@ -668,6 +784,129 @@ export async function generateRosesField(field, fields = {}) {
     if (fallbackBio?.value && isDifferentFromCurrent(fallbackBio.value)) {
       return fallbackBio.value
     }
+
+    return ''
+  }
+
+  if (field === 'introTagline') {
+    const taglineSamplingOptions = {
+      temperature: 1.04,
+      presencePenalty: 0.58,
+      frequencyPenalty: 0.32,
+    }
+    const taglineCandidates = []
+    const rejectedTaglines = []
+    const rememberTaglineCandidate = (value = '', modeName = '') => {
+      if (!isWithinLimit(value) || !isDifferentFromCurrent(value) || taglineEchoesProfileFields(value, fields)) {
+        return false
+      }
+
+      const templatey = taglineHasGenericHookTone(value, fields) || taglineLooksLikeProfileSummary(value, fields)
+      const spoken = taglineHasSpokenShape(value)
+      taglineCandidates.push({
+        value,
+        modeName,
+        templatey,
+        spoken,
+        score: scoreTaglineCandidate(value, fields),
+      })
+      rejectedTaglines.push(value)
+      return !templatey && spoken && taglineIsPunchyEnough(value)
+    }
+    const buildTaglinePrompt = (mode) => [
+      'You are writing exactly one intro tagline field for a rose-ceremony dating profile.',
+      'Return plain text only for that field value.',
+      'This is spoken dialogue, not profile copy, not a caption, and not a paraphrase of the bio.',
+      'Think PS2 fighting-game character-select voice line: immediate, loud, specific, and memorable.',
+      'It should sound like something this character would actually blurt out on being selected.',
+      'Prefer command, threat, boast, credo, dare, or challenge over generic flirting.',
+      'Do NOT default to cute swagger, app-dating banter, or winky polished copy.',
+      'Do NOT reuse gimmicks, props, food, or wording from the bio unless the character absolutely lives on that detail.',
+      'One spoken sentence only.',
+      `Must fit within ${maxLength} characters.`,
+      `Voice mode for this draft: ${mode.name}. ${mode.instruction}`,
+      'Bad: Step closer—winner gets the last dumpling, loser gets chased by four hands and a wicked grin.',
+      'Good: Drop and give me 20!',
+      'Good: Anyone who tries to hurt my friends... is gonna pay!',
+      "Good: If you can't handle my 30ft tall bipedal mech, you can't handle me",
+      ...(fieldRules.length ? [...fieldRules] : []),
+      'Use the variation nonce only as an internal diversity cue. Never print it.',
+      `Variation nonce: ${variationNonce}-${mode.name}`,
+      `Current value for this field: ${currentValue || '(empty)'}`,
+      'If current value is non-empty, output a different value.',
+      '',
+      'Existing profile context:',
+      context,
+      ...(rejectedTaglines.length
+        ? [
+          '',
+          'Rejected prior drafts to avoid repeating:',
+          ...rejectedTaglines.map((value, index) => `${index + 1}. ${value}`),
+        ]
+        : []),
+    ].join('\n')
+
+    for (const mode of pickTaglineStyleModes(4)) {
+      const candidateValue = await requestFieldValue(buildTaglinePrompt(mode), style.maxTokens || 70, taglineSamplingOptions)
+      rememberTaglineCandidate(candidateValue, mode.name)
+    }
+
+    const bestFreshTagline = [...taglineCandidates]
+      .filter((item) => !item.templatey && item.spoken)
+      .sort((left, right) => right.score - left.score)[0]?.value || ''
+
+    if (bestFreshTagline) {
+      return bestFreshTagline
+    }
+
+    let candidate = [...taglineCandidates]
+      .sort((left, right) => right.score - left.score)[0]?.value || ''
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const mode = pickTaglineStyleModes(1)[0] || TAGLINE_STYLE_MODES[0]
+      const rewritePrompt = [
+        'Rewrite this into a stronger spoken voice line.',
+        'Think PS2 fighting-game character-select line, not dating-app copy.',
+        'Make it feel like something the character says aloud, not something written about them.',
+        'Do NOT paraphrase the bio.',
+        'Do NOT use cute rewards, food callbacks, or generic swagger.',
+        `Voice mode for this rewrite: ${mode.name}. ${mode.instruction}`,
+        'One spoken sentence only.',
+        `Hard requirement: ${maxLength} characters or fewer.`,
+        ...(fieldRules.length ? [...fieldRules] : []),
+        '',
+        'Profile context:',
+        context,
+        '',
+        'Current candidate:',
+        candidate || '(empty)',
+        '',
+        'Rejected drafts to avoid repeating:',
+        ...(rejectedTaglines.length ? rejectedTaglines.map((value, index) => `${index + 1}. ${value}`) : ['(none)']),
+        '',
+        'Return only the rewritten tagline.',
+      ].join('\n')
+
+      candidate = await requestFieldValue(
+        rewritePrompt,
+        72,
+        { temperature: 1.08, presencePenalty: 0.62, frequencyPenalty: 0.36 },
+      )
+
+      if (rememberTaglineCandidate(candidate, `${mode.name}-rewrite`) && passesFieldSpecificGuards(candidate)) {
+        return candidate
+      }
+    }
+
+    const fallbackTagline = [...taglineCandidates]
+      .sort((left, right) => right.score - left.score)[0]
+
+    if (fallbackTagline?.value && isDifferentFromCurrent(fallbackTagline.value)) {
+      return fallbackTagline.value
+    }
+
+    const fallback = TAGLINE_RESCUE_FALLBACKS[Math.floor(Math.random() * TAGLINE_RESCUE_FALLBACKS.length)]
+    if (isDifferentFromCurrent(fallback) && passesFieldSpecificGuards(fallback)) return fallback
 
     return ''
   }
