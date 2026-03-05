@@ -44,6 +44,14 @@ const QUESTION_FILL_PROMPTS = [
   "What's your preference when it comes to _____?",
   "You see me and I'm _____. What do you do?",
 ]
+const QUESTION_FILL_OPTIONS = [
+  ['Regret', 'Accomplishment', 'Desire'],
+  ['Food', 'Movie', 'Date Night'],
+  ['Meal', 'Historical Figure', 'Sensation'],
+  ['Date', 'Regret', 'Lie'],
+  ['Season', 'Love Language', 'Extended Families'],
+  ['Asleep', 'In Trouble', 'Smiling'],
+]
 
 const DEFAULT_ROSES_VOICES = {
   male: 'TX3LPaxmHKxFdv7VOQHJ', // Liam
@@ -449,9 +457,11 @@ function RosesMode({ onBack }) {
 
   const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
   const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, chatLog.length)
+  const activePromptOptionIndex = questionPromptIndexes[currentTurnPromptIndex] ?? 0
   const activePromptTemplate = QUESTION_FILL_PROMPTS[
-    questionPromptIndexes[currentTurnPromptIndex] ?? 0
+    activePromptOptionIndex
   ] || QUESTION_FILL_PROMPTS[0]
+  const activePromptOptions = QUESTION_FILL_OPTIONS[activePromptOptionIndex] || []
   const composedQuestion = fillQuestionTemplate(activePromptTemplate, questionInput)
   const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
@@ -963,6 +973,13 @@ function RosesMode({ onBack }) {
     })
   }
 
+  const handleQuickFillQuestion = (value = '') => {
+    if (sendingQuestion || introActive) return
+    const nextValue = String(value || '').trim()
+    if (!nextValue) return
+    setQuestionInput(nextValue)
+  }
+
   const handleExitRound = () => {
     stopAllAudio()
     setActiveSpeechSlot('')
@@ -1072,6 +1089,24 @@ function RosesMode({ onBack }) {
 
           <div className="roses-question-row">
             <div className="roses-question-template">{activePromptTemplate}</div>
+            <div className="roses-question-options" role="group" aria-label="Quick fill options">
+              {activePromptOptions.map((option) => (
+                <button
+                  key={`${activePromptTemplate}-${option}`}
+                  type="button"
+                  className={[
+                    'roses-question-option',
+                    String(questionInput || '').trim().toLowerCase() === String(option).toLowerCase()
+                      ? 'is-selected'
+                      : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => handleQuickFillQuestion(option)}
+                  disabled={sendingQuestion || introActive}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
             <input
               ref={questionInputRef}
               type="text"
