@@ -17,7 +17,7 @@ import {
   sanitizeRosesFields,
 } from '../services/rosesLlmService'
 import { daters } from '../data/daters'
-import { primeTTSPlayback, setVoice, speakAndWait, stopAllAudio } from '../services/ttsService'
+import { onAudioStart, primeTTSPlayback, setVoice, speakAndWait, stopAllAudio } from '../services/ttsService'
 import { useWebHaptics } from 'web-haptics/react'
 import './RosesMode.css'
 
@@ -617,12 +617,14 @@ function RosesMode({ onBack }) {
   }, [stage, chatLog.length, introTaglines])
 
   useEffect(() => {
-    if (!activeSpeechAnswerKey) return
-    void triggerHaptic('medium')
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(24)
-    }
-  }, [activeSpeechAnswerKey, triggerHaptic])
+    return onAudioStart((_text, speaker) => {
+      if (speaker !== 'dater' && speaker !== 'avatar') return
+      void triggerHaptic('medium')
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(24)
+      }
+    })
+  }, [triggerHaptic])
 
   useEffect(() => {
     if (stage !== 'chat') return
