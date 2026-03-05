@@ -382,11 +382,13 @@ function LeaderboardPanel({ title, mode, entries = [], currentPlayerId = '', wee
                   isYou ? 'is-you' : '',
                 ].filter(Boolean).join(' ')}
               >
-                <span className="roses-lb-rank">#{rank}</span>
+                <div className="roses-lb-meta">
+                  <span className="roses-lb-rank">#{rank}</span>
+                  <span className="roses-lb-score">{primaryScore} 🌹</span>
+                </div>
                 <span className="roses-lb-name" title={displayName}>
                   {displayName}{isYou ? ' (you)' : ''}
                 </span>
-                <span className="roses-lb-score">{primaryScore} 🌹</span>
               </li>
             )
           })}

@@ -446,11 +446,11 @@
 }
 
 .roses-lb-row {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 2px;
-  padding: 7px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  padding: 7px 0 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -473,27 +473,32 @@
   background: rgba(244, 114, 182, 0.08);
 }
 
+.roses-lb-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .roses-lb-rank {
   color: rgba(226, 232, 240, 0.9);
-  font-size: 0.75rem;
+  font-size: 0.77rem;
   font-weight: 700;
   text-align: left;
   white-space: nowrap;
 }
 
 .roses-lb-name {
-  min-width: 0;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: #f8fafc;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
 }
 
 .roses-lb-score {
   color: #ffd7e5;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   line-height: 1;
   font-weight: 700;
   white-space: nowrap;
@@ -964,7 +969,7 @@
     font-size: 1.02rem;
   }
 
-  .roses-lb-row {
-    grid-template-columns: 24px minmax(0, 1fr) auto;
+  .roses-lb-meta {
+    gap: 8px;
   }
 }
