@@ -144,17 +144,27 @@ function normalizeQuestionForDuplicateCheck(value = '') {
 }
 
 function randomPromptPlan(count = TURN_COUNT) {
+  const totalPrompts = QUESTION_FILL_PROMPTS.length
+  if (!totalPrompts) return []
   const picks = []
-  for (let index = 0; index < count; index += 1) {
-    const previous = picks[index - 1]
-    let next = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
-    let safety = 0
-    while (QUESTION_FILL_PROMPTS.length > 1 && next === previous && safety < 8) {
-      next = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
-      safety += 1
+
+  for (let index = 0; index < Math.max(1, count); index += 1) {
+    const used = new Set(picks)
+    const available = Array.from({ length: totalPrompts }, (_, idx) => idx)
+      .filter((idx) => !used.has(idx))
+
+    const pool = available.length
+      ? available
+      : Array.from({ length: totalPrompts }, (_, idx) => idx)
+
+    const next = pool[Math.floor(Math.random() * pool.length)] ?? 0
+    if (!Number.isFinite(next)) {
+      picks.push(0)
+    } else {
+      picks.push(next)
     }
-    picks.push(next)
   }
+
   return picks
 }
 
@@ -975,12 +985,22 @@ function RosesMode({ onBack }) {
       const next = [...prev]
       const turnIndex = Math.min(TURN_COUNT - 1, chatLog.length)
       const currentValue = Number(next[turnIndex] || 0)
-      let updatedValue = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
-      let safety = 0
-      while (QUESTION_FILL_PROMPTS.length > 1 && updatedValue === currentValue && safety < 8) {
-        updatedValue = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
-        safety += 1
+      const usedInOtherTurns = new Set(
+        next
+          .map((value, idx) => (idx === turnIndex ? null : Number(value)))
+          .filter((value) => Number.isFinite(value)),
+      )
+
+      let candidatePool = Array.from({ length: QUESTION_FILL_PROMPTS.length }, (_, idx) => idx)
+        .filter((idx) => idx !== currentValue)
+        .filter((idx) => !usedInOtherTurns.has(idx))
+
+      if (!candidatePool.length) {
+        candidatePool = Array.from({ length: QUESTION_FILL_PROMPTS.length }, (_, idx) => idx)
+          .filter((idx) => idx !== currentValue)
       }
+
+      const updatedValue = candidatePool[Math.floor(Math.random() * candidatePool.length)] ?? currentValue
       next[turnIndex] = updatedValue
       return next
     })
