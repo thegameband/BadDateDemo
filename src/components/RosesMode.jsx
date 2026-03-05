@@ -588,6 +588,7 @@ function RosesMode({ onBack }) {
       }
       if (answerKey) {
         setActiveSpeechAnswerKey(answerKey)
+        void triggerHaptic('light')
       }
       const timeoutMs = estimateTtsTimeout(line)
       await withTimeout(speakAndWait(line, speaker), timeoutMs)
@@ -602,7 +603,7 @@ function RosesMode({ onBack }) {
         setActiveSpeechAnswerKey((current) => (current === answerKey ? '' : current))
       }
     }
-  }, [admirerVoiceByCandidateId, estimateTtsTimeout, withTimeout])
+  }, [admirerVoiceByCandidateId, estimateTtsTimeout, triggerHaptic, withTimeout])
 
   useEffect(() => {
     if (stage !== 'chat') return
@@ -1015,7 +1016,6 @@ function RosesMode({ onBack }) {
         const candidate = candidateById.get(String(item.candidateId))
         const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
         setStatus(`${admirerLabelFromSlot(slot)} responds...`)
-        triggerHaptic('light')
         await speakRosesLine({
           text: withAdmirerSpeechTag(slot, item.response),
           speaker: 'dater',
