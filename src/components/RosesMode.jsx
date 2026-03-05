@@ -68,10 +68,6 @@ function emptyFields() {
   }
 }
 
-function getOtherCandidate(roundCandidates = [], winnerId = '') {
-  return roundCandidates.find((candidate) => String(candidate.playerId) !== String(winnerId))
-}
-
 function scoreWordSize(count = 1) {
   const base = 0.85
   const extra = Math.min(1.3, Math.log2(Math.max(1, count)) * 0.35)
@@ -980,16 +976,6 @@ function RosesMode({ onBack }) {
     }
   }
 
-  const winnerCandidate = useMemo(() => {
-    if (!reveal?.winner) return null
-    return candidates.find((candidate) => candidate.playerId === reveal.winner.playerId) || reveal.winner
-  }, [reveal, candidates])
-
-  const loserCandidate = useMemo(() => {
-    if (!reveal?.winner) return null
-    return getOtherCandidate(candidates, reveal.winner.playerId)
-  }, [reveal, candidates])
-
   if (stage === 'loading') {
     return (
       <div className="roses-mode">
@@ -1340,11 +1326,6 @@ function RosesMode({ onBack }) {
           </>
         )}
 
-        {(winnerCandidate || loserCandidate) && (
-          <div className="roses-dev-note">
-            Last reveal: loser {admirerLabelFromSlot(loserCandidate?.slot)} then winner {admirerLabelFromSlot(winnerCandidate?.slot)}.
-          </div>
-        )}
       </div>
     </div>
   )

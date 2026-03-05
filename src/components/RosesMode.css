@@ -893,13 +893,6 @@
   transform: translateY(0);
 }
 
-.roses-dev-note {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 10px;
-  color: rgba(240, 240, 255, 0.58);
-  font-size: 0.82rem;
-}
-
 @media (max-width: 680px) {
   .roses-mode {
     padding: 12px;
