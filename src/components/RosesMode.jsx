@@ -370,6 +370,7 @@ function RosesMode({ onBack }) {
   const [reveal, setReveal] = useState(null)
   const chatLogRef = useRef(null)
   const questionInputRef = useRef(null)
+  const skipQuestionClearOnFocusRef = useRef(false)
 
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -896,11 +897,36 @@ function RosesMode({ onBack }) {
 
   const handleQuestionFocus = () => {
     if (sendingQuestion || introActive) return
+    if (skipQuestionClearOnFocusRef.current) {
+      skipQuestionClearOnFocusRef.current = false
+      requestAnimationFrame(() => {
+        const node = questionInputRef.current
+        if (!node) return
+        const pos = String(node.value || '').length
+        node.setSelectionRange(pos, pos)
+      })
+      return
+    }
     setQuestionInput('')
     requestAnimationFrame(() => {
       const node = questionInputRef.current
       if (!node) return
       const pos = String(node.value || '').length
+      node.setSelectionRange(pos, pos)
+    })
+  }
+
+  const handleUseSuggestedQuestion = () => {
+    if (sendingQuestion || introActive) return
+    const suggestion = String(questionPlaceholder || '').trim()
+    if (!suggestion) return
+    setQuestionInput(suggestion)
+    skipQuestionClearOnFocusRef.current = true
+    requestAnimationFrame(() => {
+      const node = questionInputRef.current
+      if (!node) return
+      node.focus()
+      const pos = String(suggestion).length
       node.setSelectionRange(pos, pos)
     })
   }
@@ -1031,14 +1057,26 @@ function RosesMode({ onBack }) {
               placeholder={questionPlaceholder}
               disabled={sendingQuestion || introActive}
             />
-            <button
-              type="button"
-              className="roses-primary"
-              onClick={handleSendQuestion}
-              disabled={sendingQuestion || introActive || !questionInput.trim()}
-            >
-              {sendingQuestion ? 'Getting Both Answers...' : 'Ask Both Admirers'}
-            </button>
+            <div className="roses-question-actions">
+              <button
+                type="button"
+                className="roses-question-dice"
+                aria-label="Use suggested question"
+                onClick={handleUseSuggestedQuestion}
+                disabled={sendingQuestion || introActive}
+                title="Use suggested question"
+              >
+                🎲
+              </button>
+              <button
+                type="button"
+                className="roses-primary"
+                onClick={handleSendQuestion}
+                disabled={sendingQuestion || introActive || !questionInput.trim()}
+              >
+                {sendingQuestion ? 'Getting Both Answers...' : 'Ask Both Admirers'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

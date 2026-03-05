@@ -658,6 +658,37 @@
   gap: 8px;
 }
 
+.roses-question-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roses-question-actions .roses-primary {
+  flex: 1 1 auto;
+}
+
+.roses-question-dice {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.roses-question-dice:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .roses-question-row textarea {
   width: 100%;
   border-radius: 8px;
