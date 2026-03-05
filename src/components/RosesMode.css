@@ -709,6 +709,14 @@
     flex-direction: column;
   }
 
+  .roses-profile-actions .roses-primary {
+    order: 1;
+  }
+
+  .roses-profile-actions .roses-secondary {
+    order: 2;
+  }
+
   .roses-lb-panel-head h3 {
     font-size: 1.02rem;
   }
