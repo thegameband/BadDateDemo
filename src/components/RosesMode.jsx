@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   completeRosesRound,
   fetchRosesLeaderboard,
@@ -469,7 +469,6 @@ function RosesMode({ onBack }) {
     activePromptOptionIndex
   ] || QUESTION_FILL_PROMPTS[0]
   const activePromptOptions = QUESTION_FILL_OPTIONS[activePromptOptionIndex] || []
-  const composedQuestion = fillQuestionTemplate(activePromptTemplate, questionInput)
   const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const hasSentimentKeywords = sentimentKeywords.length > 0
@@ -1162,54 +1161,53 @@ function RosesMode({ onBack }) {
 
   if (stage === 'choose') {
     return (
-      <div className="roses-mode">
-        <div className="roses-card">
-          <h2>Award One Rose</h2>
-          <p className="roses-muted">Choose your favorite admirer. You must pick one.</p>
-          <div className="roses-award-board-wrap">
-            <div className="roses-award-board">
-              <div className="roses-award-head-cell roses-award-head-question">Questions</div>
-              {orderedCandidates.map((candidate, index) => {
-                const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
-                return (
-                  <div key={`head-${candidate?.playerId || index}`} className="roses-award-head-cell">
-                    <div className="roses-award-admirer-name">{admirerLabelFromSlot(slot)}</div>
-                    <div className="roses-award-admirer-tagline">{candidate?.fields?.introTagline || '-'}</div>
-                  </div>
-                )
-              })}
+      <div className="roses-mode roses-mode-chat">
+        <div className="roses-card roses-chat-shell roses-choose-shell">
+          <div className="roses-chat-head">
+            <button className="roses-back" type="button" onClick={handleExitRound}>Exit Round</button>
+            <h2>Award One Rose</h2>
+            <span className="roses-chat-progress">Final Choice</span>
+          </div>
 
-              {chatLog.map((turn) => (
-                <Fragment key={`turn-row-${turn.turnNumber}`}>
-                  <div className="roses-award-question-cell">Q{turn.turnNumber}: {turn.question}</div>
+          <div className="roses-chat-log roses-choose-log">
+            {chatLog.map((turn) => (
+              <div key={`choose-turn-${turn.turnNumber}`} className="roses-turn-card">
+                <div className="roses-chat-question">Q{turn.turnNumber}: {turn.question}</div>
+                <div className="roses-answers-grid">
                   {orderedCandidates.map((candidate, index) => {
                     const answer = (turn.answers || []).find(
                       (item) => String(item.candidateId) === String(candidate?.playerId || ''),
                     )
+                    const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
                     const responseText = String(answer?.response || 'No answer logged.')
                     return (
                       <div
-                        key={`turn-${turn.turnNumber}-cand-${candidate?.playerId || index}`}
+                        key={`choose-turn-${turn.turnNumber}-cand-${candidate?.playerId || index}`}
                         className={[
-                          'roses-award-answer-cell',
+                          'roses-answer-panel',
                           responseText === 'No answer logged.' ? 'is-empty' : '',
                         ].filter(Boolean).join(' ')}
                       >
-                        {responseText}
+                        <div className="roses-answer-head">{admirerLabelFromSlot(slot)}</div>
+                        <div className="roses-chat-answer">{responseText}</div>
                       </div>
                     )
                   })}
-                </Fragment>
-              ))}
+                </div>
+              </div>
+            ))}
+          </div>
 
-              <div className="roses-award-pick-label">Pick one</div>
+          <div className="roses-choose-row">
+            <div className="roses-question-template">Choose your favorite admirer. You must pick one.</div>
+            <div className="roses-choose-actions">
               {orderedCandidates.map((candidate, index) => {
                 const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
                 return (
                   <button
                     key={`pick-${candidate?.playerId || index}`}
                     type="button"
-                    className="roses-award-pick-btn"
+                    className="roses-choose-btn"
                     onClick={() => candidate?.playerId && handleChooseWinner(candidate.playerId)}
                     disabled={choosingWinner || !candidate?.playerId}
                   >
