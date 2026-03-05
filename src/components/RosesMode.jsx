@@ -226,14 +226,16 @@ function RevealCard({ profile, title, emphasis = 'default' }) {
 
   return (
     <div className="roses-reveal-card">
-      <h3
-        className={[
-          'roses-reveal-stage-title',
-          emphasis === 'loser' ? 'is-loser' : '',
-        ].filter(Boolean).join(' ')}
-      >
-        {title}
-      </h3>
+      {String(title || '').trim() && (
+        <h3
+          className={[
+            'roses-reveal-stage-title',
+            emphasis === 'loser' ? 'is-loser' : '',
+          ].filter(Boolean).join(' ')}
+        >
+          {title}
+        </h3>
+      )}
       <div className="roses-reveal-ranks">
         <span>All-Time Rank: #{profile?.ranks?.allTime || '-'}</span>
         <span>Weekly Rank: #{profile?.ranks?.weekly || '-'}</span>
@@ -1230,13 +1232,14 @@ function RosesMode({ onBack }) {
     return (
       <div className="roses-mode">
         <div className="roses-card">
+          <h2 className="roses-reveal-stage-title is-loser">Admirers Not Chosen</h2>
           <div className="roses-reveal-multi-grid">
             {nonWinnerProfiles.map((item, index) => (
               <RevealCard
                 key={`nonwinner-${item?.playerId || index}`}
                 profile={item}
-                title={`${admirerLabelFromSlot(item?.slot || ADMIRER_SLOTS[index] || String(index + 1))} NOT CHOSEN`}
-                emphasis="loser"
+                title=""
+                emphasis="default"
               />
             ))}
           </div>
