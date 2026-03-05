@@ -588,7 +588,6 @@ function RosesMode({ onBack }) {
       }
       if (answerKey) {
         setActiveSpeechAnswerKey(answerKey)
-        void triggerHaptic('light')
       }
       const timeoutMs = estimateTtsTimeout(line)
       await withTimeout(speakAndWait(line, speaker), timeoutMs)
@@ -603,7 +602,7 @@ function RosesMode({ onBack }) {
         setActiveSpeechAnswerKey((current) => (current === answerKey ? '' : current))
       }
     }
-  }, [admirerVoiceByCandidateId, estimateTtsTimeout, triggerHaptic, withTimeout])
+  }, [admirerVoiceByCandidateId, estimateTtsTimeout, withTimeout])
 
   useEffect(() => {
     if (stage !== 'chat') return
@@ -616,6 +615,14 @@ function RosesMode({ onBack }) {
 
     return () => cancelAnimationFrame(frameId)
   }, [stage, chatLog.length, introTaglines])
+
+  useEffect(() => {
+    if (!activeSpeechAnswerKey) return
+    void triggerHaptic('medium')
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(24)
+    }
+  }, [activeSpeechAnswerKey, triggerHaptic])
 
   useEffect(() => {
     if (stage !== 'chat') return
