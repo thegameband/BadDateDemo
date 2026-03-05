@@ -1260,6 +1260,23 @@ function RosesMode({ onBack }) {
               </section>
             </div>
 
+            {hasSentimentKeywords && (
+              <div className="roses-word-cloud-wrap">
+                <h3>Topics Discussed with {profile?.fields?.name || 'This Profile'}</h3>
+                <div className="roses-word-cloud">
+                  {sentimentKeywords.map((item) => (
+                    <span
+                      key={item.word}
+                      className="roses-word"
+                      style={{ fontSize: scoreWordSize(item.count) }}
+                    >
+                      {item.word}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="roses-leaderboards">
               <LeaderboardPanel
                 title="All-Time Roses"
@@ -1275,23 +1292,6 @@ function RosesMode({ onBack }) {
                 weekKey={leaderboard.weekKey}
               />
             </div>
-
-            {hasSentimentKeywords && (
-              <div className="roses-word-cloud-wrap">
-                <h3>Bachelor Question Keywords</h3>
-                <div className="roses-word-cloud">
-                  {sentimentKeywords.map((item) => (
-                    <span
-                      key={item.word}
-                      className="roses-word"
-                      style={{ fontSize: scoreWordSize(item.count) }}
-                    >
-                      {item.word}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
 
