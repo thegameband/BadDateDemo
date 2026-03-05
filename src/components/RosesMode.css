@@ -261,6 +261,19 @@
   padding: 10px 14px;
 }
 
+.roses-back:focus-visible,
+.roses-generate-btn:focus-visible,
+.roses-primary:focus-visible,
+.roses-secondary:focus-visible,
+.roses-question-option:focus-visible,
+.roses-question-dice:focus-visible,
+.roses-choose-btn:focus-visible,
+.roses-reveal-cta:focus-visible {
+  outline: 3px solid #fcd34d;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(252, 211, 77, 0.2);
+}
+
 .roses-profile-actions,
 .roses-dashboard-actions {
   display: flex;

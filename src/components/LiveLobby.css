@@ -380,6 +380,23 @@
   font-weight: 600;
 }
 
+.mode-btn:focus-visible,
+.back-btn:focus-visible,
+.archive-link:focus-visible,
+.join-date-btn:focus-visible,
+.back-link:focus-visible,
+.admin-close-btn:focus-visible,
+.admin-action-btn:focus-visible,
+.debug-action-btn:focus-visible,
+.dater-picker-card:focus-visible,
+.room-item:focus-visible,
+.cancel-btn:focus-visible,
+.confirm-btn:focus-visible {
+  outline: 3px solid var(--accent-gold);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.2);
+}
+
 /* Info Section */
 .live-info {
   display: flex;

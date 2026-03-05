@@ -1034,7 +1034,6 @@ function RosesMode({ onBack }) {
 
   const handleQuestionFocus = () => {
     if (sendingQuestion || introActive) return
-    setQuestionInput('')
     requestAnimationFrame(() => {
       const node = questionInputRef.current
       if (!node) return
