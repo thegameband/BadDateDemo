@@ -13,6 +13,51 @@ import {
 } from '../_state.js'
 
 const QUESTION_COUNT = 3
+const DISCORD_TIMEOUT_MS = 2500
+
+function getDiscordWebhookUrl() {
+  const rosesWebhook = String(process.env.ROSES_DISCORD_WEBHOOK_URL || '').trim()
+  if (rosesWebhook) return rosesWebhook
+  return String(process.env.DISCORD_WEBHOOK_URL || '').trim()
+}
+
+async function postDiscordRoseAward({ profile, rank, totalProfiles }) {
+  const webhookUrl = getDiscordWebhookUrl()
+  if (!webhookUrl) return
+
+  const name = String(profile?.fields?.name || '').trim() || 'A profile'
+  const roseCount = Number(profile?.stats?.roseCount || 0)
+  const safeRank = Number.isFinite(Number(rank)) && Number(rank) > 0 ? Number(rank) : '?'
+  const safeTotal = Number.isFinite(Number(totalProfiles)) && Number(totalProfiles) > 0 ? Number(totalProfiles) : '?'
+  const line = `${name} just got a Rose! They have ${roseCount} roses, in ${safeRank}/${safeTotal} place.`
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), DISCORD_TIMEOUT_MS)
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        embeds: [
+          {
+            description: line,
+            color: 0xF43F5E,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const bodyText = await response.text()
+      throw new Error(`Webhook responded with ${response.status}: ${bodyText.slice(0, 200)}`)
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 function getRevealPayload(profile, ranks, weekKey) {
   const weeklyRoses = Number(profile.stats?.weeklyRoses?.[weekKey] || 0)
@@ -157,6 +202,16 @@ export default async function handler(req, res) {
 
     const allProfiles = await getAllProfiles()
     const rankings = buildRankings(allProfiles)
+
+    try {
+      await postDiscordRoseAward({
+        profile: winnerProfile,
+        rank: rankings.allTimeRanks?.[winnerId],
+        totalProfiles: rankings.allTimeSorted?.length || 0,
+      })
+    } catch (discordError) {
+      console.error('Roses Discord webhook error:', discordError)
+    }
 
     sendJson(res, 200, {
       ok: true,
