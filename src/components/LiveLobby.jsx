@@ -10,7 +10,6 @@ import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
 import SpeedDateMode from './SpeedDateMode'
 import RosesMode from './RosesMode'
-import { DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
 import './DropALineReels.css'
 import './DropALineProfile.css'
 import './DropALineScene.css'
@@ -20,7 +19,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.63'
+const GAME_VERSION = '0.04.64'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -958,9 +957,7 @@ function LiveLobby() {
             onContinue={(payload) => {
               setDropALinePayload(payload)
               setDropALineScreen('profile')
-              const bgSrc = payload?.location ? DROP_A_LINE_LOCATION_IMAGES[payload.location] : null
               const charSrc = payload?.dater?.dropALineCharacterImage ?? null
-              if (bgSrc) { const img = new Image(); img.src = bgSrc }
               if (charSrc) { const img = new Image(); img.src = charSrc }
             }}
           />

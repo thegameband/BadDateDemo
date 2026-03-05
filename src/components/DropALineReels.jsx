@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { DROP_A_LINE_LOCATIONS } from '../data/dropALineLocations'
+import { DROP_A_LINE_LOCATIONS, DROP_A_LINE_PAIRINGS } from '../data/dropALineLocations'
 import './DropALineReels.css'
 
 const ROW_HEIGHT = 56
 const SPIN_COPIES = 12
 const SPIN_DURATION = 3
+const SEEN_PAIRINGS_STORAGE_KEY = 'dropALineSeenPairings'
 
 function ReelStrip({ options, finalIndex, onComplete }) {
   const stripItems = useMemo(() => {
@@ -46,33 +47,67 @@ function ReelStrip({ options, finalIndex, onComplete }) {
   )
 }
 
-function findAdamIndex(daters) {
-  if (!Array.isArray(daters) || !daters.length) return 0
-  const idx = daters.findIndex((d) => d?.name === 'Adam')
-  return idx >= 0 ? idx : 0
+function pickNextPairing(playablePairings) {
+  if (!Array.isArray(playablePairings) || !playablePairings.length) return null
+
+  let storedSeen = []
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SEEN_PAIRINGS_STORAGE_KEY) ?? '[]')
+    if (Array.isArray(parsed)) storedSeen = parsed.filter((value) => typeof value === 'string')
+  } catch {
+    storedSeen = []
+  }
+
+  const availableKeys = new Set(playablePairings.map((pairing) => pairing.key))
+  const seen = storedSeen.filter((key) => availableKeys.has(key))
+  let unseen = playablePairings.filter((pairing) => !seen.includes(pairing.key))
+  let nextSeen = seen
+
+  if (!unseen.length) {
+    unseen = [...playablePairings]
+    nextSeen = []
+  }
+
+  const randomPick = unseen[Math.floor(Math.random() * unseen.length)]
+  localStorage.setItem(SEEN_PAIRINGS_STORAGE_KEY, JSON.stringify([...nextSeen, randomPick.key]))
+  return randomPick
 }
 
 export default function DropALineReels({ daters = [], onContinue }) {
   const daterNames = useMemo(() => (Array.isArray(daters) ? daters.map((d) => d?.name ?? '?') : []), [daters])
-  const adamIndex = useMemo(() => findAdamIndex(daters), [daters])
-  const [spinning, setSpinning] = useState(true)
-  const [finalLocationIndex, setFinalLocationIndex] = useState(0)
+  const playablePairings = useMemo(() => {
+    if (!Array.isArray(daters) || !daters.length) return []
+
+    return DROP_A_LINE_PAIRINGS
+      .map((pairing) => {
+        const daterIndex = daters.findIndex((dater) => dater?.name === pairing.daterName)
+        const locationIndex = DROP_A_LINE_LOCATIONS.indexOf(pairing.location)
+        if (daterIndex < 0 || locationIndex < 0) return null
+        return {
+          ...pairing,
+          key: `${pairing.daterName}::${pairing.location}`,
+          daterIndex,
+          locationIndex,
+        }
+      })
+      .filter(Boolean)
+  }, [daters])
+
+  const [selectedPairing, setSelectedPairing] = useState(null)
   const [showContinue, setShowContinue] = useState(false)
   const [reelsCompleteCount, setReelsCompleteCount] = useState(0)
 
   useEffect(() => {
-    if (!daterNames.length) return
-    setFinalLocationIndex(0)
-    setSpinning(true)
+    if (!daterNames.length || !playablePairings.length) return
+    setSelectedPairing(pickNextPairing(playablePairings))
     setShowContinue(false)
     setReelsCompleteCount(0)
-  }, [daterNames.length])
+  }, [daterNames.length, playablePairings])
 
   const handleReelComplete = () => {
     setReelsCompleteCount((c) => {
       const next = c + 1
       if (next >= 2) {
-        setSpinning(false)
         setShowContinue(true)
       }
       return next
@@ -80,12 +115,12 @@ export default function DropALineReels({ daters = [], onContinue }) {
   }
 
   const handleContinue = () => {
-    const dater = daters[adamIndex] ?? daters[0]
-    const location = DROP_A_LINE_LOCATIONS[finalLocationIndex] ?? DROP_A_LINE_LOCATIONS[0]
+    const dater = daters[selectedPairing?.daterIndex ?? 0] ?? daters[0]
+    const location = DROP_A_LINE_LOCATIONS[selectedPairing?.locationIndex ?? 0] ?? DROP_A_LINE_LOCATIONS[0]
     onContinue?.({ dater, location })
   }
 
-  if (!daterNames.length) {
+  if (!daterNames.length || !selectedPairing) {
     return (
       <div className="drop-a-line-reels drop-a-line-loading">
         <p>No characters available.</p>
@@ -100,7 +135,7 @@ export default function DropALineReels({ daters = [], onContinue }) {
           <div className="drop-a-line-reel-title">Dater</div>
           <ReelStrip
             options={daterNames}
-            finalIndex={adamIndex}
+            finalIndex={selectedPairing.daterIndex}
             onComplete={handleReelComplete}
           />
         </div>
@@ -108,7 +143,7 @@ export default function DropALineReels({ daters = [], onContinue }) {
           <div className="drop-a-line-reel-title">Location</div>
           <ReelStrip
             options={DROP_A_LINE_LOCATIONS}
-            finalIndex={finalLocationIndex}
+            finalIndex={selectedPairing.locationIndex}
             onComplete={handleReelComplete}
           />
         </div>
