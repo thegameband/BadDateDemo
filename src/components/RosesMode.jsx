@@ -53,10 +53,11 @@ const QUESTION_FILL_OPTIONS = [
   ['Asleep', 'In Trouble', 'Smiling'],
 ]
 
-const DEFAULT_ROSES_VOICES = {
-  male: 'TX3LPaxmHKxFdv7VOQHJ', // Liam
-  female: 'EXAVITQu4vr4xnSDxMaL', // Bella
-}
+const ROSES_VOICE_POOL = [
+  { voiceId: 'EXAVITQu4vr4xnSDxMaL', isMale: false }, // Bella
+  { voiceId: 'TX3LPaxmHKxFdv7VOQHJ', isMale: true }, // Liam
+  { voiceId: 'Dkbbg7k9Ir9TNzn5GYLp', isMale: true }, // Henry
+]
 
 const KNOWN_DATER_VOICES = new Map(
   daters.map((dater) => {
@@ -105,20 +106,77 @@ function inferIsMaleFromPronouns(pronouns = '') {
   return false
 }
 
-function resolveAdmirerVoice(candidate, slot = 'A') {
+function stableVoiceHash(value = '') {
+  const text = String(value || '')
+  let hash = 0
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash * 31) + text.charCodeAt(i)) >>> 0
+  }
+  return hash >>> 0
+}
+
+function getProfilePreferredVoice(candidate, slot = 'A') {
   const nameKey = String(candidate?.fields?.name || '').trim().toLowerCase()
   const known = KNOWN_DATER_VOICES.get(nameKey)
   if (known?.voiceId) {
     return known
   }
 
-  const inferredMale = inferIsMaleFromPronouns(candidate?.fields?.pronouns)
-  const fallbackMale = slot === 'B' || slot === 'C'
-  const isMale = inferredMale || fallbackMale
-  return {
-    voiceId: isMale ? DEFAULT_ROSES_VOICES.male : DEFAULT_ROSES_VOICES.female,
-    isMale,
+  const pronouns = String(candidate?.fields?.pronouns || '').toLowerCase()
+  const seed = `${String(candidate?.playerId || '')}:${String(candidate?.fields?.name || '')}:${slot}`
+  const hashed = stableVoiceHash(seed)
+
+  const femaleVoices = ROSES_VOICE_POOL.filter((voice) => !voice.isMale)
+  const maleVoices = ROSES_VOICE_POOL.filter((voice) => voice.isMale)
+
+  if (pronouns.includes('she') && femaleVoices.length) {
+    return femaleVoices[hashed % femaleVoices.length]
   }
+
+  if (pronouns.includes('he') && maleVoices.length) {
+    return maleVoices[hashed % maleVoices.length]
+  }
+
+  return ROSES_VOICE_POOL[hashed % ROSES_VOICE_POOL.length]
+}
+
+function buildAdmirerVoiceAssignments(candidates = []) {
+  const assignments = new Map()
+  const usedVoiceIds = new Set()
+  const ordered = [...candidates].sort((a, b) => {
+    const slotDelta = slotSortIndex(a?.slot) - slotSortIndex(b?.slot)
+    if (slotDelta !== 0) return slotDelta
+    return String(a?.playerId || '').localeCompare(String(b?.playerId || ''))
+  })
+
+  ordered.forEach((candidate, index) => {
+    const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
+    const preferred = getProfilePreferredVoice(candidate, slot)
+
+    let selected = preferred
+    if (preferred?.voiceId && usedVoiceIds.has(preferred.voiceId)) {
+      const sameGender = ROSES_VOICE_POOL.find(
+        (voice) => voice.isMale === Boolean(preferred.isMale) && !usedVoiceIds.has(voice.voiceId),
+      )
+      const anyUnused = ROSES_VOICE_POOL.find((voice) => !usedVoiceIds.has(voice.voiceId))
+      selected = sameGender || anyUnused || preferred
+    }
+
+    if (selected?.voiceId) {
+      usedVoiceIds.add(selected.voiceId)
+    }
+    assignments.set(String(candidate?.playerId || ''), selected || ROSES_VOICE_POOL[0])
+  })
+
+  return assignments
+}
+
+function resolveAdmirerVoice(candidate, slot = 'A') {
+  const preferred = getProfilePreferredVoice(candidate, slot)
+  if (preferred?.voiceId) {
+    return preferred
+  }
+  return ROSES_VOICE_POOL[0]
 }
 
 function slotSortIndex(slot = '') {
@@ -476,6 +534,11 @@ function RosesMode({ onBack }) {
     })
   ), [candidates])
 
+  const admirerVoiceByCandidateId = useMemo(
+    () => buildAdmirerVoiceAssignments(orderedCandidates),
+    [orderedCandidates],
+  )
+
   const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
   const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, chatLog.length)
   const activePromptOptionIndex = questionPromptIndexes[currentTurnPromptIndex] ?? 0
@@ -512,7 +575,8 @@ function RosesMode({ onBack }) {
 
     try {
       if (speaker === 'dater') {
-        const voice = resolveAdmirerVoice(candidate, slot)
+        const candidateId = String(candidate?.playerId || '')
+        const voice = admirerVoiceByCandidateId.get(candidateId) || resolveAdmirerVoice(candidate, slot)
         if (voice?.voiceId) {
           setVoice('dater', voice.voiceId, Boolean(voice.isMale))
         }
@@ -536,7 +600,7 @@ function RosesMode({ onBack }) {
         setActiveSpeechAnswerKey((current) => (current === answerKey ? '' : current))
       }
     }
-  }, [estimateTtsTimeout, withTimeout])
+  }, [admirerVoiceByCandidateId, estimateTtsTimeout, withTimeout])
 
   useEffect(() => {
     if (stage !== 'chat') return
