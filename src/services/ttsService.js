@@ -4,7 +4,7 @@
  * Provides voice synthesis for the Dater and Avatar characters
  */
 
-const API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
+import { fetchRuntimeCapabilities } from './runtimeCapabilities'
 
 // Voice IDs from ElevenLabs
 // You can change these to any voice from your ElevenLabs account
@@ -40,6 +40,11 @@ let onTTSStatusCallbacks = []
 
 // Track pending audio completion promises (reserved for future use)
 let _currentAudioEndResolve = null
+let _serverElevenLabsAvailable = null
+
+if (typeof window !== 'undefined') {
+  fetchRuntimeCapabilities().catch(() => {})
+}
 
 function sanitizeSpeechText(text) {
   if (!text || text.trim().length === 0) return ''
@@ -64,34 +69,44 @@ function sanitizeSpeechText(text) {
 }
 
 async function fetchElevenLabsAudioUrl(text, voiceId, speaker) {
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-    {
-      method: 'POST',
-      headers: {
-        'xi-api-key': API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: {
-          stability: speaker === 'dater' ? 0.35 : speaker === 'narrator' ? 0.55 : 0.5,
-          similarity_boost: 0.75,
-          style: speaker === 'dater' ? 0.75 : speaker === 'narrator' ? 0.5 : 0.5,
-          use_speaker_boost: true,
-        },
-      }),
-    }
-  )
+  const response = await fetch('/api/tts/synthesize', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      text,
+      speaker,
+      voiceId,
+    }),
+  })
 
   if (!response.ok) {
+    if (response.status === 503 && response.headers.get('x-tts-error-code') === 'missing_api_key') {
+      _serverElevenLabsAvailable = false
+    }
     const errorText = await response.text()
     throw new Error(`ElevenLabs API error (${response.status}): ${errorText}`)
   }
 
+  _serverElevenLabsAvailable = true
   const audioBlob = await response.blob()
   return URL.createObjectURL(audioBlob)
+}
+
+async function canUseServerElevenLabs() {
+  if (typeof _serverElevenLabsAvailable === 'boolean') {
+    return _serverElevenLabsAvailable
+  }
+
+  try {
+    const capabilities = await fetchRuntimeCapabilities()
+    _serverElevenLabsAvailable = Boolean(capabilities?.elevenlabs)
+  } catch {
+    _serverElevenLabsAvailable = false
+  }
+
+  return _serverElevenLabsAvailable
 }
 
 /**
@@ -223,6 +238,7 @@ export async function speak(text, speaker = 'avatar', options = {}) {
   }
   
   const voiceId = VOICES[speaker] || VOICES.avatar
+  const useServerTTS = await canUseServerElevenLabs()
   
   // Create a promise that resolves when audio starts OR ends (based on option)
   return new Promise((resolve) => {
@@ -231,7 +247,7 @@ export async function speak(text, speaker = 'avatar', options = {}) {
       text: cleanText, 
       voiceId, 
       speaker,
-      useBrowserTTS: !API_KEY,
+      useBrowserTTS: !useServerTTS,
       preloadedAudioUrl: null,
       onStart: waitForEnd ? null : () => resolve({ started: true, immediate: false }),
       onEnd: waitForEnd ? (duration) => resolve({ started: true, immediate: false, duration }) : null
@@ -253,7 +269,7 @@ export async function speak(text, speaker = 'avatar', options = {}) {
  */
 export async function preloadSpeech(text, speaker = 'avatar') {
   if (!ttsEnabled) return null
-  if (!API_KEY) return null
+  if (!(await canUseServerElevenLabs())) return null
 
   const cleanText = sanitizeSpeechText(text)
   if (!cleanText) return null
@@ -404,8 +420,8 @@ async function processQueue() {
   }
 
   if (useBrowserTTS) {
-    console.warn('⚠️ ElevenLabs key missing, using browser TTS fallback')
-    fallbackToBrowserTTS('ElevenLabs audio unavailable (missing API key); using browser voice fallback.')
+    console.warn('⚠️ ElevenLabs server key missing, using browser TTS fallback')
+    fallbackToBrowserTTS('ElevenLabs audio unavailable on server; using browser voice fallback.')
     return
   }
   

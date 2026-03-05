@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX (motion.button)
 import { useGameStore } from '../store/gameStore'
 import { getDaterChatResponse, getFallbackDaterResponse, extractTraitFromResponse } from '../services/llmService'
+import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import './ChatPhase.css'
 
 function ChatPhase() {
   const { selectedDater, chatMessages, addChatMessage, startDate, discoveredTraits, addDiscoveredTrait } = useGameStore()
   const llmProvider = useGameStore((state) => state.llmProvider)
+  const [capabilities, setCapabilities] = useState(() => getCachedRuntimeCapabilities())
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef(null)
@@ -19,6 +21,18 @@ function ChatPhase() {
   useEffect(() => {
     scrollToBottom()
   }, [chatMessages])
+
+  useEffect(() => {
+    let mounted = true
+    fetchRuntimeCapabilities().then((next) => {
+      if (mounted) {
+        setCapabilities(next)
+      }
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
   
   // Initial greeting from Dater - asks what they want to know (run once on mount)
   useEffect(() => {
@@ -87,10 +101,10 @@ function ChatPhase() {
   }
 
   const hasLlmKey = llmProvider === 'anthropic'
-    ? Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
+    ? Boolean(capabilities.anthropic)
     : llmProvider === 'auto'
-      ? Boolean(import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_ANTHROPIC_API_KEY)
-      : Boolean(import.meta.env.VITE_OPENAI_API_KEY)
+      ? Boolean(capabilities.openai || capabilities.anthropic)
+      : Boolean(capabilities.openai)
   
   return (
     <div className="chat-phase">

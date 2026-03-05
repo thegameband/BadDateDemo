@@ -13,17 +13,20 @@ import {
 } from './promptChain'
 import { getVoiceProfilePrompt } from './voiceProfiles'
 import { useGameStore, DATER_RESPONSE_MODES } from '../store/gameStore'
+import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from './runtimeCapabilities'
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+const LLM_PROXY_API_URL = '/api/llm/chat'
 const OPENAI_MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5.2'
 const ANTHROPIC_MODEL = 'claude-opus-4-6'
 let _llmErrorMessage = null
 let _llmDebugSnapshot = null
 
-function getKeyFingerprint(key) {
-  if (!key || typeof key !== 'string') return 'missing'
-  return `len:${key.length}-sfx:${key.slice(-4)}`
+if (typeof window !== 'undefined') {
+  fetchRuntimeCapabilities().catch(() => {})
+}
+
+function getKeyFingerprint(provider) {
+  return `proxy:${provider || 'missing'}`
 }
 
 function getRuntimeContext() {
@@ -60,67 +63,54 @@ function getDaterResponseModePreference() {
 
 function resolveLlmProviderConfig() {
   const preference = getLlmProviderPreference()
-  const openaiKey = import.meta.env.VITE_OPENAI_API_KEY
-  const anthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+  const capabilities = getCachedRuntimeCapabilities()
+  const hasOpenAi = Boolean(capabilities.openai)
+  const hasAnthropic = Boolean(capabilities.anthropic)
+  const capabilitiesLoaded = Boolean(capabilities.loaded)
 
   if (preference === 'openai') {
-    if (!openaiKey) return null
+    if (capabilitiesLoaded && !hasOpenAi) return null
     return {
       provider: 'openai',
-      apiUrl: OPENAI_API_URL,
-      apiKey: openaiKey,
+      apiUrl: LLM_PROXY_API_URL,
       model: OPENAI_MODEL,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
-      },
       preference,
     }
   }
 
   if (preference === 'anthropic') {
-    if (!anthropicKey) return null
+    if (capabilitiesLoaded && !hasAnthropic) return null
     return {
       provider: 'anthropic',
-      apiUrl: ANTHROPIC_API_URL,
-      apiKey: anthropicKey,
+      apiUrl: LLM_PROXY_API_URL,
       model: ANTHROPIC_MODEL,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
       preference,
     }
   }
 
-  if (openaiKey) {
+  if (hasOpenAi) {
     return {
       provider: 'openai',
-      apiUrl: OPENAI_API_URL,
-      apiKey: openaiKey,
+      apiUrl: LLM_PROXY_API_URL,
       model: OPENAI_MODEL,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
-      },
       preference,
     }
   }
 
-  if (anthropicKey) {
+  if (hasAnthropic) {
     return {
       provider: 'anthropic',
-      apiUrl: ANTHROPIC_API_URL,
-      apiKey: anthropicKey,
+      apiUrl: LLM_PROXY_API_URL,
       model: ANTHROPIC_MODEL,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      preference,
+    }
+  }
+
+  if (!capabilitiesLoaded) {
+    return {
+      provider: 'openai',
+      apiUrl: LLM_PROXY_API_URL,
+      model: OPENAI_MODEL,
       preference,
     }
   }
@@ -162,7 +152,10 @@ function buildProviderBody(providerConfig, {
 }
 
 function extractProviderText(provider, data) {
-  if (provider === 'anthropic') return data?.content?.[0]?.text || ''
+  const looksAnthropic = Array.isArray(data?.content) && data.content.some((part) => typeof part?.text === 'string')
+  if (provider === 'anthropic' || looksAnthropic) {
+    return data?.content?.find((part) => typeof part?.text === 'string')?.text || ''
+  }
 
   const message = data?.choices?.[0]?.message
   const content = message?.content
@@ -193,6 +186,21 @@ function extractProviderText(provider, data) {
     return message.refusal.trim()
   }
   return ''
+}
+
+async function requestProviderCompletion(providerConfig, providerBody, options = {}) {
+  const { signal } = options
+  return fetch(providerConfig.apiUrl, {
+    method: 'POST',
+    ...(signal ? { signal } : {}),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      provider: providerConfig.provider,
+      body: providerBody,
+    }),
+  })
 }
 
 export function getLlmErrorMessage() {
@@ -702,7 +710,7 @@ function buildPromptTail(dater) {
 export async function getChatResponse(messages, systemPrompt, options = {}) {
   const providerConfig = resolveLlmProviderConfig()
   const runtime = getRuntimeContext()
-  const keyFingerprint = getKeyFingerprint(providerConfig?.apiKey)
+  const keyFingerprint = getKeyFingerprint(providerConfig?.provider)
   const maxTokens = Number.isFinite(Number(options?.maxTokens))
     ? Math.max(40, Number(options.maxTokens))
     : 120
@@ -717,16 +725,16 @@ export async function getChatResponse(messages, systemPrompt, options = {}) {
     : 0.3
   
   if (!providerConfig) {
-    _llmErrorMessage = 'No API key - LLM offline'
+    _llmErrorMessage = 'No LLM provider available'
     _llmDebugSnapshot = {
       source: 'getChatResponse',
       stage: 'preflight',
-      reason: 'missing_api_key',
+      reason: 'missing_provider',
       provider: getLlmProviderPreference(),
       keyFingerprint,
       runtime,
     }
-    console.warn('No LLM provider API key found. Using fallback responses.')
+    console.warn('No LLM provider available. Using fallback responses.')
     return null
   }
   
@@ -749,10 +757,7 @@ export async function getChatResponse(messages, systemPrompt, options = {}) {
       sanitizedMessages.push({ role: 'user', content: 'Respond to the latest message in character.' })
     }
 
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens,
         temperature,
         presencePenalty,
@@ -762,8 +767,7 @@ export async function getChatResponse(messages, systemPrompt, options = {}) {
           role: msg.role,
           content: msg.content,
         })),
-      })),
-    })
+      }))
     
     if (!response.ok) {
       let errorDetails = ''
@@ -851,15 +855,10 @@ export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens,
         messages: [{ role: 'user', content: userPrompt }],
-      })),
-    })
+      }), { signal: controller.signal })
     clearTimeout(timeoutId)
     if (!response.ok) return null
     const data = await response.json()
@@ -2668,10 +2667,7 @@ export async function extractTraitFromResponse(question, response, existingTrait
     : ''
   
   try {
-    const result = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const result = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens: 25,
         systemPrompt: `You extract SPECIFIC and DIVERSE personality insights from dating conversations.
 
@@ -2706,8 +2702,7 @@ Their answer: "${response}"
 
 What SPECIFIC trait or detail was revealed? (1-3 words only):`
         }],
-      })),
-    })
+      }))
     
     if (!result.ok) {
       return extractTraitSimple(question, response)
@@ -2853,7 +2848,7 @@ export async function generateDaterValues(dater) {
   const providerConfig = resolveLlmProviderConfig()
   
   if (!providerConfig) {
-    console.warn('No API key - using fallback dater values')
+    console.warn('No LLM provider available - using fallback dater values')
     return getFallbackDaterValues(dater)
   }
   
@@ -2914,15 +2909,11 @@ Return ONLY valid JSON in this exact format:
 }`
 
   try {
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens: 500,
         systemPrompt,
         messages: [{ role: 'user', content: 'Generate the dater values now.' }],
-      })),
-    })
+      }))
     
     if (!response.ok) {
       console.error('Error generating dater values')
@@ -3085,15 +3076,11 @@ Return ONLY valid JSON:
 }`
 
   try {
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens: 150,
         systemPrompt,
         messages: [{ role: 'user', content: 'Rate your reaction and pick the trait that justifies it.' }],
-      })),
-    })
+      }))
     
     if (!response.ok) {
       console.warn('API error, using fallback match')
@@ -3261,15 +3248,11 @@ OUTPUT JSON ONLY:
 }`
 
   try {
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens: 220,
         systemPrompt,
         messages: [{ role: 'user', content: 'Return only the JSON result.' }],
-      })),
-    })
+      }))
 
     if (!response.ok) {
       return {
@@ -3391,7 +3374,7 @@ export async function groupSimilarAnswers(question, answers) {
   
   if (!providerConfig) {
     // Fallback: no grouping, each answer is its own slice
-    console.log('⚠️ No API key - skipping answer grouping')
+    console.log('⚠️ No LLM provider available - skipping answer grouping')
     return answers.map(a => ({
       id: a.id,
       label: a.text,
@@ -3439,14 +3422,10 @@ RULES FOR JSON:
 - Output ONLY valid JSON, no explanation`
 
   try {
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens: 500,
         messages: [{ role: 'user', content: prompt }],
-      })),
-    })
+      }))
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`)
@@ -3501,7 +3480,7 @@ export async function generateBreakdownSentences(daterName, avatarName, qualityH
   const providerConfig = resolveLlmProviderConfig()
   
   if (!providerConfig || qualityHits.length === 0) {
-    console.log('⚠️ No API key or no quality hits - skipping breakdown generation')
+    console.log('⚠️ No LLM provider available or no quality hits - skipping breakdown generation')
     return []
   }
   
@@ -3540,14 +3519,10 @@ Return ONLY a JSON array of strings, like:
 ["First sentence.", "Second sentence.", "Third sentence."]`
 
   try {
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens: 300,
         messages: [{ role: 'user', content: prompt }],
-      })),
-    })
+      }))
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`)
@@ -3609,7 +3584,7 @@ export async function generatePlotTwistSummary(avatarName, daterName, winningAct
   }
 
   if (!providerConfig) {
-    console.warn('⚠️ No API key for plot twist summary')
+    console.warn('⚠️ No LLM provider available for plot twist summary')
     return buildFallbackSummary()
   }
   
@@ -3653,14 +3628,10 @@ Action: "Start flirting with them too"
 Return ONLY the 3-sentence narration, nothing else.`
 
   try {
-    const response = await fetch(providerConfig.apiUrl, {
-      method: 'POST',
-      headers: providerConfig.headers,
-      body: JSON.stringify(buildProviderBody(providerConfig, {
+    const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens: 200,
         messages: [{ role: 'user', content: prompt }],
-      })),
-    })
+      }))
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`)
@@ -4696,11 +4667,11 @@ export async function generateSpeedDatingOneLinerBatch({
 
   const providerConfig = resolveLlmProviderConfig()
   if (!providerConfig) {
-    _llmErrorMessage = 'No API key - LLM offline'
+    _llmErrorMessage = 'No LLM provider available'
     _llmDebugSnapshot = {
       source: 'generateSpeedDatingOneLinerBatch',
       stage: 'preflight',
-      reason: 'missing_api_key',
+      reason: 'missing_provider',
       requiredKeys: entries.map((entry) => entry.key),
       providerPreference: getLlmProviderPreference(),
     }
@@ -4878,11 +4849,7 @@ Return JSON with this exact shape:
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const response = await fetch(providerConfig.apiUrl, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: providerConfig.headers,
-        body: JSON.stringify(buildProviderBody(providerConfig, {
+      const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
           maxTokens: 520,
           temperature: 0.95,
           presencePenalty: 0.35,
@@ -4890,8 +4857,7 @@ Return JSON with this exact shape:
           systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
           responseFormat: allowSchema ? responseFormat : null,
-        })),
-      })
+        }), { signal: controller.signal })
       if (!response.ok) {
         let errorBody = ''
         let parsedError = null

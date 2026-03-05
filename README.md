@@ -46,18 +46,21 @@ To record a full playthrough (host view) as a WebM video:
    ```
    This runs the automated test agent with 1 host + 2 clients and saves a timestamped `playthrough-*.webm` in the project root. Play with VLC, Chrome, or convert to MP4 with `ffmpeg -i playthrough-123.webm playthrough.mp4`.
 
-## 🤖 AI-Powered Conversations (Optional)
+## 🤖 AI + TTS (Optional)
 
-For dynamic, LLM-powered conversations with Claude, add your Anthropic API key:
+LLM and ElevenLabs keys should be server-side only:
 
 1. Create a `.env` file in the project root:
 ```bash
-VITE_ANTHROPIC_API_KEY=your_api_key_here
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+ELEVENLABS_API_KEY=your_elevenlabs_key
+OPENAI_MODEL=gpt-5.2
 ```
 
-2. Get your API key from [Anthropic Console](https://console.anthropic.com/)
+2. Keys are read by `/api` routes, not exposed to the browser.
 
-Without an API key, the game runs in **Demo Mode** with scripted responses.
+Without server keys, the game runs in fallback/demo behavior.
 
 ## 🎨 Features
 

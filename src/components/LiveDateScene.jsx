@@ -4,6 +4,7 @@ import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, decideLikesDislikesFromAnswer, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
+import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import AnimatedText, { EMOTION_SPEEDS } from './AnimatedText'
 import './LiveDateScene.css'
 
@@ -141,6 +142,7 @@ function LiveDateScene() {
   const [isPreGenerating, setIsPreGenerating] = useState(false) // eslint-disable-line no-unused-vars -- used in JSX (pre-generating indicator)
   const [usingFallback, setUsingFallback] = useState(false)
   const [llmStatusMessage, setLlmStatusMessage] = useState('')
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState(() => getCachedRuntimeCapabilities())
 
   const syncLlmStatusMessage = () => {
     const base = getLlmErrorMessage() || ''
@@ -531,21 +533,37 @@ function LiveDateScene() {
       setVoice('dater', selectedDater.voiceId, isMale)
     }
   }, [selectedDater])
-  
-  // Check if API key is available
+
   useEffect(() => {
-    const apiKey = llmProvider === 'anthropic'
-      ? import.meta.env.VITE_ANTHROPIC_API_KEY
+    let mounted = true
+    fetchRuntimeCapabilities().then((capabilities) => {
+      if (mounted) {
+        setRuntimeCapabilities(capabilities)
+      }
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
+  
+  // Check if LLM provider is available on the server
+  useEffect(() => {
+    const hasProvider = llmProvider === 'anthropic'
+      ? Boolean(runtimeCapabilities.anthropic)
       : llmProvider === 'auto'
-        ? (import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_ANTHROPIC_API_KEY)
-        : import.meta.env.VITE_OPENAI_API_KEY
-    if (!apiKey) {
+        ? Boolean(runtimeCapabilities.openai || runtimeCapabilities.anthropic)
+        : Boolean(runtimeCapabilities.openai)
+
+    if (runtimeCapabilities.loaded && !hasProvider) {
       setUsingFallback(true)
-      console.warn('⚠️ No API key found - using fallback responses')
+      console.warn('⚠️ No LLM provider configured on server - using fallback responses')
       return
     }
-    setUsingFallback(false)
-  }, [llmProvider])
+
+    if (hasProvider) {
+      setUsingFallback(false)
+    }
+  }, [llmProvider, runtimeCapabilities])
   
   // PartyKit client from store
   const partyClient = useGameStore((state) => state.partyClient)

@@ -4,6 +4,7 @@ import { useGameStore, SCORING_MODES, DATER_RESPONSE_MODES } from '../store/game
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
 import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
+import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
@@ -19,7 +20,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.29'
+const GAME_VERSION = '0.04.30'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -63,8 +64,9 @@ function LiveLobby() {
   })
   const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene'
   const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, location }
-  const hasOpenAiKey = Boolean(import.meta.env.VITE_OPENAI_API_KEY)
-  const hasAnthropicKey = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState(() => getCachedRuntimeCapabilities())
+  const hasOpenAiKey = Boolean(runtimeCapabilities.openai)
+  const hasAnthropicKey = Boolean(runtimeCapabilities.anthropic)
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
@@ -101,6 +103,18 @@ function LiveLobby() {
       
       // Clean up the URL (remove the ?room= parameter)
       window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    fetchRuntimeCapabilities().then((capabilities) => {
+      if (mounted) {
+        setRuntimeCapabilities(capabilities)
+      }
+    })
+    return () => {
+      mounted = false
     }
   }, [])
   
@@ -626,7 +640,7 @@ function LiveLobby() {
                             <div className="dater-card-info">
                               <div className="dater-card-name">{option.label}</div>
                               <div className="dater-card-archetype">
-                                {option.available ? 'Key detected' : 'No key found'}
+                                {option.available ? 'Available on server' : 'Not configured'}
                               </div>
                             </div>
                             {llmProvider === option.id && (
