@@ -44,6 +44,10 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const preloadedComebackRef = useRef(null)
 
   const dropALineImages = payload?.dater?.dropALineImages
+  const daterName = payload?.dater?.name ?? 'Someone'
+  const locationPhrase =
+    (payload?.location && DROP_A_LINE_LOCATION_PHRASES[payload.location]) ?? payload?.location ?? 'somewhere'
+  const possessive = getPossessive(payload?.dater?.pronouns ?? payload?.dater?.dropALineProfile?.pronouns)
   const sceneImageUrl = useMemo(() => {
     if (!dropALineImages) return payload?.dater?.dropALineCharacterImage ?? null
     if (phase === 'comeback' || phase === 'reveal' || phase === 'stamp') {
@@ -458,9 +462,15 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
           />
           <div className="drop-a-line-share-overlay" />
           <div className="drop-a-line-share-top">
-            <p className="drop-a-line-share-line-title">Your Line</p>
+            <p className="drop-a-line-share-line-title">Pickup Line</p>
             <p className="drop-a-line-share-line">"{pickupLine.trim()}"</p>
-            <p className="drop-a-line-share-score">{finalScore}%</p>
+          </div>
+          <div
+            className={`drop-a-line-share-stamp ${
+              success ? 'drop-a-line-share-stamp-success' : 'drop-a-line-share-stamp-rejected'
+            }`}
+          >
+            {success ? `Got ${possessive} Number!` : 'REJECTED!'} {finalScore}%
           </div>
           <div className="drop-a-line-share-bottom">
             <p className="drop-a-line-share-response-label">{daterName}</p>

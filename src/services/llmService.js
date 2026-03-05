@@ -55,7 +55,7 @@ function getDaterResponseModePreference() {
   } catch {
     // Fall through to default
   }
-  return DATER_RESPONSE_MODES.MAIN
+  return DATER_RESPONSE_MODES.EXPERIMENTAL
 }
 
 function resolveLlmProviderConfig() {
@@ -4260,6 +4260,11 @@ Score the pickup line 0–100 based on:
 1. Cleverness: wordplay, wit, originality.
 2. Profile fit: references their attributes (hobbies, occupation, food, etc.), avoids their red flags, feels tailored to them.
 3. Attention to context: mentions or nods to the location or situation so it feels like they paid attention.
+4. Profile references (hobbies, occupation, favorite food):
+   - If the line references NONE of these three, apply a meaningful penalty.
+   - If the line references TWO OR MORE of these three, apply a reward.
+   - If the line references exactly one, keep this neutral (no bonus/penalty).
+   - The player does NOT need to reference every profile element.
 
 Return ONLY valid JSON, no markdown or extra text:
 {

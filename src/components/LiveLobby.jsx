@@ -18,7 +18,8 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.28'
+const GAME_VERSION = '0.04.29'
+const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -500,7 +501,7 @@ function LiveLobby() {
               </span>
               <span className="title-date">Date</span>
             </h1>
-            <p className="game-tagline">Where love goes hilariously wrong</p>
+            <p className="game-tagline">Be funny, be charming, be literally anything!</p>
           </motion.div>
           
           {/* Debug Menu */}
@@ -725,7 +726,7 @@ function LiveLobby() {
                         }}
                       >
                         <span className="btn-icon">🎣</span>
-                        <span>Drop a Line</span>
+                        <span>{RIZZ_CRAFT_MODE_LABEL}</span>
                         <span className={`debug-toggle ${dropALineEnabled ? 'on' : 'off'}`}>
                           {dropALineEnabled ? 'ON' : 'OFF'}
                         </span>
@@ -810,7 +811,7 @@ function LiveLobby() {
                   whileTap={{ scale: 0.98 }}
                 >
                   <span className="btn-icon">🎣</span>
-                  <span className="btn-text">Drop a Line</span>
+                  <span className="btn-text">{RIZZ_CRAFT_MODE_LABEL}</span>
                 </motion.button>
               )}
             </div>
@@ -853,6 +854,7 @@ function LiveLobby() {
   }
 
   // Drop a Line (Pick Up Mode – reels → profile → scene)
+  // Rizz-craft mode (reels → profile → scene)
   if (view === 'drop-a-line') {
     const handleBackToMain = () => {
       setDropALineScreen('reels')
@@ -888,26 +890,34 @@ function LiveLobby() {
       )
     }
     return (
-      <div className="live-lobby main-lobby phone-frame">
+      <motion.div
+        className="drop-a-line-reels-screen phone-frame"
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.4 }}
+      >
         <div className="version-number">v{GAME_VERSION}</div>
-        <motion.div
-          className="live-lobby-card"
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="live-lobby-header">
-            <button
-              className="back-btn"
-              onClick={handleBackToMain}
-            >
-              ← Back
-            </button>
-            <h2 className="live-lobby-title">
-              <span className="title-icon">🎣</span>
-              Drop a Line
-            </h2>
-          </div>
+        <div className="drop-a-line-reels-header">
+          <button
+            className="back-btn"
+            onClick={handleBackToMain}
+          >
+            ← Back
+          </button>
+          <h2 className="live-lobby-title">
+            <span className="title-icon">🎣</span>
+            {RIZZ_CRAFT_MODE_LABEL}
+          </h2>
+        </div>
+        <div className="drop-a-line-how-to-play">
+          <h3 className="drop-a-line-how-to-play-title">How to Play</h3>
+          <p className="drop-a-line-how-to-play-text">
+            The love of your life is standing in front of you. You have one shot to craft the perfect
+            pickup line in order to get their number. Make them fall in love with you- but don&apos;t be
+            boring!
+          </p>
+        </div>
+        <div className="drop-a-line-reels-center">
           <DropALineReels
             daters={daters}
             onContinue={(payload) => {
@@ -919,8 +929,8 @@ function LiveLobby() {
               if (charSrc) { const img = new Image(); img.src = charSrc }
             }}
           />
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     )
   }
 

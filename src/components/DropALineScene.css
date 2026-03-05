@@ -490,7 +490,7 @@
 .drop-a-line-share-line-title {
   margin: 0;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 68px;
+  font-size: 54px;
   letter-spacing: 0.08em;
   color: #ff9fb7;
   text-transform: uppercase;
@@ -499,20 +499,40 @@
 .drop-a-line-share-line {
   margin: 14px 0 0;
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 50px;
+  font-size: 40px;
   line-height: 1.18;
   color: #fff;
   font-weight: 600;
 }
 
-.drop-a-line-share-score {
-  margin: 20px 0 0;
+.drop-a-line-share-stamp {
+  position: absolute;
+  left: 50%;
+  bottom: 340px;
+  z-index: 2;
+  transform: translateX(-50%) rotate(-6deg);
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 116px;
-  line-height: 1;
-  color: #ffd6df;
-  letter-spacing: 0.03em;
-  text-shadow: 0 0 34px rgba(255, 143, 171, 0.35);
+  font-size: 90px;
+  line-height: 0.95;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  border: 6px solid currentColor;
+  border-radius: 10px;
+  background: rgba(10, 10, 14, 0.45);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.drop-a-line-share-stamp-success {
+  color: #8dff98;
+  text-shadow: 0 0 14px rgba(141, 255, 152, 0.4);
+}
+
+.drop-a-line-share-stamp-rejected {
+  color: #ff7e7e;
+  text-shadow: 0 0 14px rgba(255, 126, 126, 0.45);
 }
 
 .drop-a-line-share-bottom {
@@ -525,12 +545,13 @@
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(7, 8, 12, 0.68);
   padding: 32px 36px;
+  text-align: center;
 }
 
 .drop-a-line-share-response-label {
   margin: 0 0 12px;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 58px;
+  font-size: 46px;
   letter-spacing: 0.04em;
   color: #ff9fb7;
   text-transform: uppercase;
@@ -539,7 +560,7 @@
 .drop-a-line-share-response {
   margin: 0;
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 46px;
+  font-size: 37px;
   line-height: 1.26;
   color: #fff;
 }
