@@ -548,6 +548,7 @@ function RosesMode({ onBack }) {
   const activePromptOptions = QUESTION_FILL_OPTIONS[activePromptOptionIndex] || []
   const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
+  const displayedSentimentKeywords = sentimentKeywords.slice(0, 12)
   const hasSentimentKeywords = sentimentKeywords.length > 0
 
   const speakRosesLine = useCallback(async ({
@@ -1517,7 +1518,7 @@ function RosesMode({ onBack }) {
               <div className="roses-word-cloud-wrap">
                 <h3>Topics Discussed with {profile?.fields?.name || 'This Profile'}</h3>
                 <div className="roses-word-cloud">
-                  {sentimentKeywords.map((item) => (
+                  {displayedSentimentKeywords.map((item) => (
                     <span
                       key={item.word}
                       className="roses-word"
