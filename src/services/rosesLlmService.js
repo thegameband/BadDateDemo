@@ -36,7 +36,7 @@ const GENERATED_FIELD_STYLE = {
     maxTokens: 56,
   },
   bio: {
-    brief: 'One or two short punchy sentences. Specific and characterful.',
+    brief: 'One or two short sentences written from inside the character. Distinctive, biased, and specific.',
     maxTokens: 180,
   },
   introTagline: {
@@ -67,6 +67,57 @@ const FIELD_LABEL_MAP = {
   bio: ['bio', 'biography', 'about'],
   introTagline: ['intro tagline', 'tagline', 'intro', 'opening line'],
 }
+
+const BIO_STYLE_MODES = [
+  {
+    name: 'boast',
+    instruction: 'Let them brag shamelessly about what makes them impressive, dangerous, elite, or impossible to ignore.',
+  },
+  {
+    name: 'grievance',
+    instruction: 'Let them complain, sneer, or hold a grudge. Pettiness and irritation are good if they fit the character.',
+  },
+  {
+    name: 'manifesto',
+    instruction: 'Make it feel like a mission statement, creed, or warped philosophy rather than a friendly profile.',
+  },
+  {
+    name: 'obsession',
+    instruction: 'Center the bio on the thing they are fixated on. Let the fixation dominate the voice.',
+  },
+  {
+    name: 'threat',
+    instruction: 'Lean into menace, intimidation, or danger if the character invites it. Controlled hostility is allowed.',
+  },
+  {
+    name: 'confession',
+    instruction: 'Make it sound like a revealing admission, self-own, or unnerving truth rather than polished charm.',
+  },
+]
+
+const BIO_GENERIC_PATTERNS = [
+  /\bif you can keep up\b/i,
+  /\bkeep up with my\b/i,
+  /\bdry humor\b/i,
+  /\bsurprisingly domestic\b/i,
+  /\bdomestic streak\b/i,
+  /\bpartner in crime\b/i,
+  /\bbonus points if\b/i,
+  /\bswipe right\b/i,
+  /\blooking for\b/i,
+  /\bmake me laugh\b/i,
+  /\blast dumpling\b/i,
+  /\bmean noodles?\b/i,
+  /\bwicked sense of humor\b/i,
+  /\bsecret soft(?:ie| spot)\b/i,
+  /\bcan you handle\b/i,
+  /\bhandle my\b/i,
+]
+
+const BIO_UNPROMPTED_DOMESTICITY_PATTERN = /\b(?:cook|cooks|cooking|chef|kitchen|bake|baking|dumplings?|noodles?|pasta|brunch|snacks?|coffee|tea|wine|domestic|cozy|cuddle|soft spot)\b/i
+const BIO_DOMESTICITY_CONTEXT_PATTERN = /\b(?:cook|chef|kitchen|bak(?:e|ing|er|ery)|food|restaurant|barista|tea|coffee|wine|domestic|cozy|farmer|gardener)\b/i
+const BIO_VOICE_MARKER_PATTERN = /\b(?:i|me|my)\b/i
+const BIO_EXTREME_WORD_PATTERN = /\b(?:collect|collected|built|ruined|conquered|hunt|hunted|command|despise|adore|obsessed|worship|devour|stole|survived|destroy|haunt|win|victory|trophy|grudge|empire|chaos)\b/i
 
 function unwrapCodeFence(value = '') {
   const raw = String(value || '').trim()
@@ -165,6 +216,68 @@ function normalizeGeneratedName(rawValue = '') {
   }
 
   return text
+}
+
+function shuffleList(values = []) {
+  const next = [...values]
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[next[index], next[swapIndex]] = [next[swapIndex], next[index]]
+  }
+  return next
+}
+
+function pickBioStyleModes(count = 3) {
+  return shuffleList(BIO_STYLE_MODES).slice(0, Math.max(1, Math.min(count, BIO_STYLE_MODES.length)))
+}
+
+function bioHasGenericDatingProfileTone(rawValue = '', fields = {}) {
+  const text = normalizeWhitespace(rawValue)
+  if (!text) return false
+
+  if (BIO_GENERIC_PATTERNS.some((pattern) => pattern.test(text))) {
+    return true
+  }
+
+  if (/\bif you\b/i.test(text) && /\b(?:keep up|handle|survive|get|earn|deserve)\b/i.test(text)) {
+    return true
+  }
+
+  const sourceText = normalizeWhitespace([
+    fields?.name || '',
+    fields?.occupation || '',
+    fields?.bio || '',
+    fields?.introTagline || '',
+  ].join(' '))
+
+  if (!BIO_DOMESTICITY_CONTEXT_PATTERN.test(sourceText) && BIO_UNPROMPTED_DOMESTICITY_PATTERN.test(text)) {
+    return true
+  }
+
+  return false
+}
+
+function scoreBioCandidate(rawValue = '', fields = {}) {
+  const text = normalizeWhitespace(rawValue)
+  if (!text) return Number.NEGATIVE_INFINITY
+
+  const sentences = text
+    .split(/[.!?]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  let score = Math.min(48, text.length)
+
+  if (sentences.length >= 1 && sentences.length <= 2) score += 12
+  else score -= 18
+
+  if (BIO_VOICE_MARKER_PATTERN.test(text)) score += 8
+  if (BIO_EXTREME_WORD_PATTERN.test(text)) score += 10
+  if (bioHasGenericDatingProfileTone(text, fields)) score -= 240
+  if (/[;|]/.test(text)) score -= 18
+  if (text.length < 28) score -= 15
+
+  return score
 }
 
 function stripLeadingBioFieldEchoes(rawValue = '', fields = {}) {
@@ -367,7 +480,9 @@ export async function generateRosesField(field, fields = {}) {
       ? [
         'Bio field rules: never include explicit age numbers or pronoun sets.',
         'Bio field rules: do not list profile attributes like "29, they/them, ...".',
-        'Bio field rules: write a vivid character blurb, not a profile-header restatement.',
+        'Bio field rules: write from inside the character, not like a dating-app copywriter.',
+        'Bio field rules: do not soften villains, weirdos, monsters, or losers into balanced broad appeal.',
+        'Bio field rules: avoid cozy food bits, challenge-the-reader lines, and generic flirt patter unless context clearly supports them.',
       ]
       : field === 'introTagline'
         ? [
@@ -379,31 +494,37 @@ export async function generateRosesField(field, fields = {}) {
         ]
     : []
 
-  const basePrompt = [
-    'You are writing exactly one field for a dating profile in a competitive social game.',
-    'Return plain text only for that field value.',
-    'No labels, no bullets, no markdown, and no surrounding quotes.',
-    'Write naturally short and punchy like live dating-game copy.',
-    'Be specific and believable. Avoid generic filler and cliches.',
-    'Do not end mid-thought. Do not chop phrases.',
-    '',
-    `Target field: ${field}`,
-    `Field brief: ${style.brief || 'Short, specific, and human.'}`,
-    `Must fit within ${maxLength} characters.`,
-    'For sentence fields: one concise sentence preferred, two short sentences max.',
-    'Age must be an integer from 18 to 99.',
-    ...(fieldRules.length ? [...fieldRules] : []),
-    'Use the variation nonce only as an internal diversity cue. Never print it.',
-    `Variation nonce: ${variationNonce}`,
-    `Current value for this field: ${currentValue || '(empty)'}`,
-    'If current value is non-empty, output a different value.',
-    '',
-    'Existing profile context:',
-    context,
-  ].join('\n')
+  const basePrompt = field === 'bio'
+    ? ''
+    : [
+      'You are writing exactly one field for a dating profile in a competitive social game.',
+      'Return plain text only for that field value.',
+      'No labels, no bullets, no markdown, and no surrounding quotes.',
+      'Write naturally short and punchy like live dating-game copy.',
+      'Be specific and believable. Avoid generic filler and cliches.',
+      'Do not end mid-thought. Do not chop phrases.',
+      '',
+      `Target field: ${field}`,
+      `Field brief: ${style.brief || 'Short, specific, and human.'}`,
+      `Must fit within ${maxLength} characters.`,
+      'For sentence fields: one concise sentence preferred, two short sentences max.',
+      'Age must be an integer from 18 to 99.',
+      ...(fieldRules.length ? [...fieldRules] : []),
+      'Use the variation nonce only as an internal diversity cue. Never print it.',
+      `Variation nonce: ${variationNonce}`,
+      `Current value for this field: ${currentValue || '(empty)'}`,
+      'If current value is non-empty, output a different value.',
+      '',
+      'Existing profile context:',
+      context,
+    ].join('\n')
 
-  const requestFieldValue = async (prompt, maxTokens = style.maxTokens || 120) => {
-    const generated = await getSingleResponseWithTimeout(prompt, { maxTokens, timeoutMs: 18000 })
+  const requestFieldValue = async (prompt, maxTokens = style.maxTokens || 120, llmOptions = {}) => {
+    const generated = await getSingleResponseWithTimeout(prompt, {
+      maxTokens,
+      timeoutMs: 18000,
+      ...llmOptions,
+    })
     let value = cleanFieldValue(field, generated || '')
     if (field === 'bio') {
       value = stripLeadingBioFieldEchoes(value, fields)
@@ -425,7 +546,7 @@ export async function generateRosesField(field, fields = {}) {
 
   const passesFieldSpecificGuards = (value = '') => {
     if (field === 'bio') {
-      return !bioEchoesProfileFields(value, fields)
+      return !bioEchoesProfileFields(value, fields) && !bioHasGenericDatingProfileTone(value, fields)
     }
     if (field === 'introTagline') {
       return (
@@ -435,6 +556,120 @@ export async function generateRosesField(field, fields = {}) {
       )
     }
     return true
+  }
+
+  if (field === 'bio') {
+    const bioSamplingOptions = {
+      temperature: 1.08,
+      presencePenalty: 0.65,
+      frequencyPenalty: 0.45,
+    }
+    const bioCandidates = []
+    const rejectedBios = []
+    const rememberBioCandidate = (value = '', modeName = '') => {
+      if (!isWithinLimit(value) || !isDifferentFromCurrent(value) || bioEchoesProfileFields(value, fields)) {
+        return false
+      }
+
+      const templatey = bioHasGenericDatingProfileTone(value, fields)
+      bioCandidates.push({
+        value,
+        modeName,
+        templatey,
+        score: scoreBioCandidate(value, fields),
+      })
+      rejectedBios.push(value)
+      return !templatey
+    }
+    const buildBioPrompt = (mode) => [
+      'You are writing exactly one bio field for a rose-ceremony dating profile.',
+      'Return plain text only for that field value.',
+      'No labels, no bullets, no markdown, and no surrounding quotes.',
+      'Write from inside the character, as if this person really wrote it.',
+      'Do NOT sound like a polished dating app profile, a bio copywriter, or a balanced personal brand.',
+      'Do NOT add hidden softness or relatability unless the profile context clearly implies it.',
+      'Bias toward obsession, ego, grievance, menace, delusion, pettiness, or confession when it fits.',
+      'One or two short complete sentences max.',
+      `Must fit within ${maxLength} characters.`,
+      `Voice mode for this draft: ${mode.name}. ${mode.instruction}`,
+      'Hard bans: no "if you can keep up", no "dry humor", no food or domesticity unless the context clearly supports it.',
+      'Bad direction example: Secret softie with dry humor. If you can keep up, you get noodles.',
+      'Good direction example: I keep trophies from people who underestimated me. Small talk dies first.',
+      ...(fieldRules.length ? [...fieldRules] : []),
+      'Use the variation nonce only as an internal diversity cue. Never print it.',
+      `Variation nonce: ${variationNonce}-${mode.name}`,
+      `Current value for this field: ${currentValue || '(empty)'}`,
+      'If current value is non-empty, output a different value.',
+      '',
+      'Existing profile context:',
+      context,
+      ...(rejectedBios.length
+        ? [
+          '',
+          'Rejected prior drafts to avoid repeating:',
+          ...rejectedBios.map((value, index) => `${index + 1}. ${value}`),
+        ]
+        : []),
+    ].join('\n')
+
+    for (const mode of pickBioStyleModes(3)) {
+      const candidateValue = await requestFieldValue(buildBioPrompt(mode), style.maxTokens || 120, bioSamplingOptions)
+      rememberBioCandidate(candidateValue, mode.name)
+    }
+
+    const bestFreshBio = [...bioCandidates]
+      .filter((item) => !item.templatey)
+      .sort((left, right) => right.score - left.score)[0]?.value || ''
+
+    if (bestFreshBio) {
+      return bestFreshBio
+    }
+
+    let candidate = [...bioCandidates]
+      .sort((left, right) => right.score - left.score)[0]?.value || ''
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const mode = pickBioStyleModes(1)[0] || BIO_STYLE_MODES[0]
+      const rewritePrompt = [
+        'Rewrite this bio to feel more specific, more biased, and more authored by the character.',
+        'Do NOT smooth it into a generic dating profile.',
+        'Do NOT add food, domesticity, or challenge-the-reader flirt lines unless the context supports them.',
+        `Voice mode for this rewrite: ${mode.name}. ${mode.instruction}`,
+        'One or two short complete sentences max.',
+        `Hard requirement: ${maxLength} characters or fewer.`,
+        ...(fieldRules.length ? [...fieldRules] : []),
+        '',
+        'Profile context:',
+        context,
+        '',
+        'Current candidate:',
+        candidate || '(empty)',
+        '',
+        'Rejected drafts to avoid repeating:',
+        ...(rejectedBios.length ? rejectedBios.map((value, index) => `${index + 1}. ${value}`) : ['(none)']),
+        '',
+        'Return only the rewritten bio.',
+      ].join('\n')
+
+      candidate = await requestFieldValue(
+        rewritePrompt,
+        Math.max(72, Number(style.maxTokens || 120) - 12),
+        { temperature: 1.12, presencePenalty: 0.7, frequencyPenalty: 0.5 },
+      )
+
+      if (rememberBioCandidate(candidate, `${mode.name}-rewrite`) && passesFieldSpecificGuards(candidate)) {
+        return candidate
+      }
+    }
+
+    const fallbackBio = [...bioCandidates]
+      .sort((left, right) => right.score - left.score)[0]
+
+    if (fallbackBio?.value && isDifferentFromCurrent(fallbackBio.value)) {
+      return fallbackBio.value
+    }
+
+    return ''
   }
 
   let candidate = await requestFieldValue(basePrompt)

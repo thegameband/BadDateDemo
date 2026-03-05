@@ -843,11 +843,20 @@ export async function getChatResponse(messages, systemPrompt, options = {}) {
 /**
  * Single prompt LLM call with timeout - for wrap-up and other flows that must not hang
  * @param {string} userPrompt - The user message content
- * @param {{ maxTokens?: number, timeoutMs?: number }} options
+ * @param {{ maxTokens?: number, timeoutMs?: number, temperature?: number, presencePenalty?: number, frequencyPenalty?: number }} options
  * @returns {Promise<string|null>} - Response text or null on failure/timeout
  */
 export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
   const { maxTokens = 200, timeoutMs = 25000 } = options
+  const temperature = Number.isFinite(Number(options?.temperature))
+    ? Math.min(1.2, Math.max(0, Number(options.temperature)))
+    : undefined
+  const presencePenalty = Number.isFinite(Number(options?.presencePenalty))
+    ? Math.min(2, Math.max(0, Number(options.presencePenalty)))
+    : undefined
+  const frequencyPenalty = Number.isFinite(Number(options?.frequencyPenalty))
+    ? Math.min(2, Math.max(0, Number(options.frequencyPenalty)))
+    : undefined
   const providerConfig = resolveLlmProviderConfig()
   if (!providerConfig) return null
 
@@ -857,6 +866,9 @@ export async function getSingleResponseWithTimeout(userPrompt, options = {}) {
   try {
     const response = await requestProviderCompletion(providerConfig, buildProviderBody(providerConfig, {
         maxTokens,
+        temperature,
+        presencePenalty,
+        frequencyPenalty,
         messages: [{ role: 'user', content: userPrompt }],
       }), { signal: controller.signal })
     clearTimeout(timeoutId)
