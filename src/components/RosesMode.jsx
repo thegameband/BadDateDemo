@@ -729,19 +729,23 @@ function RosesMode({ onBack }) {
     setError('')
     setStatus('')
     setGeneratingField(fieldId)
+    void triggerHaptic('light')
 
     try {
       const value = await generateRosesField(fieldId, fields)
       if (!value) {
         setError(`Could not generate ${fieldId}. Try again.`)
+        void triggerHaptic('error')
         return
       }
       setFieldValue(fieldId, value)
       setManualTouched((prev) => ({ ...prev, [fieldId]: true }))
       setStatus(`Generated ${fieldId}.`)
+      void triggerHaptic('success')
     } catch (genError) {
       console.error(genError)
       setError(`Could not generate ${fieldId}.`)
+      void triggerHaptic('error')
     } finally {
       setGeneratingField('')
     }
@@ -804,17 +808,20 @@ function RosesMode({ onBack }) {
   const handlePublishProfile = async () => {
     setError('')
     setStatus('')
+    void triggerHaptic('medium')
 
     const normalized = sanitizeRosesFields(fields)
     const allEmpty = Object.values(normalized).every((value) => !String(value || '').trim())
 
     if (allEmpty) {
       setError('Add at least one field manually before publishing.')
+      void triggerHaptic('error')
       return
     }
 
     if (manualFieldCount < 1) {
       setError('Add at least one field manually before publishing.')
+      void triggerHaptic('error')
       return
     }
 
@@ -824,12 +831,14 @@ function RosesMode({ onBack }) {
 
     if (missingStill.length) {
       setError('Some fields are still empty. Use Generate Empties first.')
+      void triggerHaptic('error')
       return
     }
 
     const age = Number.parseInt(String(normalized.age || ''), 10)
     if (!Number.isFinite(age) || age < 18) {
       setError('Age must be 18 or older.')
+      void triggerHaptic('error')
       return
     }
 
@@ -850,6 +859,7 @@ function RosesMode({ onBack }) {
       setFields(normalized)
       setManualTouched({})
       setStatus('Profile published to the global Roses pool.')
+      void triggerHaptic('success')
 
       const leaderboardResp = await fetchRosesLeaderboard(25)
       setLeaderboard({
@@ -862,6 +872,7 @@ function RosesMode({ onBack }) {
     } catch (saveError) {
       console.error(saveError)
       setError(saveError.message || 'Failed to publish profile.')
+      void triggerHaptic('error')
     } finally {
       setSavingProfile(false)
       setAutoFilling(false)
@@ -885,6 +896,7 @@ function RosesMode({ onBack }) {
   const handleStartRound = async () => {
     setError('')
     setStatus('Starting Roses round...')
+    void triggerHaptic('medium')
 
     try {
       const response = await startRosesRound({ playerId })
@@ -900,10 +912,12 @@ function RosesMode({ onBack }) {
       setReveal(null)
       setStage('chat')
       setStatus('')
+      void triggerHaptic('success')
     } catch (roundError) {
       console.error(roundError)
       setError(roundError.message || 'Failed to start round.')
       setStatus('')
+      void triggerHaptic('error')
     }
   }
 
@@ -920,6 +934,7 @@ function RosesMode({ onBack }) {
     )
     if (alreadyAskedThisRound) {
       setError('You already asked that question this round. Ask a different one.')
+      void triggerHaptic('error')
       return
     }
 
@@ -930,6 +945,7 @@ function RosesMode({ onBack }) {
 
     setSendingQuestion(true)
     setError('')
+    void triggerHaptic('medium')
 
     try {
       const buildsPriorTurns = (candidateId) => chatLog
@@ -942,6 +958,7 @@ function RosesMode({ onBack }) {
 
       if (orderedCandidates.length < 2) {
         setError('Round candidate data is missing.')
+        void triggerHaptic('error')
         return
       }
 
@@ -1015,9 +1032,10 @@ function RosesMode({ onBack }) {
       if (response.round?.doneAsking) {
         setStage('choose')
       }
-    } catch (turnError) {
+      } catch (turnError) {
       console.error(turnError)
       setError(turnError.message || 'Failed to send question.')
+      void triggerHaptic('error')
     } finally {
       setStatus('')
       setActiveSpeechSlot('')
@@ -1047,6 +1065,7 @@ function RosesMode({ onBack }) {
 
   const handleUseSuggestedQuestion = () => {
     if (sendingQuestion || introActive) return
+    void triggerHaptic('selection')
     setQuestionPromptIndexes((prev) => {
       const next = [...prev]
       const turnIndex = Math.min(TURN_COUNT - 1, chatLog.length)
@@ -1102,11 +1121,13 @@ function RosesMode({ onBack }) {
 
     setChoosingWinner(true)
     setError('')
+    void triggerHaptic('heavy')
 
     try {
       const response = await completeRosesRound({ playerId, roundId: round.id, winnerId })
       setReveal(response.reveal)
       setStage('reveal-nonwinners')
+      void triggerHaptic('success')
 
       const refreshedDay = getLocalDayKey(timezone)
       const [profileResp, leaderboardResp] = await Promise.all([
@@ -1124,6 +1145,7 @@ function RosesMode({ onBack }) {
     } catch (completeError) {
       console.error(completeError)
       setError(completeError.message || 'Failed to submit Rose decision.')
+      void triggerHaptic('error')
     } finally {
       setChoosingWinner(false)
     }
@@ -1332,7 +1354,14 @@ function RosesMode({ onBack }) {
               />
             ))}
           </div>
-          <button type="button" className="roses-reveal-cta" onClick={() => setStage('reveal-winner')}>
+          <button
+            type="button"
+            className="roses-reveal-cta"
+            onClick={() => {
+              void triggerHaptic('success')
+              setStage('reveal-winner')
+            }}
+          >
             Reveal Rose Winner
           </button>
         </div>
