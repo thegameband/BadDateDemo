@@ -36,3 +36,8 @@ partykit/.partykit/
 
 # Recorded playthrough videos
 playthrough-*.webm
+
+# Local-only reference repository
+/reference repo/
+/Reference Repo/
+.env*.local

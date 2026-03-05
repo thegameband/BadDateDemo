@@ -8,6 +8,7 @@ import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
 import SpeedDateMode from './SpeedDateMode'
+import RosesMode from './RosesMode'
 import { DROP_A_LINE_LOCATION_IMAGES } from '../data/dropALineLocations'
 import './DropALineReels.css'
 import './DropALineProfile.css'
@@ -42,7 +43,7 @@ function LiveLobby() {
   const daterResponseMode = useGameStore((state) => state.daterResponseMode)
   const setDaterResponseMode = useGameStore((state) => state.setDaterResponseMode)
   const daters = useGameStore((state) => state.daters)
-  const [view, setView] = useState('main') // 'main', 'speed-date', 'drop-a-line', 'multiplayer', 'host', 'join', 'qr-join'
+  const [view, setView] = useState('main') // 'main', 'speed-date', 'drop-a-line', 'roses', 'multiplayer', 'host', 'join', 'qr-join'
   const [availableRooms, setAvailableRooms] = useState([])
   const [username, setUsernameLocal] = useState('')
   const [error, setError] = useState('')
@@ -815,15 +816,26 @@ function LiveLobby() {
                 </motion.button>
               )}
             </div>
-            <motion.button
-              className="mode-btn speed-date-btn"
-              onClick={() => setView('speed-date')}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="btn-icon">⚡</span>
-              <span className="btn-text">Speed Date</span>
-            </motion.button>
+            <div className="main-buttons main-buttons-bottom">
+              <motion.button
+                className="mode-btn speed-date-btn"
+                onClick={() => setView('speed-date')}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="btn-icon">⚡</span>
+                <span className="btn-text">Speed Date</span>
+              </motion.button>
+              <motion.button
+                className="mode-btn roses-btn"
+                onClick={() => setView('roses')}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="btn-icon">🌹</span>
+                <span className="btn-text">Roses</span>
+              </motion.button>
+            </div>
           </div>
           
           <div className="live-info">
@@ -849,6 +861,15 @@ function LiveLobby() {
           daters={daters}
           onBack={() => setView('main')}
         />
+      </div>
+    )
+  }
+
+  if (view === 'roses') {
+    return (
+      <div className="phone-frame">
+        <div className="version-number">v{GAME_VERSION}</div>
+        <RosesMode onBack={() => setView('main')} />
       </div>
     )
   }

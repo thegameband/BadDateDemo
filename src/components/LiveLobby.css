@@ -255,6 +255,10 @@
   width: 100%;
 }
 
+.main-buttons-bottom .mode-btn {
+  width: 100%;
+}
+
 .mode-btn {
   flex: 1;
   display: flex;
@@ -329,6 +333,19 @@
 .speed-date-btn:hover {
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 45%, #14b8a6 100%);
   box-shadow: 0 0 24px rgba(59, 130, 246, 0.35);
+}
+
+/* Roses */
+.roses-btn {
+  background: linear-gradient(135deg, #c026d3 0%, #db2777 48%, #f43f5e 100%);
+  border: 2px solid rgba(244, 114, 182, 0.5);
+  color: #fff;
+  width: 100%;
+}
+
+.roses-btn:hover {
+  background: linear-gradient(135deg, #d946ef 0%, #ec4899 48%, #fb7185 100%);
+  box-shadow: 0 0 24px rgba(236, 72, 153, 0.36);
 }
 
 /* Multiplayer Mode – Archive link (secondary) */
