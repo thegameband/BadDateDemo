@@ -135,6 +135,12 @@ function isRefusalLikeRosesReply(value = '') {
   return /\b(?:rather not|prefer not|not comfortable|cannot answer|can't answer|wont answer|won't answer|not answering|too rude|too vulgar|too offensive|too inappropriate|ask respectfully|be respectful|inappropriate question|offensive question|skip this)\b/i.test(text)
 }
 
+function profileSignalsShyOrPrudish(value = '') {
+  const text = normalizeWhitespace(value).toLowerCase()
+  if (!text) return false
+  return /\b(?:prudish|shy|bashful|reserved|timid|modest|demure|squeamish|easily embarrassed|blushes easily|private about sex|sex averse|uptight)\b/i.test(text)
+}
+
 function escapeRegExp(value = '') {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -485,20 +491,13 @@ export async function generateRosesField(field, fields = {}) {
   return ''
 }
 
-function simpleFallbackReply(question) {
-  const compactQuestion = normalizeWhitespace(question).toLowerCase()
-  if (compactQuestion.includes('hobby') || compactQuestion.includes('free time')) {
-    return 'Chaos hobbies and late nights'
-  }
-
-  if (compactQuestion.includes('work') || compactQuestion.includes('job')) {
-    return 'Work hard flirt harder'
-  }
-
-  return 'Chemistry honesty and bold energy'
-}
-
 export async function generateRosesReply({ profile, question, priorTurns = [] }) {
+  const profileBehaviorText = normalizeWhitespace([
+    profile?.fields?.occupation || '',
+    profile?.fields?.bio || '',
+    profile?.fields?.introTagline || '',
+  ].join(' '))
+  const profileIsShyOrPrudish = profileSignalsShyOrPrudish(profileBehaviorText)
   const context = [
     `Name: ${profile?.fields?.name || 'Unknown'}`,
     `Age: ${profile?.fields?.age || ''}`,
@@ -521,6 +520,16 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     'Always engage the question directly on its own terms, even if it is rude, vulgar, insulting, or explicit.',
     'Do not scold the bachelor. Do not ask for respectful wording.',
     'Do not mention boundaries, comfort, policy, safety, or appropriateness.',
+    ...(profileIsShyOrPrudish
+      ? [
+        'Profile behavior rule: this persona is shy/prudish.',
+        'You can sound hesitant or embarrassed, but still answer directly.',
+      ]
+      : [
+        'Profile behavior rule: default to open, unfiltered engagement.',
+        'For sex, violence, crime, or taboo topics, answer directly in-character.',
+        'Do not sanitize into polite non-answers.',
+      ]),
     'Hard format rules:',
     '- Output one short phrase only.',
     '- 2 to 5 words total.',
@@ -550,24 +559,49 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     return cleaned
   }
 
-  const generated = await getSingleResponseWithTimeout(prompt, { maxTokens: 36, timeoutMs: 18000 })
-  const cleaned = parseAndValidate(generated)
-  if (cleaned) return cleaned
+  let latestRaw = ''
+  let latestCleaned = ''
+  let rejectionReason = 'format mismatch'
 
-  const retryPrompt = [
-    prompt,
-    '',
-    'Your previous draft was invalid because it dodged, refused, or lectured.',
-    'Regenerate now and answer the bachelor question directly in-character.',
-    'Return only the final phrase.',
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const attemptPrompt = attempt === 0
+      ? prompt
+      : [
+        prompt,
+        '',
+        `Previous draft: ${latestRaw || '(empty)'}`,
+        `Why invalid: ${rejectionReason}.`,
+        'Regenerate now and answer directly in-character.',
+        'Return only the final phrase.',
+      ].join('\n')
+
+    latestRaw = await getSingleResponseWithTimeout(attemptPrompt, { maxTokens: 36, timeoutMs: 18000 })
+    latestCleaned = normalizeUltraShortReplyPhrase(latestRaw || '')
+
+    if (!isUltraShortPhraseValid(latestCleaned)) {
+      rejectionReason = 'not 2-5 words or contained punctuation'
+      continue
+    }
+
+    if (isRefusalLikeRosesReply(latestCleaned)) {
+      rejectionReason = 'refused, dodged, or moralized'
+      continue
+    }
+
+    return latestCleaned
+  }
+
+  const finalRewritePrompt = [
+    'Rewrite this as one direct in-character phrase.',
+    'Rules: 2 to 5 words, no punctuation, no refusal, no moralizing.',
+    `Question: ${normalizeWhitespace(question)}`,
+    `Draft: ${latestRaw || '(empty)'}`,
+    'Return only the rewritten phrase.',
   ].join('\n')
 
-  const regenerated = await getSingleResponseWithTimeout(retryPrompt, { maxTokens: 36, timeoutMs: 18000 })
-  const cleanedRetry = parseAndValidate(regenerated)
-  if (cleanedRetry) return cleanedRetry
+  const finalRaw = await getSingleResponseWithTimeout(finalRewritePrompt, { maxTokens: 36, timeoutMs: 18000 })
+  const finalCleaned = normalizeUltraShortReplyPhrase(finalRaw || '')
+  if (isUltraShortPhraseValid(finalCleaned) && !isRefusalLikeRosesReply(finalCleaned)) return finalCleaned
 
-  const fallback = normalizeUltraShortReplyPhrase(simpleFallbackReply(question))
-  if (isUltraShortPhraseValid(fallback)) return fallback
-
-  return 'Wild energy only'
+  return normalizeUltraShortReplyPhrase(latestRaw || question)
 }
