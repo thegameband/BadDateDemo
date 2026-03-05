@@ -136,6 +136,13 @@ function fillQuestionTemplate(template = '', value = '') {
   return String(template || '').replace('_____', cleaned)
 }
 
+function normalizeQuestionForDuplicateCheck(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function randomPromptPlan(count = TURN_COUNT) {
   const picks = []
   for (let index = 0; index < count; index += 1) {
@@ -827,6 +834,14 @@ function RosesMode({ onBack }) {
     const blankSource = String(overrideBlank || '').trim() || String(questionInput || '').trim()
     const question = fillQuestionTemplate(activePromptTemplate, blankSource).trim()
     if (!question) return
+    const normalizedQuestion = normalizeQuestionForDuplicateCheck(question)
+    const alreadyAskedThisRound = chatLog.some(
+      (turn) => normalizeQuestionForDuplicateCheck(turn?.question) === normalizedQuestion,
+    )
+    if (alreadyAskedThisRound) {
+      setError('You already asked that question this round. Ask a different one.')
+      return
+    }
 
     if ((Number(round.turnIndex) || 0) >= TURN_COUNT) {
       setStage('choose')
