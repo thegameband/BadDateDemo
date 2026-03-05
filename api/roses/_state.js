@@ -389,9 +389,13 @@ export function createOrUpdateProfile({
     return { error: 'All profile fields are required before publish.' }
   }
 
-  const firstPublishedLocalDay = String(existingProfile?.firstPublishedLocalDay || localDay || '')
+  const inferredFirstPublishedLocalDay = String(
+    existingProfile?.firstPublishedLocalDay || existingProfile?.lastEditedLocalDay || localDay || '',
+  )
   const wasEditedToday = Boolean(existingProfile && existingProfile.lastEditedLocalDay === localDay)
-  const isFirstPublishedDay = Boolean(firstPublishedLocalDay && firstPublishedLocalDay === localDay)
+  const isFirstPublishedDay = Boolean(
+    inferredFirstPublishedLocalDay && inferredFirstPublishedLocalDay === localDay,
+  )
   const firstDayEditUsed = Boolean(existingProfile?.firstDayEditUsed)
   const usingFirstDayBonusEdit = wasEditedToday && isFirstPublishedDay && !firstDayEditUsed
 
@@ -409,7 +413,7 @@ export function createOrUpdateProfile({
     createdAt: existingProfile?.createdAt || nowMs,
     updatedAt: nowMs,
     lastEditedLocalDay: localDay,
-    firstPublishedLocalDay,
+    firstPublishedLocalDay: inferredFirstPublishedLocalDay,
     firstDayEditUsed: firstDayEditUsed || usingFirstDayBonusEdit,
     lastEditedTimezone: timezone || 'UTC',
     fields: normalized,
@@ -426,7 +430,7 @@ export function canEditProfileToday(profile, localDay) {
 
   if (profile.lastEditedLocalDay !== localDay) return true
 
-  const firstPublishedLocalDay = String(profile.firstPublishedLocalDay || '')
+  const firstPublishedLocalDay = String(profile.firstPublishedLocalDay || profile.lastEditedLocalDay || '')
   const isFirstPublishedDay = Boolean(firstPublishedLocalDay && firstPublishedLocalDay === localDay)
   const firstDayEditUsed = Boolean(profile.firstDayEditUsed)
   return isFirstPublishedDay && !firstDayEditUsed
