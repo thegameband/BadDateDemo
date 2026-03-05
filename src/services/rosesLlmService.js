@@ -170,6 +170,56 @@ const TAGLINE_IMPERATIVE_START_PATTERN = /^(?:drop|tell|come|look|watch|kneel|ru
 const TAGLINE_SPOKEN_MARKER_PATTERN = /\b(?:i|i'm|i'll|i'd|me|my|you|your|you're|you'll|gonna|won't|can't|dont|don't)\b/i
 const TAGLINE_SHARP_VERB_PATTERN = /\b(?:pay|handle|bleed|kneel|run|fight|prove|survive|earn|break|burn|obey|leave|watch|listen|stand|drop|bring|touch)\b/i
 
+const ROSES_REPLY_STYLE_MODES = [
+  {
+    name: 'deadpan',
+    instruction: 'Dry, curt, and unimpressed.',
+  },
+  {
+    name: 'menace',
+    instruction: 'Sharper, threatening, or predatory if the character fits it.',
+  },
+  {
+    name: 'petty',
+    instruction: 'Petty, judgmental, and side-eyeing.',
+  },
+  {
+    name: 'grandiose',
+    instruction: 'Dramatic, delusional, or larger than life.',
+  },
+  {
+    name: 'confessional',
+    instruction: 'Embarrassingly honest or self-owning, but still funny.',
+  },
+  {
+    name: 'flirty',
+    instruction: 'Directly desirous or teasing only if the character would naturally go there.',
+  },
+]
+
+const ROSES_REPLY_STOPWORDS = new Set([
+  'a', 'about', 'all', 'am', 'an', 'and', 'are', 'as', 'at', 'be', 'because', 'been', 'but', 'by',
+  'can', 'do', 'for', 'from', 'get', 'got', 'had', 'has', 'have', 'how', 'i', 'if', 'im', 'in',
+  'into', 'is', 'it', 'its', 'just', 'like', 'me', 'my', 'of', 'on', 'or', 'our', 'really', 'so',
+  'that', 'the', 'their', 'them', 'they', 'this', 'to', 'too', 'up', 'was', 'we', 'what', 'when',
+  'where', 'who', 'why', 'with', 'would', 'you', 'your',
+])
+
+const ROSES_REPLY_GENERIC_PATTERNS = [
+  /\bgood communication\b/i,
+  /\bhonesty\b/i,
+  /\btrust\b/i,
+  /\bloyalty\b/i,
+  /\brespect\b/i,
+  /\bkindness\b/i,
+  /\bgood vibes\b/i,
+  /\breal connection\b/i,
+  /\bbeing myself\b/i,
+  /\bopen communication\b/i,
+]
+
+const ROSES_REPLY_SHARP_WORD_PATTERN = /\b(?:chaos|tribute|revenge|coward|pathetic|power|drama|worship|obedience|menace|spite|glory|devotion|destruction|delusion|vanity|trouble)\b/i
+
 function unwrapCodeFence(value = '') {
   const raw = String(value || '').trim()
   const fenced = raw.match(/^```[a-zA-Z0-9_-]*\n?([\s\S]*?)```$/)
@@ -286,6 +336,10 @@ function pickTaglineStyleModes(count = 3) {
   return shuffleList(TAGLINE_STYLE_MODES).slice(0, Math.max(1, Math.min(count, TAGLINE_STYLE_MODES.length)))
 }
 
+function pickReplyStyleModes(count = 4) {
+  return shuffleList(ROSES_REPLY_STYLE_MODES).slice(0, Math.max(1, Math.min(count, ROSES_REPLY_STYLE_MODES.length)))
+}
+
 function bioHasGenericDatingProfileTone(rawValue = '', fields = {}) {
   const text = normalizeWhitespace(rawValue)
   if (!text) return false
@@ -388,6 +442,90 @@ function scoreTaglineCandidate(rawValue = '', fields = {}) {
   if (taglineLooksLikeProfileSummary(text, fields)) score -= 90
   if (!taglineHasSpokenShape(text)) score -= 30
   if (/[;|]/.test(text)) score -= 18
+
+  return score
+}
+
+function extractReplyContentTokens(text = '') {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9'\s]/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !ROSES_REPLY_STOPWORDS.has(token))
+}
+
+function extractProfileCallbackTokens(profileText = '') {
+  const callbacks = new Set()
+  const patterns = [
+    /\b(?:love|loves|like|likes|liked|obsessed with|collect|collects|collecting|cook|cooks|cooking|eat|eats|eating|drink|drinks|drinking|favorite|favourite|into)\s+([a-z0-9' -]{3,60})/gi,
+  ]
+
+  patterns.forEach((pattern) => {
+    let match = pattern.exec(profileText)
+    while (match) {
+      const phrase = String(match[1] || '')
+        .split(/[.,;:!?]/)[0]
+        .split(/\b(?:and|but|because)\b/i)[0]
+      extractReplyContentTokens(phrase).slice(0, 4).forEach((token) => callbacks.add(token))
+      match = pattern.exec(profileText)
+    }
+  })
+
+  return callbacks
+}
+
+function questionInvitesProfileCallback(question = '') {
+  return /\b(?:favorite|favourite|like|love|hate|eat|food|meal|snack|breakfast|lunch|dinner|drink|coffee|tea|cook|restaurant|taste|flavor|hobby|collect|collection|collectible|obsessed|comfort|guilty pleasure|free time|weekend)\b/i.test(String(question || ''))
+}
+
+function replyUsesIrrelevantProfileCallback(rawValue = '', question = '', profileText = '') {
+  if (questionInvitesProfileCallback(question)) return false
+  const callbackTokens = extractProfileCallbackTokens(profileText)
+  if (!callbackTokens.size) return false
+  return extractReplyContentTokens(rawValue).some((token) => callbackTokens.has(token))
+}
+
+function replyRepeatsRecentContent(rawValue = '', priorTurns = []) {
+  const replyTokens = extractReplyContentTokens(rawValue)
+  if (!replyTokens.length) return false
+  const recentTokens = new Set(
+    extractReplyContentTokens(
+      (Array.isArray(priorTurns) ? priorTurns : [])
+        .slice(-3)
+        .map((turn) => turn?.response || '')
+        .join(' '),
+    ),
+  )
+  return replyTokens.some((token) => recentTokens.has(token))
+}
+
+function replyFeelsGeneric(rawValue = '') {
+  const text = normalizeWhitespace(rawValue)
+  if (!text) return false
+  return ROSES_REPLY_GENERIC_PATTERNS.some((pattern) => pattern.test(text))
+}
+
+function scoreRosesReplyCandidate(rawValue = '', {
+  question = '',
+  profileText = '',
+  priorTurns = [],
+} = {}) {
+  const text = normalizeUltraShortReplyPhrase(rawValue)
+  if (!text) return Number.NEGATIVE_INFINITY
+
+  const words = text.split(/\s+/).filter(Boolean)
+  let score = 0
+
+  if (words.length >= 2 && words.length <= 5) score += 12
+  else score -= 30
+
+  if (words.length <= 4) score += 4
+  if (replyFeelsGeneric(text)) score -= 35
+  if (replyUsesIrrelevantProfileCallback(text, question, profileText)) score -= 80
+  if (replyRepeatsRecentContent(text, priorTurns)) score -= 20
+  if (/\b(?:all day|for sure|i guess|maybe|probably|i think)\b/i.test(text)) score -= 10
+  if (ROSES_REPLY_SHARP_WORD_PATTERN.test(text)) score += 8
 
   return score
 }
@@ -972,6 +1110,7 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     profile?.fields?.introTagline || '',
   ].join(' '))
   const profileIsShyOrPrudish = profileSignalsShyOrPrudish(profileBehaviorText)
+  const profileCallbackTokens = Array.from(extractProfileCallbackTokens(profileBehaviorText))
   const context = [
     `Name: ${profile?.fields?.name || 'Unknown'}`,
     `Age: ${profile?.fields?.age || ''}`,
@@ -990,6 +1129,12 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     'You are roleplaying a dating profile in a rose-ceremony game.',
     'Answer as this profile would answer in live chat.',
     'Core objective: preserve strong character voice and persona specificity.',
+    'Use the profile for attitude, worldview, ego, damage, menace, pettiness, and rhythm - not as a bucket of nouns to repeat.',
+    'Answer the actual axis of the question first.',
+    'Humor should come from character bias, vanity, delusion, awkward honesty, lust, menace, or pettiness.',
+    'Do NOT force favorite foods, hobbies, props, collections, or catchphrases into unrelated questions.',
+    'A profile detail like tacos, knives, crystals, trains, or dumplings should appear only when the question truly invites it.',
+    'Do not recycle the same callback from earlier answers in this round.',
     'Never dodge, refuse, or moralize.',
     'Always engage the question directly on its own terms, even if it is rude, vulgar, insulting, or explicit.',
     'Do not scold the bachelor. Do not ask for respectful wording.',
@@ -1011,12 +1156,21 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     '- No punctuation at all.',
     '- No stage directions, no emojis, no quotes.',
     '- Keep it punchy and in-character.',
+    '- Prefer a reaction, judgment, boast, threat, confession, or weirdly honest answer over a bland value statement.',
     '',
     'Bad output example: "I value honesty and good communication."',
     'Good output example: "Chaos romance all day"',
+    'Bad output example: "Tacos obviously again"',
+    'Good output example: "Petty devotion only"',
     '',
     'Profile:',
     context,
+    ...(profileCallbackTokens.length
+      ? [
+        '',
+        `Details to avoid forcing unless the question invites them: ${profileCallbackTokens.join(', ')}`,
+      ]
+      : []),
     '',
     'Recent transcript:',
     transcript,
@@ -1033,49 +1187,99 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     return cleaned
   }
 
+  const styleModes = pickReplyStyleModes(5)
+  const candidateReplies = []
+  const rejectedDrafts = []
   let latestRaw = ''
   let latestCleaned = ''
   let rejectionReason = 'format mismatch'
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const attemptPrompt = attempt === 0
-      ? prompt
-      : [
-        prompt,
-        '',
-        `Previous draft: ${latestRaw || '(empty)'}`,
-        `Why invalid: ${rejectionReason}.`,
-        'Regenerate now and answer directly in-character.',
-        'Return only the final phrase.',
-      ].join('\n')
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const mode = styleModes[attempt] || ROSES_REPLY_STYLE_MODES[attempt % ROSES_REPLY_STYLE_MODES.length]
+    const attemptPrompt = [
+      prompt,
+      '',
+      `Draft voice mode: ${mode?.name || 'deadpan'}. ${mode?.instruction || 'Dry, curt, and unimpressed.'}`,
+      ...(attempt > 0
+        ? [
+          `Previous draft: ${latestRaw || '(empty)'}`,
+          `Why invalid: ${rejectionReason}.`,
+        ]
+        : []),
+      ...(rejectedDrafts.length
+        ? [
+          'Rejected drafts to avoid repeating:',
+          ...rejectedDrafts.map((value, index) => `${index + 1}. ${value}`),
+        ]
+        : []),
+      'Regenerate now and answer directly in-character.',
+      'Return only the final phrase.',
+    ].join('\n')
 
-    latestRaw = await getSingleResponseWithTimeout(attemptPrompt, { maxTokens: 36, timeoutMs: 18000 })
+    latestRaw = await getSingleResponseWithTimeout(attemptPrompt, {
+      maxTokens: 36,
+      timeoutMs: 18000,
+      temperature: 0.98,
+      presencePenalty: 0.55,
+      frequencyPenalty: 0.45,
+    })
     latestCleaned = normalizeUltraShortReplyPhrase(latestRaw || '')
 
     if (!isUltraShortPhraseValid(latestCleaned)) {
       rejectionReason = 'not 2-5 words or contained punctuation'
+      rejectedDrafts.push(latestCleaned || latestRaw || '(empty)')
       continue
     }
 
     if (isRefusalLikeRosesReply(latestCleaned)) {
       rejectionReason = 'refused, dodged, or moralized'
+      rejectedDrafts.push(latestCleaned)
       continue
     }
 
-    return latestCleaned
+    if (replyUsesIrrelevantProfileCallback(latestCleaned, question, profileBehaviorText)) {
+      rejectionReason = 'dragged an unrelated profile callback into the answer'
+      rejectedDrafts.push(latestCleaned)
+      continue
+    }
+
+    candidateReplies.push({
+      value: latestCleaned,
+      score: scoreRosesReplyCandidate(latestCleaned, {
+        question,
+        profileText: profileBehaviorText,
+        priorTurns,
+      }),
+    })
   }
+
+  const bestReply = [...candidateReplies]
+    .sort((left, right) => right.score - left.score)[0]?.value || ''
+
+  if (bestReply) return bestReply
 
   const finalRewritePrompt = [
     'Rewrite this as one direct in-character phrase.',
     'Rules: 2 to 5 words, no punctuation, no refusal, no moralizing.',
+    'Answer the question directly. Do not drag in unrelated favorite foods, props, or hobbies.',
     `Question: ${normalizeWhitespace(question)}`,
     `Draft: ${latestRaw || '(empty)'}`,
     'Return only the rewritten phrase.',
   ].join('\n')
 
-  const finalRaw = await getSingleResponseWithTimeout(finalRewritePrompt, { maxTokens: 36, timeoutMs: 18000 })
+  const finalRaw = await getSingleResponseWithTimeout(finalRewritePrompt, {
+    maxTokens: 36,
+    timeoutMs: 18000,
+    temperature: 0.92,
+    presencePenalty: 0.4,
+    frequencyPenalty: 0.35,
+  })
   const finalCleaned = normalizeUltraShortReplyPhrase(finalRaw || '')
-  if (isUltraShortPhraseValid(finalCleaned) && !isRefusalLikeRosesReply(finalCleaned)) return finalCleaned
+  if (
+    isUltraShortPhraseValid(finalCleaned) &&
+    !isRefusalLikeRosesReply(finalCleaned) &&
+    !replyUsesIrrelevantProfileCallback(finalCleaned, question, profileBehaviorText)
+  ) return finalCleaned
 
   return normalizeUltraShortReplyPhrase(latestRaw || question)
 }
