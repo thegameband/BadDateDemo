@@ -9,6 +9,9 @@ import {
   saveRound,
 } from '../_state.js'
 
+const CANDIDATE_COUNT = 3
+const ADMIRER_SLOTS = ['A', 'B', 'C']
+
 function candidatePayload(profile, slot) {
   return {
     slot,
@@ -45,9 +48,10 @@ export default async function handler(req, res) {
       bachelorId: playerId,
       history,
       nowMs: Date.now(),
+      candidateCount: CANDIDATE_COUNT,
     })
 
-    if (candidates.length < 2) {
+    if (candidates.length < CANDIDATE_COUNT) {
       sendJson(res, 409, { error: 'Not enough profiles in the pool yet. Please try again soon.' })
       return
     }
@@ -56,7 +60,7 @@ export default async function handler(req, res) {
       version: 1,
       id: getRandomId('roses_round'),
       bachelorId: playerId,
-      candidateIds: [candidates[0].playerId, candidates[1].playerId],
+      candidateIds: candidates.slice(0, CANDIDATE_COUNT).map((candidate) => candidate.playerId),
       turnIndex: 0,
       turns: [],
       winnerId: null,
@@ -75,10 +79,9 @@ export default async function handler(req, res) {
         totalQuestions: 3,
         candidateIds: round.candidateIds,
       },
-      candidates: [
-        candidatePayload(candidates[0], 'A'),
-        candidatePayload(candidates[1], 'B'),
-      ],
+      candidates: candidates
+        .slice(0, CANDIDATE_COUNT)
+        .map((candidate, index) => candidatePayload(candidate, ADMIRER_SLOTS[index] || String(index + 1))),
     })
   } catch (error) {
     console.error('Roses round/start error:', error)

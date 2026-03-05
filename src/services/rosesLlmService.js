@@ -111,14 +111,22 @@ function normalizeGeneratedReplyText(rawValue = '') {
   return normalizePunctuation(normalizeWhitespace(text))
 }
 
-function toSingleSentence(value = '') {
-  const text = normalizeWhitespace(value)
+function normalizeUltraShortReplyPhrase(rawValue = '') {
+  const text = normalizeGeneratedReplyText(rawValue)
+    .replace(/[.,;:!?]/g, ' ')
+    .replace(/[-–—]/g, ' ')
+    .replace(/["'“”()[\]{}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
   if (!text) return ''
+  const words = text.split(/\s+/).filter(Boolean).slice(0, 5)
+  return words.join(' ')
+}
 
-  const firstSentence = text.match(/[^.!?]+[.!?]/)?.[0]?.trim() || text
-  if (!firstSentence) return ''
-  if (/[.!?]$/.test(firstSentence)) return firstSentence
-  return `${firstSentence}.`
+function isUltraShortPhraseValid(value = '') {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean)
+  if (words.length < 2 || words.length > 5) return false
+  return !/[.,;:!?-]/.test(value)
 }
 
 function escapeRegExp(value = '') {
@@ -471,21 +479,17 @@ export async function generateRosesField(field, fields = {}) {
   return ''
 }
 
-function simpleFallbackReply(profile, question) {
-  const occupation = normalizeWhitespace(profile?.fields?.occupation)
-
+function simpleFallbackReply(question) {
   const compactQuestion = normalizeWhitespace(question).toLowerCase()
   if (compactQuestion.includes('hobby') || compactQuestion.includes('free time')) {
-    return 'I am usually chasing something active, creative, or a little chaotic.'
+    return 'Chaos hobbies and late nights'
   }
 
   if (compactQuestion.includes('work') || compactQuestion.includes('job')) {
-    return occupation
-      ? `I work as ${occupation}, and it definitely shaped how I show up in relationships.`
-      : 'I care a lot about ambition, but I am not trying to turn life into a spreadsheet.'
+    return 'Work hard flirt harder'
   }
 
-  return 'I like direct questions. I care about chemistry, honesty, and someone who can keep up.'
+  return 'Chemistry honesty and bold energy'
 }
 
 export async function generateRosesReply({ profile, question, priorTurns = [] }) {
@@ -506,25 +510,17 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
   const prompt = [
     'You are roleplaying a dating profile in a rose-ceremony game.',
     'Answer as this profile would answer in live chat.',
-    'Core objective: preserve character voice and persona specificity over being generally polite or safe.',
-    'Rules:',
-    '- Exactly one sentence.',
-    '- Keep it succinct, punchy, and information-dense.',
-    '- Usually 9-20 words.',
-    '- Voice-first: wording, rhythm, confidence, and attitude should clearly match this specific profile.',
-    '- Do NOT flatten into generic dating-app friendliness.',
-    '- If this profile is heightened, theatrical, iconic, or over-the-top, lean fully into that persona.',
-    '- Include at least one concrete, profile-consistent detail, value, or behavioral tell when possible.',
-    '- Punchy, specific, and honest.',
-    '- No stage directions, no asterisks, no emojis, no bullet points.',
-    '- No generic therapy-speak or vague filler.',
-    '- No bland neutral openers like "That is a good question" or "I like that."',
-    '- Do not quote the profile fields verbatim; express them naturally in-character.',
+    'Core objective: preserve strong character voice and persona specificity.',
+    'Hard format rules:',
+    '- Output one short phrase only.',
+    '- 2 to 5 words total.',
+    '- No commas, semicolons, colons, hyphens, or clauses.',
+    '- No punctuation at all.',
+    '- No stage directions, no emojis, no quotes.',
+    '- Keep it punchy and in-character.',
     '',
-    'Wrong style example:',
-    '- "I value honesty and communication, and I would like to get to know you better."',
-    'Right style example:',
-    '- "If your idea of romance includes chaos and snacks, we are already halfway there."',
+    'Bad output example: "I value honesty and good communication."',
+    'Good output example: "Chaos romance all day"',
     '',
     'Profile:',
     context,
@@ -534,11 +530,15 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     '',
     `Bachelor question: ${normalizeWhitespace(question)}`,
     '',
-    'Return only the answer text.',
+    'Return only the phrase text.',
   ].join('\n')
 
-  const generated = await getSingleResponseWithTimeout(prompt, { maxTokens: 120, timeoutMs: 18000 })
-  const cleaned = normalizeGeneratedReplyText(generated || '')
-  if (!cleaned) return toSingleSentence(simpleFallbackReply(profile, question))
-  return toSingleSentence(cleaned)
+  const generated = await getSingleResponseWithTimeout(prompt, { maxTokens: 36, timeoutMs: 18000 })
+  const cleaned = normalizeUltraShortReplyPhrase(generated || '')
+  if (isUltraShortPhraseValid(cleaned)) return cleaned
+
+  const fallback = normalizeUltraShortReplyPhrase(simpleFallbackReply(question))
+  if (isUltraShortPhraseValid(fallback)) return fallback
+
+  return 'Wild energy only'
 }

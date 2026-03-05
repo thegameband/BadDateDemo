@@ -15,6 +15,7 @@ import {
 const QUESTION_COUNT = 3
 const DISCORD_TIMEOUT_MS = 2500
 const SLACK_NOTIFIER_TIMEOUT_MS = 2500
+const ADMIRER_SLOTS = ['A', 'B', 'C', 'D']
 
 function getDiscordWebhookUrl() {
   const rosesWebhook = String(process.env.ROSES_DISCORD_WEBHOOK_URL || '').trim()
@@ -113,10 +114,11 @@ async function postSlackRoseAward({ profile, rank, totalProfiles }) {
   }
 }
 
-function getRevealPayload(profile, ranks, weekKey) {
+function getRevealPayload(profile, ranks, weekKey, slot = '') {
   const weeklyRoses = Number(profile.stats?.weeklyRoses?.[weekKey] || 0)
   return {
     playerId: profile.playerId,
+    slot,
     fields: profile.fields,
     stats: {
       shownCount: Number(profile.stats?.shownCount || 0),
@@ -161,12 +163,14 @@ export default async function handler(req, res) {
       return
     }
 
-    if (!Array.isArray(round.candidateIds) || round.candidateIds.length !== 2) {
+    if (!Array.isArray(round.candidateIds) || round.candidateIds.length < 2) {
       sendJson(res, 400, { error: 'Invalid round candidate data.' })
       return
     }
 
-    if (!round.candidateIds.includes(winnerId)) {
+    const candidateIds = round.candidateIds.map((id) => String(id))
+
+    if (!candidateIds.includes(winnerId)) {
       sendJson(res, 400, { error: 'Winner is not one of the candidates.' })
       return
     }
@@ -176,23 +180,28 @@ export default async function handler(req, res) {
       return
     }
 
-    const loserId = String(round.candidateIds.find((id) => String(id) !== winnerId))
+    const nonWinnerIds = candidateIds.filter((id) => id !== winnerId)
+    const candidateProfiles = await Promise.all(candidateIds.map((candidateId) => getProfile(candidateId)))
+    const profilesById = new Map()
+    candidateIds.forEach((candidateId, index) => {
+      const profile = candidateProfiles[index]
+      if (profile) {
+        profilesById.set(candidateId, profile)
+      }
+    })
 
-    const [winnerProfile, loserProfile] = await Promise.all([
-      getProfile(winnerId),
-      getProfile(loserId),
-    ])
-
-    if (!winnerProfile || !loserProfile) {
+    const winnerProfile = profilesById.get(winnerId) || null
+    const missingProfile = candidateIds.some((candidateId) => !profilesById.get(candidateId))
+    if (!winnerProfile || missingProfile) {
       sendJson(res, 404, { error: 'Candidate profile no longer exists.' })
       return
     }
 
     const weekKey = currentWeekKey(Date.now())
-    const turnsByCandidate = {
-      [winnerId]: [],
-      [loserId]: [],
-    }
+    const turnsByCandidate = candidateIds.reduce((acc, candidateId) => {
+      acc[candidateId] = []
+      return acc
+    }, {})
 
     round.turns.forEach((turn) => {
       const questionText = String(turn?.question || '')
@@ -234,24 +243,27 @@ export default async function handler(req, res) {
       profile.updatedAt = Date.now()
     }
 
-    updateCandidateStats(winnerProfile, turnsByCandidate[winnerId], true)
-    updateCandidateStats(loserProfile, turnsByCandidate[loserId], false)
+    candidateIds.forEach((candidateId) => {
+      const profile = profilesById.get(candidateId)
+      if (!profile) return
+      updateCandidateStats(profile, turnsByCandidate[candidateId], candidateId === winnerId)
+    })
 
-    await Promise.all([
-      saveProfile(winnerProfile),
-      saveProfile(loserProfile),
-    ])
+    await Promise.all(candidateIds.map((candidateId) => saveProfile(profilesById.get(candidateId))))
 
     const history = await getHistory(playerId)
-    history[winnerId] = Date.now()
-    history[loserId] = Date.now()
+    const completedAt = Date.now()
+    candidateIds.forEach((candidateId) => {
+      history[candidateId] = completedAt
+    })
     await saveHistory(playerId, history)
 
     round.completed = true
     round.winnerId = winnerId
-    round.loserId = loserId
-    round.completedAt = Date.now()
-    round.updatedAt = Date.now()
+    round.nonWinnerIds = nonWinnerIds
+    round.loserId = nonWinnerIds[0] || null
+    round.completedAt = completedAt
+    round.updatedAt = completedAt
     await saveRound(round)
 
     const allProfiles = await getAllProfiles()
@@ -277,11 +289,24 @@ export default async function handler(req, res) {
       console.error('Roses Slack notifier error:', slackError)
     }
 
+    const slotByCandidateId = {}
+    candidateIds.forEach((candidateId, index) => {
+      slotByCandidateId[candidateId] = ADMIRER_SLOTS[index] || String(index + 1)
+    })
+
+    const nonWinnerReveals = nonWinnerIds.map((candidateId) => getRevealPayload(
+      profilesById.get(candidateId),
+      rankings,
+      rankings.weekKey,
+      slotByCandidateId[candidateId],
+    ))
+
     sendJson(res, 200, {
       ok: true,
       reveal: {
-        loser: getRevealPayload(loserProfile, rankings, rankings.weekKey),
-        winner: getRevealPayload(winnerProfile, rankings, rankings.weekKey),
+        nonWinners: nonWinnerReveals,
+        loser: nonWinnerReveals[0] || null,
+        winner: getRevealPayload(winnerProfile, rankings, rankings.weekKey, slotByCandidateId[winnerId]),
       },
       weekKey: rankings.weekKey,
     })

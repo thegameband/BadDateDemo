@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       return
     }
 
-    if (!Array.isArray(round?.candidateIds) || round.candidateIds.length !== 2) {
+    if (!Array.isArray(round?.candidateIds) || round.candidateIds.length < 2) {
       sendJson(res, 400, { error: 'Invalid round candidate data.' })
       return
     }
@@ -62,21 +62,23 @@ export default async function handler(req, res) {
       return
     }
 
-    if (responses.length !== 2) {
-      sendJson(res, 400, { error: 'Expected responses for both profiles.' })
+    const expectedResponseCount = round.candidateIds.length
+
+    if (responses.length !== expectedResponseCount) {
+      sendJson(res, 400, { error: 'Expected responses for every profile in this round.' })
       return
     }
 
     const expectedIds = new Set(round.candidateIds.map((id) => String(id)))
     const receivedIds = new Set(responses.map((item) => item.candidateId))
-    if (receivedIds.size !== 2) {
+    if (receivedIds.size !== expectedResponseCount) {
       sendJson(res, 400, { error: 'Duplicate profile responses are not allowed.' })
       return
     }
 
     const receivedAllCandidates = [...receivedIds].every((id) => expectedIds.has(id))
     if (!receivedAllCandidates) {
-      sendJson(res, 400, { error: 'Responses must match the current candidate pair.' })
+      sendJson(res, 400, { error: 'Responses must match the current candidate lineup.' })
       return
     }
 

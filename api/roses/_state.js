@@ -339,8 +339,15 @@ export function buildRankings(profiles = [], nowMs = Date.now()) {
   }
 }
 
-export function findRoundCandidates({ allProfiles = [], bachelorId = '', history = {}, nowMs = Date.now() }) {
+export function findRoundCandidates({
+  allProfiles = [],
+  bachelorId = '',
+  history = {},
+  nowMs = Date.now(),
+  candidateCount = 3,
+}) {
   const lockoutMs = 7 * 24 * 60 * 60 * 1000
+  const targetCount = Math.max(2, Number.parseInt(String(candidateCount || 0), 10) || 3)
   const candidates = allProfiles
     .filter((profile) => String(profile.playerId) !== String(bachelorId))
     .filter((profile) => isCompleteProfile(profile?.fields))
@@ -364,7 +371,7 @@ export function findRoundCandidates({ allProfiles = [], bachelorId = '', history
     return String(a.profile.playerId).localeCompare(String(b.profile.playerId))
   })
 
-  return candidates.slice(0, 2).map((entry) => entry.profile)
+  return candidates.slice(0, targetCount).map((entry) => entry.profile)
 }
 
 export function createOrUpdateProfile({

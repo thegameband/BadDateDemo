@@ -35,10 +35,14 @@ const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
 const TTS_MIN_TIMEOUT_MS = 4500
 const TTS_MAX_TIMEOUT_MS = 15000
-const QUESTION_PLACEHOLDERS = [
-  'Where would you take me on a first date?',
-  "What's something you do that would impress me?",
-  'If you had a million dollars, how would you spend it?',
+const ADMIRER_SLOTS = ['A', 'B', 'C']
+const QUESTION_FILL_PROMPTS = [
+  "What's your biggest _____?",
+  "What's your favorite _____?",
+  "What's your least favorite _____?",
+  'How often do you _____?',
+  "What's your preference when it comes to _____?",
+  "You see me and I'm _____. What do you do?",
 ]
 
 const DEFAULT_ROSES_VOICES = {
@@ -77,6 +81,7 @@ function scoreWordSize(count = 1) {
 function admirerNumberFromSlot(slot) {
   if (slot === 'A') return 1
   if (slot === 'B') return 2
+  if (slot === 'C') return 3
   return slot || '?'
 }
 
@@ -100,12 +105,42 @@ function resolveAdmirerVoice(candidate, slot = 'A') {
   }
 
   const inferredMale = inferIsMaleFromPronouns(candidate?.fields?.pronouns)
-  const fallbackMale = slot === 'B'
+  const fallbackMale = slot === 'B' || slot === 'C'
   const isMale = inferredMale || fallbackMale
   return {
     voiceId: isMale ? DEFAULT_ROSES_VOICES.male : DEFAULT_ROSES_VOICES.female,
     isMale,
   }
+}
+
+function slotSortIndex(slot = '') {
+  const normalized = String(slot || '').toUpperCase()
+  const idx = ADMIRER_SLOTS.indexOf(normalized)
+  if (idx >= 0) return idx
+  return 999
+}
+
+function fillQuestionTemplate(template = '', value = '') {
+  const cleaned = String(value || '')
+    .replace(/[?!.;,:\-]+$/g, '')
+    .trim()
+  if (!cleaned) return String(template || '')
+  return String(template || '').replace('_____', cleaned)
+}
+
+function randomPromptPlan(count = TURN_COUNT) {
+  const picks = []
+  for (let index = 0; index < count; index += 1) {
+    const previous = picks[index - 1]
+    let next = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
+    let safety = 0
+    while (QUESTION_FILL_PROMPTS.length > 1 && next === previous && safety < 8) {
+      next = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
+      safety += 1
+    }
+    picks.push(next)
+  }
+  return picks
 }
 
 function withAdmirerSpeechTag(slot, text) {
@@ -364,16 +399,16 @@ function RosesMode({ onBack }) {
   const [candidates, setCandidates] = useState([])
   const [chatLog, setChatLog] = useState([])
   const [introPhase, setIntroPhase] = useState('idle')
-  const [introTaglines, setIntroTaglines] = useState({ A: '', B: '' })
+  const [introTaglines, setIntroTaglines] = useState({})
   const [activeSpeechSlot, setActiveSpeechSlot] = useState('')
   const [activeSpeechAnswerKey, setActiveSpeechAnswerKey] = useState('')
   const [questionInput, setQuestionInput] = useState('')
+  const [questionPromptIndexes, setQuestionPromptIndexes] = useState(() => randomPromptPlan())
   const [sendingQuestion, setSendingQuestion] = useState(false)
   const [choosingWinner, setChoosingWinner] = useState(false)
   const [reveal, setReveal] = useState(null)
   const chatLogRef = useRef(null)
   const questionInputRef = useRef(null)
-  const skipQuestionClearOnFocusRef = useRef(false)
 
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -404,11 +439,20 @@ function RosesMode({ onBack }) {
     return map
   }, [candidates])
 
+  const orderedCandidates = useMemo(() => (
+    [...candidates].sort((a, b) => {
+      const slotDelta = slotSortIndex(a?.slot) - slotSortIndex(b?.slot)
+      if (slotDelta !== 0) return slotDelta
+      return String(a?.playerId || '').localeCompare(String(b?.playerId || ''))
+    })
+  ), [candidates])
+
   const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
-  const questionPlaceholder =
-    QUESTION_PLACEHOLDERS[Math.min(chatLog.length, QUESTION_PLACEHOLDERS.length - 1)]
-  const candidateA = candidates.find((candidate) => candidate.slot === 'A') || candidates[0] || null
-  const candidateB = candidates.find((candidate) => candidate.slot === 'B') || candidates[1] || null
+  const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, chatLog.length)
+  const activePromptTemplate = QUESTION_FILL_PROMPTS[
+    questionPromptIndexes[currentTurnPromptIndex] ?? 0
+  ] || QUESTION_FILL_PROMPTS[0]
+  const composedQuestion = fillQuestionTemplate(activePromptTemplate, questionInput)
   const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const hasSentimentKeywords = sentimentKeywords.length > 0
@@ -474,7 +518,7 @@ function RosesMode({ onBack }) {
     })
 
     return () => cancelAnimationFrame(frameId)
-  }, [stage, chatLog.length, introTaglines.A, introTaglines.B])
+  }, [stage, chatLog.length, introTaglines])
 
   useEffect(() => {
     if (stage !== 'chat') return
@@ -482,41 +526,36 @@ function RosesMode({ onBack }) {
       setIntroPhase('done')
       return
     }
-    if (!candidateA || !candidateB) return
-
-    const taglineA = String(candidateA?.fields?.introTagline || '...')
-    const taglineB = String(candidateB?.fields?.introTagline || '...')
+    if (orderedCandidates.length < 2) return
 
     let cancelled = false
 
     const playIntro = async () => {
       setIntroPhase('idle')
-      setIntroTaglines({ A: '', B: '' })
+      setIntroTaglines({})
       await wait(INTRO_PHASE_HOLD_MS)
       if (cancelled) return
 
-      setIntroPhase('a')
-      setIntroTaglines({ A: taglineA, B: '' })
-      await speakRosesLine({
-        text: withAdmirerSpeechTag('A', taglineA),
-        speaker: 'dater',
-        slot: 'A',
-        candidate: candidateA,
-      })
-      if (cancelled) return
+      for (let index = 0; index < orderedCandidates.length; index += 1) {
+        const candidate = orderedCandidates[index]
+        const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
+        const tagline = String(candidate?.fields?.introTagline || '...')
 
-      await wait(BETWEEN_INTRO_LINES_MS)
-      if (cancelled) return
+        setIntroPhase(slot.toLowerCase())
+        setIntroTaglines((prev) => ({ ...prev, [slot]: tagline }))
+        await speakRosesLine({
+          text: withAdmirerSpeechTag(slot, tagline),
+          speaker: 'dater',
+          slot,
+          candidate,
+        })
+        if (cancelled) return
 
-      setIntroPhase('b')
-      setIntroTaglines({ A: taglineA, B: taglineB })
-      await speakRosesLine({
-        text: withAdmirerSpeechTag('B', taglineB),
-        speaker: 'dater',
-        slot: 'B',
-        candidate: candidateB,
-      })
-      if (cancelled) return
+        if (index < orderedCandidates.length - 1) {
+          await wait(BETWEEN_INTRO_LINES_MS)
+          if (cancelled) return
+        }
+      }
 
       setIntroPhase('done')
     }
@@ -526,7 +565,7 @@ function RosesMode({ onBack }) {
     return () => {
       cancelled = true
     }
-  }, [stage, chatLog.length, candidateA, candidateB, speakRosesLine])
+  }, [stage, chatLog.length, orderedCandidates, speakRosesLine])
 
   useEffect(() => () => {
     stopAllAudio()
@@ -757,10 +796,11 @@ function RosesMode({ onBack }) {
       setCandidates(response.candidates || [])
       setChatLog([])
       setIntroPhase('idle')
-      setIntroTaglines({ A: '', B: '' })
+      setIntroTaglines({})
       setActiveSpeechSlot('')
       setActiveSpeechAnswerKey('')
       setQuestionInput('')
+      setQuestionPromptIndexes(randomPromptPlan())
       setReveal(null)
       setStage('chat')
       setStatus('')
@@ -774,7 +814,7 @@ function RosesMode({ onBack }) {
   const handleSendQuestion = async () => {
     if (!round || sendingQuestion || introActive) return
 
-    const question = String(questionInput || '').trim()
+    const question = String(composedQuestion || '').trim()
     if (!question) return
 
     if ((Number(round.turnIndex) || 0) >= TURN_COUNT) {
@@ -794,24 +834,19 @@ function RosesMode({ onBack }) {
         })
         .filter(Boolean)
 
-      if (!candidateA || !candidateB) {
+      if (orderedCandidates.length < 2) {
         setError('Round candidate data is missing.')
         return
       }
 
       setStatus('Reading your question while admirers think...')
-      const replyPromise = Promise.all([
-        generateRosesReply({
-          profile: candidateA,
+      const replyPromise = Promise.all(
+        orderedCandidates.map((candidate) => generateRosesReply({
+          profile: candidate,
           question,
-          priorTurns: buildsPriorTurns(candidateA.playerId),
-        }),
-        generateRosesReply({
-          profile: candidateB,
-          question,
-          priorTurns: buildsPriorTurns(candidateB.playerId),
-        }),
-      ])
+          priorTurns: buildsPriorTurns(candidate.playerId),
+        })),
+      )
 
       const questionSpeechPromise = speakRosesLine({
         text: question,
@@ -819,13 +854,13 @@ function RosesMode({ onBack }) {
         slot: 'Q',
       })
 
-      const [replyA, replyB] = await replyPromise
+      const replyValues = await replyPromise
       await questionSpeechPromise
 
-      const responses = [
-        { candidateId: candidateA.playerId, response: replyA },
-        { candidateId: candidateB.playerId, response: replyB },
-      ]
+      const responses = orderedCandidates.map((candidate, index) => ({
+        candidateId: candidate.playerId,
+        response: String(replyValues[index] || '').trim(),
+      }))
 
       setStatus('Recording round turn...')
       const response = await submitRosesTurn({
@@ -852,28 +887,23 @@ function RosesMode({ onBack }) {
       setRound((prev) => ({ ...prev, ...response.round }))
       setQuestionInput('')
 
-      const slotA = candidateA?.slot || 'A'
-      const slotB = candidateB?.slot || 'B'
+      for (let index = 0; index < responses.length; index += 1) {
+        const item = responses[index]
+        const candidate = candidateById.get(String(item.candidateId))
+        const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
+        setStatus(`${admirerLabelFromSlot(slot)} responds...`)
+        await speakRosesLine({
+          text: withAdmirerSpeechTag(slot, item.response),
+          speaker: 'dater',
+          slot,
+          candidate,
+          answerKey: `${nextTurnNumber}-${item.candidateId}`,
+        })
 
-      setStatus(`${admirerLabelFromSlot(slotA)} responds...`)
-      await speakRosesLine({
-        text: withAdmirerSpeechTag(slotA, replyA),
-        speaker: 'dater',
-        slot: slotA,
-        candidate: candidateA,
-        answerKey: `${nextTurnNumber}-${candidateA.playerId}`,
-      })
-
-      await wait(BETWEEN_ANSWER_LINES_MS)
-
-      setStatus(`${admirerLabelFromSlot(slotB)} responds...`)
-      await speakRosesLine({
-        text: withAdmirerSpeechTag(slotB, replyB),
-        speaker: 'dater',
-        slot: slotB,
-        candidate: candidateB,
-        answerKey: `${nextTurnNumber}-${candidateB.playerId}`,
-      })
+        if (index < responses.length - 1) {
+          await wait(BETWEEN_ANSWER_LINES_MS)
+        }
+      }
 
       if (response.round?.doneAsking) {
         setStage('choose')
@@ -900,16 +930,6 @@ function RosesMode({ onBack }) {
 
   const handleQuestionFocus = () => {
     if (sendingQuestion || introActive) return
-    if (skipQuestionClearOnFocusRef.current) {
-      skipQuestionClearOnFocusRef.current = false
-      requestAnimationFrame(() => {
-        const node = questionInputRef.current
-        if (!node) return
-        const pos = String(node.value || '').length
-        node.setSelectionRange(pos, pos)
-      })
-      return
-    }
     setQuestionInput('')
     requestAnimationFrame(() => {
       const node = questionInputRef.current
@@ -921,16 +941,25 @@ function RosesMode({ onBack }) {
 
   const handleUseSuggestedQuestion = () => {
     if (sendingQuestion || introActive) return
-    const suggestion = String(questionPlaceholder || '').trim()
-    if (!suggestion) return
-    setQuestionInput(suggestion)
-    skipQuestionClearOnFocusRef.current = true
+    setQuestionPromptIndexes((prev) => {
+      const next = [...prev]
+      const turnIndex = Math.min(TURN_COUNT - 1, chatLog.length)
+      const currentValue = Number(next[turnIndex] || 0)
+      let updatedValue = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
+      let safety = 0
+      while (QUESTION_FILL_PROMPTS.length > 1 && updatedValue === currentValue && safety < 8) {
+        updatedValue = Math.floor(Math.random() * QUESTION_FILL_PROMPTS.length)
+        safety += 1
+      }
+      next[turnIndex] = updatedValue
+      return next
+    })
+    setQuestionInput('')
     requestAnimationFrame(() => {
       const node = questionInputRef.current
       if (!node) return
       node.focus()
-      const pos = String(suggestion).length
-      node.setSelectionRange(pos, pos)
+      node.setSelectionRange(0, 0)
     })
   }
 
@@ -939,7 +968,7 @@ function RosesMode({ onBack }) {
     setActiveSpeechSlot('')
     setActiveSpeechAnswerKey('')
     setIntroPhase('idle')
-    setIntroTaglines({ A: '', B: '' })
+    setIntroTaglines({})
     setStatus('')
     setStage('dashboard')
   }
@@ -953,7 +982,7 @@ function RosesMode({ onBack }) {
     try {
       const response = await completeRosesRound({ playerId, roundId: round.id, winnerId })
       setReveal(response.reveal)
-      setStage('reveal-loser')
+      setStage('reveal-nonwinners')
 
       const refreshedDay = getLocalDayKey(timezone)
       const [profileResp, leaderboardResp] = await Promise.all([
@@ -997,22 +1026,24 @@ function RosesMode({ onBack }) {
           <div ref={chatLogRef} className="roses-chat-log">
             {chatLog.length === 0 && (
               <div className="roses-intro-sequence">
-                {[
-                  { slot: 'A', candidate: candidateA, tagline: introTaglines.A, active: activeSpeechSlot === 'A' },
-                  { slot: 'B', candidate: candidateB, tagline: introTaglines.B, active: activeSpeechSlot === 'B' },
-                ].map((item) => (
+                {orderedCandidates.map((candidate, index) => {
+                  const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
+                  const tagline = introTaglines[slot] || ''
+                  const active = activeSpeechSlot === slot
+                  return (
                   <div
-                    key={`intro-${item.slot}`}
+                    key={`intro-${slot}`}
                     className={[
                       'roses-intro-card',
-                      item.active ? 'is-active' : '',
-                      item.tagline ? 'is-revealed' : '',
+                      active ? 'is-active' : '',
+                      tagline ? 'is-revealed' : '',
                     ].filter(Boolean).join(' ')}
                   >
-                    <div className="roses-answer-head">{admirerLabelFromSlot(item.candidate?.slot || item.slot)}</div>
-                    <div className="roses-intro-tagline">{item.tagline}</div>
+                    <div className="roses-answer-head">{admirerLabelFromSlot(slot)}</div>
+                    <div className="roses-intro-tagline">{tagline}</div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
             {chatLog.map((turn) => (
@@ -1040,24 +1071,25 @@ function RosesMode({ onBack }) {
           </div>
 
           <div className="roses-question-row">
-            <textarea
+            <div className="roses-question-template">{activePromptTemplate}</div>
+            <input
               ref={questionInputRef}
+              type="text"
               value={questionInput}
-              onChange={(event) => setQuestionInput(event.target.value.slice(0, 280))}
+              onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
               onKeyDown={handleQuestionKeyDown}
               onFocus={handleQuestionFocus}
-              rows={3}
-              placeholder={questionPlaceholder}
+              placeholder="Fill in the blank"
               disabled={sendingQuestion || introActive}
             />
             <div className="roses-question-actions">
               <button
                 type="button"
                 className="roses-question-dice"
-                aria-label="Use suggested question"
+                aria-label="Randomize question prompt"
                 onClick={handleUseSuggestedQuestion}
                 disabled={sendingQuestion || introActive}
-                title="Use suggested question"
+                title="Randomize question prompt"
               >
                 🎲
               </button>
@@ -1067,7 +1099,7 @@ function RosesMode({ onBack }) {
                 onClick={handleSendQuestion}
                 disabled={sendingQuestion || introActive || !questionInput.trim()}
               >
-                {sendingQuestion ? 'Getting Both Answers...' : 'Ask Both Admirers'}
+                {sendingQuestion ? 'Getting All Answers...' : 'Ask All Admirers'}
               </button>
             </div>
           </div>
@@ -1077,9 +1109,6 @@ function RosesMode({ onBack }) {
   }
 
   if (stage === 'choose') {
-    const profileA = candidates.find((candidate) => candidate.slot === 'A') || candidates[0] || null
-    const profileB = candidates.find((candidate) => candidate.slot === 'B') || candidates[1] || null
-
     const answersFor = (candidateId) => chatLog.map((turn) => {
       const answer = (turn.answers || []).find((item) => String(item.candidateId) === String(candidateId))
       return {
@@ -1089,22 +1118,19 @@ function RosesMode({ onBack }) {
       }
     })
 
-    const profileAAnswers = profileA ? answersFor(profileA.playerId) : []
-    const profileBAnswers = profileB ? answersFor(profileB.playerId) : []
-
     return (
       <div className="roses-mode">
         <div className="roses-card">
           <h2>Award One Rose</h2>
           <p className="roses-muted">Choose your favorite admirer. You must pick one.</p>
           <div className="roses-compare-grid">
-            {[
-              { profile: profileA, answers: profileAAnswers },
-              { profile: profileB, answers: profileBAnswers },
-            ].map(({ profile: candidate, answers }, index) => (
+            {orderedCandidates.map((candidate, index) => {
+              const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
+              const answers = answersFor(candidate.playerId)
+              return (
               <div key={candidate?.playerId || `candidate-${index}`} className="roses-choice-card compare">
-                <h3>{admirerLabelFromSlot(candidate?.slot)}</h3>
-                <p className="roses-choice-tagline">{candidate?.fields?.introTagline}</p>
+                <h3>{admirerLabelFromSlot(slot)}</h3>
+                <p className="roses-choice-tagline">{candidate?.fields?.introTagline || '-'}</p>
                 <div className="roses-choice-answers">
                   {answers.map((item) => (
                     <div key={`${candidate?.playerId || 'x'}-a-${item.turnNumber}`} className="roses-choice-answer-row">
@@ -1119,21 +1145,35 @@ function RosesMode({ onBack }) {
                   onClick={() => candidate?.playerId && handleChooseWinner(candidate.playerId)}
                   disabled={choosingWinner || !candidate?.playerId}
                 >
-                  {choosingWinner ? 'Submitting...' : `Give Rose to ${admirerLabelFromSlot(candidate?.slot)}`}
+                  {choosingWinner ? 'Submitting...' : `Give Rose to ${admirerLabelFromSlot(slot)}`}
                 </button>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
     )
   }
 
-  if (stage === 'reveal-loser') {
+  if (stage === 'reveal-nonwinners') {
+    const nonWinnerProfiles = Array.isArray(reveal?.nonWinners)
+      ? reveal.nonWinners
+      : [reveal?.loser].filter(Boolean)
+
     return (
       <div className="roses-mode">
         <div className="roses-card">
-          <RevealCard profile={reveal?.loser} title="ADMIRER NOT CHOSEN" emphasis="loser" />
+          <div className="roses-reveal-multi-grid">
+            {nonWinnerProfiles.map((item, index) => (
+              <RevealCard
+                key={`nonwinner-${item?.playerId || index}`}
+                profile={item}
+                title={`${admirerLabelFromSlot(item?.slot || ADMIRER_SLOTS[index] || String(index + 1))} NOT CHOSEN`}
+                emphasis="loser"
+              />
+            ))}
+          </div>
           <button type="button" className="roses-reveal-cta" onClick={() => setStage('reveal-winner')}>
             Reveal Rose Winner
           </button>
