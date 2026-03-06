@@ -599,7 +599,7 @@ function RosesMode({ onBack }) {
     })
 
     return () => cancelAnimationFrame(frameId)
-  }, [stage, chatLog.length, introTaglines])
+  }, [stage, chatLog, introTaglines])
 
   useEffect(() => {
     return onAudioStart((_text, speaker) => {
