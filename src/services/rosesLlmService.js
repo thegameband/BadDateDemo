@@ -231,6 +231,10 @@ const ROSES_REPLY_GENERIC_SPECIFICITY_PATTERNS = [
   /\bletting people in\b/i,
   /\btoo much trust\b/i,
 ]
+const ROSES_REPLY_FRAGMENT_START_PATTERN = /^(?:hourly|daily|nightly|weekly|monthly|yearly|always|usually|sometimes|often|rarely|mostly|before|after|during|whenever|constantly)\b/i
+const ROSES_REPLY_FRAGMENT_END_PATTERN = /\b(?:anyway|mostly|though|somehow|instead|still)\b$/i
+const ROSES_REPLY_FILLER_PATTERN = /\b(?:anyway|mostly|kinda|sorta|basically|literally)\b/i
+const ROSES_REPLY_MULTI_CLAUSE_PATTERN = /\b(?:and|but|because|while|though|although|unless|since|before|after|when|whenever|if)\b/i
 
 function unwrapCodeFence(value = '') {
   const raw = String(value || '').trim()
@@ -289,7 +293,7 @@ function normalizeUltraShortReplyPhrase(rawValue = '') {
 
 function isUltraShortPhraseValid(value = '') {
   const words = String(value || '').trim().split(/\s+/).filter(Boolean)
-  if (words.length < 2 || words.length > 5) return false
+  if (words.length < 4 || words.length > 5) return false
   return !/[.,;:!?-]/.test(value)
 }
 
@@ -553,6 +557,22 @@ function replyIsTooGeneralForQuestion(rawValue = '', question = '') {
   return false
 }
 
+function replyFeelsCompressedOrFragmented(rawValue = '') {
+  const text = normalizeWhitespace(rawValue)
+  if (!text) return false
+
+  if (ROSES_REPLY_FRAGMENT_START_PATTERN.test(text)) return true
+  if (ROSES_REPLY_FRAGMENT_END_PATTERN.test(text)) return true
+  if (ROSES_REPLY_FILLER_PATTERN.test(text)) return true
+  if (ROSES_REPLY_MULTI_CLAUSE_PATTERN.test(text)) return true
+
+  const words = text.split(/\s+/).filter(Boolean)
+  const adverbCount = words.filter((word) => /ly$/i.test(word) && !/only$/i.test(word)).length
+  if (adverbCount >= 2) return true
+
+  return false
+}
+
 function repliesAreTooSimilar(leftValue = '', rightValue = '') {
   const left = normalizeWhitespace(leftValue).toLowerCase()
   const right = normalizeWhitespace(rightValue).toLowerCase()
@@ -584,12 +604,13 @@ function scoreRosesReplyCandidate(rawValue = '', {
   const words = text.split(/\s+/).filter(Boolean)
   let score = 0
 
-  if (words.length >= 2 && words.length <= 5) score += 12
+  if (words.length >= 4 && words.length <= 5) score += 12
   else score -= 30
 
-  if (words.length <= 4) score += 4
+  if (words.length >= 4 && words.length <= 5) score += 10
   if (replyFeelsGeneric(text)) score -= 35
   if (replyIsTooGeneralForQuestion(text, question)) score -= 60
+  if (replyFeelsCompressedOrFragmented(text)) score -= 80
   if (replyUsesIrrelevantProfileCallback(text, question, profileText)) score -= 80
   if (replyRepeatsRecentContent(text, priorTurns)) score -= 20
   if ((Array.isArray(usedResponses) ? usedResponses : []).some((value) => repliesAreTooSimilar(text, value))) score -= 90
@@ -1221,12 +1242,17 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
         'Do not sanitize into polite non-answers.',
       ]),
     'Hard format rules:',
-    '- Output one short phrase only.',
-    '- 2 to 5 words total.',
+    '- Output one short spoken line only.',
+    '- 4 to 5 words total.',
     '- No commas, semicolons, colons, hyphens, or clauses.',
     '- No punctuation at all.',
     '- No stage directions, no emojis, no quotes.',
     '- Keep it punchy and in-character.',
+    '- Use ordinary natural word order and grammar.',
+    '- The line must express one thought only, not two compressed thoughts jammed together.',
+    '- Do not write compressed poetry, clipped fragments, or half-implied sentences.',
+    '- Do not start with words like hourly, daily, mostly, before, or after.',
+    '- Do not end with filler words like anyway or mostly.',
     '- Prefer a reaction, judgment, boast, threat, confession, or weirdly honest answer over a bland value statement.',
     '',
     'Bad output example: "I value honesty and good communication."',
@@ -1235,6 +1261,10 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
     'Good output example: "Petty devotion only"',
     'Bad output example: "Anything with lots of action"',
     'Bad output example: "Trusting someone I shouldnt have"',
+    'Bad output example: "Hourly my bones applaud"',
+    'Bad output example: "Daily still croaking anyway"',
+    'Good output example: "I think about it nightly"',
+    'Good output example: "That thought ruins sleep"',
     '',
     'Profile:',
     context,
@@ -1306,7 +1336,7 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
     latestCleaned = normalizeUltraShortReplyPhrase(latestRaw || '')
 
     if (!isUltraShortPhraseValid(latestCleaned)) {
-      rejectionReason = 'not 2-5 words or contained punctuation'
+      rejectionReason = 'not 4-5 words or contained punctuation'
       rejectedDrafts.push(latestCleaned || latestRaw || '(empty)')
       continue
     }
@@ -1325,6 +1355,12 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
 
     if (replyIsTooGeneralForQuestion(latestCleaned, question)) {
       rejectionReason = 'too general for a question that wanted a concrete answer'
+      rejectedDrafts.push(latestCleaned)
+      continue
+    }
+
+    if (replyFeelsCompressedOrFragmented(latestCleaned)) {
+      rejectionReason = 'compressed multiple ideas into an unnatural fragment'
       rejectedDrafts.push(latestCleaned)
       continue
     }
@@ -1352,8 +1388,11 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
   if (bestReply) return bestReply
 
   const finalRewritePrompt = [
-    'Rewrite this as one direct in-character phrase.',
-    'Rules: 2 to 5 words, no punctuation, no refusal, no moralizing.',
+    'Rewrite this as one natural in-character spoken line.',
+    'Rules: 4 to 5 words, no punctuation, no refusal, no moralizing.',
+    'Use ordinary grammar and normal word order.',
+    'Express only one thought.',
+    'No compressed poetry, no clipped fragments, no filler endings.',
     'Answer the question directly. Do not drag in unrelated favorite foods, props, or hobbies.',
     `Question: ${normalizeWhitespace(question)}`,
     `Draft: ${latestRaw || '(empty)'}`,
@@ -1373,6 +1412,7 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
     !isRefusalLikeRosesReply(finalCleaned) &&
     !replyUsesIrrelevantProfileCallback(finalCleaned, question, profileBehaviorText) &&
     !replyIsTooGeneralForQuestion(finalCleaned, question) &&
+    !replyFeelsCompressedOrFragmented(finalCleaned) &&
     !(Array.isArray(usedResponses) ? usedResponses : []).some((value) => repliesAreTooSimilar(finalCleaned, value))
   ) return finalCleaned
 
