@@ -39,3 +39,11 @@ export function setSfxVolume(value) {
   sfxVolume = clampVolume(value, sfxVolume)
   persistVolume(SFX_VOL_KEY, sfxVolume)
 }
+
+export function playSfx(src) {
+  if (typeof Audio === 'undefined' || !src || sfxVolume <= 0) return
+  const audio = new Audio(src)
+  audio.preload = 'auto'
+  audio.volume = sfxVolume
+  void audio.play().catch(() => {})
+}
