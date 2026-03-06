@@ -943,6 +943,7 @@ function RosesMode({ onBack }) {
     setSendingQuestion(true)
     setError('')
     void triggerHaptic('heavy')
+    const previousChatLog = chatLog
 
     try {
       const buildsPriorTurns = (candidateId) => chatLog
@@ -959,6 +960,21 @@ function RosesMode({ onBack }) {
         return
       }
 
+      const nextTurnNumber = chatLog.length + 1
+      const appendAnswerToTurn = (answerEntry) => {
+        setChatLog((prev) => prev.map((turn) => {
+          if (turn.turnNumber !== nextTurnNumber) return turn
+          const existingAnswers = Array.isArray(turn.answers) ? turn.answers : []
+          const filteredAnswers = existingAnswers.filter(
+            (item) => String(item?.candidateId || '') !== String(answerEntry?.candidateId || ''),
+          )
+          return {
+            ...turn,
+            answers: [...filteredAnswers, answerEntry],
+          }
+        }))
+      }
+
       setStatus('Reading your question while admirers think...')
       const questionSpeechPromise = speakRosesLine({
         text: question,
@@ -966,52 +982,56 @@ function RosesMode({ onBack }) {
         slot: 'Q',
       })
 
-      const replyValues = []
-      for (const candidate of orderedCandidates) {
-        const nextReply = await generateRosesReply({
-          profile: candidate,
-          question,
-          priorTurns: buildsPriorTurns(candidate.playerId),
-          usedResponses: replyValues,
-        })
-        replyValues.push(nextReply)
-      }
-      await questionSpeechPromise
-
-      const responses = orderedCandidates.map((candidate, index) => ({
-        candidateId: candidate.playerId,
-        response: String(replyValues[index] || '').trim(),
-      }))
-
-      setStatus('Recording round turn...')
-      const response = await submitRosesTurn({
-        playerId,
-        roundId: round.id,
-        question,
-        responses,
-      })
-      const nextTurnNumber = chatLog.length + 1
-
       setChatLog((prev) => [
         ...prev,
         {
           turnNumber: nextTurnNumber,
           question,
-          answers: responses.map((item) => ({
-            candidateId: item.candidateId,
-            candidateSlot: candidateById.get(String(item.candidateId))?.slot || '?',
-            response: item.response,
-          })),
+          answers: [],
         },
       ])
 
-      setRound((prev) => ({ ...prev, ...response.round }))
-      setQuestionInput('')
+      const collectedResponses = []
+      let upcomingReplyPromise = generateRosesReply({
+        profile: orderedCandidates[0],
+        question,
+        priorTurns: buildsPriorTurns(orderedCandidates[0]?.playerId),
+        usedResponses: [],
+      })
 
-      for (let index = 0; index < responses.length; index += 1) {
-        const item = responses[index]
-        const candidate = candidateById.get(String(item.candidateId))
+      for (let index = 0; index < orderedCandidates.length; index += 1) {
+        const candidate = orderedCandidates[index]
+        const responseText = String(await upcomingReplyPromise || '').trim()
+        const item = {
+          candidateId: candidate?.playerId,
+          response: responseText,
+        }
         const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
+        const answerEntry = {
+          candidateId: item.candidateId,
+          candidateSlot: slot,
+          response: item.response,
+        }
+
+        if (index === 0) {
+          await questionSpeechPromise
+        }
+
+        appendAnswerToTurn(answerEntry)
+        collectedResponses.push(item)
+
+        if (index < orderedCandidates.length - 1) {
+          const nextCandidate = orderedCandidates[index + 1]
+          upcomingReplyPromise = generateRosesReply({
+            profile: nextCandidate,
+            question,
+            priorTurns: buildsPriorTurns(nextCandidate?.playerId),
+            usedResponses: collectedResponses.map((entry) => entry.response),
+          })
+        } else {
+          upcomingReplyPromise = null
+        }
+
         setStatus(`${admirerLabelFromSlot(slot)} responds...`)
         await speakRosesLine({
           text: withAdmirerSpeechTag(slot, item.response),
@@ -1021,16 +1041,28 @@ function RosesMode({ onBack }) {
           answerKey: `${nextTurnNumber}-${item.candidateId}`,
         })
 
-        if (index < responses.length - 1) {
+        if (index < orderedCandidates.length - 1) {
           await wait(BETWEEN_ANSWER_LINES_MS)
         }
       }
 
+      setStatus('Recording round turn...')
+      const response = await submitRosesTurn({
+        playerId,
+        roundId: round.id,
+        question,
+        responses: collectedResponses,
+      })
+
+      setRound((prev) => ({ ...prev, ...response.round }))
+      setQuestionInput('')
+
       if (response.round?.doneAsking) {
         setStage('choose')
       }
-      } catch (turnError) {
+    } catch (turnError) {
       console.error(turnError)
+      setChatLog(previousChatLog)
       setError(turnError.message || 'Failed to send question.')
       void triggerHaptic('error')
     } finally {
