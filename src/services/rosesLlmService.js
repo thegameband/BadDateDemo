@@ -219,6 +219,7 @@ const ROSES_REPLY_GENERIC_PATTERNS = [
 ]
 
 const ROSES_REPLY_SHARP_WORD_PATTERN = /\b(?:chaos|tribute|revenge|coward|pathetic|power|drama|worship|obedience|menace|spite|glory|devotion|destruction|delusion|vanity|trouble)\b/i
+const ROSES_REPLY_TEMPERATURE = 1.2
 const ROSES_REPLY_SPECIFIC_ITEM_QUESTION_PATTERN = /\b(?:favorite|favourite|least favorite|best|worst)\s+(?:movie|film|song|album|band|book|show|tv show|actor|drink|food|meal|snack|restaurant|game|place|city|animal|season|holiday|color|dessert)\b/i
 const ROSES_REPLY_SPECIFIC_EVENT_QUESTION_PATTERN = /\b(?:biggest|worst)\s+(?:regret|mistake|fear|lie|crime|secret|turnoff|dealbreaker)\b/i
 const ROSES_REPLY_GENERIC_SPECIFICITY_PATTERNS = [
@@ -1329,7 +1330,7 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
     latestRaw = await getSingleResponseWithTimeout(attemptPrompt, {
       maxTokens: 36,
       timeoutMs: 18000,
-      temperature: 0.98,
+      temperature: ROSES_REPLY_TEMPERATURE,
       presencePenalty: 0.55,
       frequencyPenalty: 0.45,
     })
@@ -1402,7 +1403,7 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
   const finalRaw = await getSingleResponseWithTimeout(finalRewritePrompt, {
     maxTokens: 36,
     timeoutMs: 18000,
-    temperature: 0.92,
+    temperature: ROSES_REPLY_TEMPERATURE,
     presencePenalty: 0.4,
     frequencyPenalty: 0.35,
   })
