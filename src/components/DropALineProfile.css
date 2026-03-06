@@ -145,25 +145,30 @@
 
 .drop-a-line-profile-jump {
   align-self: center;
-  background: transparent;
-  border: 1px dashed rgba(255, 120, 120, 0.45);
-  color: rgba(255, 180, 180, 0.95);
-  padding: 8px 12px;
+  min-width: 220px;
+  background: linear-gradient(135deg, #5e0000 0%, #9f0a0a 50%, #4a0000 100%);
+  border: 2px solid rgba(255, 170, 170, 0.6);
+  color: #fff0f0;
+  padding: 11px 16px;
   border-radius: 10px;
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 0.8rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.98rem;
+  line-height: 1;
+  text-align: center;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  box-shadow: 0 6px 16px rgba(80, 0, 0, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
 .drop-a-line-profile-jump:hover {
-  background: rgba(124, 0, 0, 0.25);
-  color: #ffd7d7;
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 10px 20px rgba(90, 0, 0, 0.45);
+  filter: brightness(1.05);
 }
 
 .drop-a-line-profile-jump:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.99);
+  box-shadow: 0 5px 10px rgba(80, 0, 0, 0.35);
 }
