@@ -8,6 +8,7 @@ import {
   speakPreloaded,
   stopAllAudio,
 } from '../services/ttsService'
+import { playSfx } from '../services/audioService'
 import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
@@ -42,6 +43,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const replayTimeoutRef = useRef(null)
   const shareCaptureRef = useRef(null)
   const preloadedComebackRef = useRef(null)
+  const resultSfxPlayedRef = useRef(false)
 
   const dropALineImages = payload?.dater?.dropALineImages
   const daterName = payload?.dater?.name ?? 'Someone'
@@ -96,6 +98,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       setEvaluation(null)
       setComebackText('')
       setShareStatus('')
+      resultSfxPlayedRef.current = false
       preloadedComebackRef.current = null
       if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current)
       submitTimeoutRef.current = setTimeout(async () => {
@@ -208,6 +211,13 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       if (replayTimeoutRef.current) clearTimeout(replayTimeoutRef.current)
     }
   }, [phase])
+
+  useEffect(() => {
+    if (phase !== 'stamp' || !evaluation || resultSfxPlayedRef.current) return
+    const isGoodResult = evaluation.score >= SUCCESS_THRESHOLD
+    playSfx(isGoodResult ? '/sounds/good-result.mp3' : '/sounds/bad-result.mp3')
+    resultSfxPlayedRef.current = true
+  }, [phase, evaluation])
 
   const handleShare = useCallback(async () => {
     if (!evaluation || !shareCaptureRef.current || isShareBusy) return
