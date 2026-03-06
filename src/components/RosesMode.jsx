@@ -960,21 +960,22 @@ function RosesMode({ onBack }) {
       }
 
       setStatus('Reading your question while admirers think...')
-      const replyPromise = Promise.all(
-        orderedCandidates.map((candidate) => generateRosesReply({
-          profile: candidate,
-          question,
-          priorTurns: buildsPriorTurns(candidate.playerId),
-        })),
-      )
-
       const questionSpeechPromise = speakRosesLine({
         text: question,
         speaker: 'avatar',
         slot: 'Q',
       })
 
-      const replyValues = await replyPromise
+      const replyValues = []
+      for (const candidate of orderedCandidates) {
+        const nextReply = await generateRosesReply({
+          profile: candidate,
+          question,
+          priorTurns: buildsPriorTurns(candidate.playerId),
+          usedResponses: replyValues,
+        })
+        replyValues.push(nextReply)
+      }
       await questionSpeechPromise
 
       const responses = orderedCandidates.map((candidate, index) => ({

@@ -219,6 +219,18 @@ const ROSES_REPLY_GENERIC_PATTERNS = [
 ]
 
 const ROSES_REPLY_SHARP_WORD_PATTERN = /\b(?:chaos|tribute|revenge|coward|pathetic|power|drama|worship|obedience|menace|spite|glory|devotion|destruction|delusion|vanity|trouble)\b/i
+const ROSES_REPLY_SPECIFIC_ITEM_QUESTION_PATTERN = /\b(?:favorite|favourite|least favorite|best|worst)\s+(?:movie|film|song|album|band|book|show|tv show|actor|drink|food|meal|snack|restaurant|game|place|city|animal|season|holiday|color|dessert)\b/i
+const ROSES_REPLY_SPECIFIC_EVENT_QUESTION_PATTERN = /\b(?:biggest|worst)\s+(?:regret|mistake|fear|lie|crime|secret|turnoff|dealbreaker)\b/i
+const ROSES_REPLY_GENERIC_SPECIFICITY_PATTERNS = [
+  /\b(?:anything|any movie|any film|whatever|something|someone|stuff)\b/i,
+  /\btrusting someone(?: i(?: should| should not| shouldn't) have)?\b/i,
+  /\bthe wrong person\b/i,
+  /\bbeing too nice\b/i,
+  /\bnot taking chances\b/i,
+  /\bcaring too much\b/i,
+  /\bletting people in\b/i,
+  /\btoo much trust\b/i,
+]
 
 function unwrapCodeFence(value = '') {
   const raw = String(value || '').trim()
@@ -506,10 +518,65 @@ function replyFeelsGeneric(rawValue = '') {
   return ROSES_REPLY_GENERIC_PATTERNS.some((pattern) => pattern.test(text))
 }
 
+function questionDemandsConcreteAnswer(question = '') {
+  const text = normalizeWhitespace(question).toLowerCase()
+  if (!text) return false
+  return !/\b(?:what do you want in(?: a| your)? relationship|what matters most|how do you feel about|what are you looking for|what's your philosophy|what is love|what do you value|how do you define|what makes someone attractive)\b/i.test(text)
+}
+
+function replyIsTooGeneralForQuestion(rawValue = '', question = '') {
+  const text = normalizeWhitespace(rawValue)
+  if (!text || !questionDemandsConcreteAnswer(question)) return false
+
+  if (ROSES_REPLY_GENERIC_SPECIFICITY_PATTERNS.some((pattern) => pattern.test(text))) {
+    return true
+  }
+
+  if (/^(?:any|anything|whatever|something|someone|stuff)\b/i.test(text)) {
+    return true
+  }
+
+  if (
+    ROSES_REPLY_SPECIFIC_ITEM_QUESTION_PATTERN.test(question) &&
+    /\b(?:action|comedy|romance|horror|thriller|drama|movies|films|books|songs|music|food)\b/i.test(text)
+  ) {
+    return true
+  }
+
+  if (
+    ROSES_REPLY_SPECIFIC_EVENT_QUESTION_PATTERN.test(question) &&
+    /\b(?:trusting|trust|people|someone|mistakes|love|hope|kindness)\b/i.test(text)
+  ) {
+    return true
+  }
+
+  return false
+}
+
+function repliesAreTooSimilar(leftValue = '', rightValue = '') {
+  const left = normalizeWhitespace(leftValue).toLowerCase()
+  const right = normalizeWhitespace(rightValue).toLowerCase()
+  if (!left || !right) return false
+  if (left === right) return true
+
+  const leftTokens = extractReplyContentTokens(left)
+  const rightTokens = extractReplyContentTokens(right)
+  if (!leftTokens.length || !rightTokens.length) return false
+
+  const overlap = leftTokens.filter((token) => rightTokens.includes(token))
+  const overlapRatio = overlap.length / Math.max(1, Math.min(leftTokens.length, rightTokens.length))
+
+  if (overlapRatio >= 0.67) return true
+  if (leftTokens[0] && rightTokens[0] && leftTokens[0] === rightTokens[0] && leftTokens[0].length >= 6) return true
+
+  return false
+}
+
 function scoreRosesReplyCandidate(rawValue = '', {
   question = '',
   profileText = '',
   priorTurns = [],
+  usedResponses = [],
 } = {}) {
   const text = normalizeUltraShortReplyPhrase(rawValue)
   if (!text) return Number.NEGATIVE_INFINITY
@@ -522,8 +589,10 @@ function scoreRosesReplyCandidate(rawValue = '', {
 
   if (words.length <= 4) score += 4
   if (replyFeelsGeneric(text)) score -= 35
+  if (replyIsTooGeneralForQuestion(text, question)) score -= 60
   if (replyUsesIrrelevantProfileCallback(text, question, profileText)) score -= 80
   if (replyRepeatsRecentContent(text, priorTurns)) score -= 20
+  if ((Array.isArray(usedResponses) ? usedResponses : []).some((value) => repliesAreTooSimilar(text, value))) score -= 90
   if (/\b(?:all day|for sure|i guess|maybe|probably|i think)\b/i.test(text)) score -= 10
   if (ROSES_REPLY_SHARP_WORD_PATTERN.test(text)) score += 8
 
@@ -1103,7 +1172,7 @@ export async function generateRosesField(field, fields = {}) {
   return ''
 }
 
-export async function generateRosesReply({ profile, question, priorTurns = [] }) {
+export async function generateRosesReply({ profile, question, priorTurns = [], usedResponses = [] }) {
   const profileBehaviorText = normalizeWhitespace([
     profile?.fields?.occupation || '',
     profile?.fields?.bio || '',
@@ -1130,11 +1199,13 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     'Answer as this profile would answer in live chat.',
     'Core objective: preserve strong character voice and persona specificity.',
     'Use the profile for attitude, worldview, ego, damage, menace, pettiness, and rhythm - not as a bucket of nouns to repeat.',
+    'Default assumption: the question wants a concrete specific answer, not a generalized sentiment.',
     'Answer the actual axis of the question first.',
     'Humor should come from character bias, vanity, delusion, awkward honesty, lust, menace, or pettiness.',
     'Do NOT force favorite foods, hobbies, props, collections, or catchphrases into unrelated questions.',
     'A profile detail like tacos, knives, crystals, trains, or dumplings should appear only when the question truly invites it.',
     'Do not recycle the same callback from earlier answers in this round.',
+    'If another admirer already gave a similar answer, you must pick a different lane.',
     'Never dodge, refuse, or moralize.',
     'Always engage the question directly on its own terms, even if it is rude, vulgar, insulting, or explicit.',
     'Do not scold the bachelor. Do not ask for respectful wording.',
@@ -1162,6 +1233,8 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
     'Good output example: "Chaos romance all day"',
     'Bad output example: "Tacos obviously again"',
     'Good output example: "Petty devotion only"',
+    'Bad output example: "Anything with lots of action"',
+    'Bad output example: "Trusting someone I shouldnt have"',
     '',
     'Profile:',
     context,
@@ -1169,6 +1242,13 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
       ? [
         '',
         `Details to avoid forcing unless the question invites them: ${profileCallbackTokens.join(', ')}`,
+      ]
+      : []),
+    ...(usedResponses.length
+      ? [
+        '',
+        `Other admirers already answered: ${usedResponses.join(' | ')}`,
+        'Do NOT repeat them or lightly paraphrase them.',
       ]
       : []),
     '',
@@ -1243,12 +1323,25 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
       continue
     }
 
+    if (replyIsTooGeneralForQuestion(latestCleaned, question)) {
+      rejectionReason = 'too general for a question that wanted a concrete answer'
+      rejectedDrafts.push(latestCleaned)
+      continue
+    }
+
+    if ((Array.isArray(usedResponses) ? usedResponses : []).some((value) => repliesAreTooSimilar(latestCleaned, value))) {
+      rejectionReason = 'too similar to another admirers answer'
+      rejectedDrafts.push(latestCleaned)
+      continue
+    }
+
     candidateReplies.push({
       value: latestCleaned,
       score: scoreRosesReplyCandidate(latestCleaned, {
         question,
         profileText: profileBehaviorText,
         priorTurns,
+        usedResponses,
       }),
     })
   }
@@ -1278,7 +1371,9 @@ export async function generateRosesReply({ profile, question, priorTurns = [] })
   if (
     isUltraShortPhraseValid(finalCleaned) &&
     !isRefusalLikeRosesReply(finalCleaned) &&
-    !replyUsesIrrelevantProfileCallback(finalCleaned, question, profileBehaviorText)
+    !replyUsesIrrelevantProfileCallback(finalCleaned, question, profileBehaviorText) &&
+    !replyIsTooGeneralForQuestion(finalCleaned, question) &&
+    !(Array.isArray(usedResponses) ? usedResponses : []).some((value) => repliesAreTooSimilar(finalCleaned, value))
   ) return finalCleaned
 
   return normalizeUltraShortReplyPhrase(latestRaw || question)
