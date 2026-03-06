@@ -1,54 +1,7 @@
-import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import './DropALineDied.css'
 
-function playFallbackThud() {
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-    const osc = audioCtx.createOscillator()
-    const gain = audioCtx.createGain()
-
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(120, audioCtx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(45, audioCtx.currentTime + 0.18)
-    gain.gain.setValueAtTime(0.0001, audioCtx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.22, audioCtx.currentTime + 0.02)
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.22)
-
-    osc.connect(gain)
-    gain.connect(audioCtx.destination)
-    osc.start()
-    osc.stop(audioCtx.currentTime + 0.23)
-
-    setTimeout(() => {
-      audioCtx.close().catch(() => {})
-    }, 400)
-  } catch {
-    // Ignore audio fallback errors.
-  }
-}
-
-function tryPlayFallSplat() {
-  const audio = new Audio('/sounds/fall-splat.mp3')
-  audio.preload = 'auto'
-  audio.volume = 0.9
-  return audio.play().catch(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const voiceLine = new SpeechSynthesisUtterance('Nooooooooo!')
-      voiceLine.rate = 1.15
-      voiceLine.pitch = 0.8
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(voiceLine)
-    }
-    setTimeout(playFallbackThud, 500)
-  })
-}
-
 export default function DropALineDied({ onTryAgain }) {
-  useEffect(() => {
-    tryPlayFallSplat()
-  }, [])
-
   return (
     <div className="drop-a-line-died">
       <motion.div
