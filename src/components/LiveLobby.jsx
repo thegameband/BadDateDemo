@@ -22,7 +22,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.89'
+const GAME_VERSION = '0.04.90'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -132,13 +132,43 @@ function LiveLobby() {
     const audioEl = musicRef.current
     if (!audioEl) return undefined
 
-    audioEl.volume = musicVol
-    const playPromise = audioEl.play()
-    if (playPromise?.catch) {
-      playPromise.catch(() => {})
+    const tryPlay = () => {
+      audioEl.volume = musicVol
+      audioEl.muted = false
+      const playPromise = audioEl.play()
+      if (playPromise?.catch) {
+        playPromise.catch(() => {
+          // Fallback: muted autoplay is often allowed where audible autoplay is blocked.
+          audioEl.muted = true
+          const mutedPromise = audioEl.play()
+          if (mutedPromise?.then) {
+            mutedPromise
+              .then(() => {
+                audioEl.muted = false
+                audioEl.volume = musicVol
+              })
+              .catch(() => {})
+          }
+        })
+      }
     }
 
+    const resumeOnInteraction = () => {
+      audioEl.muted = false
+      audioEl.volume = musicVol
+      void audioEl.play().catch(() => {})
+    }
+
+    window.addEventListener('pointerdown', resumeOnInteraction, { once: true })
+    window.addEventListener('keydown', resumeOnInteraction, { once: true })
+    window.addEventListener('touchstart', resumeOnInteraction, { once: true })
+
+    tryPlay()
+
     return () => {
+      window.removeEventListener('pointerdown', resumeOnInteraction)
+      window.removeEventListener('keydown', resumeOnInteraction)
+      window.removeEventListener('touchstart', resumeOnInteraction)
       audioEl.pause()
       audioEl.currentTime = 0
     }
