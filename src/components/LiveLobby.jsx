@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line n
 import { useGameStore, SCORING_MODES, DATER_RESPONSE_MODES } from '../store/gameStore'
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
-import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
+import { setTTSEnabled, isTTSEnabled, getVoiceVolume, setVoiceVolume } from '../services/ttsService'
+import { getMusicVolume, setMusicVolume, getSfxVolume, setSfxVolume } from '../services/audioService'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
@@ -21,7 +22,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.86'
+const GAME_VERSION = '0.04.87'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -57,6 +58,9 @@ function LiveLobby() {
   const [qrRoomCode, setQrRoomCode] = useState(null) // Room code from QR scan
   const [selectedDaterName, setSelectedDaterName] = useState('Adam') // Debug: which dater to use
   const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
+  const [musicVol, setMusicVol] = useState(() => getMusicVolume())
+  const [sfxVol, setSfxVol] = useState(() => getSfxVolume())
+  const [voiceVol, setVoiceVol] = useState(() => getVoiceVolume())
   const [showDaterPicker, setShowDaterPicker] = useState(false)
   const [debugScoringMode, setDebugScoringMode] = useState(SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS)
   const [dropALineEnabled, setDropALineEnabled] = useState(() => {
@@ -73,6 +77,7 @@ function LiveLobby() {
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
+  const musicRef = useRef(null)
   
   // Stable random values for floating hearts (computed once per mount)
   /* eslint-disable react-hooks/purity -- Math.random intentional inside useMemo for stable values */
@@ -120,6 +125,24 @@ function LiveLobby() {
       mounted = false
     }
   }, [])
+
+  useEffect(() => {
+    if (view !== 'main') return undefined
+
+    const audioEl = musicRef.current
+    if (!audioEl) return undefined
+
+    audioEl.volume = musicVol
+    const playPromise = audioEl.play()
+    if (playPromise?.catch) {
+      playPromise.catch(() => {})
+    }
+
+    return () => {
+      audioEl.pause()
+      audioEl.currentTime = 0
+    }
+  }, [view, musicVol])
   
   // Connect to the registry room for room discovery
   useEffect(() => {
@@ -467,6 +490,14 @@ function LiveLobby() {
   if (view === 'main') {
     return (
       <div className="live-lobby main-lobby phone-frame">
+        <audio
+          ref={musicRef}
+          src="/sounds/bd-lobby-music.mp3"
+          loop
+          autoPlay
+          style={{ display: 'none' }}
+          aria-hidden="true"
+        />
         {/* Version number */}
         <div className="version-number">v{GAME_VERSION}</div>
         
@@ -611,6 +642,65 @@ function LiveLobby() {
                       </AnimatePresence>
                     </div>
                     
+                    {/* Section: Volume */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Volume</div>
+
+                      <label className="debug-volume-row">
+                        <span>Music</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={musicVol}
+                          onChange={(e) => {
+                            const value = Number.parseFloat(e.target.value)
+                            setMusicVol(value)
+                            setMusicVolume(value)
+                            if (musicRef.current) {
+                              musicRef.current.volume = value
+                            }
+                          }}
+                        />
+                        <span>{Math.round(musicVol * 100)}%</span>
+                      </label>
+
+                      <label className="debug-volume-row">
+                        <span>SFX</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={sfxVol}
+                          onChange={(e) => {
+                            const value = Number.parseFloat(e.target.value)
+                            setSfxVol(value)
+                            setSfxVolume(value)
+                          }}
+                        />
+                        <span>{Math.round(sfxVol * 100)}%</span>
+                      </label>
+
+                      <label className="debug-volume-row">
+                        <span>Voice</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={voiceVol}
+                          onChange={(e) => {
+                            const value = Number.parseFloat(e.target.value)
+                            setVoiceVol(value)
+                            setVoiceVolume(value)
+                          }}
+                        />
+                        <span>{Math.round(voiceVol * 100)}%</span>
+                      </label>
+                    </div>
+
                     {/* Section: Voice Over toggle */}
                     <div className="debug-section">
                       <div className="debug-section-label">Audio</div>
