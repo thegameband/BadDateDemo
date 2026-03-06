@@ -14,9 +14,9 @@ function formatProfileValue(value) {
 
 /**
  * Dating-profile screen between Reels and Pickup Line scene.
- * Props: payload { dater, location }, onContinue(), onBack()
+ * Props: payload { dater, location }, onContinue(), onBack(), onJump()
  */
-export default function DropALineProfile({ payload, onContinue, onBack }) {
+export default function DropALineProfile({ payload, onContinue, onBack, onJump }) {
   const dater = payload?.dater
   const profile = dater?.dropALineProfile
   const name = dater?.name ?? 'Your Date'
@@ -82,6 +82,13 @@ export default function DropALineProfile({ payload, onContinue, onBack }) {
           onClick={onContinue}
         >
           Continue
+        </button>
+        <button
+          type="button"
+          className="drop-a-line-profile-jump"
+          onClick={onJump}
+        >
+          Jump Out The Window
         </button>
       </div>
     </div>

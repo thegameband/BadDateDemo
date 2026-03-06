@@ -73,7 +73,12 @@ function pickNextPairing(playablePairings) {
   return randomPick
 }
 
-export default function DropALineReels({ daters = [], onContinue }) {
+export default function DropALineReels({
+  daters = [],
+  onContinue,
+  forcePairing = null,
+  onForcePairingConsumed,
+}) {
   const daterNames = useMemo(() => (Array.isArray(daters) ? daters.map((d) => d?.name ?? '?') : []), [daters])
   const playablePairings = useMemo(() => {
     if (!Array.isArray(daters) || !daters.length) return []
@@ -99,10 +104,22 @@ export default function DropALineReels({ daters = [], onContinue }) {
 
   useEffect(() => {
     if (!daterNames.length || !playablePairings.length) return
-    setSelectedPairing(pickNextPairing(playablePairings))
+    const forced = forcePairing
+      ? playablePairings.find(
+          (pairing) =>
+            pairing.daterName === forcePairing.daterName && pairing.location === forcePairing.location
+        ) ?? null
+      : null
+    setSelectedPairing(forced ?? pickNextPairing(playablePairings))
+    if (forced) onForcePairingConsumed?.()
     setShowContinue(false)
     setReelsCompleteCount(0)
-  }, [daterNames.length, playablePairings])
+  }, [
+    daterNames.length,
+    playablePairings,
+    forcePairing?.daterName,
+    forcePairing?.location,
+  ])
 
   const handleReelComplete = () => {
     setReelsCompleteCount((c) => {

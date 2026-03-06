@@ -142,3 +142,28 @@
 .drop-a-line-profile-continue:active {
   transform: scale(0.98);
 }
+
+.drop-a-line-profile-jump {
+  align-self: center;
+  background: transparent;
+  border: 1px dashed rgba(255, 120, 120, 0.45);
+  color: rgba(255, 180, 180, 0.95);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.drop-a-line-profile-jump:hover {
+  background: rgba(124, 0, 0, 0.25);
+  color: #ffd7d7;
+  transform: translateY(-1px);
+}
+
+.drop-a-line-profile-jump:active {
+  transform: translateY(0);
+}

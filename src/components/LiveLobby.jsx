@@ -8,6 +8,7 @@ import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../servi
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
+import DropALineDied from './DropALineDied'
 import SpeedDateMode from './SpeedDateMode'
 import RosesMode from './RosesMode'
 import { useWebHaptics } from 'web-haptics/react'
@@ -20,7 +21,7 @@ import './LiveLobby.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.83'
+const GAME_VERSION = '0.04.84'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -63,8 +64,9 @@ function LiveLobby() {
     if (stored == null) return true
     return stored === 'true'
   })
-  const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene'
+  const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene' | 'died'
   const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, location }
+  const [forceReelPairing, setForceReelPairing] = useState(null) // { daterName, location } | null
   const [runtimeCapabilities, setRuntimeCapabilities] = useState(() => getCachedRuntimeCapabilities())
   const hasOpenAiKey = Boolean(runtimeCapabilities.openai)
   const hasAnthropicKey = Boolean(runtimeCapabilities.anthropic)
@@ -905,6 +907,7 @@ function LiveLobby() {
     const handleBackToMain = () => {
       setDropALineScreen('reels')
       setDropALinePayload(null)
+      setForceReelPairing(null)
       setView('main')
     }
     if (dropALineScreen === 'profile') {
@@ -915,6 +918,24 @@ function LiveLobby() {
             payload={dropALinePayload}
             onContinue={() => setDropALineScreen('scene')}
             onBack={() => setDropALineScreen('reels')}
+            onJump={() => setDropALineScreen('died')}
+          />
+        </div>
+      )
+    }
+    if (dropALineScreen === 'died') {
+      return (
+        <div className="phone-frame">
+          <div className="version-number">v{GAME_VERSION}</div>
+          <DropALineDied
+            onTryAgain={() => {
+              const daterName = dropALinePayload?.dater?.name
+              const location = dropALinePayload?.location
+              if (daterName && location) {
+                setForceReelPairing({ daterName, location })
+              }
+              setDropALineScreen('reels')
+            }}
           />
         </div>
       )
@@ -923,6 +944,7 @@ function LiveLobby() {
       const handleReplay = () => {
         setDropALineScreen('reels')
         setDropALinePayload(null)
+        setForceReelPairing(null)
       }
       return (
         <div className="phone-frame">
@@ -966,6 +988,8 @@ function LiveLobby() {
         <div className="drop-a-line-reels-center">
           <DropALineReels
             daters={daters}
+            forcePairing={forceReelPairing}
+            onForcePairingConsumed={() => setForceReelPairing(null)}
             onContinue={(payload) => {
               setDropALinePayload(payload)
               setDropALineScreen('profile')
