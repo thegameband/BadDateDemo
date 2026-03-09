@@ -11,6 +11,7 @@ import {
   setVoice,
   stopAllAudio,
 } from '../services/ttsService'
+import { setMusicMode } from '../services/audioService'
 import './SpeedDateMode.css'
 
 const PLAYER_ID = 'player'
@@ -164,6 +165,13 @@ function toSenderLookup(selectedDaters = []) {
 }
 
 export default function SpeedDateMode({ daters = [], onBack }) {
+  useEffect(() => {
+    void setMusicMode('speedDate')
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
+
   const [runNonce, setRunNonce] = useState(0)
   const selectedDaters = useMemo(() => pickTwoDaters(daters, runNonce), [daters, runNonce])
   const sequence = useMemo(() => buildSpeedSequence(selectedDaters), [selectedDaters])

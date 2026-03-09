@@ -4,7 +4,7 @@ import { useGameStore, SCORING_MODES, DATER_RESPONSE_MODES } from '../store/game
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
 import { setTTSEnabled, isTTSEnabled, getVoiceVolume, setVoiceVolume } from '../services/ttsService'
-import { getMusicVolume, setMusicVolume, getSfxVolume, setSfxVolume } from '../services/audioService'
+import { formatDb, getMusicVolume, setMusicMode, setMusicVolume, getSfxVolume, setSfxVolume } from '../services/audioService'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
@@ -12,17 +12,19 @@ import DropALineScene from './DropALineScene'
 import DropALineDied from './DropALineDied'
 import SpeedDateMode from './SpeedDateMode'
 import RosesMode from './RosesMode'
+import AudioManager from './AudioManager'
 import { useWebHaptics } from 'web-haptics/react'
 import './DropALineReels.css'
 import './DropALineProfile.css'
 import './DropALineScene.css'
 import './LiveLobby.css'
+import './AudioManager.css'
 
 // PartyKit host - update after deployment
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.90'
+const GAME_VERSION = '0.04.91'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -61,6 +63,7 @@ function LiveLobby() {
   const [musicVol, setMusicVol] = useState(() => getMusicVolume())
   const [sfxVol, setSfxVol] = useState(() => getSfxVolume())
   const [voiceVol, setVoiceVol] = useState(() => getVoiceVolume())
+  const [showAudioManager, setShowAudioManager] = useState(false)
   const [showDaterPicker, setShowDaterPicker] = useState(false)
   const [debugScoringMode, setDebugScoringMode] = useState(SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS)
   const [dropALineEnabled, setDropALineEnabled] = useState(() => {
@@ -77,7 +80,6 @@ function LiveLobby() {
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
-  const musicRef = useRef(null)
   
   // Stable random values for floating hearts (computed once per mount)
   /* eslint-disable react-hooks/purity -- Math.random intentional inside useMemo for stable values */
@@ -127,52 +129,19 @@ function LiveLobby() {
   }, [])
 
   useEffect(() => {
-    if (view !== 'main') return undefined
+    let nextMode = null
+    if (view === 'main') nextMode = 'lobby'
+    if (view === 'drop-a-line') nextMode = 'rizzCraft'
+    if (view === 'speed-date') nextMode = 'speedDate'
+    if (view === 'roses') nextMode = 'roses'
+    void setMusicMode(nextMode)
+  }, [view])
 
-    const audioEl = musicRef.current
-    if (!audioEl) return undefined
-
-    const tryPlay = () => {
-      audioEl.volume = musicVol
-      audioEl.muted = false
-      const playPromise = audioEl.play()
-      if (playPromise?.catch) {
-        playPromise.catch(() => {
-          // Fallback: muted autoplay is often allowed where audible autoplay is blocked.
-          audioEl.muted = true
-          const mutedPromise = audioEl.play()
-          if (mutedPromise?.then) {
-            mutedPromise
-              .then(() => {
-                audioEl.muted = false
-                audioEl.volume = musicVol
-              })
-              .catch(() => {})
-          }
-        })
-      }
-    }
-
-    const resumeOnInteraction = () => {
-      audioEl.muted = false
-      audioEl.volume = musicVol
-      void audioEl.play().catch(() => {})
-    }
-
-    window.addEventListener('pointerdown', resumeOnInteraction, { once: true })
-    window.addEventListener('keydown', resumeOnInteraction, { once: true })
-    window.addEventListener('touchstart', resumeOnInteraction, { once: true })
-
-    tryPlay()
-
+  useEffect(() => {
     return () => {
-      window.removeEventListener('pointerdown', resumeOnInteraction)
-      window.removeEventListener('keydown', resumeOnInteraction)
-      window.removeEventListener('touchstart', resumeOnInteraction)
-      audioEl.pause()
-      audioEl.currentTime = 0
+      void setMusicMode(null)
     }
-  }, [view, musicVol])
+  }, [])
   
   // Connect to the registry room for room discovery
   useEffect(() => {
@@ -520,14 +489,6 @@ function LiveLobby() {
   if (view === 'main') {
     return (
       <div className="live-lobby main-lobby phone-frame">
-        <audio
-          ref={musicRef}
-          src="/sounds/bd-lobby-music.mp3"
-          loop
-          autoPlay
-          style={{ display: 'none' }}
-          aria-hidden="true"
-        />
         {/* Version number */}
         <div className="version-number">v{GAME_VERSION}</div>
         
@@ -682,18 +643,15 @@ function LiveLobby() {
                           type="range"
                           min="0"
                           max="1"
-                          step="0.05"
+                          step="0.01"
                           value={musicVol}
                           onChange={(e) => {
                             const value = Number.parseFloat(e.target.value)
                             setMusicVol(value)
                             setMusicVolume(value)
-                            if (musicRef.current) {
-                              musicRef.current.volume = value
-                            }
                           }}
                         />
-                        <span>{Math.round(musicVol * 100)}%</span>
+                        <span>{formatDb(musicVol)}</span>
                       </label>
 
                       <label className="debug-volume-row">
@@ -702,7 +660,7 @@ function LiveLobby() {
                           type="range"
                           min="0"
                           max="1"
-                          step="0.05"
+                          step="0.01"
                           value={sfxVol}
                           onChange={(e) => {
                             const value = Number.parseFloat(e.target.value)
@@ -710,7 +668,7 @@ function LiveLobby() {
                             setSfxVolume(value)
                           }}
                         />
-                        <span>{Math.round(sfxVol * 100)}%</span>
+                        <span>{formatDb(sfxVol)}</span>
                       </label>
 
                       <label className="debug-volume-row">
@@ -719,7 +677,7 @@ function LiveLobby() {
                           type="range"
                           min="0"
                           max="1"
-                          step="0.05"
+                          step="0.01"
                           value={voiceVol}
                           onChange={(e) => {
                             const value = Number.parseFloat(e.target.value)
@@ -727,8 +685,19 @@ function LiveLobby() {
                             setVoiceVolume(value)
                           }}
                         />
-                        <span>{Math.round(voiceVol * 100)}%</span>
+                        <span>{formatDb(voiceVol)}</span>
                       </label>
+                    </div>
+
+                    <div className="debug-section">
+                      <div className="debug-section-label">Audio Manager</div>
+                      <button
+                        className="debug-action-btn"
+                        onClick={() => setShowAudioManager(true)}
+                      >
+                        <span className="btn-icon">🎚️</span>
+                        <span>Open Audio Manager</span>
+                      </button>
                     </div>
 
                     {/* Section: Voice Over toggle */}
@@ -928,6 +897,26 @@ function LiveLobby() {
               </motion.div>
             )}
           </AnimatePresence>
+          <AudioManager
+            isOpen={showAudioManager}
+            onClose={() => setShowAudioManager(false)}
+            currentMode="lobby"
+            musicVol={musicVol}
+            sfxVol={sfxVol}
+            voiceVol={voiceVol}
+            onMusicVolumeChange={(value) => {
+              setMusicVol(value)
+              setMusicVolume(value)
+            }}
+            onSfxVolumeChange={(value) => {
+              setSfxVol(value)
+              setSfxVolume(value)
+            }}
+            onVoiceVolumeChange={(value) => {
+              setVoiceVol(value)
+              setVoiceVolume(value)
+            }}
+          />
           
           {error && (
             <motion.div 

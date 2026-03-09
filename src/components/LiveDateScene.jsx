@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line n
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, decideLikesDislikesFromAnswer, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
-import { playSfx } from '../services/audioService'
+import { playSfx, setMusicMode } from '../services/audioService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import AnimatedText, { EMOTION_SPEEDS } from './AnimatedText'
@@ -88,6 +88,13 @@ function LiveDateScene() {
   const suggestedAttributes = useGameStore((state) => state.suggestedAttributes)
   const numberedAttributes = useGameStore((state) => state.numberedAttributes)
   const playerChat = useGameStore((state) => state.playerChat)
+
+  useEffect(() => {
+    void setMusicMode('badDate')
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
   const username = useGameStore((state) => state.username)
   const dateConversation = useGameStore((state) => state.dateConversation)
   const latestAttribute = useGameStore((state) => state.latestAttribute)

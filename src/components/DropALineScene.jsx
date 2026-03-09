@@ -8,7 +8,7 @@ import {
   speakPreloaded,
   stopAllAudio,
 } from '../services/ttsService'
-import { playSfx } from '../services/audioService'
+import { playSfx, setMusicMode } from '../services/audioService'
 import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
@@ -60,6 +60,13 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   }, [dropALineImages, phase, evaluation?.score, payload?.dater?.dropALineCharacterImage])
   const hasImage = Boolean(sceneImageUrl)
   const finalScore = evaluation?.score ?? 0
+
+  useEffect(() => {
+    void setMusicMode('rizzCraft')
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
 
   const buildShareImage = useCallback(async () => {
     if (!evaluation || !shareCaptureRef.current) return null

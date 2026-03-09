@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { motion } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
+import { setMusicMode } from '../services/audioService'
 import './Results.css'
 
 const clampMeterValue = (value) => {
@@ -14,6 +16,13 @@ const getMeterFillPercent = (value) => {
 }
 
 function Results() {
+  useEffect(() => {
+    void setMusicMode('results')
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
+
   const selectedDater = useGameStore((state) => state.selectedDater)
   const avatar = useGameStore((state) => state.avatar)
   const scoring = useGameStore((state) => state.scoring)
