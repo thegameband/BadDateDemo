@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   deleteUploadedFile,
   formatDb,
@@ -85,6 +86,7 @@ export default function AudioManager({
   }, [])
 
   if (!isOpen) return null
+  if (typeof document === 'undefined') return null
 
   const assignedCount = MODE_OPTIONS.filter((mode) => assignments[mode.id]).length
 
@@ -188,7 +190,7 @@ export default function AudioManager({
     setStatus(`Deleted ${name}.`)
   }
 
-  return (
+  return createPortal(
     <div className="audio-manager-overlay" onClick={onClose}>
       <div className="audio-manager-panel" onClick={(event) => event.stopPropagation()}>
         <div className="audio-manager-header sticky">
@@ -337,6 +339,7 @@ export default function AudioManager({
           </section>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
