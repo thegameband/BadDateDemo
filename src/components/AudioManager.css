@@ -16,7 +16,7 @@
   border: 0;
   background: linear-gradient(180deg, rgba(28, 28, 33, 0.97), rgba(20, 20, 24, 0.97));
   color: #fff;
-  padding: 24px;
+  padding: 24px 24px 96px;
   box-shadow: none;
   box-sizing: border-box;
 }

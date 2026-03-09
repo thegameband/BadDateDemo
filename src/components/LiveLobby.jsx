@@ -24,7 +24,7 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.92'
+const GAME_VERSION = '0.04.93'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -974,17 +974,19 @@ function LiveLobby() {
             </div>
           </div>
         </motion.div>
-        <div className="main-audio-manager-launch">
-          <motion.button
-            className="main-audio-manager-btn"
-            onClick={() => setShowAudioManager(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <span className="btn-icon">🎚️</span>
-            <span className="btn-text">Audio Manager</span>
-          </motion.button>
-        </div>
+        {!showAudioManager && (
+          <div className="main-audio-manager-launch">
+            <motion.button
+              className="main-audio-manager-btn"
+              onClick={() => setShowAudioManager(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="btn-icon">🎚️</span>
+              <span className="btn-text">Audio Manager</span>
+            </motion.button>
+          </div>
+        )}
       </div>
     )
   }
