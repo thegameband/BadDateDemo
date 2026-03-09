@@ -60,6 +60,17 @@ export default function AudioManager({
   }, [isOpen])
 
   useEffect(() => {
+    if (!isOpen) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, onClose])
+
+  useEffect(() => {
     if (!previewAudioRef.current) return
     previewAudioRef.current.volume = musicVol
   }, [musicVol])
@@ -74,6 +85,8 @@ export default function AudioManager({
   }, [])
 
   if (!isOpen) return null
+
+  const assignedCount = MODE_OPTIONS.filter((mode) => assignments[mode.id]).length
 
   const handleAssignmentChange = async (modeId, trackRef) => {
     const nextTrackRef = trackRef || null
@@ -178,139 +191,151 @@ export default function AudioManager({
   return (
     <div className="audio-manager-overlay" onClick={onClose}>
       <div className="audio-manager-panel" onClick={(event) => event.stopPropagation()}>
-        <div className="audio-manager-header">
-          <div>
-            <h3>Audio Manager</h3>
-            <p>Per-mode music routing, dB tuning, and local MP3 uploads.</p>
+        <div className="audio-manager-header sticky">
+          <div className="audio-manager-header-main">
+            <div>
+              <h3>Audio Manager</h3>
+              <p>Per-mode music routing, dB tuning, and local MP3 uploads.</p>
+            </div>
+            <div className="audio-manager-header-meta">
+              <span className="audio-manager-chip">Current: {currentMode || 'none'}</span>
+              <span className="audio-manager-chip">{assignedCount}/{MODE_OPTIONS.length} modes assigned</span>
+              <span className="audio-manager-chip">{allTracks.length} tracks</span>
+              {previewTrackRef && (
+                <button type="button" className="audio-manager-chip-btn" onClick={stopPreview}>Stop Preview</button>
+              )}
+            </div>
           </div>
           <button type="button" className="audio-manager-close" onClick={onClose}>Close</button>
         </div>
 
-        <section className="audio-manager-section">
-          <h4>Mode Track Assignment</h4>
-          <div className="audio-mode-grid">
-            {MODE_OPTIONS.map((mode) => {
-              const selectedTrackRef = assignments[mode.id] || ''
-              return (
-                <label key={mode.id} className={`audio-mode-row ${currentMode === mode.id ? 'active' : ''}`}>
-                  <span>{mode.label}</span>
-                  <select
-                    value={selectedTrackRef}
-                    onChange={(event) => {
-                      void handleAssignmentChange(mode.id, event.target.value)
-                    }}
-                  >
-                    <option value="">None</option>
-                    <optgroup label="Built-in">
-                      {builtInTracks.map((track) => (
-                        <option key={track.id} value={track.trackRef}>{track.name}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Uploaded">
-                      {uploadedTracks.map((track) => (
-                        <option key={track.id} value={track.trackRef}>{track.name}</option>
-                      ))}
-                    </optgroup>
-                  </select>
-                  <button
-                    type="button"
-                    className="audio-preview-btn"
-                    disabled={!selectedTrackRef}
-                    onClick={() => { void togglePreview(selectedTrackRef) }}
-                  >
-                    {previewTrackRef === selectedTrackRef ? 'Stop' : 'Preview'}
-                  </button>
-                </label>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="audio-manager-section">
-          <h4>Volume (Relative dB)</h4>
-          <div className="audio-volume-grid">
-            <label>
-              <span>Music</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={musicVol}
-                onChange={(event) => onMusicVolumeChange(Number.parseFloat(event.target.value))}
-              />
-              <strong>{formatDb(musicVol)}</strong>
-            </label>
-            <label>
-              <span>SFX</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={sfxVol}
-                onChange={(event) => onSfxVolumeChange(Number.parseFloat(event.target.value))}
-              />
-              <strong>{formatDb(sfxVol)}</strong>
-            </label>
-            <label>
-              <span>Voice</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={voiceVol}
-                onChange={(event) => onVoiceVolumeChange(Number.parseFloat(event.target.value))}
-              />
-              <strong>{formatDb(voiceVol)}</strong>
-            </label>
-          </div>
-        </section>
-
-        <section className="audio-manager-section">
-          <h4>Upload MP3</h4>
-          <div className="audio-upload-dropzone" onDrop={onDrop} onDragOver={onDragOver}>
-            <p>Drop .mp3 files here, or choose files manually.</p>
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
-              {isLoading ? 'Uploading...' : 'Choose MP3 Files'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".mp3,audio/mpeg"
-              multiple
-              onChange={onFileInputChange}
-              hidden
-            />
-          </div>
-          {status && <p className="audio-upload-status">{status}</p>}
-        </section>
-
-        <section className="audio-manager-section">
-          <h4>Track Library</h4>
-          <div className="audio-library">
-            {allTracks.length === 0 && <p className="audio-empty">No tracks available.</p>}
-            {allTracks.map((track) => (
-              <div key={track.id} className="audio-library-row">
-                <div className="audio-library-meta">
-                  <strong>{track.name}</strong>
-                  <span>{track.source}</span>
-                </div>
-                <div className="audio-library-actions">
-                  <button type="button" onClick={() => { void togglePreview(track.trackRef) }}>
-                    {previewTrackRef === track.trackRef ? 'Stop' : 'Play'}
-                  </button>
-                  {track.source === 'uploaded' && (
-                    <button type="button" className="danger" onClick={() => { void handleDeleteUploaded(track.name) }}>
-                      Delete
+        <div className="audio-manager-content">
+          <section className="audio-manager-section">
+            <h4>Mode Track Assignment</h4>
+            <div className="audio-mode-grid">
+              {MODE_OPTIONS.map((mode) => {
+                const selectedTrackRef = assignments[mode.id] || ''
+                return (
+                  <label key={mode.id} className={`audio-mode-row ${currentMode === mode.id ? 'active' : ''}`}>
+                    <span>{mode.label}</span>
+                    <select
+                      value={selectedTrackRef}
+                      onChange={(event) => {
+                        void handleAssignmentChange(mode.id, event.target.value)
+                      }}
+                    >
+                      <option value="">None</option>
+                      <optgroup label="Built-in">
+                        {builtInTracks.map((track) => (
+                          <option key={track.id} value={track.trackRef}>{track.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Uploaded">
+                        {uploadedTracks.map((track) => (
+                          <option key={track.id} value={track.trackRef}>{track.name}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                    <button
+                      type="button"
+                      className="audio-preview-btn"
+                      disabled={!selectedTrackRef}
+                      onClick={() => { void togglePreview(selectedTrackRef) }}
+                    >
+                      {previewTrackRef === selectedTrackRef ? 'Stop' : 'Preview'}
                     </button>
-                  )}
+                  </label>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="audio-manager-section">
+            <h4>Volume (Relative dB)</h4>
+            <div className="audio-volume-grid">
+              <label>
+                <span>Music</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={musicVol}
+                  onChange={(event) => onMusicVolumeChange(Number.parseFloat(event.target.value))}
+                />
+                <strong>{formatDb(musicVol)}</strong>
+              </label>
+              <label>
+                <span>SFX</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={sfxVol}
+                  onChange={(event) => onSfxVolumeChange(Number.parseFloat(event.target.value))}
+                />
+                <strong>{formatDb(sfxVol)}</strong>
+              </label>
+              <label>
+                <span>Voice</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={voiceVol}
+                  onChange={(event) => onVoiceVolumeChange(Number.parseFloat(event.target.value))}
+                />
+                <strong>{formatDb(voiceVol)}</strong>
+              </label>
+            </div>
+          </section>
+
+          <section className="audio-manager-section">
+            <h4>Upload MP3</h4>
+            <div className="audio-upload-dropzone" onDrop={onDrop} onDragOver={onDragOver}>
+              <p>Drop .mp3 files here, or choose files manually.</p>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                {isLoading ? 'Uploading...' : 'Choose MP3 Files'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".mp3,audio/mpeg"
+                multiple
+                onChange={onFileInputChange}
+                hidden
+              />
+            </div>
+            {status && <p className="audio-upload-status">{status}</p>}
+          </section>
+
+          <section className="audio-manager-section">
+            <h4>Track Library</h4>
+            <div className="audio-library">
+              {allTracks.length === 0 && <p className="audio-empty">No tracks available.</p>}
+              {allTracks.map((track) => (
+                <div key={track.id} className="audio-library-row">
+                  <div className="audio-library-meta">
+                    <strong>{track.name}</strong>
+                    <span>{track.source}</span>
+                  </div>
+                  <div className="audio-library-actions">
+                    <button type="button" onClick={() => { void togglePreview(track.trackRef) }}>
+                      {previewTrackRef === track.trackRef ? 'Stop' : 'Play'}
+                    </button>
+                    {track.source === 'uploaded' && (
+                      <button type="button" className="danger" onClick={() => { void handleDeleteUploaded(track.name) }}>
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   )

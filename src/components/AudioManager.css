@@ -26,7 +26,51 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.audio-manager-header.sticky {
+  position: sticky;
+  top: -24px;
+  z-index: 5;
+  margin: -24px -24px 16px;
+  padding: 14px 24px;
+  background: linear-gradient(180deg, rgba(24, 24, 30, 0.98), rgba(24, 24, 30, 0.92));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.audio-manager-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audio-manager-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audio-manager-chip {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.84);
+  text-transform: capitalize;
+}
+
+.audio-manager-chip-btn {
+  border: 1px solid rgba(255, 148, 177, 0.5);
+  background: rgba(255, 107, 140, 0.18);
+  color: #ffd3df;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  cursor: pointer;
 }
 
 .audio-manager-header h3 {
@@ -54,12 +98,17 @@
   background: rgba(255, 255, 255, 0.14);
 }
 
+.audio-manager-content {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
 .audio-manager-section {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
-  padding: 12px;
-  margin-bottom: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
 }
 
 .audio-manager-section h4 {
