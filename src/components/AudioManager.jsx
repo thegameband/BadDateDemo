@@ -221,7 +221,7 @@ export default function AudioManager({
               )}
             </div>
           </div>
-          <button type="button" className="audio-manager-close" onClick={onClose}>Close</button>
+          <button type="button" className="audio-manager-close" onClick={onClose} aria-label="Close audio manager">Close</button>
         </div>
 
         <div className="audio-manager-content">
@@ -363,7 +363,7 @@ export default function AudioManager({
                 hidden
               />
             </div>
-            {status && <p className="audio-upload-status">{status}</p>}
+            {status && <p className="audio-upload-status" aria-live="polite">{status}</p>}
           </section>
 
           <section className="audio-manager-section">

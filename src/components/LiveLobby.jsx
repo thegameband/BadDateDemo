@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX
 import { useGameStore, SCORING_MODES, DATER_RESPONSE_MODES } from '../store/gameStore'
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
@@ -24,7 +24,7 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.96'
+const GAME_VERSION = '0.04.97'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -77,6 +77,7 @@ function LiveLobby() {
   const [runtimeCapabilities, setRuntimeCapabilities] = useState(() => getCachedRuntimeCapabilities())
   const hasOpenAiKey = Boolean(runtimeCapabilities.openai)
   const hasAnthropicKey = Boolean(runtimeCapabilities.anthropic)
+  const prefersReducedMotion = useReducedMotion()
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
@@ -366,30 +367,40 @@ function LiveLobby() {
         {/* Floating hearts background */}
         <div className="lobby-background">
           <div className="floating-hearts">
-            {heartConfigs.map((cfg, i) => (
-              <motion.span
-                key={i}
-                className="floating-heart"
-                initial={{
-                  y: '100vh',
-                  x: cfg.x,
-                  opacity: 0,
-                  rotate: cfg.rotateInitial
-                }}
-                animate={{
-                  y: '-20vh',
-                  opacity: [0, 1, 1, 0],
-                  rotate: cfg.rotateAnimate
-                }}
-                transition={{
-                  duration: cfg.duration,
-                  repeat: Infinity,
-                  delay: cfg.delay,
-                  ease: 'linear'
-                }}
-              >
-                {cfg.emoji}
-              </motion.span>
+            {(prefersReducedMotion ? heartConfigs.slice(0, 4) : heartConfigs).map((cfg, i) => (
+              prefersReducedMotion ? (
+                <span
+                  key={i}
+                  className="floating-heart floating-heart-static"
+                  style={{ left: cfg.x, top: `${12 + i * 18}%` }}
+                >
+                  {cfg.emoji}
+                </span>
+              ) : (
+                <motion.span
+                  key={i}
+                  className="floating-heart"
+                  initial={{
+                    y: '100vh',
+                    x: cfg.x,
+                    opacity: 0,
+                    rotate: cfg.rotateInitial
+                  }}
+                  animate={{
+                    y: '-20vh',
+                    opacity: [0, 1, 1, 0],
+                    rotate: cfg.rotateAnimate
+                  }}
+                  transition={{
+                    duration: cfg.duration,
+                    repeat: Infinity,
+                    delay: cfg.delay,
+                    ease: 'linear'
+                  }}
+                >
+                  {cfg.emoji}
+                </motion.span>
+              )
             ))}
           </div>
         </div>
@@ -495,30 +506,40 @@ function LiveLobby() {
         {/* Floating hearts background */}
         <div className="lobby-background">
           <div className="floating-hearts">
-            {mainHeartConfigs.map((cfg, i) => (
-              <motion.span
-                key={i}
-                className="floating-heart"
-                initial={{
-                  y: '100vh',
-                  x: cfg.x,
-                  opacity: 0,
-                  rotate: cfg.rotateInitial
-                }}
-                animate={{
-                  y: '-20vh',
-                  opacity: [0, 1, 1, 0],
-                  rotate: cfg.rotateAnimate
-                }}
-                transition={{
-                  duration: cfg.duration,
-                  repeat: Infinity,
-                  delay: cfg.delay,
-                  ease: 'linear'
-                }}
-              >
-                {cfg.emoji}
-              </motion.span>
+            {(prefersReducedMotion ? mainHeartConfigs.slice(0, 5) : mainHeartConfigs).map((cfg, i) => (
+              prefersReducedMotion ? (
+                <span
+                  key={i}
+                  className="floating-heart floating-heart-static"
+                  style={{ left: cfg.x, top: `${10 + i * 14}%` }}
+                >
+                  {cfg.emoji}
+                </span>
+              ) : (
+                <motion.span
+                  key={i}
+                  className="floating-heart"
+                  initial={{
+                    y: '100vh',
+                    x: cfg.x,
+                    opacity: 0,
+                    rotate: cfg.rotateInitial
+                  }}
+                  animate={{
+                    y: '-20vh',
+                    opacity: [0, 1, 1, 0],
+                    rotate: cfg.rotateAnimate
+                  }}
+                  transition={{
+                    duration: cfg.duration,
+                    repeat: Infinity,
+                    delay: cfg.delay,
+                    ease: 'linear'
+                  }}
+                >
+                  {cfg.emoji}
+                </motion.span>
+              )
             ))}
           </div>
         </div>
@@ -538,13 +559,15 @@ function LiveLobby() {
           >
             <h1 className="game-title">
               <span className="title-bad">Bad</span>
-              <span 
+              <button
+                type="button"
                 className="title-heart clickable-heart"
                 onClick={() => setShowAdminModal(true)}
-                title="Debug Menu"
+                title="Open debug menu"
+                aria-label="Open debug menu"
               >
                 💔
-              </span>
+              </button>
               <span className="title-date">Date</span>
             </h1>
             <p className="game-tagline">Be funny, be charming, be literally anything!</p>

@@ -277,3 +277,21 @@
   font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.65);
 }
+
+.audio-manager-close:focus-visible,
+.audio-manager-chip-btn:focus-visible,
+.audio-mode-row select:focus-visible,
+.audio-preview-btn:focus-visible,
+.audio-volume-grid input[type='range']:focus-visible,
+.audio-upload-dropzone button:focus-visible,
+.audio-library-actions button:focus-visible {
+  outline: 3px solid #ffd166;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.2);
+}
+
+@media (max-width: 760px) {
+  .audio-mode-row {
+    grid-template-columns: 1fr;
+  }
+}
