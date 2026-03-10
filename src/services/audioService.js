@@ -1,6 +1,7 @@
 const MUSIC_VOL_KEY = 'bdMusicVolume'
 const SFX_VOL_KEY = 'bdSfxVolume'
 const TRACKS_KEY = 'bdMusicTracks'
+const SFX_CUES_KEY = 'bdSfxCues'
 const DB_NAME = 'bdAudioFiles'
 const DB_VERSION = 1
 const DB_STORE = 'tracks'
@@ -14,6 +15,17 @@ const DEFAULT_TRACK_ASSIGNMENTS = {
   speedDate: null,
   results: null,
 }
+
+const SFX_CUES = [
+  { id: 'questionAppears', label: 'Question Appears (Bad Date)', defaultTrackRef: '/sounds/question-appears.mp3' },
+  { id: 'answerAppears', label: 'Answer Appears (Bad Date)', defaultTrackRef: '/sounds/answer-appears.mp3' },
+  { id: 'goodResult', label: 'Good Result (Rizz-craft)', defaultTrackRef: '/sounds/good-result.mp3' },
+  { id: 'badResult', label: 'Bad Result (Rizz-craft)', defaultTrackRef: '/sounds/bad-result.mp3' },
+]
+
+const DEFAULT_SFX_CUE_ASSIGNMENTS = Object.fromEntries(
+  SFX_CUES.map((cue) => [cue.id, cue.defaultTrackRef]),
+)
 
 const BUILT_IN_TRACKS = [
   { id: 'builtin:lobby', name: 'Lobby Loop', trackRef: '/sounds/bd-lobby-music.mp3', source: 'built-in' },
@@ -72,9 +84,35 @@ function persistTrackAssignments() {
   window.localStorage.setItem(TRACKS_KEY, JSON.stringify(trackAssignments))
 }
 
+function sanitizeSfxCueAssignments(value) {
+  const merged = { ...DEFAULT_SFX_CUE_ASSIGNMENTS }
+  if (!value || typeof value !== 'object') return merged
+  SFX_CUES.forEach((cue) => {
+    merged[cue.id] = normalizeTrackRef(value[cue.id]) || cue.defaultTrackRef
+  })
+  return merged
+}
+
+function readStoredSfxCueAssignments() {
+  if (typeof window === 'undefined') return { ...DEFAULT_SFX_CUE_ASSIGNMENTS }
+  try {
+    const raw = window.localStorage.getItem(SFX_CUES_KEY)
+    if (!raw) return { ...DEFAULT_SFX_CUE_ASSIGNMENTS }
+    return sanitizeSfxCueAssignments(JSON.parse(raw))
+  } catch {
+    return { ...DEFAULT_SFX_CUE_ASSIGNMENTS }
+  }
+}
+
+function persistSfxCueAssignments() {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(SFX_CUES_KEY, JSON.stringify(sfxCueAssignments))
+}
+
 let musicVolume = readStoredVolume(MUSIC_VOL_KEY, 0.5)
 let sfxVolume = readStoredVolume(SFX_VOL_KEY, 0.8)
 let trackAssignments = readStoredTrackAssignments()
+let sfxCueAssignments = readStoredSfxCueAssignments()
 
 let musicAudio = null
 let currentMusicMode = null
@@ -215,6 +253,24 @@ export function getTrackForMode(mode) {
 
 export function getBuiltInTracks() {
   return [...BUILT_IN_TRACKS]
+}
+
+export function getSfxCues() {
+  return [...SFX_CUES]
+}
+
+export function getSfxCueAssignments() {
+  return { ...sfxCueAssignments }
+}
+
+export function setSfxCueTrack(cueId, trackRef) {
+  const cue = SFX_CUES.find((entry) => entry.id === cueId)
+  if (!cue) return
+  sfxCueAssignments = {
+    ...sfxCueAssignments,
+    [cueId]: normalizeTrackRef(trackRef) || cue.defaultTrackRef,
+  }
+  persistSfxCueAssignments()
 }
 
 export async function saveUploadedFile(name, arrayBuffer) {
@@ -364,4 +420,14 @@ export function playSfx(src) {
   audio.preload = 'auto'
   audio.volume = sfxVolume
   void audio.play().catch(() => {})
+}
+
+export async function playSfxCue(cueId) {
+  if (!cueId || sfxVolume <= 0) return
+  const cue = SFX_CUES.find((entry) => entry.id === cueId)
+  if (!cue) return
+  const trackRef = sfxCueAssignments[cueId] || cue.defaultTrackRef
+  const src = await resolveTrackSrc(trackRef)
+  if (!src) return
+  playSfx(src)
 }

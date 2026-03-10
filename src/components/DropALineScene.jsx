@@ -8,7 +8,7 @@ import {
   speakPreloaded,
   stopAllAudio,
 } from '../services/ttsService'
-import { playSfx, setMusicMode } from '../services/audioService'
+import { playSfxCue, setMusicMode } from '../services/audioService'
 import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
@@ -222,7 +222,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   useEffect(() => {
     if (phase !== 'stamp' || !evaluation || resultSfxPlayedRef.current) return
     const isGoodResult = evaluation.score >= SUCCESS_THRESHOLD
-    playSfx(isGoodResult ? '/sounds/good-result.mp3' : '/sounds/bad-result.mp3')
+    void playSfxCue(isGoodResult ? 'goodResult' : 'badResult')
     resultSfxPlayedRef.current = true
   }, [phase, evaluation])
 

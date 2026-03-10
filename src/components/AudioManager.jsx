@@ -4,11 +4,14 @@ import {
   deleteUploadedFile,
   formatDb,
   getBuiltInTracks,
+  getSfxCueAssignments,
+  getSfxCues,
   getTrackAssignments,
   getUploadedFiles,
   resolveTrackSrc,
   saveUploadedFile,
   setMusicMode,
+  setSfxCueTrack,
   setTrackForMode,
 } from '../services/audioService'
 import './AudioManager.css'
@@ -38,6 +41,7 @@ export default function AudioManager({
   onVoiceVolumeChange,
 }) {
   const [assignments, setAssignments] = useState(() => getTrackAssignments())
+  const [sfxCueAssignments, setSfxCueAssignments] = useState(() => getSfxCueAssignments())
   const [uploadedTracks, setUploadedTracks] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -46,12 +50,14 @@ export default function AudioManager({
   const previewAudioRef = useRef(null)
 
   const builtInTracks = useMemo(() => sortTracks(getBuiltInTracks()), [])
+  const sfxCues = useMemo(() => getSfxCues(), [])
   const allTracks = useMemo(() => [...builtInTracks, ...uploadedTracks], [builtInTracks, uploadedTracks])
 
   const refreshTracks = async () => {
     const uploaded = await getUploadedFiles()
     setUploadedTracks(sortTracks(uploaded))
     setAssignments(getTrackAssignments())
+    setSfxCueAssignments(getSfxCueAssignments())
   }
 
   useEffect(() => {
@@ -89,6 +95,7 @@ export default function AudioManager({
   if (typeof document === 'undefined') return null
 
   const assignedCount = MODE_OPTIONS.filter((mode) => assignments[mode.id]).length
+  const assignedSfxCount = sfxCues.filter((cue) => sfxCueAssignments[cue.id]).length
 
   const handleAssignmentChange = async (modeId, trackRef) => {
     const nextTrackRef = trackRef || null
@@ -97,6 +104,11 @@ export default function AudioManager({
     if (currentMode === modeId) {
       await setMusicMode(modeId)
     }
+  }
+
+  const handleSfxCueChange = (cueId, trackRef) => {
+    setSfxCueTrack(cueId, trackRef)
+    setSfxCueAssignments(getSfxCueAssignments())
   }
 
   const stopPreview = () => {
@@ -202,6 +214,7 @@ export default function AudioManager({
             <div className="audio-manager-header-meta">
               <span className="audio-manager-chip">Current: {currentMode || 'none'}</span>
               <span className="audio-manager-chip">{assignedCount}/{MODE_OPTIONS.length} modes assigned</span>
+              <span className="audio-manager-chip">{assignedSfxCount}/{sfxCues.length} SFX cues assigned</span>
               <span className="audio-manager-chip">{allTracks.length} tracks</span>
               {previewTrackRef && (
                 <button type="button" className="audio-manager-chip-btn" onClick={stopPreview}>Stop Preview</button>
@@ -291,6 +304,46 @@ export default function AudioManager({
                 />
                 <strong>{formatDb(voiceVol)}</strong>
               </label>
+            </div>
+          </section>
+
+          <section className="audio-manager-section">
+            <h4>SFX Cue Assignment</h4>
+            <div className="audio-mode-grid">
+              {sfxCues.map((cue) => {
+                const selectedTrackRef = sfxCueAssignments[cue.id] || cue.defaultTrackRef
+                return (
+                  <label key={cue.id} className="audio-mode-row">
+                    <span>{cue.label}</span>
+                    <select
+                      value={selectedTrackRef}
+                      onChange={(event) => {
+                        handleSfxCueChange(cue.id, event.target.value)
+                      }}
+                    >
+                      <option value={cue.defaultTrackRef}>Default</option>
+                      <optgroup label="Built-in">
+                        {builtInTracks.map((track) => (
+                          <option key={track.id} value={track.trackRef}>{track.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Uploaded">
+                        {uploadedTracks.map((track) => (
+                          <option key={track.id} value={track.trackRef}>{track.name}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                    <button
+                      type="button"
+                      className="audio-preview-btn"
+                      disabled={!selectedTrackRef}
+                      onClick={() => { void togglePreview(selectedTrackRef) }}
+                    >
+                      {previewTrackRef === selectedTrackRef ? 'Stop' : 'Preview'}
+                    </button>
+                  </label>
+                )
+              })}
             </div>
           </section>
 

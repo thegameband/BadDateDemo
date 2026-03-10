@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line n
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, decideLikesDislikesFromAnswer, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
-import { playSfx, setMusicMode } from '../services/audioService'
+import { playSfxCue, setMusicMode } from '../services/audioService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import AnimatedText, { EMOTION_SPEEDS } from './AnimatedText'
@@ -4177,7 +4177,7 @@ BAD examples (do NOT do this):
                 ease: [0.22, 1, 0.36, 1] // Custom ease for smooth entrance
               }}
               onAnimationStart={() => {
-                playSfx('/sounds/question-appears.mp3')
+                void playSfxCue('questionAppears')
               }}
               onAnimationComplete={() => {
                 // Mark animation as complete (timer already started)
@@ -4434,7 +4434,7 @@ BAD examples (do NOT do this):
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: -10 }}
                   onAnimationStart={() => {
-                    playSfx('/sounds/answer-appears.mp3')
+                    void playSfxCue('answerAppears')
                   }}
                 >
                   <AnimatedText
