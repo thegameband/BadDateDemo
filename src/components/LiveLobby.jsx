@@ -24,7 +24,7 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.97'
+const GAME_VERSION = '0.04.98'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
@@ -416,7 +416,7 @@ function LiveLobby() {
             className="title-container"
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            transition={{ delay: 0.2, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
             <h1 className="game-title">
               <span className="title-bad">Bad</span>
@@ -555,7 +555,7 @@ function LiveLobby() {
             className="title-container"
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            transition={{ delay: 0.2, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
             <h1 className="game-title">
               <span className="title-bad">Bad</span>
