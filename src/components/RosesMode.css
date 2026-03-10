@@ -11,8 +11,8 @@
 }
 
 .roses-card {
-  background: rgba(8, 10, 20, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 11, 33, 0.82);
+  border: 1px solid rgba(141, 109, 255, 0.36);
   border-radius: 16px;
   padding: 16px;
   display: flex;
@@ -90,8 +90,8 @@
 .roses-profile-subtitle {
   margin: 0;
   text-align: center;
-  color: #7cff5f;
-  text-shadow: 0 0 8px rgba(124, 255, 95, 0.38);
+  color: #43f3bb;
+  text-shadow: 0 0 10px rgba(67, 243, 187, 0.34);
   font-size: 0.95rem;
   line-height: 1.35;
 }
@@ -105,9 +105,9 @@
 }
 
 .roses-status {
-  border: 1px solid rgba(96, 165, 250, 0.45);
-  background: rgba(96, 165, 250, 0.15);
-  color: #bfdbfe;
+  border: 1px solid rgba(35, 207, 255, 0.52);
+  background: rgba(35, 207, 255, 0.14);
+  color: #c7eeff;
   border-radius: 10px;
   padding: 10px 12px;
 }
@@ -235,17 +235,17 @@
 }
 
 .roses-primary {
-  background: linear-gradient(135deg, #f43f5e 0%, #fb7185 50%, #db2777 100%);
+  background: linear-gradient(135deg, #ff3ea9 0%, #8d6dff 52%, #23cfff 100%);
   color: #fff;
   padding: 10px 14px;
 }
 
 .roses-primary.roses-generate-empties {
-  background: linear-gradient(135deg, #16a34a 0%, #22c55e 52%, #15803d 100%);
+  background: linear-gradient(135deg, #159477 0%, #43f3bb 52%, #18b4ff 100%);
 }
 
 .roses-primary.roses-fill-any-fields {
-  background: linear-gradient(135deg, #4b5563 0%, #6b7280 52%, #374151 100%);
+  background: linear-gradient(135deg, #3a3360 0%, #57508d 52%, #232043 100%);
 }
 
 .roses-primary:disabled,
@@ -575,8 +575,8 @@
 }
 
 .roses-intro-card.is-active {
-  border-color: rgba(249, 168, 212, 0.7);
-  box-shadow: 0 0 0 1px rgba(249, 168, 212, 0.28), 0 0 18px rgba(236, 72, 153, 0.22);
+  border-color: rgba(35, 207, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(35, 207, 255, 0.3), 0 0 18px rgba(141, 109, 255, 0.24);
   background:
     linear-gradient(180deg, rgba(244, 114, 182, 0.12) 0%, rgba(15, 23, 42, 0.24) 100%),
     rgba(4, 7, 15, 0.78);
@@ -628,8 +628,8 @@
 }
 
 .roses-answer-panel.is-speaking {
-  border-color: rgba(249, 168, 212, 0.68);
-  box-shadow: 0 0 0 1px rgba(249, 168, 212, 0.28), 0 0 16px rgba(236, 72, 153, 0.2);
+  border-color: rgba(255, 62, 169, 0.7);
+  box-shadow: 0 0 0 1px rgba(255, 62, 169, 0.3), 0 0 16px rgba(141, 109, 255, 0.2);
   background:
     linear-gradient(180deg, rgba(244, 114, 182, 0.12) 0%, rgba(15, 23, 42, 0.24) 100%),
     rgba(4, 7, 15, 0.78);
@@ -709,8 +709,8 @@
 }
 
 .roses-question-option.is-selected {
-  border-color: rgba(249, 168, 212, 0.68);
-  background: rgba(236, 72, 153, 0.2);
+  border-color: rgba(255, 62, 169, 0.72);
+  background: rgba(255, 62, 169, 0.24);
   color: #fdf2f8;
 }
 

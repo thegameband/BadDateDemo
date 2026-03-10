@@ -1,52 +1,65 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Caveat:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-  /* Warm, romantic color palette with playful accents */
-  --bg-dark: #1a1216;
-  --bg-primary: #1a1216;
-  --bg-card: #2d1f26;
-  --bg-card-hover: #3d2a33;
-  --accent-pink: #ff4d6d;
-  --accent-coral: #ff6b6b;
-  --accent-gold: #ffd166;
-  --accent-mint: #06d6a0;
-  --accent-purple: #9d4edd;
-  --text-primary: #fef9f3;
-  --text-secondary: #c9b8be;
-  --text-muted: #8a7a80;
-  --gradient-love: linear-gradient(135deg, #ff4d6d 0%, #ff6b6b 50%, #ffd166 100%);
-  --gradient-chaos: linear-gradient(135deg, #9d4edd 0%, #ff4d6d 100%);
-  --gradient-success: linear-gradient(135deg, #06d6a0 0%, #00b4d8 100%);
-  --shadow-glow: 0 0 40px rgba(255, 77, 109, 0.3);
+  /* Neon-night palette (bold) */
+  --nm-bg-0: #090814;
+  --nm-bg-1: #120f26;
+  --nm-bg-2: #1b1538;
+  --nm-bg-3: #271c4f;
+  --nm-magenta: #ff3ea9;
+  --nm-violet: #8d6dff;
+  --nm-cyan: #23cfff;
+  --nm-mint: #43f3bb;
+  --nm-amber: #ffbc61;
+  --nm-text-main: #f5f2ff;
+  --nm-text-soft: #c7bddf;
+  --nm-text-muted: #8e83ab;
+
+  --bg-dark: var(--nm-bg-0);
+  --bg-primary: var(--nm-bg-0);
+  --bg-card: var(--nm-bg-2);
+  --bg-card-hover: var(--nm-bg-3);
+  --accent-pink: var(--nm-magenta);
+  --accent-coral: #ff5f93;
+  --accent-gold: var(--nm-amber);
+  --accent-mint: var(--nm-mint);
+  --accent-purple: var(--nm-violet);
+  --text-primary: var(--nm-text-main);
+  --text-secondary: var(--nm-text-soft);
+  --text-muted: var(--nm-text-muted);
+  --gradient-love: linear-gradient(135deg, var(--nm-magenta) 0%, var(--nm-violet) 52%, var(--nm-cyan) 100%);
+  --gradient-chaos: linear-gradient(135deg, #6141ff 0%, var(--nm-magenta) 100%);
+  --gradient-success: linear-gradient(135deg, var(--nm-mint) 0%, var(--nm-cyan) 100%);
+  --shadow-glow: 0 0 42px rgba(255, 62, 169, 0.34);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
 
   /* Shared UI tokens (lobby + audio manager) */
-  --ui-white: #fff;
-  --ui-overlay-dark: rgba(7, 7, 10, 0.9);
-  --ui-overlay-modal: rgba(0, 0, 0, 0.85);
-  --ui-surface-strong: rgba(24, 24, 30, 0.95);
-  --ui-surface-card: rgba(17, 16, 24, 0.9);
-  --ui-surface-soft: rgba(255, 255, 255, 0.05);
-  --ui-surface-subtle: rgba(255, 255, 255, 0.03);
-  --ui-surface-mid: rgba(255, 255, 255, 0.08);
-  --ui-border-subtle: rgba(255, 255, 255, 0.08);
-  --ui-border-soft: rgba(255, 255, 255, 0.12);
-  --ui-border-strong: rgba(255, 255, 255, 0.24);
-  --ui-text-dim: rgba(255, 255, 255, 0.7);
-  --ui-text-muted: rgba(255, 255, 255, 0.62);
-  --ui-text-faint: rgba(255, 255, 255, 0.58);
-  --ui-title-bad: #ff6f8b;
-  --ui-title-date: #b7a4ff;
-  --ui-title-lobby: #d9d2ff;
+  --ui-white: #f7f5ff;
+  --ui-overlay-dark: rgba(8, 7, 20, 0.9);
+  --ui-overlay-modal: rgba(8, 7, 20, 0.88);
+  --ui-surface-strong: rgba(23, 18, 49, 0.96);
+  --ui-surface-card: rgba(19, 15, 43, 0.92);
+  --ui-surface-soft: rgba(141, 109, 255, 0.16);
+  --ui-surface-subtle: rgba(141, 109, 255, 0.1);
+  --ui-surface-mid: rgba(141, 109, 255, 0.24);
+  --ui-border-subtle: rgba(141, 109, 255, 0.3);
+  --ui-border-soft: rgba(141, 109, 255, 0.42);
+  --ui-border-strong: rgba(255, 62, 169, 0.55);
+  --ui-text-dim: rgba(236, 228, 255, 0.82);
+  --ui-text-muted: rgba(215, 204, 245, 0.7);
+  --ui-text-faint: rgba(215, 204, 245, 0.62);
+  --ui-title-bad: #ff52b4;
+  --ui-title-date: #80a5ff;
+  --ui-title-lobby: #e0d8ff;
   --ui-shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.3);
   --ui-shadow-soft-hover: 0 10px 22px rgba(0, 0, 0, 0.34);
-  --ui-focus-ring: #ffd166;
-  --ui-focus-ring-shadow: rgba(255, 209, 102, 0.2);
+  --ui-focus-ring: #4ee8ff;
+  --ui-focus-ring-shadow: rgba(78, 232, 255, 0.24);
   --ui-accent-lilac: #9f8fff;
-  --ui-accent-lilac-border: rgba(173, 160, 255, 0.68);
-  --ui-accent-lilac-inset: rgba(173, 160, 255, 0.3);
-  --ui-danger-border: rgba(255, 107, 107, 0.6);
-  --ui-danger-text: #ff9e9e;
+  --ui-accent-lilac-border: rgba(141, 109, 255, 0.78);
+  --ui-accent-lilac-inset: rgba(141, 109, 255, 0.34);
+  --ui-danger-border: rgba(255, 95, 147, 0.72);
+  --ui-danger-text: #ffb0c9;
 }
 
 * {

@@ -14,7 +14,7 @@
   overflow-y: auto;
   border-radius: 0;
   border: 0;
-  background: #141419;
+  background: linear-gradient(180deg, #100d23 0%, #171133 48%, #0e0b1f 100%);
   color: var(--ui-white);
   padding: 24px 24px 96px;
   box-shadow: none;
@@ -65,7 +65,7 @@
 
 .audio-manager-chip-btn {
   border: 1px solid var(--ui-border-strong);
-  background: var(--ui-surface-mid);
+  background: linear-gradient(135deg, rgba(141, 109, 255, 0.32), rgba(35, 207, 255, 0.24));
   color: #f4f4ff;
   border-radius: 999px;
   padding: 4px 10px;
@@ -95,7 +95,7 @@
 }
 
 .audio-manager-close:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(141, 109, 255, 0.35);
 }
 
 .audio-manager-content {
@@ -136,8 +136,8 @@
 }
 
 .audio-mode-row.active {
-  border-color: var(--ui-accent-lilac-border);
-  box-shadow: inset 0 0 0 1px var(--ui-accent-lilac-inset);
+  border-color: rgba(255, 62, 169, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 62, 169, 0.38), 0 0 0 1px rgba(141, 109, 255, 0.22);
 }
 
 .audio-mode-row span {
@@ -188,7 +188,7 @@
 
 .audio-volume-grid input[type='range'] {
   width: 100%;
-  accent-color: var(--ui-accent-lilac);
+  accent-color: var(--nm-cyan);
 }
 
 .audio-volume-grid strong {
@@ -199,7 +199,7 @@
 }
 
 .audio-upload-dropzone {
-  border: 1px dashed var(--ui-border-strong);
+  border: 1px dashed rgba(35, 207, 255, 0.62);
   border-radius: 10px;
   padding: 14px;
   text-align: center;
@@ -268,8 +268,8 @@
 }
 
 .audio-library-actions .danger {
-  border-color: var(--ui-danger-border);
-  color: var(--ui-danger-text);
+  border-color: rgba(255, 95, 147, 0.8);
+  color: #ffc1d7;
 }
 
 .audio-empty {

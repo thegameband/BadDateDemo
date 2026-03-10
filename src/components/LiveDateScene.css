@@ -31,7 +31,7 @@
 
 /* Fallback Mode Warning */
 .fallback-warning {
-  background: linear-gradient(90deg, #ff6b35 0%, #f7931e 100%);
+  background: linear-gradient(90deg, #ff3ea9 0%, #8d6dff 100%);
   color: #fff;
   text-align: center;
   padding: 8px 12px;
@@ -61,14 +61,14 @@
 }
 
 .phase-announcement-card {
-  background: linear-gradient(145deg, #3d2233 0%, #4a2a3f 50%, #2d1f26 100%);
-  border: 2px solid rgba(255, 77, 109, 0.6);
+  background: linear-gradient(145deg, #241a4b 0%, #311f62 50%, #1b1538 100%);
+  border: 2px solid rgba(255, 62, 169, 0.62);
   border-radius: 16px;
   padding: 12px 24px;
   text-align: center;
   box-shadow: 
     0 4px 20px rgba(0, 0, 0, 0.5),
-    0 0 30px rgba(255, 77, 109, 0.3);
+    0 0 30px rgba(141, 109, 255, 0.28);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -91,9 +91,9 @@
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.3rem;
   font-weight: 400;
-  color: #ff4d6d;
+  color: #ff52b4;
   margin: 0;
-  text-shadow: 0 0 10px rgba(255, 77, 109, 0.6);
+  text-shadow: 0 0 12px rgba(255, 62, 169, 0.6);
   letter-spacing: 2px;
   line-height: 1.2;
   text-transform: uppercase;
@@ -131,14 +131,14 @@
 }
 
 .round-prompt-content {
-  background: linear-gradient(145deg, #2d1f3d 0%, #1a1225 100%);
-  border: 2px solid rgba(255, 77, 109, 0.5);
+  background: linear-gradient(145deg, #241a4b 0%, #171133 100%);
+  border: 2px solid rgba(35, 207, 255, 0.56);
   border-radius: 16px;
   padding: 10px 20px;
   text-align: center;
   box-shadow: 
     0 4px 20px rgba(0, 0, 0, 0.5),
-    0 0 30px rgba(255, 77, 109, 0.2);
+    0 0 30px rgba(141, 109, 255, 0.24);
   pointer-events: auto;
   max-width: 400px;
 }
@@ -221,9 +221,9 @@
   font-family: 'Bebas Neue', sans-serif;
   font-size: 2rem;
   font-weight: 400;
-  color: var(--accent-pink);
+  color: #23cfff;
   margin: 0 0 8px 0;
-  text-shadow: 0 0 15px rgba(255, 77, 109, 0.5);
+  text-shadow: 0 0 15px rgba(35, 207, 255, 0.44);
   text-transform: uppercase;
   letter-spacing: 3px;
 }
@@ -271,7 +271,7 @@
 .starting-stats-overlay {
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, #1a0a10 0%, #2d1520 50%, #1a0a10 100%);
+  background: linear-gradient(180deg, #090814 0%, #1b1538 50%, #090814 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -321,7 +321,7 @@
   font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 2rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #ff4d6d 0%, #ff8fab 50%, #ffd166 100%);
+  background: linear-gradient(135deg, #ff3ea9 0%, #8d6dff 50%, #23cfff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin: 0 0 8px 0;
@@ -454,7 +454,7 @@
   padding: 14px 24px;
   font-size: 1rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #ff4d6d 0%, #ff8fab 100%);
+  background: linear-gradient(135deg, #ff3ea9 0%, #8d6dff 100%);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -1974,7 +1974,7 @@
 /* Date Screen - Main conversation area */
 .date-screen {
   flex: 1;
-  background: linear-gradient(180deg, #2d1f26 0%, #3d2a33 50%, #2d1f26 100%);
+  background: linear-gradient(180deg, #171133 0%, #22184a 50%, #171133 100%);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2060,11 +2060,11 @@
 }
 
 .top-meter-fill.compatibility {
-  background: linear-gradient(90deg, #c084fc, #f472b6);
+  background: linear-gradient(90deg, #8d6dff, #ff3ea9);
 }
 
 .top-meter-fill.ratings {
-  background: linear-gradient(90deg, #fbbf24, #f97316);
+  background: linear-gradient(90deg, #23cfff, #43f3bb);
 }
 
 /* When round prompt banner is visible, reserve space so submitted answers and content are not covered */
