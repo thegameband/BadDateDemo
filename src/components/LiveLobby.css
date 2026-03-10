@@ -42,19 +42,19 @@
   gap: 10px;
   padding: 12px 16px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(24, 24, 30, 0.95);
-  color: #fff;
+  border: 1px solid var(--ui-border-strong);
+  background: var(--ui-surface-strong);
+  color: var(--ui-white);
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--ui-shadow-soft);
 }
 
 .main-audio-manager-btn:hover {
   border-color: rgba(255, 255, 255, 0.38);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
+  box-shadow: var(--ui-shadow-soft-hover);
 }
 
 /* Version number */
@@ -63,7 +63,7 @@
   top: 12px;
   right: 12px;
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--ui-text-faint);
   font-family: 'Bricolage Grotesque', monospace;
   z-index: 10;
   letter-spacing: 0.5px;
@@ -115,7 +115,7 @@
 }
 
 .title-bad {
-  color: #ff6f8b;
+  color: var(--ui-title-bad);
 }
 
 .title-heart {
@@ -129,7 +129,7 @@
 }
 
 .title-date {
-  color: #b7a4ff;
+  color: var(--ui-title-date);
 }
 
 .game-tagline {
@@ -149,8 +149,8 @@
 }
 
 .live-lobby-card.main-card {
-  background: rgba(17, 16, 24, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: var(--ui-surface-card);
+  border: 1px solid var(--ui-border-subtle);
   border-radius: 24px;
   margin: 24px;
 }
@@ -176,13 +176,13 @@
 
 .back-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--ui-surface-soft);
 }
 
 .live-lobby-title {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #d9d2ff;
+  color: var(--ui-title-lobby);
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -425,9 +425,9 @@
 .room-item:focus-visible,
 .cancel-btn:focus-visible,
 .confirm-btn:focus-visible {
-  outline: 3px solid var(--accent-gold);
+  outline: 3px solid var(--ui-focus-ring);
   outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.2);
+  box-shadow: 0 0 0 6px var(--ui-focus-ring-shadow);
 }
 
 /* Info Section */
@@ -904,7 +904,7 @@
 }
 
 .admin-close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--ui-surface-mid);
   color: var(--text-primary);
 }
 
@@ -984,7 +984,7 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--ui-text-muted);
   padding: 0 4px;
   margin-top: 4px;
 }
@@ -995,8 +995,8 @@
   gap: 10px;
   width: 100%;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--ui-surface-soft);
+  border: 1px solid var(--ui-border-soft);
   border-radius: 10px;
   color: var(--text-primary);
   font-size: 0.9rem;
@@ -1006,7 +1006,7 @@
 }
 
 .debug-action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--ui-surface-mid);
   border-color: rgba(255, 255, 255, 0.2);
 }
 

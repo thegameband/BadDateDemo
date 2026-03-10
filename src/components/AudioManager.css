@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 4000;
-  background: rgba(7, 7, 10, 0.9);
+  background: var(--ui-overlay-dark);
   backdrop-filter: none;
   display: block;
 }
@@ -15,7 +15,7 @@
   border-radius: 0;
   border: 0;
   background: #141419;
-  color: #fff;
+  color: var(--ui-white);
   padding: 24px 24px 96px;
   box-shadow: none;
   box-sizing: border-box;
@@ -36,7 +36,7 @@
   margin: -24px -24px 16px;
   padding: 14px 24px;
   background: rgba(20, 20, 25, 0.98);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid var(--ui-border-soft);
   backdrop-filter: none;
 }
 
@@ -54,18 +54,18 @@
 }
 
 .audio-manager-chip {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--ui-border-soft);
+  background: var(--ui-surface-soft);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.84);
+  color: var(--text-primary);
   text-transform: capitalize;
 }
 
 .audio-manager-chip-btn {
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ui-border-strong);
+  background: var(--ui-surface-mid);
   color: #f4f4ff;
   border-radius: 999px;
   padding: 4px 10px;
@@ -80,15 +80,15 @@
 
 .audio-manager-header p {
   margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ui-text-dim);
   font-size: 0.82rem;
 }
 
 .audio-manager-close {
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--ui-border-soft);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--ui-surface-mid);
+  color: var(--ui-white);
   font-size: 0.8rem;
   padding: 8px 10px;
   cursor: pointer;
@@ -104,9 +104,9 @@
 }
 
 .audio-manager-section {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--ui-border-subtle);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ui-surface-subtle);
   padding: 14px;
   margin-bottom: 12px;
 }
@@ -114,7 +114,7 @@
 .audio-manager-section h4 {
   margin: 0 0 10px;
   font-size: 0.86rem;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
 }
 
@@ -129,15 +129,15 @@
   grid-template-columns: minmax(150px, 1fr) minmax(160px, 1fr) auto;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ui-surface-subtle);
   padding: 8px;
 }
 
 .audio-mode-row.active {
-  border-color: rgba(173, 160, 255, 0.68);
-  box-shadow: inset 0 0 0 1px rgba(173, 160, 255, 0.3);
+  border-color: var(--ui-accent-lilac-border);
+  box-shadow: inset 0 0 0 1px var(--ui-accent-lilac-inset);
 }
 
 .audio-mode-row span {
@@ -148,10 +148,10 @@
 .audio-preview-btn,
 .audio-upload-dropzone button,
 .audio-library-actions button {
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--ui-border-soft);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--ui-surface-mid);
+  color: var(--ui-white);
   padding: 8px 10px;
   font-size: 0.78rem;
 }
@@ -180,7 +180,7 @@
   grid-template-columns: 60px 1fr 70px;
   gap: 10px;
   align-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
   padding: 8px;
   font-size: 0.82rem;
@@ -188,28 +188,28 @@
 
 .audio-volume-grid input[type='range'] {
   width: 100%;
-  accent-color: #9f8fff;
+  accent-color: var(--ui-accent-lilac);
 }
 
 .audio-volume-grid strong {
   text-align: right;
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--ui-text-dim);
   font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
 }
 
 .audio-upload-dropzone {
-  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border: 1px dashed var(--ui-border-strong);
   border-radius: 10px;
   padding: 14px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ui-surface-subtle);
 }
 
 .audio-upload-dropzone p {
   margin: 0 0 8px;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--ui-text-dim);
 }
 
 .audio-upload-dropzone button,
@@ -220,7 +220,7 @@
 .audio-upload-status {
   margin: 8px 2px 0;
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--ui-text-dim);
 }
 
 .audio-library {
@@ -230,9 +230,9 @@
 }
 
 .audio-library-row {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ui-surface-subtle);
   padding: 8px;
   display: flex;
   align-items: center;
@@ -256,7 +256,7 @@
 
 .audio-library-meta span {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--ui-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -268,14 +268,14 @@
 }
 
 .audio-library-actions .danger {
-  border-color: rgba(255, 107, 107, 0.6);
-  color: #ff9e9e;
+  border-color: var(--ui-danger-border);
+  color: var(--ui-danger-text);
 }
 
 .audio-empty {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--ui-text-muted);
 }
 
 .audio-manager-close:focus-visible,
@@ -285,9 +285,9 @@
 .audio-volume-grid input[type='range']:focus-visible,
 .audio-upload-dropzone button:focus-visible,
 .audio-library-actions button:focus-visible {
-  outline: 3px solid #ffd166;
+  outline: 3px solid var(--ui-focus-ring);
   outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.2);
+  box-shadow: 0 0 0 6px var(--ui-focus-ring-shadow);
 }
 
 @media (max-width: 760px) {

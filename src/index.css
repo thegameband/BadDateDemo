@@ -19,6 +19,34 @@
   --gradient-success: linear-gradient(135deg, #06d6a0 0%, #00b4d8 100%);
   --shadow-glow: 0 0 40px rgba(255, 77, 109, 0.3);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* Shared UI tokens (lobby + audio manager) */
+  --ui-white: #fff;
+  --ui-overlay-dark: rgba(7, 7, 10, 0.9);
+  --ui-overlay-modal: rgba(0, 0, 0, 0.85);
+  --ui-surface-strong: rgba(24, 24, 30, 0.95);
+  --ui-surface-card: rgba(17, 16, 24, 0.9);
+  --ui-surface-soft: rgba(255, 255, 255, 0.05);
+  --ui-surface-subtle: rgba(255, 255, 255, 0.03);
+  --ui-surface-mid: rgba(255, 255, 255, 0.08);
+  --ui-border-subtle: rgba(255, 255, 255, 0.08);
+  --ui-border-soft: rgba(255, 255, 255, 0.12);
+  --ui-border-strong: rgba(255, 255, 255, 0.24);
+  --ui-text-dim: rgba(255, 255, 255, 0.7);
+  --ui-text-muted: rgba(255, 255, 255, 0.62);
+  --ui-text-faint: rgba(255, 255, 255, 0.58);
+  --ui-title-bad: #ff6f8b;
+  --ui-title-date: #b7a4ff;
+  --ui-title-lobby: #d9d2ff;
+  --ui-shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.3);
+  --ui-shadow-soft-hover: 0 10px 22px rgba(0, 0, 0, 0.34);
+  --ui-focus-ring: #ffd166;
+  --ui-focus-ring-shadow: rgba(255, 209, 102, 0.2);
+  --ui-accent-lilac: #9f8fff;
+  --ui-accent-lilac-border: rgba(173, 160, 255, 0.68);
+  --ui-accent-lilac-inset: rgba(173, 160, 255, 0.3);
+  --ui-danger-border: rgba(255, 107, 107, 0.6);
+  --ui-danger-text: #ff9e9e;
 }
 
 * {
