@@ -13,12 +13,13 @@
 
 .speed-date-header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 14px 14px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.12) 100%);
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid rgba(138, 116, 255, 0.35);
+  background: linear-gradient(180deg, rgba(31, 20, 52, 0.72) 0%, rgba(14, 11, 31, 0.28) 100%);
+  flex-wrap: wrap;
 }
 
 .speed-date-back {
@@ -35,27 +36,30 @@
 .speed-date-title {
   margin: 0;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.48rem;
-  letter-spacing: 0.05em;
+  font-size: clamp(1.7rem, 4.2vw, 2.2rem);
+  letter-spacing: 0.07em;
+  line-height: 0.95;
 }
 
 .speed-date-subtitle {
   margin: 0;
   color: rgba(255, 255, 255, 0.76);
   font-size: 0.82rem;
+  width: 100%;
+  padding-left: 2px;
 }
 
 .speed-date-intro {
-  padding: 16px 14px 18px;
+  padding: 20px 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .speed-date-dater-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 10px;
 }
 
 .speed-date-dater-card {
@@ -98,8 +102,8 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 10px 12px 12px;
-  gap: 10px;
+  padding: 12px 12px 14px;
+  gap: 12px;
 }
 
 .speed-date-run-meta {
@@ -132,10 +136,10 @@
 }
 
 .speed-date-exchange-group {
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: linear-gradient(180deg, rgba(10, 8, 14, 0.78), rgba(16, 12, 19, 0.92));
-  padding: 8px;
+  padding: 9px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -200,7 +204,7 @@
 
 .speed-date-line-text {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.94rem;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.96);
 }

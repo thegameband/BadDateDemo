@@ -17,7 +17,7 @@
 }
 
 .live-lobby.main-lobby .live-lobby-card {
-  padding: 24px;
+  padding: 28px 26px 24px;
   z-index: 1;
 }
 
@@ -35,17 +35,17 @@
 
 .main-audio-manager-btn {
   pointer-events: auto;
-  width: min(540px, 100%);
+  width: min(420px, 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   padding: 12px 16px;
-  border-radius: 14px;
+  border-radius: 10px;
   border: 1px solid var(--ui-border-strong);
   background: var(--ui-surface-strong);
   color: var(--ui-white);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -98,20 +98,24 @@
 
 /* Game Title Styles */
 .title-container {
-  text-align: center;
-  margin-bottom: 8px;
+  text-align: left;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .game-title {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 3.5rem;
+  font-size: clamp(3.4rem, 8.4vw, 4.8rem);
   font-weight: 900;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 0 0 8px 0;
-  line-height: 1;
+  justify-content: flex-start;
+  gap: 10px;
+  margin: 0 0 10px 0;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
 }
 
 .title-bad {
@@ -119,7 +123,7 @@
 }
 
 .title-heart {
-  font-size: 2.8rem;
+  font-size: clamp(2.8rem, 6.8vw, 3.4rem);
   animation: heartPulse 1.5s ease-in-out infinite;
 }
 
@@ -134,10 +138,12 @@
 
 .game-tagline {
   font-family: 'Caveat', cursive;
-  font-size: 1.4rem;
+  font-size: clamp(1.25rem, 3.8vw, 1.7rem);
   color: var(--text-secondary);
   margin: 0;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
+  max-width: 360px;
+  text-align: left;
 }
 
 /* Desktop card styling – sizing handled by .phone-frame */
@@ -150,9 +156,25 @@
 
 .live-lobby-card.main-card {
   background: var(--ui-surface-card);
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: 24px;
-  margin: 24px;
+  border: 1px solid var(--ui-border-soft);
+  border-radius: 22px;
+  margin: 18px;
+  box-shadow:
+    0 20px 34px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.live-lobby-card.main-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--nm-magenta) 0%, var(--nm-violet) 45%, var(--nm-cyan) 100%);
+  opacity: 0.9;
 }
 
 .live-lobby-header {
@@ -275,20 +297,20 @@
 .main-buttons-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.main-buttons {
-  display: flex;
   gap: 12px;
 }
 
-.main-buttons-top .mode-btn {
-  width: 100%;
+.main-buttons {
+  display: grid;
+  gap: 12px;
 }
 
-.main-buttons-bottom .mode-btn {
-  width: 100%;
+.main-buttons-top {
+  grid-template-columns: 1.35fr 1fr;
+}
+
+.main-buttons-bottom {
+  grid-template-columns: 1fr 1fr;
 }
 
 .mode-btn {
@@ -297,10 +319,10 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 20px 16px;
-  border-radius: 16px;
-  font-size: 1.1rem;
-  font-weight: 600;
+  padding: 18px 16px;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -334,6 +356,7 @@
   border: 2px solid rgba(255, 182, 226, 0.5);
   color: var(--ui-white);
   width: 100%;
+  min-height: 108px;
 }
 
 .play-now-btn:hover {
@@ -347,6 +370,7 @@
   border: 2px solid rgba(107, 255, 216, 0.52);
   color: #08161f;
   width: 100%;
+  min-height: 108px;
 }
 
 .drop-a-line-btn:hover {
@@ -360,6 +384,7 @@
   border: 2px solid rgba(157, 203, 255, 0.52);
   color: var(--ui-white);
   width: 100%;
+  min-height: 84px;
 }
 
 .speed-date-btn:hover {
@@ -373,6 +398,7 @@
   border: 2px solid rgba(224, 166, 255, 0.48);
   color: var(--ui-white);
   width: 100%;
+  min-height: 84px;
 }
 
 .roses-btn:hover {
@@ -433,10 +459,11 @@
 /* Info Section */
 .live-info {
   display: flex;
-  justify-content: center;
-  gap: 24px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  justify-content: flex-start;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-border-subtle);
+  flex-wrap: wrap;
 }
 
 .info-item {
@@ -577,12 +604,21 @@
     font-size: 1rem;
   }
   
-  .main-buttons {
+  .main-buttons-top,
+  .main-buttons-bottom {
+    grid-template-columns: 1fr;
     gap: 10px;
   }
 
   .main-buttons-stack {
     gap: 9px;
+  }
+
+  .play-now-btn,
+  .drop-a-line-btn,
+  .speed-date-btn,
+  .roses-btn {
+    min-height: 72px;
   }
 }
 

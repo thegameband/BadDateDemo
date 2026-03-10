@@ -99,8 +99,12 @@
 }
 
 .audio-manager-content {
-  width: min(1120px, 100%);
+  width: min(1240px, 100%);
   margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.25fr 0.95fr;
+  gap: 12px;
+  align-items: start;
 }
 
 .audio-manager-section {
@@ -108,12 +112,12 @@
   border-radius: 12px;
   background: var(--ui-surface-subtle);
   padding: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .audio-manager-section h4 {
   margin: 0 0 10px;
-  font-size: 0.86rem;
+  font-size: 0.92rem;
   color: var(--text-primary);
   letter-spacing: 0.02em;
 }
@@ -130,7 +134,7 @@
   align-items: center;
   gap: 8px;
   border: 1px solid var(--ui-border-subtle);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--ui-surface-subtle);
   padding: 8px;
 }
@@ -291,6 +295,10 @@
 }
 
 @media (max-width: 760px) {
+  .audio-manager-content {
+    grid-template-columns: 1fr;
+  }
+
   .audio-mode-row {
     grid-template-columns: 1fr;
   }
