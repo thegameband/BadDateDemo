@@ -69,12 +69,12 @@
 
 .drop-a-line-reels-grid {
   display: flex;
+  flex-direction: column;
   gap: 20px;
   justify-content: center;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  align-items: stretch;
   width: 100%;
-  max-width: 520px;
+  max-width: 320px;
 }
 
 .drop-a-line-reel-column {
@@ -82,9 +82,8 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  flex: 1 1 0;
+  width: 100%;
   min-width: 0;
-  max-width: 260px;
 }
 
 .drop-a-line-reel-title {
@@ -192,15 +191,6 @@
   .drop-a-line-how-to-play-text {
     font-size: 0.85rem;
     line-height: 1.4;
-  }
-
-  .drop-a-line-reels-grid {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .drop-a-line-reel-column {
-    max-width: none;
   }
 
   .drop-a-line-reel-row {
