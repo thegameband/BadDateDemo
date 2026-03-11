@@ -26,15 +26,6 @@ export default function ModeOnboarding({ slides = [], onComplete, onSkip }) {
     <div className="mode-onboarding-screen">
       <div className="mode-onboarding-header">
         <span className="mode-onboarding-progress">{progressLabel}</span>
-        {onSkip && (
-          <button
-            type="button"
-            className="mode-onboarding-skip"
-            onClick={onSkip}
-          >
-            Skip
-          </button>
-        )}
       </div>
 
       <AnimatePresence mode="wait">
@@ -88,6 +79,16 @@ export default function ModeOnboarding({ slides = [], onComplete, onSkip }) {
         >
           {isLast ? "Let's Go!" : 'Next'}
         </button>
+
+        {onSkip && (
+          <button
+            type="button"
+            className="mode-onboarding-skip"
+            onClick={onSkip}
+          >
+            Skip All
+          </button>
+        )}
       </div>
     </div>
   )

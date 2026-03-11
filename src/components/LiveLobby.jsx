@@ -25,7 +25,7 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.05.04'
+const GAME_VERSION = '0.05.05'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
 const BAD_DATE_FTUE_SLIDES = [
@@ -48,6 +48,24 @@ const BAD_DATE_FTUE_SLIDES = [
     title: "Go Get 'Em!",
     image: null,
     text: 'Top out both your chemistry and ratings meters to Hard Launch your relationship!',
+  },
+]
+const RIZZ_CRAFT_FTUE_KEY = 'ftue_rizz-craft_seen'
+const RIZZ_CRAFT_FTUE_SLIDES = [
+  {
+    title: 'Welcome to Rizz-craft',
+    image: null,
+    text: 'One stranger. One location. One shot at the perfect pickup line.',
+  },
+  {
+    title: 'Do Your Homework',
+    image: null,
+    text: "Study your Dater\u2019s profile closely \u2014 their personality, their quirks, their dealbreakers.",
+  },
+  {
+    title: 'One Line to Rule Them All',
+    image: null,
+    text: 'You get exactly one pickup line. Make it clever \u2014 or watch it crash and burn in spectacular fashion.',
   },
 ]
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
@@ -238,7 +256,17 @@ function LiveLobby() {
 
   const handleSelectMode = (nextView) => {
     void triggerHaptic('heavy')
+    if (nextView === 'drop-a-line' && localStorage.getItem(RIZZ_CRAFT_FTUE_KEY) !== 'true') {
+      setShowFtue('rizz-craft')
+      return
+    }
     setView(nextView)
+  }
+
+  const completeRizzCraftFtue = () => {
+    localStorage.setItem(RIZZ_CRAFT_FTUE_KEY, 'true')
+    setShowFtue(null)
+    setView('drop-a-line')
   }
 
   const handleCreate = async () => {
@@ -588,6 +616,12 @@ function LiveLobby() {
             slides={BAD_DATE_FTUE_SLIDES}
             onComplete={completeBadDateFtue}
             onSkip={completeBadDateFtue}
+          />
+        ) : showFtue === 'rizz-craft' ? (
+          <ModeOnboarding
+            slides={RIZZ_CRAFT_FTUE_SLIDES}
+            onComplete={completeRizzCraftFtue}
+            onSkip={completeRizzCraftFtue}
           />
         ) : (
           <motion.div

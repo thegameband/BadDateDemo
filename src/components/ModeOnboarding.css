@@ -22,15 +22,21 @@
 }
 
 .mode-onboarding-skip {
-  border: 1px solid var(--ui-border-subtle);
+  border: none;
   border-radius: 999px;
-  padding: 5px 12px;
+  padding: 8px 16px;
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--ui-text-dim);
-  background: var(--ui-surface-subtle);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ui-text-muted);
+  background: none;
   cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: color 0.15s ease;
+}
+
+.mode-onboarding-skip:hover {
+  color: var(--ui-text-dim);
 }
 
 .mode-onboarding-card {
