@@ -25,7 +25,7 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.05.06'
+const GAME_VERSION = '0.05.07'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
 const BAD_DATE_FTUE_SLIDES = [
@@ -54,17 +54,17 @@ const RIZZ_CRAFT_FTUE_KEY = 'ftue_rizz-craft_seen'
 const RIZZ_CRAFT_FTUE_SLIDES = [
   {
     title: 'Welcome to Rizz-craft',
-    image: null,
+    image: '/images/ftue/rizz-craft-1.png',
     text: 'One stranger. One location. One shot at the perfect pickup line.',
   },
   {
     title: 'Do Your Homework',
-    image: null,
+    image: '/images/ftue/rizz-craft-2.png',
     text: "Study your Dater\u2019s profile closely \u2014 their personality, their quirks, their dealbreakers.",
   },
   {
     title: 'One Line to Rule Them All',
-    image: null,
+    image: '/images/ftue/rizz-craft-3.png',
     text: 'You get exactly one pickup line. Make it clever \u2014 or watch it crash and burn in spectacular fashion.',
   },
 ]
