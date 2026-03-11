@@ -13,6 +13,7 @@ import DropALineDied from './DropALineDied'
 import SpeedDateMode from './SpeedDateMode'
 import RosesMode from './RosesMode'
 import AudioManager from './AudioManager'
+import ModeOnboarding from './ModeOnboarding'
 import { useWebHaptics } from 'web-haptics/react'
 import './DropALineReels.css'
 import './DropALineProfile.css'
@@ -24,8 +25,26 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.05.02'
+const GAME_VERSION = '0.05.03'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
+const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
+const BAD_DATE_FTUE_SLIDES = [
+  {
+    title: 'Welcome to Bad Date',
+    image: null,
+    text: 'Say the right thing at the right moment. One weird line can change everything.',
+  },
+  {
+    title: 'Read the Room',
+    image: null,
+    text: 'Watch every prompt and response closely. Tone matters more than confidence.',
+  },
+  {
+    title: 'Lowest Score Wins',
+    image: null,
+    text: 'Your goal is chaos. Keep the vibe unstable and drive the score down.',
+  },
+]
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
@@ -74,6 +93,7 @@ function LiveLobby() {
   const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene' | 'died'
   const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, location }
   const [forceReelPairing, setForceReelPairing] = useState(null) // { daterName, location } | null
+  const [showFtue, setShowFtue] = useState(null)
   const [runtimeCapabilities, setRuntimeCapabilities] = useState(() => getCachedRuntimeCapabilities())
   const hasOpenAiKey = Boolean(runtimeCapabilities.openai)
   const hasAnthropicKey = Boolean(runtimeCapabilities.anthropic)
@@ -179,7 +199,7 @@ function LiveLobby() {
   }, [view])
   
   // Single-player: Play → Dater Bio Page → START THE DATE → 3 questions → date
-  const handlePlayNow = () => {
+  const startBadDateSession = () => {
     void triggerHaptic('heavy')
     const playerName = username.trim() || getRandomFallbackName()
     const odId = generatePlayerId()
@@ -195,6 +215,20 @@ function LiveLobby() {
     setScoringMode(debugScoringMode)
     initializeScoringForDater(dater)
     setPhase('dater-bio')
+  }
+
+  const handlePlayNow = () => {
+    if (localStorage.getItem(BAD_DATE_FTUE_KEY) !== 'true') {
+      setShowFtue('bad-date')
+      return
+    }
+    startBadDateSession()
+  }
+
+  const completeBadDateFtue = () => {
+    localStorage.setItem(BAD_DATE_FTUE_KEY, 'true')
+    setShowFtue(null)
+    startBadDateSession()
   }
 
   const handleSelectMode = (nextView) => {
@@ -544,12 +578,19 @@ function LiveLobby() {
           </div>
         </div>
         
-        <motion.div 
-          className="live-lobby-card main-card"
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.4 }}
-        >
+        {showFtue === 'bad-date' ? (
+          <ModeOnboarding
+            slides={BAD_DATE_FTUE_SLIDES}
+            onComplete={completeBadDateFtue}
+            onSkip={completeBadDateFtue}
+          />
+        ) : (
+          <motion.div
+            className="live-lobby-card main-card"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
           {/* Game Title */}
           <motion.div 
             className="title-container"
@@ -871,7 +912,7 @@ function LiveLobby() {
                           setShowAdminModal(false)
                           setShowDaterPicker(false)
                           useGameStore.setState({ debugSkipToPlotTwist: true })
-                          handlePlayNow()
+                          startBadDateSession()
                         }}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -996,8 +1037,9 @@ function LiveLobby() {
               <span>~10 min per game</span>
             </div>
           </div>
-        </motion.div>
-        {!showAudioManager && (
+          </motion.div>
+        )}
+        {!showFtue && !showAudioManager && (
           <div className="main-audio-manager-launch">
             <motion.button
               className="main-audio-manager-btn"
