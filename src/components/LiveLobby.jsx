@@ -25,24 +25,29 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.05.03'
+const GAME_VERSION = '0.05.04'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
 const BAD_DATE_FTUE_SLIDES = [
   {
-    title: 'Welcome to Bad Date',
+    title: 'Welcome to Hard Launch',
     image: null,
-    text: 'Say the right thing at the right moment. One weird line can change everything.',
+    text: "You've just been cast on the hottest reality dating show on TV \u2014 Hard Launch. Paired with a random Dater, you'll each be grilled by our host \u2014 and you'll need to bring the heat.",
   },
   {
-    title: 'Read the Room',
+    title: 'Love Connection',
     image: null,
-    text: 'Watch every prompt and response closely. Tone matters more than confidence.',
+    text: '5 questions, 1 chance. Spark a real connection with your answers in order to lock down that second date.',
   },
   {
-    title: 'Lowest Score Wins',
+    title: 'Ratings, Ratings, Ratings',
     image: null,
-    text: 'Your goal is chaos. Keep the vibe unstable and drive the score down.',
+    text: "But remember to be entertaining \u2014 this is television, after all. Connection alone won't cut it. Be bold, be memorable, or the show gets canceled.",
+  },
+  {
+    title: "Go Get 'Em!",
+    image: null,
+    text: 'Top out both your chemistry and ratings meters to Hard Launch your relationship!',
   },
 ]
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
