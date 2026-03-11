@@ -2067,6 +2067,42 @@
   background: linear-gradient(90deg, #23cfff, #43f3bb);
 }
 
+@keyframes meter-pulse-up {
+  0% { transform: scale(1); filter: brightness(1); }
+  35% { transform: scale(1.08); filter: brightness(1.18); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes meter-pulse-down {
+  0% { transform: scale(1); filter: brightness(1); }
+  35% { transform: scale(1.08); filter: brightness(0.9); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.top-meter-track.is-pulsing,
+.chaos-meter-track.is-pulsing {
+  transform-origin: center;
+}
+
+.top-meter-fill.is-pulsing,
+.chaos-meter-fill.is-pulsing {
+  transform-origin: left center;
+}
+
+.top-meter-track.pulse-up,
+.top-meter-fill.pulse-up,
+.chaos-meter-track.pulse-up,
+.chaos-meter-fill.pulse-up {
+  animation: meter-pulse-up 0.6s ease-out;
+}
+
+.top-meter-track.pulse-down,
+.top-meter-fill.pulse-down,
+.chaos-meter-track.pulse-down,
+.chaos-meter-fill.pulse-down {
+  animation: meter-pulse-down 0.6s ease-out;
+}
+
 /* When round prompt banner is visible, reserve space so submitted answers and content are not covered */
 .date-screen.has-round-prompt-banner {
   padding-top: var(--top-stack-reserved-space, 120px);
