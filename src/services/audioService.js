@@ -17,8 +17,8 @@ const DEFAULT_TRACK_ASSIGNMENTS = {
 }
 
 const SFX_CUES = [
-  { id: 'questionAppears', label: 'Question Appears (Bad Date)', defaultTrackRef: '/sounds/question-appears.mp3' },
-  { id: 'answerAppears', label: 'Answer Appears (Bad Date)', defaultTrackRef: '/sounds/answer-appears.mp3' },
+  { id: 'questionAppears', label: 'Question Appears (Hard Launch)', defaultTrackRef: '/sounds/question-appears.mp3' },
+  { id: 'answerAppears', label: 'Answer Appears (Hard Launch)', defaultTrackRef: '/sounds/answer-appears.mp3' },
   { id: 'goodResult', label: 'Good Result (Rizz-craft)', defaultTrackRef: '/sounds/good-result.mp3' },
   { id: 'badResult', label: 'Bad Result (Rizz-craft)', defaultTrackRef: '/sounds/bad-result.mp3' },
 ]

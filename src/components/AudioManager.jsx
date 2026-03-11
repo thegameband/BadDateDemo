@@ -18,7 +18,7 @@ import './AudioManager.css'
 
 const MODE_OPTIONS = [
   { id: 'lobby', label: 'Main Menu / Lobby' },
-  { id: 'badDate', label: 'Bad Date' },
+  { id: 'badDate', label: 'Hard Launch' },
   { id: 'rizzCraft', label: 'Rizz-craft' },
   { id: 'roses', label: 'Roses' },
   { id: 'speedDate', label: 'Speed Date' },

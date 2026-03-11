@@ -245,7 +245,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       if (canNativeShare) {
         await navigator.share({
           files: [file],
-          title: 'Bad Date Demo',
+          title: 'Hard Launch',
           text: `I scored ${evaluation.score}% with ${daterName}.`,
         })
         setShareStatus('Shared!')

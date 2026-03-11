@@ -1751,7 +1751,7 @@ RULES:
     switch (tutorialStep) {
       case 1:
         return {
-          title: 'Welcome to Bad Date!',
+          title: 'Welcome to Hard Launch!',
           text: "Your goal is simple: score as high as you can in the mode you selected. Watch live scoring feedback after each dater line.",
           highlight: null
         }

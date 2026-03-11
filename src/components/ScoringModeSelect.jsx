@@ -16,12 +16,12 @@ const MODE_OPTIONS = [
   },
   {
     id: SCORING_MODES.BINGO_BLIND_LOCKOUT,
-    title: 'Bad Date Bingo (Blind + Lockouts)',
+    title: 'Hard Launch Bingo (Blind + Lockouts)',
     subtitle: 'Hidden 4x4 board. Cells reveal and become filled or locked in real-time.',
   },
   {
     id: SCORING_MODES.BINGO_ACTIONS_OPEN,
-    title: 'Bad Date Bingo (Open Actions)',
+    title: 'Hard Launch Bingo (Open Actions)',
     subtitle: 'Visible 4x4 action board. Fill cells by getting your date to perform actions.',
   },
 ]

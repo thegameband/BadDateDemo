@@ -25,28 +25,28 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.05.05'
+const GAME_VERSION = '0.05.06'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
 const BAD_DATE_FTUE_SLIDES = [
   {
     title: 'Welcome to Hard Launch',
-    image: null,
+    image: '/images/ftue/hard-launch-1.png',
     text: "You've just been cast on the hottest reality dating show on TV \u2014 Hard Launch. Paired with a random Dater, you'll each be grilled by our host \u2014 and you'll need to bring the heat.",
   },
   {
     title: 'Love Connection',
-    image: null,
+    image: '/images/ftue/hard-launch-2.png',
     text: '5 questions, 1 chance. Spark a real connection with your answers in order to lock down that second date.',
   },
   {
     title: 'Ratings, Ratings, Ratings',
-    image: null,
+    image: '/images/ftue/hard-launch-3.png',
     text: "But remember to be entertaining \u2014 this is television, after all. Connection alone won't cut it. Be bold, be memorable, or the show gets canceled.",
   },
   {
     title: "Go Get 'Em!",
-    image: null,
+    image: '/images/ftue/hard-launch-4.png',
     text: 'Top out both your chemistry and ratings meters to Hard Launch your relationship!',
   },
 ]
@@ -71,7 +71,7 @@ const RIZZ_CRAFT_FTUE_SLIDES = [
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
-// Main game entry screen - Bad Date
+// Main game entry screen - Hard Launch
 
 function LiveLobby() {
   const { trigger: triggerHaptic } = useWebHaptics()
@@ -1030,7 +1030,7 @@ function LiveLobby() {
                 whileTap={{ scale: 0.98 }}
               >
                 <span className="btn-icon">🎮</span>
-                <span className="btn-text">Bad Date</span>
+                <span className="btn-text">Hard Launch</span>
               </motion.button>
               {dropALineEnabled && (
                 <motion.button
