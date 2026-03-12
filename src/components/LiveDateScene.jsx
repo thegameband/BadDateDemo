@@ -235,6 +235,7 @@ function LiveDateScene() {
   const daterQuickAnswerRef = useRef('')
   const lastQuickAnswerQuestionRef = useRef('')
   const lastRoundDaterBubbleAtRef = useRef(0)
+  const finalResultSfxPlayedRef = useRef(false)
   
   // Starting Stats Mode state
   const [startingStatsInput, setStartingStatsInput] = useState('')
@@ -1045,6 +1046,28 @@ function LiveDateScene() {
   useEffect(() => {
     setScoringSummary(useGameStore.getState().getScoringSummary())
   }, [scoring])
+
+  useEffect(() => {
+    if (livePhase !== 'ended') {
+      finalResultSfxPlayedRef.current = false
+      return
+    }
+    if (finalResultSfxPlayedRef.current) return
+
+    const summary = scoringSummary || useGameStore.getState().getScoringSummary()
+    if (summary?.mode !== SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS) return
+    const outcomeKey = summary?.dateOutcomeKey
+    if (!outcomeKey) return
+
+    if (outcomeKey === 'perfect-date') {
+      void playSfxCue('resultGood')
+    } else if (outcomeKey === 'total-failure') {
+      void playSfxCue('resultBad')
+    } else {
+      void playSfxCue('resultAverage')
+    }
+    finalResultSfxPlayedRef.current = true
+  }, [livePhase, scoringSummary?.mode, scoringSummary?.dateOutcomeKey])
 
   useEffect(() => {
     const nextCompatibility = clampMeterValue(scoringSummary?.compatibilityScore ?? 0)

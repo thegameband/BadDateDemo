@@ -222,7 +222,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   useEffect(() => {
     if (phase !== 'stamp' || !evaluation || resultSfxPlayedRef.current) return
     const isGoodResult = evaluation.score >= SUCCESS_THRESHOLD
-    void playSfxCue(isGoodResult ? 'goodResult' : 'badResult')
+    void playSfxCue(isGoodResult ? 'resultGood' : 'resultBad')
     resultSfxPlayedRef.current = true
   }, [phase, evaluation])
 

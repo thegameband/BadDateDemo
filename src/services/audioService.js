@@ -19,8 +19,9 @@ const DEFAULT_TRACK_ASSIGNMENTS = {
 const SFX_CUES = [
   { id: 'questionAppears', label: 'Question Appears (Hard Launch)', defaultTrackRef: '/sounds/question-appears.mp3' },
   { id: 'answerAppears', label: 'Answer Appears (Hard Launch)', defaultTrackRef: '/sounds/answer-appears.mp3' },
-  { id: 'goodResult', label: 'Good Result (Rizz-craft)', defaultTrackRef: '/sounds/good-result.mp3' },
-  { id: 'badResult', label: 'Bad Result (Rizz-craft)', defaultTrackRef: '/sounds/bad-result.mp3' },
+  { id: 'resultGood', label: 'Result - Good', defaultTrackRef: '/sounds/result-good.mp3' },
+  { id: 'resultAverage', label: 'Result - Average', defaultTrackRef: '/sounds/result-average.mp3' },
+  { id: 'resultBad', label: 'Result - Bad', defaultTrackRef: '/sounds/result-bad.mp3' },
 ]
 
 const DEFAULT_SFX_CUE_ASSIGNMENTS = Object.fromEntries(
@@ -31,8 +32,9 @@ const BUILT_IN_TRACKS = [
   { id: 'builtin:lobby', name: 'Lobby Loop', trackRef: '/sounds/bd-lobby-music.mp3', source: 'built-in' },
   { id: 'builtin:question', name: 'Question Appears', trackRef: '/sounds/question-appears.mp3', source: 'built-in' },
   { id: 'builtin:answer', name: 'Answer Appears', trackRef: '/sounds/answer-appears.mp3', source: 'built-in' },
-  { id: 'builtin:good', name: 'Good Result', trackRef: '/sounds/good-result.mp3', source: 'built-in' },
-  { id: 'builtin:bad', name: 'Bad Result', trackRef: '/sounds/bad-result.mp3', source: 'built-in' },
+  { id: 'builtin:result-good', name: 'Result Good', trackRef: '/sounds/result-good.mp3', source: 'built-in' },
+  { id: 'builtin:result-average', name: 'Result Average', trackRef: '/sounds/result-average.mp3', source: 'built-in' },
+  { id: 'builtin:result-bad', name: 'Result Bad', trackRef: '/sounds/result-bad.mp3', source: 'built-in' },
 ]
 
 function clampVolume(value, fallback) {
