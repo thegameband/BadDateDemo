@@ -320,6 +320,11 @@ function LiveDateScene() {
     const currentTimeout = meterPulseTimeoutsRef.current[meterType]
     if (currentTimeout) clearTimeout(currentTimeout)
     setMeterPulse((prev) => ({ ...prev, [meterType]: direction }))
+    if (meterType === 'compatibility') {
+      void playSfxCue(direction === 'up' ? 'compatibilityPositive' : 'compatibilityNegative')
+    } else if (meterType === 'ratings') {
+      void playSfxCue(direction === 'up' ? 'ratingsPositive' : 'ratingsNegative')
+    }
     meterPulseTimeoutsRef.current[meterType] = setTimeout(() => {
       setMeterPulse((prev) => ({ ...prev, [meterType]: null }))
       meterPulseTimeoutsRef.current[meterType] = null

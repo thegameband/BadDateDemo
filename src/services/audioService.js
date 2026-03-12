@@ -22,6 +22,10 @@ const SFX_CUES = [
   { id: 'resultGood', label: 'Result - Good', defaultTrackRef: '/sounds/result-good.mp3' },
   { id: 'resultAverage', label: 'Result - Average', defaultTrackRef: '/sounds/result-average.mp3' },
   { id: 'resultBad', label: 'Result - Bad', defaultTrackRef: '/sounds/result-bad.mp3' },
+  { id: 'compatibilityPositive', label: 'Compatibility - Positive', defaultTrackRef: '/sounds/compatibility-positive.mp3' },
+  { id: 'compatibilityNegative', label: 'Compatibility - Negative', defaultTrackRef: '/sounds/compatibility-negative.mp3' },
+  { id: 'ratingsPositive', label: 'Ratings - Positive', defaultTrackRef: '/sounds/ratings-positive.mp3' },
+  { id: 'ratingsNegative', label: 'Ratings - Negative', defaultTrackRef: '/sounds/ratings-negative.mp3' },
 ]
 
 const DEFAULT_SFX_CUE_ASSIGNMENTS = Object.fromEntries(
@@ -35,6 +39,10 @@ const BUILT_IN_TRACKS = [
   { id: 'builtin:result-good', name: 'Result Good', trackRef: '/sounds/result-good.mp3', source: 'built-in' },
   { id: 'builtin:result-average', name: 'Result Average', trackRef: '/sounds/result-average.mp3', source: 'built-in' },
   { id: 'builtin:result-bad', name: 'Result Bad', trackRef: '/sounds/result-bad.mp3', source: 'built-in' },
+  { id: 'builtin:compatibility-positive', name: 'Compatibility Positive', trackRef: '/sounds/compatibility-positive.mp3', source: 'built-in' },
+  { id: 'builtin:compatibility-negative', name: 'Compatibility Negative', trackRef: '/sounds/compatibility-negative.mp3', source: 'built-in' },
+  { id: 'builtin:ratings-positive', name: 'Ratings Positive', trackRef: '/sounds/ratings-positive.mp3', source: 'built-in' },
+  { id: 'builtin:ratings-negative', name: 'Ratings Negative', trackRef: '/sounds/ratings-negative.mp3', source: 'built-in' },
 ]
 
 function clampVolume(value, fallback) {
