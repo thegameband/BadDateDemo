@@ -4932,13 +4932,9 @@ Output JSON only with no markdown.`
       .replace(/\s+/g, ' ')
       .trim()
     if (!trimmed) return ''
-    if (!hasPickupAddress(trimmed)) return ''
-    if (!hasBoldPickupEnergy(trimmed)) return ''
-    if (isLikelyBlandDaterLine(trimmed)) return ''
-    if (isMeanOrMetaPickupLine(trimmed)) return ''
     if (PICKUP_REPLY_PATTERN.test(trimmed)) return ''
-    if (hasClichePickupPhrase(trimmed)) return ''
-    if (PICKUP_STALE_FRAME_PATTERN.test(trimmed)) return ''
+    // Batch pregen should fail open on usable lines instead of bricking the round.
+    if (isMeanOrMetaPickupLine(trimmed) && !hasBoldPickupEnergy(trimmed) && !hasHumorSignal(trimmed)) return ''
     return trimmed
   }
 
