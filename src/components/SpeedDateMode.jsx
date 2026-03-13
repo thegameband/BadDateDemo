@@ -813,7 +813,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
             ))}
           </div>
           <p className="speed-date-rule">
-            Watch each dater get hit first. Then answer with your own one-liner.
+            Exchange one-liners and judge each other!
           </p>
           <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking}>
             {isWorking ? 'Generating One-Liners...' : 'Start Speed Round'}
