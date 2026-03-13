@@ -5217,22 +5217,36 @@ function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
     const senderName = String(line?.senderName || `Sender ${idx + 1}`)
     const text = String(line?.line || line?.text || '').trim()
     const normalized = text.toLowerCase()
+    const isPlayerSender = senderId === 'player'
 
-    let score = 42
-    if (hasHumorSignal(text)) score += 18
-    if (hasBoldPickupEnergy(text)) score += 16
-    if (hasPickupAddress(text)) score += 6
-    if (PICKUP_STALE_FRAME_PATTERN.test(text)) score -= 12
-    if (hasClichePickupPhrase(text)) score -= 18
-    if (isLikelyBlandDaterLine(text)) score -= 10
-    if (isMeanOrMetaPickupLine(text)) score -= 18
+    let humorScore = 0
+    if (hasHumorSignal(text)) humorScore += 34
+    if (PICKUP_COMEDY_PATTERN.test(text)) humorScore += 18
+    if (/[!?]/.test(text)) humorScore += 4
+    humorScore = Math.min(56, humorScore)
+
+    let chemistryScore = 0
+    if (hasBoldPickupEnergy(text)) chemistryScore += 8
+    if (hasPickupAddress(text)) chemistryScore += 3
+    if (BOLD_PICKUP_DESIRE_PATTERN.test(text)) chemistryScore += 4
+    chemistryScore = Math.min(15, chemistryScore)
+
+    let profileScore = 0
 
     likes.forEach((keyword) => {
-      if (keyword && normalized.includes(keyword)) score += 5
+      if (keyword && normalized.includes(keyword)) profileScore += 4
     })
     dealbreakers.forEach((keyword) => {
-      if (keyword && normalized.includes(keyword)) score -= 8
+      if (keyword && normalized.includes(keyword)) profileScore -= 2
     })
+    profileScore = Math.max(-6, Math.min(15, profileScore))
+
+    let score = 18 + humorScore + chemistryScore + profileScore
+    if (isPlayerSender) score += 4
+    if (PICKUP_STALE_FRAME_PATTERN.test(text)) score -= 4
+    if (hasClichePickupPhrase(text)) score -= 6
+    if (isLikelyBlandDaterLine(text)) score -= 4
+    if (isMeanOrMetaPickupLine(text)) score -= 6
 
     // Stable tie-break noise based on senderId characters.
     const tieBreaker = senderId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 5
@@ -5240,10 +5254,10 @@ function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
     score = Math.max(0, Math.min(100, Math.round(score)))
 
     const reason = score >= 75
-      ? 'funny and flirty with strong chemistry'
+      ? 'killer punchline with real chemistry'
       : score >= 60
-        ? 'good energy with a clear invite'
-        : 'line landed, but lacked spark'
+        ? 'funny, flirty, and landed cleanly'
+        : 'some spark, but weaker laugh'
 
     return { senderId, senderName, score, reason }
   })
@@ -5311,7 +5325,9 @@ Return ONLY JSON:
 Rules:
 - Score every sender provided.
 - Higher score means the stronger one-liner addressed to you.
-- Weighting: profile fit 40%, chemistry/flirty energy 35%, humor/punchline 25%.
+- Weighting: humor/punchline 70%, chemistry/flirty energy 15%, profile fit 15%.
+- This mode is slightly player-favoring in close calls.
+- Do not force every dater to pick the player; if the rival line is clearly funnier, let the rival win.
 - Picked sender must be the highest score.`
 
   const userPrompt = `Incoming lines addressed to you:
