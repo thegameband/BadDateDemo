@@ -477,6 +477,10 @@ const PICKUP_INVITE_PATTERN = /\b(let's|lets|give me|give you|buy you|buy me|com
 const PICKUP_CLICHE_PATTERN = /\b(you look like trouble|you seem like trouble|did it hurt when you fell|did it hurt when you fell from heaven|are you from tennessee|do you come here often|what'?s your sign|is your dad a thief|stole the stars|love at first sight)\b/i
 const PICKUP_CLICHE_OPENER_PATTERN = /^(you look like\b|you seem like\b|did it hurt\b|are you (a|an|from)\b|do you come here often\b|what'?s your sign\b|is your dad a thief\b)/i
 const PICKUP_STALE_FRAME_PATTERN = /\b(you('|’)ve got [a-z-]+ energy|you bring the vibe|come get a drink with me|grab a drink with me|buy you a drink|buy me a drink|join me for (a )?drink|trade it for a tequila date)\b/i
+const PICKUP_SECOND_PERSON_PATTERN = /\b(you|your|you're|youre|you've|youve|yourself)\b/i
+const BOLD_PICKUP_DESIRE_PATTERN = /\b(take me home|take me|have me|make me|keep me|kiss me|touch me|hold me|climb me|undo me|ruin me|wreck me|pull me apart|pulling me apart|falling to pieces|falling for you|want you|need you|all over you|in your arms|your hands|your mouth|your place)\b/i
+const PICKUP_HOSTILE_PATTERN = /\b(loser|pathetic|boring|cringe|desperate|annoying|gross|ugly|stupid|idiot|creep|clown|embarrassing|repulsive|lame)\b/i
+const PICKUP_META_PATTERN = /\b(pickup line|pick-up line|one-liner|rizz|opening salvo|speed date)\b/i
 
 function toOneSentence(text) {
   const cleaned = String(text || '').replace(/\s+/g, ' ').trim()
@@ -550,6 +554,28 @@ function hasClichePickupPhrase(text = '') {
   const normalized = normalizePickupLineForComparison(text)
   if (!normalized) return false
   return PICKUP_CLICHE_PATTERN.test(normalized) || PICKUP_CLICHE_OPENER_PATTERN.test(normalized)
+}
+
+function hasPickupAddress(text = '') {
+  return PICKUP_SECOND_PERSON_PATTERN.test(String(text || '').trim())
+}
+
+function hasBoldPickupEnergy(text = '') {
+  const line = String(text || '').trim()
+  if (!line) return false
+  return PICKUP_SIGNAL_PATTERN.test(line)
+    || FLIRTY_SIGNAL_PATTERN.test(line)
+    || PICKUP_INVITE_PATTERN.test(line)
+    || BOLD_PICKUP_DESIRE_PATTERN.test(line)
+}
+
+function isMeanOrMetaPickupLine(text = '') {
+  const line = String(text || '').trim()
+  if (!line) return false
+  if (PICKUP_META_PATTERN.test(line)) return true
+  if (PICKUP_HOSTILE_PATTERN.test(line)) return true
+  if (BARBED_SIGNAL_PATTERN.test(line) && !hasBoldPickupEnergy(line)) return true
+  return false
 }
 
 function detectPickupInviteCategory(text = '') {
@@ -4569,16 +4595,16 @@ export async function generateSpeedDatingOneLiner({
     if (PICKUP_REPLY_PATTERN.test(text)) return false
     if (hasClichePickupPhrase(text)) return false
     if (PICKUP_STALE_FRAME_PATTERN.test(text)) return false
+    if (isMeanOrMetaPickupLine(text)) return false
     if (hasRepeatedRecentOpener(text)) return false
     if (hasRepeatedRecentTail(text)) return false
     if (isNearDuplicateOfRecentLine(text)) return false
     if (overusedInviteCategories.includes(detectPickupInviteCategory(text))) return false
-    if (!/\byou\b/i.test(text)) return false
-    const hasPickupHook = PICKUP_SIGNAL_PATTERN.test(text) || FLIRTY_SIGNAL_PATTERN.test(text) || PICKUP_INVITE_PATTERN.test(text)
+    if (!hasPickupAddress(text)) return false
+    const hasPickupHook = hasBoldPickupEnergy(text)
     if (!hasPickupHook) return false
-    if (PICKUP_POETIC_PATTERN.test(text) && !PICKUP_SIGNAL_PATTERN.test(text)) return false
-    const hasComedyBeat = hasHumorSignal(text) || PICKUP_COMEDY_PATTERN.test(text) || /[!?]/.test(text)
-    if (!hasComedyBeat) return false
+    const hasPayoff = hasHumorSignal(text) || PICKUP_COMEDY_PATTERN.test(text) || /[!?]/.test(text) || BOLD_PICKUP_DESIRE_PATTERN.test(text)
+    if (!hasPayoff) return false
     return true
   }
 
@@ -4591,11 +4617,12 @@ export async function generateSpeedDatingOneLiner({
     if (PICKUP_REPLY_PATTERN.test(text)) return false
     if (hasClichePickupPhrase(text)) return false
     if (PICKUP_STALE_FRAME_PATTERN.test(text)) return false
+    if (isMeanOrMetaPickupLine(text)) return false
     if (hasRepeatedRecentTail(text)) return false
     if (isNearDuplicateOfRecentLine(text)) return false
     if (overusedInviteCategories.includes(detectPickupInviteCategory(text))) return false
-    if (!/\byou\b/i.test(text)) return false
-    const hasPickupHook = PICKUP_SIGNAL_PATTERN.test(text) || FLIRTY_SIGNAL_PATTERN.test(text) || PICKUP_INVITE_PATTERN.test(text)
+    if (!hasPickupAddress(text)) return false
+    const hasPickupHook = hasBoldPickupEnergy(text)
     if (!hasPickupHook) return false
     return true
   }
@@ -4608,7 +4635,8 @@ export async function generateSpeedDatingOneLiner({
     if (mentionsForbiddenPickupName(text, forbiddenNamePatterns)) return false
     if (PICKUP_REPLY_PATTERN.test(text)) return false
     if (hasClichePickupPhrase(text)) return false
-    if (!/\byou\b/i.test(text)) return false
+    if (isMeanOrMetaPickupLine(text)) return false
+    if (!hasPickupAddress(text)) return false
     return true
   }
 
@@ -4625,28 +4653,34 @@ ${targetProfile}
 Room context (for vibe only; do NOT reference or reply to it):
 ${recentBlock}
 
-Write exactly one funny, flirty pickup line to win this target over.
+Write exactly one bold, sexy, funny pickup line that could actually win this target over.
 Rules:
 - One sentence only
 - 7-13 words (hard max 16)
 - This is a cold open at a bar, not a reply
-- Must include a concrete flirt/invite beat (date, drink, kiss, number, ask-out)
-- Use "you" to address the target; do not use any names
-- Swaggering, playful, a little dangerous, and clearly funny
-- Structure: bold hook first, then flirty invite
-- Avoid dry phrasing; make the final words the punchline
+- Must feel like genuine desire, not an observational joke
+- Use second-person address ("you" or "your"); do not use any names
+- Base it on one concrete profile cue from the target
+- Speaker voice should still come through; do not flatten everyone into the same generic flirt
+- Bold, sexy, playful, a little dangerous, and clearly funny
+- A direct proposition, invitation, or "here's what you're doing to me" turn is great
+- The line should make the target feel wanted
+- Keep the sentence sensible and complete; no fractured imagery
+- Avoid dry phrasing; make the final words the payoff
 - Do not reference anything the other person already said
 - Freshness rule: no cliche pickup templates.
 - Never use or paraphrase "you look like trouble."
 - Never start with "you look like...", "you seem like...", "are you...", or "did it hurt..."
 - Avoid stale frames like "you've got ___ energy" and "buy you a drink."
+- Do not turn the line into a roast, neg, or backhanded compliment
 - Do not reuse opener starts already used this run:
 ${recentOpenerBlock}
 - Do not reuse ending cadence from recent lines.
 - Overused invite categories to avoid right now: ${overusedInviteBlock}
 - Avoid bland words like "interesting", "fair", "valid", "noted"
+- Avoid meta references to pickup lines, rizz, or flirting as a concept
 - No stage directions, no emojis, no asterisks
-- End on the joke beat
+- End on the laugh or lust beat
 Output only the line.`
 
   const response = await getSingleResponseWithTimeout(prompt, {
@@ -4665,16 +4699,18 @@ Rules:
 - One sentence only
 - 7-13 words (hard max 16)
 - Cold open only; do not reply to anyone
-- No names, use "you"
-- Make it cheeky, funny, and flirty
-- Include a clear invite beat (drink, date, kiss, number)
+- No names; use "you" or "your"
+- Make it bold, sexy, funny, and sensible
+- Base it on one clear target cue and turn that cue into desire
+- It can be an invite, a proposition, or "here's what you're doing to me"
 - Remove cliches and stale openings ("you look like trouble", "are you...", "did it hurt...")
 - Remove stale frames like "you've got ___ energy" and "buy you a drink."
+- Remove insults, roast energy, and meta pickup-line wording
 - Use a new opening cadence not used yet:
 ${recentOpenerBlock}
 - Use a new ending cadence not used yet.
 - Avoid these overused invite categories: ${overusedInviteBlock}
-- End on the punchline
+- End on the laugh or lust beat
 Output only the rewritten line.`
 
   const rewriteResponse = await getSingleResponseWithTimeout(rewritePrompt, {
@@ -4688,11 +4724,14 @@ Output only the rewritten line.`
   const rescuePrompt = `Give one funny, swaggering bar pickup line.
 Requirements:
 - One sentence, 7-13 words (hard max 16)
-- Address only as "you" (no names)
+- Address only as "you" or "your" (no names)
 - Cold open, not a reply
-- Must include a flirty invite (drink/date/kiss/number)
+- Must read as a real pickup line, not a joke about the person
+- Base it on one target-specific trait
+- Make it bold, sexy, funny, and coherent
 - No cliche pickup templates; avoid "you look like trouble"
 - Avoid stale frames like "you've got ___ energy" and "buy you a drink."
+- No insults, no contempt, no meta pickup-line talk
 - Start with a fresh opener (not in this list):
 ${recentOpenerBlock}
 - Avoid these overused invite categories: ${overusedInviteBlock}
@@ -4707,9 +4746,9 @@ Output only the line.`
   if (isAcceptableBackupPickupLine(bestCandidate)) return bestCandidate
 
   const emergencyPrompt = `One line only.
-Give a short, original, funny pickup line to "you".
+Give a short, original, sexy-funny pickup line to "you".
 No names. No reply. No cliches like "you look like trouble", "are you...", or "did it hurt...".
-Include a flirty invite beat (drink/date/kiss/number).
+Make the target feel wanted. Base it on one concrete trait or image.
 7-13 words preferred, hard max 16.
 Output only the line.`
 
@@ -4768,6 +4807,21 @@ export async function generateSpeedDatingOneLinerBatch({
     const speaker = entry.speaker || {}
     const target = entry.target || {}
     const speakerName = String(speaker?.name || `Dater ${entry.index}`)
+    const speakerArchetype = clipPromptText(String(speaker?.archetype || ''), 120) || 'Unknown'
+    const speakerVoice = clipPromptText(
+      [
+        speaker?.quirk ? `Quirk: ${speaker.quirk}` : '',
+        Array.isArray(speaker?.talkingTraits) && speaker.talkingTraits.length
+          ? `Traits: ${speaker.talkingTraits.slice(0, 3).join(', ')}`
+          : '',
+        Array.isArray(speaker?.idealPartner) && speaker.idealPartner.length
+          ? `Turns them on: ${speaker.idealPartner.slice(0, 3).join(', ')}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' | '),
+      220
+    ) || 'No extra speaker cues.'
     const targetName = entry.targetType === 'player' ? 'Player' : String(target?.name || 'Other Dater')
     const targetArchetype = entry.targetType === 'player'
       ? 'Player'
@@ -4781,13 +4835,23 @@ export async function generateSpeedDatingOneLinerBatch({
     const targetTagline = entry.targetType === 'player'
       ? 'Game developer at The Game Band'
       : clipPromptText(String(target?.tagline || ''), 120) || 'no tagline'
+    const targetLikes = entry.targetType === 'player'
+      ? 'confident, funny, memorable flirting'
+      : normalizePromptList(target?.idealPartner || [], 'not specified')
+    const targetDealbreakers = entry.targetType === 'player'
+      ? 'timid, generic, insulting pickup lines'
+      : normalizePromptList(target?.dealbreakers || [], 'not specified')
     return [
       `- key: ${entry.key}`,
       `  speaker: ${speakerName}`,
+      `  speaker vibe: ${speakerArchetype}`,
+      `  speaker cues: ${speakerVoice}`,
       `  target: ${targetName} (${targetArchetype})`,
       `  target tagline: ${targetTagline}`,
       `  target profile hint: ${targetDesc}`,
       `  target values hint: ${targetValues}`,
+      `  target likes: ${targetLikes}`,
+      `  target dealbreakers: ${targetDealbreakers}`,
     ].join('\n')
   }
 
@@ -4799,9 +4863,10 @@ export async function generateSpeedDatingOneLinerBatch({
       .filter(Boolean)
   )].join(', ')
 
-  const systemPrompt = `You write short, funny, flirty speed-dating one-liners.
-Tone target: playful attraction, warm teasing, clear charm.
-No cruelty, no contempt, no mean-spirited put-downs.
+  const systemPrompt = `You write short, bold, sexy, funny speed-dating pickup lines.
+These are opening shots of genuine attraction, not observational jokes and not roasts.
+Every line should make the target feel wanted.
+No cruelty, no contempt, no negging, no fractured phrasing.
 Output JSON only with no markdown.`
 
   const parseLinesFromResponse = (parsed, rawText = '') => {
@@ -4862,37 +4927,53 @@ Output JSON only with no markdown.`
       .trim()
     if (!scrubbed) return ''
 
-    if (!/\byou\b/i.test(scrubbed)) {
-      scrubbed = `You, ${scrubbed}`
-    }
-    return clampOneLinerWords(scrubbed, 18)
+    const trimmed = clampOneLinerWords(scrubbed, 18)
       .replace(/^["'`]+|["'`]+$/g, '')
       .replace(/\s+/g, ' ')
       .trim()
+    if (!trimmed) return ''
+    if (!hasPickupAddress(trimmed)) return ''
+    if (!hasBoldPickupEnergy(trimmed)) return ''
+    if (isLikelyBlandDaterLine(trimmed)) return ''
+    if (isMeanOrMetaPickupLine(trimmed)) return ''
+    if (PICKUP_REPLY_PATTERN.test(trimmed)) return ''
+    if (hasClichePickupPhrase(trimmed)) return ''
+    if (PICKUP_STALE_FRAME_PATTERN.test(trimmed)) return ''
+    return trimmed
   }
 
-  const userPrompt = `Generate one ORIGINAL one-line joke for EACH required key.
+  const userPrompt = `Generate one ORIGINAL pickup line for EACH required key.
 Required keys: ${keyList}
 
 Rules for each line:
 - One sentence only
 - 6-16 words
-- Genuinely funny and character-specific about the TARGET
-- Directly address "you"
-- Focus on one punchline and one comedic idea
-- Tone must read as flirty/playful, not hostile
-- Roast energy must be affectionate and light
-- Sound like you are genuinely into the target
+- Must be a real pickup line, not just a joke about the target
+- Bold, sexy, funny, and sensible
+- Base the line on one concrete target profile cue
+- Turn that cue into desire, flirtation, invitation, or a "here's what you're doing to me" beat
+- Directly address the target in second person ("you" or "your")
+- Sound genuinely attracted to the target
+- Let the speaker's own vibe flavor the line; do not flatten everyone into one generic voice
+- The target should feel wanted, not evaluated
 - Do NOT mention any names (forbidden names: ${forbiddenNames || 'none'})
-- Ignore the speaker's own profile and goals
-- Do NOT ask for a date, drink, kiss, number, text, or meetup
 - Do NOT write call-and-response replies
 - Do NOT use cliche pickup templates
-- Do NOT use insults or contempt words (loser, pathetic, boring, cringe, desperate, annoying)
+- Do NOT use insults, contempt, negging, or backhanded compliments
+- Do NOT be hostile, dismissive, or observationally mean
+- Do NOT use broken metaphors, nonsense imagery, or fractured phrasing
+- Do NOT write meta jokes about pickup lines, flirting, or rizz
+- Avoid bland safe flirting; make it vivid and memorable
 
 Batch quality rules:
 - Keep lines clearly distinct in structure, rhythm, and comedic angle
 - Avoid repeating opener phrases or sentence skeletons
+- At least one line in the batch can be more sexually forward, but all lines must stay playful and clever
+
+Style calibration:
+- "You make danger look hot; let me be tonight's worst decision."
+- "If you paint like that, take me home and wreck my focus."
+- "You being stitched together explains why you're pulling me apart."
 
 Line specs:
 ${specBlock}
@@ -5139,10 +5220,12 @@ function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
 
     let score = 42
     if (hasHumorSignal(text)) score += 18
-    if (FLIRTY_SIGNAL_PATTERN.test(text) || PICKUP_SIGNAL_PATTERN.test(text) || PICKUP_INVITE_PATTERN.test(text)) score += 16
+    if (hasBoldPickupEnergy(text)) score += 16
+    if (hasPickupAddress(text)) score += 6
     if (PICKUP_STALE_FRAME_PATTERN.test(text)) score -= 12
     if (hasClichePickupPhrase(text)) score -= 18
     if (isLikelyBlandDaterLine(text)) score -= 10
+    if (isMeanOrMetaPickupLine(text)) score -= 18
 
     likes.forEach((keyword) => {
       if (keyword && normalized.includes(keyword)) score += 5
