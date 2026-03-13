@@ -22,8 +22,68 @@ const TTS_MIN_TIMEOUT_MS = 4500
 const TTS_MAX_TIMEOUT_MS = 15000
 const FINAL_REVEAL_DELAY_MS = 2800
 const ROSES_SPEED_DATE_POOL_LIMIT = 200
+const SPEED_DATE_SEEN_STORAGE_KEY = 'bad-date-speed-date-seen-daters'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function shuffleDaters(daters = []) {
+  const remaining = Array.isArray(daters) ? [...daters] : []
+  for (let i = remaining.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const temp = remaining[i]
+    remaining[i] = remaining[j]
+    remaining[j] = temp
+  }
+  return remaining
+}
+
+function normalizeSeenDaterIds(seenIds = [], daters = []) {
+  const poolIds = new Set(
+    (Array.isArray(daters) ? daters : [])
+      .map((dater) => String(dater?.id || '').trim())
+      .filter(Boolean)
+  )
+
+  return [...new Set(
+    (Array.isArray(seenIds) ? seenIds : [])
+      .map((id) => String(id || '').trim())
+      .filter((id) => id && poolIds.has(id))
+  )]
+}
+
+function readSeenSpeedDateDaterIds() {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(SPEED_DATE_SEEN_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return [...new Set(
+      (Array.isArray(parsed) ? parsed : [])
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+    )]
+  } catch {
+    return []
+  }
+}
+
+function writeSeenSpeedDateDaterIds(seenIds = []) {
+  if (typeof window === 'undefined') return
+  try {
+    const normalized = [...new Set(
+      (Array.isArray(seenIds) ? seenIds : [])
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+    )]
+    if (!normalized.length) {
+      window.localStorage.removeItem(SPEED_DATE_SEEN_STORAGE_KEY)
+      return
+    }
+    window.localStorage.setItem(SPEED_DATE_SEEN_STORAGE_KEY, JSON.stringify(normalized))
+  } catch {
+    // Ignore storage write failures in local play.
+  }
+}
 
 function normalizePoolText(value = '') {
   return String(value || '').replace(/\s+/g, ' ').trim()
@@ -57,20 +117,61 @@ function getPrefetchKey(step) {
   return String(step.id || '')
 }
 
-function pickTwoDaters(daters = [], nonce = 0) {
+function pickTwoDaters(daters = [], seenIds = []) {
   const pool = Array.isArray(daters) ? [...daters] : []
-  if (!pool.length) return []
-  if (pool.length <= 2) return pool.slice(0, 2)
-
-  const remaining = [...pool]
-  const offset = Math.abs(Number(nonce) || 0)
-  for (let i = remaining.length - 1; i > 0; i -= 1) {
-    const j = (Math.floor(Math.random() * (i + 1)) + offset) % (i + 1)
-    const temp = remaining[i]
-    remaining[i] = remaining[j]
-    remaining[j] = temp
+  if (!pool.length) {
+    return {
+      selectedDaters: [],
+      normalizedSeenIds: [],
+    }
   }
-  return remaining.slice(0, 2)
+
+  const normalizedSeenIds = normalizeSeenDaterIds(seenIds, pool)
+  const seenIdSet = new Set(normalizedSeenIds)
+  const unseenDaters = pool.filter((dater) => !seenIdSet.has(String(dater?.id || '').trim()))
+
+  if (unseenDaters.length >= 2) {
+    return {
+      selectedDaters: shuffleDaters(unseenDaters).slice(0, 2),
+      normalizedSeenIds,
+    }
+  }
+
+  if (unseenDaters.length === 1) {
+    const lastFreshDater = unseenDaters[0]
+    const partnerPool = pool.filter((dater) => String(dater?.id || '').trim() !== String(lastFreshDater?.id || '').trim())
+    const fallbackPartner = shuffleDaters(partnerPool)[0] || null
+    return {
+      selectedDaters: shuffleDaters([lastFreshDater, fallbackPartner].filter(Boolean)).slice(0, 2),
+      normalizedSeenIds,
+    }
+  }
+
+  return {
+    selectedDaters: shuffleDaters(pool).slice(0, 2),
+    normalizedSeenIds: [],
+  }
+}
+
+function mergeSeenDaterIds(seenIds = [], selectedDaters = [], daters = []) {
+  const next = normalizeSeenDaterIds(seenIds, daters)
+  const seenSet = new Set(next)
+
+  ;(Array.isArray(selectedDaters) ? selectedDaters : []).forEach((dater) => {
+    const id = String(dater?.id || '').trim()
+    if (!id || seenSet.has(id)) return
+    seenSet.add(id)
+    next.push(id)
+  })
+
+  return next
+}
+
+function haveSameDaterIdList(left = [], right = []) {
+  if (left.length !== right.length) return false
+  const leftSet = new Set(left)
+  if (leftSet.size !== right.length) return false
+  return right.every((id) => leftSet.has(id))
 }
 
 function adaptRosesProfileToSpeedDateDater(profile) {
@@ -234,10 +335,11 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   }, [])
 
   const [runNonce, setRunNonce] = useState(0)
+  const [seenDaterIds, setSeenDaterIds] = useState(() => readSeenSpeedDateDaterIds())
   const [rosesDaters, setRosesDaters] = useState([])
   const [isLoadingPool, setIsLoadingPool] = useState(true)
   const availableDaters = useMemo(() => mergeSpeedDateDaters(daters, rosesDaters), [daters, rosesDaters])
-  const [selectedDaters, setSelectedDaters] = useState(() => pickTwoDaters(daters, 0))
+  const [selectedDaters, setSelectedDaters] = useState(() => pickTwoDaters(daters, readSeenSpeedDateDaterIds()).selectedDaters)
   const sequence = useMemo(() => buildSpeedSequence(selectedDaters), [selectedDaters])
 
   const [stage, setStage] = useState('intro') // intro | run | pick | results
@@ -314,9 +416,15 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   }, [])
 
   useEffect(() => {
+    writeSeenSpeedDateDaterIds(seenDaterIds)
+  }, [seenDaterIds])
+
+  useEffect(() => {
     if (stage !== 'intro') return
-    setSelectedDaters(pickTwoDaters(availableDaters, runNonce))
-  }, [availableDaters, runNonce, stage])
+    const { selectedDaters: nextSelectedDaters, normalizedSeenIds } = pickTwoDaters(availableDaters, seenDaterIds)
+    setSelectedDaters(nextSelectedDaters)
+    setSeenDaterIds((prev) => (haveSameDaterIdList(prev, normalizedSeenIds) ? prev : normalizedSeenIds))
+  }, [availableDaters, runNonce, seenDaterIds, stage])
 
   useEffect(() => {
     exchangeLogRef.current = exchangeLog
@@ -707,6 +815,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
         throw new Error(`prefetch_${prefetch.reason}:${missingCount}`)
       }
 
+      setSeenDaterIds((prev) => mergeSeenDaterIds(prev, selectedDaters, availableDaters))
       setStage('run')
       setStepIndex(0)
       setExchangeLog([])
@@ -747,7 +856,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     } finally {
       setIsWorking(false)
     }
-  }, [batchLinePlan, invalidatePrefetch, isWorking, startSpeedRoundPrefetch, waitForBatchPrefetch])
+  }, [availableDaters, batchLinePlan, invalidatePrefetch, isWorking, selectedDaters, startSpeedRoundPrefetch, waitForBatchPrefetch])
 
   const handleReplay = useCallback(() => {
     stopAllAudio()
