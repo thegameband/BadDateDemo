@@ -348,6 +348,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   const [playerInput, setPlayerInput] = useState('')
   const [isWorking, setIsWorking] = useState(false)
   const [statusText, setStatusText] = useState('')
+  const [introPrefetchState, setIntroPrefetchState] = useState('idle')
   const [playerChoiceId, setPlayerChoiceId] = useState('')
   const [pickDecisions, setPickDecisions] = useState([])
   const [finalOutcome, setFinalOutcome] = useState(null)
@@ -499,6 +500,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setPlayerInput('')
     setIsWorking(false)
     setStatusText('')
+    setIntroPrefetchState('idle')
     setPlayerChoiceId('')
     setPickDecisions([])
     setFinalOutcome(null)
@@ -548,7 +550,10 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   }, [estimateTtsTimeout, withTimeout])
 
   const startSpeedRoundPrefetch = useCallback((linePlan = batchLinePlan) => {
-    if (!Array.isArray(linePlan) || !linePlan.length) return
+    if (!Array.isArray(linePlan) || !linePlan.length) {
+      setIntroPrefetchState('idle')
+      return
+    }
 
     const runId = prefetchStateRef.current.runId + 1
     const deferredByKey = new Map()
@@ -557,6 +562,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
       deferredByKey.set(String(entry.key), createDeferredValue())
     })
     prefetchStateRef.current = { runId, deferredByKey }
+    setIntroPrefetchState('warming')
 
     const settleDeferred = (key, value = null) => {
       const deferred = deferredByKey.get(key)
@@ -577,15 +583,20 @@ export default function SpeedDateMode({ daters = [], onBack }) {
       try {
         const batchMap = await generateSpeedDatingOneLinerBatch({ linePlan })
         if (prefetchStateRef.current.runId !== runId) return
+        const hasAllLines = linePlan.every((entry) => String(batchMap?.[entry?.key] || '').trim())
         linePlan.forEach((entry) => {
           if (!entry?.key) return
           const line = batchMap?.[entry.key] || null
           settleDeferred(entry.key, line)
         })
+        if (prefetchStateRef.current.runId === runId) {
+          setIntroPrefetchState(hasAllLines ? 'ready' : 'error')
+        }
       } catch (error) {
         if (prefetchStateRef.current.runId === runId) {
           console.error('SpeedDate prefetch error:', error)
           settleAllPendingAsNull()
+          setIntroPrefetchState('error')
         }
       }
     })()
@@ -712,12 +723,16 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   }, [invalidatePrefetch])
 
   useEffect(() => {
-    if (stage !== 'intro' || !batchLinePlan.length) return
+    if (stage !== 'intro') return
+    if (!batchLinePlan.length) {
+      setIntroPrefetchState(isLoadingPool ? 'idle' : 'error')
+      return
+    }
     const prefetchKey = `${runNonce}:${prefetchFingerprint}`
     if (prefetchSeedRef.current === prefetchKey) return
     prefetchSeedRef.current = prefetchKey
     startSpeedRoundPrefetch(batchLinePlan)
-  }, [batchLinePlan, prefetchFingerprint, runNonce, stage, startSpeedRoundPrefetch])
+  }, [batchLinePlan, isLoadingPool, prefetchFingerprint, runNonce, stage, startSpeedRoundPrefetch])
 
   useEffect(() => {
     if (stage !== 'run' || currentStep?.type !== 'player_round') return undefined
@@ -800,7 +815,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setErrorText('')
     setDebugText('')
     setDebugDump('')
-    setStatusText('Warming up dater one-liners...')
+    setStatusText('Spinning up...')
 
     try {
       let prefetch = await waitForBatchPrefetch(batchLinePlan)
@@ -1102,7 +1117,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
               Tutorial
             </button>
             <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking || isLoadingPool}>
-              {isLoadingPool ? 'Loading Dater Pool...' : isWorking ? 'Spinning up...' : 'Start Speed Round'}
+              {isLoadingPool ? 'Loading Dater Pool...' : (isWorking || introPrefetchState === 'warming') ? 'Spinning up...' : 'Start Speed Round'}
             </button>
           </div>
           {errorText && <p className="speed-date-error">{errorText}</p>}
