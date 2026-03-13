@@ -1,5 +1,13 @@
 import { requirePost, readJsonBody, sendJson } from '../_json.js'
-import { buildRankings, canEditProfileToday, getAllProfiles, getProfile, isCompleteProfile, profileToView } from '../_state.js'
+import {
+  buildRankings,
+  canEditProfileToday,
+  getAllProfiles,
+  getHistory,
+  getProfile,
+  isCompleteProfile,
+  profileToView,
+} from '../_state.js'
 
 export default async function handler(req, res) {
   if (!requirePost(req, res)) return
@@ -14,21 +22,26 @@ export default async function handler(req, res) {
       return
     }
 
-    const [profile, allProfiles] = await Promise.all([
+    const [profile, allProfiles, history] = await Promise.all([
       getProfile(playerId),
       getAllProfiles(),
+      getHistory(playerId),
     ])
 
     const rankings = buildRankings(allProfiles)
     const view = profileToView(profile, rankings)
 
-    const canPlay = Boolean(profile && isCompleteProfile(profile.fields))
+    const hasPublishedProfile = Boolean(profile && isCompleteProfile(profile.fields))
+    const hasCompletedIntroRound = Object.keys(history || {}).length > 0
+    const canPlay = hasPublishedProfile
     const canEditToday = canEditProfileToday(profile, localDay)
 
     sendJson(res, 200, {
       ok: true,
       profile: view,
       canPlay,
+      canPlayIntroRound: !hasPublishedProfile && !hasCompletedIntroRound,
+      mustCreateProfileBeforeNextRound: !hasPublishedProfile && hasCompletedIntroRound,
       canEditToday,
       weekKey: rankings.weekKey,
     })

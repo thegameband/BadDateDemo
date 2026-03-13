@@ -38,8 +38,11 @@ export default async function handler(req, res) {
       getHistory(playerId),
     ])
 
-    if (!bachelorProfile || !isCompleteProfile(bachelorProfile.fields)) {
-      sendJson(res, 400, { error: 'Create and publish your profile before playing Roses.' })
+    const hasPublishedProfile = Boolean(bachelorProfile && isCompleteProfile(bachelorProfile.fields))
+    const hasCompletedIntroRound = Object.keys(history || {}).length > 0
+
+    if (!hasPublishedProfile && hasCompletedIntroRound) {
+      sendJson(res, 400, { error: 'Create and publish your profile before playing another Roses round.' })
       return
     }
 

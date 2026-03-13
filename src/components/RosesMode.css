@@ -98,6 +98,80 @@
   line-height: 1.35;
 }
 
+.roses-onboarding-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  gap: 14px;
+}
+
+.roses-onboarding-hero {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(35, 207, 255, 0.18), transparent 42%),
+    radial-gradient(circle at bottom left, rgba(255, 62, 169, 0.24), transparent 48%),
+    rgba(4, 7, 15, 0.82);
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roses-onboarding-kicker {
+  color: #f9a8d4;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.roses-onboarding-title {
+  margin: 0;
+  color: #fff7ed;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  line-height: 0.96;
+  letter-spacing: 0.01em;
+}
+
+.roses-onboarding-copy {
+  margin: 0;
+  color: rgba(248, 250, 252, 0.9);
+  font-size: 0.98rem;
+  line-height: 1.48;
+}
+
+.roses-onboarding-cta {
+  min-height: 58px;
+  font-size: 1.06rem;
+}
+
+.roses-tutorial-card {
+  border-radius: 12px;
+  border: 1px solid rgba(252, 211, 77, 0.32);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.18) 0%, rgba(249, 115, 22, 0.12) 100%),
+    rgba(15, 23, 42, 0.76);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roses-tutorial-title {
+  color: #fde68a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.roses-tutorial-body {
+  margin: 0;
+  color: #fff7ed;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .roses-error {
   border: 1px solid rgba(255, 107, 107, 0.45);
   background: rgba(255, 107, 107, 0.15);

@@ -36,21 +36,35 @@ const INTRO_PHASE_HOLD_MS = 220
 const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
 const ADMIRER_SLOTS = ['A', 'B', 'C']
-const QUESTION_FILL_PROMPTS = [
-  "What's your biggest _____?",
-  "What's your favorite _____?",
-  "What's your least favorite _____?",
-  'How often do you _____?',
-  "What's your preference when it comes to _____?",
-  "You see me and I'm _____. What do you do?",
-]
-const QUESTION_FILL_OPTIONS = [
-  ['Regret', 'Accomplishment', 'Desire'],
-  ['Food', 'Movie', 'Date Night'],
-  ['Meal', 'Historical Figure', 'Sensation'],
-  ['Date', 'Regret', 'Lie'],
-  ['Season', 'Love Language', 'Extended Families'],
-  ['Asleep', 'In Trouble', 'Smiling'],
+const QUESTION_BANK = [
+  {
+    template: "What's your hottest take about _____?",
+    options: ['dating', 'capitalism', 'food'],
+  },
+  {
+    template: 'Do you think _____ is a red flag?',
+    options: ['baggage', 'crime', 'stupidity'],
+  },
+  {
+    template: "What's your favorite _____?",
+    options: ['movie', 'book', 'historical disaster'],
+  },
+  {
+    template: "What's the earliest you'd _____ in a relationship?",
+    options: ['kiss', 'open up', 'move in'],
+  },
+  {
+    template: 'Do you think _____ is ever justifiable?',
+    options: ['capital punishment', 'double dipping', 'cheating'],
+  },
+  {
+    template: "I'm running around _____. What do you do?",
+    options: ['on fire', 'with your bff', 'lying'],
+  },
+  {
+    template: 'I confess to you that _____. What do you do?',
+    options: ["i'm in love", "i'm a killer", 'i have kids'],
+  },
 ]
 
 const ROSES_VOICE_POOL = [
@@ -96,14 +110,6 @@ function admirerNumberFromSlot(slot) {
 
 function admirerLabelFromSlot(slot) {
   return `Admirer ${admirerNumberFromSlot(slot)}`
-}
-
-function inferIsMaleFromPronouns(pronouns = '') {
-  const normalized = String(pronouns || '').toLowerCase()
-  if (!normalized) return false
-  if (normalized.includes('she')) return false
-  if (normalized.includes('he')) return true
-  return false
 }
 
 function stableVoiceHash(value = '') {
@@ -188,7 +194,7 @@ function slotSortIndex(slot = '') {
 
 function fillQuestionTemplate(template = '', value = '') {
   const cleaned = String(value || '')
-    .replace(/[?!.;,:\-]+$/g, '')
+    .replace(/[?!.;,:-]+$/g, '')
     .trim()
   if (!cleaned) return String(template || '')
   return String(template || '').replace('_____', cleaned)
@@ -202,7 +208,7 @@ function normalizeQuestionForDuplicateCheck(value = '') {
 }
 
 function randomPromptPlan(count = TURN_COUNT) {
-  const totalPrompts = QUESTION_FILL_PROMPTS.length
+  const totalPrompts = QUESTION_BANK.length
   if (!totalPrompts) return []
   const picks = []
 
@@ -323,6 +329,17 @@ function RevealCard({ profile, title, emphasis = 'default' }) {
         <span>Roses Won: {profile?.stats?.roseCount ?? 0}</span>
         <span>Roses This Week: {profile?.stats?.weeklyRoses ?? 0}</span>
       </div>
+    </div>
+  )
+}
+
+function TutorialCue({ title, body }) {
+  if (!String(title || '').trim() && !String(body || '').trim()) return null
+
+  return (
+    <div className="roses-tutorial-card" role="note" aria-live="polite">
+      {String(title || '').trim() && <div className="roses-tutorial-title">{title}</div>}
+      {String(body || '').trim() && <p className="roses-tutorial-body">{body}</p>}
     </div>
   )
 }
@@ -481,6 +498,8 @@ function RosesMode({ onBack }) {
 
   const [profile, setProfile] = useState(null)
   const [canPlay, setCanPlay] = useState(false)
+  const [canPlayIntroRound, setCanPlayIntroRound] = useState(false)
+  const [mustCreateProfileBeforeNextRound, setMustCreateProfileBeforeNextRound] = useState(false)
   const [canEditToday, setCanEditToday] = useState(true)
   const [leaderboard, setLeaderboard] = useState({ allTime: [], weekly: [] })
 
@@ -502,6 +521,7 @@ function RosesMode({ onBack }) {
   const [sendingQuestion, setSendingQuestion] = useState(false)
   const [choosingWinner, setChoosingWinner] = useState(false)
   const [reveal, setReveal] = useState(null)
+  const [onboardingRoundActive, setOnboardingRoundActive] = useState(false)
   const chatLogRef = useRef(null)
   const questionInputRef = useRef(null)
 
@@ -526,14 +546,6 @@ function RosesMode({ onBack }) {
       .some((fieldId) => String(fields[fieldId] || '').trim())
   ), [fields])
 
-  const candidateById = useMemo(() => {
-    const map = new Map()
-    candidates.forEach((candidate) => {
-      map.set(String(candidate.playerId), candidate)
-    })
-    return map
-  }, [candidates])
-
   const orderedCandidates = useMemo(() => (
     [...candidates].sort((a, b) => {
       const slotDelta = slotSortIndex(a?.slot) - slotSortIndex(b?.slot)
@@ -550,14 +562,30 @@ function RosesMode({ onBack }) {
   const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
   const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, chatLog.length)
   const activePromptOptionIndex = questionPromptIndexes[currentTurnPromptIndex] ?? 0
-  const activePromptTemplate = QUESTION_FILL_PROMPTS[
-    activePromptOptionIndex
-  ] || QUESTION_FILL_PROMPTS[0]
-  const activePromptOptions = QUESTION_FILL_OPTIONS[activePromptOptionIndex] || []
+  const activePrompt = QUESTION_BANK[activePromptOptionIndex] || QUESTION_BANK[0] || { template: '', options: [] }
+  const activePromptTemplate = activePrompt.template || ''
+  const activePromptOptions = activePrompt.options || []
   const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const displayedSentimentKeywords = sentimentKeywords.slice(0, 12)
   const hasSentimentKeywords = sentimentKeywords.length > 0
+  const onboardingChatTutorial = onboardingRoundActive
+    ? chatLog.length === 0
+      ? {
+        title: 'Meet your admirers.',
+        body: 'These three Daters are all competing for your Rose.',
+      }
+      : {
+        title: 'Ask all 3 the same question.',
+        body: 'Tap a fill or write your own. Every admirer answers the exact same prompt.',
+      }
+    : null
+  const onboardingChooseTutorial = onboardingRoundActive
+    ? {
+      title: 'You only get one Rose.',
+      body: 'Pick the admirer whose answers won you over.',
+    }
+    : null
 
   const speakRosesLine = useCallback(async ({
     text,
@@ -681,6 +709,8 @@ function RosesMode({ onBack }) {
 
     setProfile(profileResp.profile || null)
     setCanPlay(Boolean(profileResp.canPlay))
+    setCanPlayIntroRound(Boolean(profileResp.canPlayIntroRound))
+    setMustCreateProfileBeforeNextRound(Boolean(profileResp.mustCreateProfileBeforeNextRound))
     setCanEditToday(Boolean(profileResp.canEditToday))
     setLeaderboard({
       allTime: leaderboardResp.allTime || [],
@@ -691,13 +721,15 @@ function RosesMode({ onBack }) {
     if (profileResp.profile?.fields) {
       setFields(sanitizeRosesFields(profileResp.profile.fields))
       setManualTouched({})
+      setOnboardingRoundActive(false)
       setStage('dashboard')
       return
     }
 
     setFields(emptyFields())
     setManualTouched({})
-    setStage('profile')
+    setOnboardingRoundActive(false)
+    setStage(profileResp.canPlayIntroRound ? 'onboarding' : 'profile')
   }
 
   useEffect(() => {
@@ -858,6 +890,8 @@ function RosesMode({ onBack }) {
 
       setProfile(response.profile)
       setCanPlay(Boolean(response.canPlay))
+      setCanPlayIntroRound(false)
+      setMustCreateProfileBeforeNextRound(false)
       setCanEditToday(Boolean(response.canEditToday))
       setFields(normalized)
       setManualTouched({})
@@ -896,7 +930,7 @@ function RosesMode({ onBack }) {
     setStage('profile')
   }
 
-  const handleStartRound = async () => {
+  const handleStartRound = async ({ onboarding = false } = {}) => {
     await primeTTSPlayback()
     setError('')
     setStatus('Starting Roses round...')
@@ -914,6 +948,7 @@ function RosesMode({ onBack }) {
       setQuestionInput('')
       setQuestionPromptIndexes(randomPromptPlan())
       setReveal(null)
+      setOnboardingRoundActive(Boolean(onboarding))
       setStage('chat')
       setStatus('')
       void triggerHaptic('success')
@@ -1113,12 +1148,12 @@ function RosesMode({ onBack }) {
           .filter((value) => Number.isFinite(value)),
       )
 
-      let candidatePool = Array.from({ length: QUESTION_FILL_PROMPTS.length }, (_, idx) => idx)
+      let candidatePool = Array.from({ length: QUESTION_BANK.length }, (_, idx) => idx)
         .filter((idx) => idx !== currentValue)
         .filter((idx) => !usedInOtherTurns.has(idx))
 
       if (!candidatePool.length) {
-        candidatePool = Array.from({ length: QUESTION_FILL_PROMPTS.length }, (_, idx) => idx)
+        candidatePool = Array.from({ length: QUESTION_BANK.length }, (_, idx) => idx)
           .filter((idx) => idx !== currentValue)
       }
 
@@ -1150,7 +1185,12 @@ function RosesMode({ onBack }) {
     setIntroPhase('idle')
     setIntroTaglines({})
     setStatus('')
-    setStage('dashboard')
+    setOnboardingRoundActive(false)
+    if (profile?.fields) {
+      setStage('dashboard')
+      return
+    }
+    setStage(canPlayIntroRound ? 'onboarding' : 'profile')
   }
 
   const handleChooseWinner = async (winnerId) => {
@@ -1173,6 +1213,8 @@ function RosesMode({ onBack }) {
       ])
       setProfile(profileResp.profile || null)
       setCanPlay(Boolean(profileResp.canPlay))
+      setCanPlayIntroRound(Boolean(profileResp.canPlayIntroRound))
+      setMustCreateProfileBeforeNextRound(Boolean(profileResp.mustCreateProfileBeforeNextRound))
       setCanEditToday(Boolean(profileResp.canEditToday))
       setLeaderboard({
         allTime: leaderboardResp.allTime || [],
@@ -1196,6 +1238,49 @@ function RosesMode({ onBack }) {
     )
   }
 
+  if (stage === 'onboarding') {
+    return (
+      <div className="roses-mode">
+        <div className="roses-card roses-onboarding-shell">
+          <div className="roses-topbar">
+            <button className="roses-back" type="button" onClick={onBack}>Back</button>
+            <h2>Roses</h2>
+            <span className="roses-topbar-spacer" aria-hidden="true" />
+          </div>
+
+          {error && <div className="roses-error">{error}</div>}
+          {status && <div className="roses-status">{status}</div>}
+
+          <div className="roses-onboarding-hero">
+            <div className="roses-onboarding-kicker">First Round</div>
+            <h3 className="roses-onboarding-title">Judge first. Make your profile after.</h3>
+            <p className="roses-onboarding-copy">
+              Start with a real round of Roses. Meet three admirers, ask all three the same
+              questions, and hand one of them your Rose.
+            </p>
+            <p className="roses-onboarding-copy">
+              After the reveal, you&apos;ll make your own profile so the pool can judge you back.
+            </p>
+          </div>
+
+          <TutorialCue
+            title="How Roses Works"
+            body="Ask all 3 admirers the same questions. After 3 exchanges, give your Rose to your favorite."
+          />
+
+          <button
+            type="button"
+            className="roses-primary roses-onboarding-cta"
+            onClick={() => handleStartRound({ onboarding: true })}
+            disabled={!canPlayIntroRound}
+          >
+            Give out your first Rose!
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (stage === 'chat') {
     return (
       <div className="roses-mode roses-mode-chat">
@@ -1205,6 +1290,13 @@ function RosesMode({ onBack }) {
             <h2>Roses Chat</h2>
             <span className="roses-chat-progress">Question {questionNumber} / {TURN_COUNT}</span>
           </div>
+
+          {onboardingChatTutorial && (
+            <TutorialCue
+              title={onboardingChatTutorial.title}
+              body={onboardingChatTutorial.body}
+            />
+          )}
 
           <div ref={chatLogRef} className="roses-chat-log">
             {chatLog.length === 0 && (
@@ -1319,6 +1411,13 @@ function RosesMode({ onBack }) {
             <span className="roses-chat-progress">Final Choice</span>
           </div>
 
+          {onboardingChooseTutorial && (
+            <TutorialCue
+              title={onboardingChooseTutorial.title}
+              body={onboardingChooseTutorial.body}
+            />
+          )}
+
           <div className="roses-chat-log roses-choose-log">
             {chatLog.map((turn) => (
               <div key={`choose-turn-${turn.turnNumber}`} className="roses-turn-card">
@@ -1411,8 +1510,15 @@ function RosesMode({ onBack }) {
       <div className="roses-mode">
         <div className="roses-card">
           <RevealCard profile={reveal?.winner} title="Rose Winner" />
-          <button type="button" className="roses-primary" onClick={() => setStage('dashboard')}>
-            Back to Roses Dashboard
+          <button
+            type="button"
+            className="roses-primary"
+            onClick={() => {
+              setOnboardingRoundActive(false)
+              setStage(mustCreateProfileBeforeNextRound ? 'profile' : 'dashboard')
+            }}
+          >
+            {mustCreateProfileBeforeNextRound ? 'Make Your Roses Profile' : 'Back to Roses Dashboard'}
           </button>
         </div>
       </div>
@@ -1424,7 +1530,11 @@ function RosesMode({ onBack }) {
       <div className={['roses-card', stage === 'profile' ? 'roses-profile-shell' : ''].filter(Boolean).join(' ')}>
         <div className="roses-topbar">
           <button className="roses-back" type="button" onClick={onBack}>Back</button>
-          <h2>Your Roses Profile</h2>
+          <h2>
+            {stage === 'profile'
+              ? (profile ? 'Edit Your Roses Profile' : 'Create Your Roses Profile')
+              : 'Roses Dashboard'}
+          </h2>
           <span className="roses-topbar-spacer" aria-hidden="true" />
         </div>
 
@@ -1434,7 +1544,9 @@ function RosesMode({ onBack }) {
         {stage === 'profile' ? (
           <>
             <p className="roses-profile-subtitle">
-              Build the most enticing imaginary dating profile possible!
+              {mustCreateProfileBeforeNextRound && !profile
+                ? 'You gave out your first Rose. Now build your own profile so the pool can judge you back.'
+                : 'Build the most enticing imaginary dating profile possible!'}
             </p>
             <div className="roses-form-grid">
               {PROFILE_FIELDS.map((field) => (
@@ -1485,7 +1597,7 @@ function RosesMode({ onBack }) {
         ) : (
           <>
             <div className="roses-dashboard-actions">
-              <button type="button" className="roses-primary" onClick={handleStartRound} disabled={!canPlay}>
+              <button type="button" className="roses-primary" onClick={() => handleStartRound()} disabled={!canPlay}>
                 Judge Profiles
               </button>
               <button
