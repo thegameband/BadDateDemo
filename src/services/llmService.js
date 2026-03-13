@@ -473,12 +473,12 @@ const PICKUP_SIGNAL_PATTERN = /\b(date|drink|drinks|kiss|number|tonight|dinner|c
 const PICKUP_POETIC_PATTERN = /\b(universe|destiny|fate|cosmic|gravity|galaxy|constellation|starlight|poetry|pretend)\b/i
 const PICKUP_COMEDY_PATTERN = /\b(trouble|bad idea|reckless|dangerous|illegal|court|plot twist|chaos|unhinged|disaster|crime|felony|bail money|witness|bad influence|poor decision|questionable|scandal|roast|sinful|liability)\b/i
 const PICKUP_REPLY_PATTERN = /\b(you said|your line|that line|as you said|in reply|reply|back at you|same to you|you too|again|fair enough|exactly|good point|i agree|i disagree)\b/i
-const PICKUP_INVITE_PATTERN = /\b(let's|lets|give me|give you|buy you|buy me|come with me|come over|text me|call me|ask me|take me|take you|steal|grab|meet me)\b/i
+const PICKUP_INVITE_PATTERN = /\b(let's|lets|give me|give you|buy you|buy me|come with me|come over|come closer|lean closer|get closer|step closer|hop in closer|text me|call me|ask me|take me|take you|steal|grab|meet me)\b/i
 const PICKUP_CLICHE_PATTERN = /\b(you look like trouble|you seem like trouble|did it hurt when you fell|did it hurt when you fell from heaven|are you from tennessee|do you come here often|what'?s your sign|is your dad a thief|stole the stars|love at first sight)\b/i
 const PICKUP_CLICHE_OPENER_PATTERN = /^(you look like\b|you seem like\b|did it hurt\b|are you (a|an|from)\b|do you come here often\b|what'?s your sign\b|is your dad a thief\b)/i
 const PICKUP_STALE_FRAME_PATTERN = /\b(you('|’)ve got [a-z-]+ energy|you bring the vibe|come get a drink with me|grab a drink with me|buy you a drink|buy me a drink|join me for (a )?drink|trade it for a tequila date)\b/i
 const PICKUP_SECOND_PERSON_PATTERN = /\b(you|your|you're|youre|you've|youve|yourself)\b/i
-const BOLD_PICKUP_DESIRE_PATTERN = /\b(take me home|take me|have me|make me|keep me|kiss me|touch me|hold me|climb me|undo me|ruin me|wreck me|pull me apart|pulling me apart|falling to pieces|falling for you|want you|need you|all over you|in your arms|your hands|your mouth|your place)\b/i
+const BOLD_PICKUP_DESIRE_PATTERN = /\b(take me home|take me|have me|make me|keep me|kiss me|touch me|hold me|climb me|undo me|ruin me|wreck me|pull me apart|pulling me apart|falling to pieces|falling for you|want you|need you|all over you|in your arms|your hands|your mouth|your place|knees wobbly|knees weak|weak in the knees|lose my voice|lost my voice|wreck my focus|blur my focus|mind going blank)\b/i
 const PICKUP_HOSTILE_PATTERN = /\b(loser|pathetic|boring|cringe|desperate|annoying|gross|ugly|stupid|idiot|creep|clown|embarrassing|repulsive|lame)\b/i
 const PICKUP_META_PATTERN = /\b(pickup line|pick-up line|one-liner|rizz|opening salvo|speed date)\b/i
 
