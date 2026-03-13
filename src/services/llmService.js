@@ -16,6 +16,8 @@ import { useGameStore, DATER_RESPONSE_MODES } from '../store/gameStore'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from './runtimeCapabilities'
 
 const LLM_PROXY_API_URL = '/api/llm/chat'
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const OPENAI_MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5.2'
 const ANTHROPIC_MODEL = 'claude-opus-4-6'
 let _llmErrorMessage = null
@@ -74,6 +76,7 @@ function resolveLlmProviderConfig() {
       provider: 'openai',
       apiUrl: LLM_PROXY_API_URL,
       model: OPENAI_MODEL,
+      transport: 'proxy',
       preference,
     }
   }
@@ -84,6 +87,7 @@ function resolveLlmProviderConfig() {
       provider: 'anthropic',
       apiUrl: LLM_PROXY_API_URL,
       model: ANTHROPIC_MODEL,
+      transport: 'proxy',
       preference,
     }
   }
@@ -93,6 +97,7 @@ function resolveLlmProviderConfig() {
       provider: 'openai',
       apiUrl: LLM_PROXY_API_URL,
       model: OPENAI_MODEL,
+      transport: 'proxy',
       preference,
     }
   }
@@ -102,6 +107,7 @@ function resolveLlmProviderConfig() {
       provider: 'anthropic',
       apiUrl: LLM_PROXY_API_URL,
       model: ANTHROPIC_MODEL,
+      transport: 'proxy',
       preference,
     }
   }
@@ -111,7 +117,49 @@ function resolveLlmProviderConfig() {
       provider: 'openai',
       apiUrl: LLM_PROXY_API_URL,
       model: OPENAI_MODEL,
+      transport: 'proxy',
       preference,
+    }
+  }
+
+  return null
+}
+
+function readBrowserSecret(name) {
+  const value = import.meta.env?.[name]
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function resolveDirectBrowserProviderConfig(provider) {
+  if (provider === 'openai') {
+    const openaiKey = readBrowserSecret('VITE_OPENAI_API_KEY')
+    if (!openaiKey) return null
+    return {
+      provider: 'openai',
+      apiUrl: OPENAI_API_URL,
+      model: OPENAI_MODEL,
+      transport: 'direct-browser',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiKey}`,
+      },
+    }
+  }
+
+  if (provider === 'anthropic') {
+    const anthropicKey = readBrowserSecret('VITE_ANTHROPIC_API_KEY')
+    if (!anthropicKey) return null
+    return {
+      provider: 'anthropic',
+      apiUrl: ANTHROPIC_API_URL,
+      model: ANTHROPIC_MODEL,
+      transport: 'direct-browser',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
     }
   }
 
@@ -190,7 +238,14 @@ function extractProviderText(provider, data) {
 
 async function requestProviderCompletion(providerConfig, providerBody, options = {}) {
   const { signal } = options
-  return fetch(providerConfig.apiUrl, {
+  const requestDirectBrowserCompletion = (directConfig) => fetch(directConfig.apiUrl, {
+    method: 'POST',
+    ...(signal ? { signal } : {}),
+    headers: directConfig.headers,
+    body: JSON.stringify(providerBody),
+  })
+
+  const response = await fetch(providerConfig.apiUrl, {
     method: 'POST',
     ...(signal ? { signal } : {}),
     headers: {
@@ -201,6 +256,25 @@ async function requestProviderCompletion(providerConfig, providerBody, options =
       body: providerBody,
     }),
   })
+
+  const missingRoute = response.status === 404 || response.status === 405
+  const missingServerKey = response.status === 503
+    && response.headers.get('x-llm-error-code') === 'missing_api_key'
+  const shouldRetryDirect = import.meta.env.DEV
+    && providerConfig.transport === 'proxy'
+    && (missingRoute || missingServerKey)
+
+  if (!shouldRetryDirect) {
+    return response
+  }
+
+  const directConfig = resolveDirectBrowserProviderConfig(providerConfig.provider)
+  if (!directConfig) {
+    return response
+  }
+
+  console.warn(`LLM proxy unavailable for ${providerConfig.provider}; retrying with direct browser transport.`)
+  return requestDirectBrowserCompletion(directConfig)
 }
 
 export function getLlmErrorMessage() {
