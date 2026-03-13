@@ -1102,7 +1102,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
               Tutorial
             </button>
             <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking || isLoadingPool}>
-              {isLoadingPool ? 'Loading Dater Pool...' : isWorking ? 'Generating One-Liners...' : 'Start Speed Round'}
+              {isLoadingPool ? 'Loading Dater Pool...' : isWorking ? 'Spinning up...' : 'Start Speed Round'}
             </button>
           </div>
           {errorText && <p className="speed-date-error">{errorText}</p>}
