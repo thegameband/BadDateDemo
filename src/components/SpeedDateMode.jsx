@@ -251,6 +251,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   const [pickDecisions, setPickDecisions] = useState([])
   const [finalOutcome, setFinalOutcome] = useState(null)
   const [resultRevealPhase, setResultRevealPhase] = useState('hidden')
+  const [showTutorial, setShowTutorial] = useState(false)
   const [errorText, setErrorText] = useState('')
   const [debugText, setDebugText] = useState('')
   const [debugDump, setDebugDump] = useState('')
@@ -382,6 +383,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setPickDecisions([])
     setFinalOutcome(null)
     setResultRevealPhase('hidden')
+    setShowTutorial(false)
     setErrorText('')
     setDebugText('')
     setDebugDump('')
@@ -679,6 +681,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     if (isWorking) return
     stopAllAudio()
     setIsWorking(true)
+    setShowTutorial(false)
     setErrorText('')
     setDebugText('')
     setDebugDump('')
@@ -912,9 +915,19 @@ export default function SpeedDateMode({ daters = [], onBack }) {
           <p className="speed-date-rule">
             Exchange one-liners and judge each other!
           </p>
-          <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking || isLoadingPool}>
-            {isLoadingPool ? 'Loading Dater Pool...' : isWorking ? 'Generating One-Liners...' : 'Start Speed Round'}
-          </button>
+          <div className="speed-date-intro-actions">
+            <button
+              type="button"
+              className="speed-date-secondary-btn"
+              onClick={() => setShowTutorial(true)}
+              disabled={isWorking}
+            >
+              Tutorial
+            </button>
+            <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking || isLoadingPool}>
+              {isLoadingPool ? 'Loading Dater Pool...' : isWorking ? 'Generating One-Liners...' : 'Start Speed Round'}
+            </button>
+          </div>
           {errorText && <p className="speed-date-error">{errorText}</p>}
           {debugText && <p className="speed-date-error">{debugText}</p>}
           {debugDump && (
@@ -922,6 +935,43 @@ export default function SpeedDateMode({ daters = [], onBack }) {
           )}
         </div>
       )}
+
+      <AnimatePresence>
+        {stage === 'intro' && showTutorial && (
+          <motion.div
+            className="speed-date-tutorial-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowTutorial(false)}
+          >
+            <motion.div
+              className="speed-date-tutorial-modal"
+              initial={{ opacity: 0, scale: 0.96, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="speed-date-tutorial-kicker">Tutorial</div>
+              <h3 className="speed-date-tutorial-title">How To Speed Date</h3>
+              <div className="speed-date-tutorial-copy">
+                <p>You and two other Daters will exchange pick-up lines.</p>
+                <p>After all exchanges, you pick your favorite one-liner.</p>
+                <p>But look out, they’re judging you too!</p>
+                <p>Can you win over the Dater that won you?</p>
+              </div>
+              <button
+                type="button"
+                className="speed-date-secondary-btn tutorial-close"
+                onClick={() => setShowTutorial(false)}
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {(stage === 'run' || stage === 'pick' || stage === 'results') && (
         <div className={`speed-date-main ${stage === 'results' ? 'results-stage' : ''}`}>
@@ -1043,7 +1093,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
 
           {stage === 'pick' && (
             <div className="speed-date-pick-wrap">
-              <p className="speed-date-pick-title">Who gets your sealed choice?</p>
+              <p className="speed-date-pick-title">Who gave your favorite one-liner?</p>
               <div className="speed-date-pick-grid">
                 {selectedDaters.map((dater) => (
                   <button

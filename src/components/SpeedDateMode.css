@@ -89,6 +89,12 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+.speed-date-intro-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .speed-date-main {
   min-height: 0;
   display: flex;
@@ -413,6 +419,20 @@
   background: linear-gradient(135deg, #ff3ea9 0%, #8d6dff 100%);
 }
 
+.speed-date-secondary-btn {
+  width: 100%;
+  border: 1px solid rgba(180, 196, 255, 0.34);
+  border-radius: 9px;
+  cursor: pointer;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.05em;
+  color: rgba(240, 244, 255, 0.96);
+  background: linear-gradient(180deg, rgba(23, 21, 53, 0.92), rgba(13, 12, 31, 0.96));
+  padding: 10px 14px;
+  font-size: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 .speed-date-send-btn {
   padding: 8px 14px;
   font-size: 1rem;
@@ -425,9 +445,72 @@
 }
 
 .speed-date-send-btn:disabled,
-.speed-date-primary-btn:disabled {
+.speed-date-primary-btn:disabled,
+.speed-date-secondary-btn:disabled {
   opacity: 0.56;
   cursor: default;
+}
+
+.speed-date-tutorial-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(5, 4, 16, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.speed-date-tutorial-modal {
+  width: min(100%, 360px);
+  border-radius: 18px;
+  border: 1px solid rgba(173, 160, 255, 0.28);
+  background:
+    radial-gradient(circle at top, rgba(255, 76, 177, 0.2), transparent 42%),
+    linear-gradient(180deg, rgba(21, 16, 43, 0.98), rgba(11, 10, 28, 0.98));
+  padding: 18px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.speed-date-tutorial-kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(197, 209, 255, 0.7);
+}
+
+.speed-date-tutorial-title {
+  margin: 0;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.05em;
+  line-height: 0.94;
+  color: #fff1da;
+}
+
+.speed-date-tutorial-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.speed-date-tutorial-copy p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.34;
+  color: rgba(241, 238, 255, 0.88);
+}
+
+.speed-date-secondary-btn.tutorial-close {
+  margin-top: 2px;
 }
 
 .speed-date-waiting {
@@ -799,6 +882,19 @@
 
   .speed-date-dater-card {
     min-height: 0;
+  }
+
+  .speed-date-tutorial-backdrop {
+    padding: 14px;
+  }
+
+  .speed-date-tutorial-modal {
+    border-radius: 16px;
+    padding: 16px 14px 14px;
+  }
+
+  .speed-date-tutorial-title {
+    font-size: 1.74rem;
   }
 
   .speed-date-results {
