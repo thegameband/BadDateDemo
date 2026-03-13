@@ -16,10 +16,8 @@ import './SpeedDateMode.css'
 const PLAYER_ID = 'player'
 const PLAYER_NAME = 'You'
 const PLAYER_INPUT_MAX = 90
-const LINE_GAP_MS = 620
 const TTS_MIN_TIMEOUT_MS = 4500
 const TTS_MAX_TIMEOUT_MS = 15000
-const PREFETCH_PLAYER_STYLE_SUMMARY = 'Player profile summary: confident, witty, playful flirt energy.'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -38,10 +36,9 @@ function createDeferredValue() {
   }
 }
 
-function getPrefetchKey(step, role = '') {
+function getPrefetchKey(step) {
   if (!step) return ''
-  if (step.type === 'ai_pair') return `${step.id}:${role || 'first'}`
-  if (step.type === 'player_round') return `${step.id}:reply`
+  if (step.type === 'ai_line') return String(step.id || '')
   return String(step.id || '')
 }
 
@@ -72,11 +69,22 @@ function pickTwoDaters(daters = [], nonce = 0) {
 
 function buildSpeedSequence(selectedDaters = []) {
   if (!Array.isArray(selectedDaters) || selectedDaters.length < 2) return []
-  const [kickflip, adam] = selectedDaters
+  const [daterOne, daterTwo] = selectedDaters
   return [
-    { id: 'ai-kickflip-adam', type: 'ai_pair', first: kickflip, second: adam },
-    { id: 'player-kickflip', type: 'player_round', target: kickflip },
-    { id: 'player-adam', type: 'player_round', target: adam },
+    {
+      id: `ai-${String(daterTwo?.id || 'two')}-${String(daterOne?.id || 'one')}`,
+      type: 'ai_line',
+      speaker: daterTwo,
+      target: daterOne,
+    },
+    { id: `player-${String(daterOne?.id || 'one')}`, type: 'player_round', target: daterOne },
+    {
+      id: `ai-${String(daterOne?.id || 'one')}-${String(daterTwo?.id || 'two')}`,
+      type: 'ai_line',
+      speaker: daterOne,
+      target: daterTwo,
+    },
+    { id: `player-${String(daterTwo?.id || 'two')}`, type: 'player_round', target: daterTwo },
   ]
 }
 
@@ -84,61 +92,16 @@ function buildBatchLinePlan(sequence = []) {
   if (!Array.isArray(sequence) || !sequence.length) return []
   const plan = []
   sequence.forEach((step) => {
-    if (step?.type === 'ai_pair') {
-      plan.push({
-        key: getPrefetchKey(step, 'first'),
-        speaker: step.first,
-        target: step.second,
-        targetType: 'dater',
-      })
-      plan.push({
-        key: getPrefetchKey(step, 'second'),
-        speaker: step.second,
-        target: step.first,
-        targetType: 'dater',
-      })
-      return
-    }
-    if (step?.type === 'player_round') {
+    if (step?.type === 'ai_line') {
       plan.push({
         key: getPrefetchKey(step),
-        speaker: step.target,
-        target: { id: PLAYER_ID, name: PLAYER_NAME },
-        targetType: 'player',
+        speaker: step.speaker,
+        target: step.target,
+        targetType: 'dater',
       })
     }
   })
   return plan
-}
-
-function summarizePlayerPickupStyle(lines = []) {
-  const latest = String(lines[lines.length - 1] || '').toLowerCase()
-  const joined = String(lines.join(' ') || '').toLowerCase()
-  const tags = []
-
-  if (/\b(art|canvas|paint|poem|book|song|music|movie)\b/.test(joined)) {
-    tags.push('creative and artsy')
-  }
-  if (/\b(chaos|reckless|wild|danger|crime|illegal|trouble)\b/.test(joined)) {
-    tags.push('chaotic and risk-friendly')
-  }
-  if (/\b(cute|sweet|soft|cozy|romantic|gentle)\b/.test(joined)) {
-    tags.push('soft-romantic')
-  }
-  if (/\b(kiss|drink|number|date|tonight|come with me)\b/.test(joined)) {
-    tags.push('direct about flirty intent')
-  }
-  if (/\b(please|maybe|kinda|sorta)\b/.test(joined)) {
-    tags.push('lightly cautious')
-  } else {
-    tags.push('confident')
-  }
-  if (/\?$/.test(latest)) {
-    tags.push('teasing question style')
-  }
-
-  const deduped = [...new Set(tags)].slice(0, 3)
-  return `Player profile summary: ${deduped.join(', ')}.`
 }
 
 function summarizeFirstSentence(text = '', maxLength = 180) {
@@ -163,6 +126,48 @@ function toSenderLookup(selectedDaters = []) {
   return map
 }
 
+function buildSpeedDateOutcome({ playerTarget, rivalDater, targetDecision, rivalDecision }) {
+  const targetPickedId = String(targetDecision?.pickedId || '')
+  const rivalPickedId = String(rivalDecision?.pickedId || '')
+  const targetPickedPlayer = targetPickedId === PLAYER_ID
+  const targetPickedRival = targetPickedId === String(rivalDater?.id || '')
+  const rivalPickedPlayer = rivalPickedId === PLAYER_ID
+  const rivalPickedTarget = rivalPickedId === String(playerTarget?.id || '')
+
+  if (targetPickedPlayer && rivalPickedPlayer) {
+    return {
+      title: 'Hot Stuff',
+      description: `${playerTarget?.name || 'Your pick'} chose you, and ${rivalDater?.name || 'the rival'} chased you too.`,
+    }
+  }
+
+  if (targetPickedPlayer && rivalPickedTarget) {
+    return {
+      title: 'Homewrecker',
+      description: `You landed ${playerTarget?.name || 'your pick'}, but ${rivalDater?.name || 'the rival'} was locked on them.`,
+    }
+  }
+
+  if (targetPickedRival && rivalPickedPlayer) {
+    return {
+      title: 'Nobody Wins',
+      description: `${playerTarget?.name || 'Your pick'} defected sideways while ${rivalDater?.name || 'the rival'} chased you.`,
+    }
+  }
+
+  if (targetPickedRival && rivalPickedTarget) {
+    return {
+      title: 'Third Wheeled',
+      description: `${playerTarget?.name || 'Your pick'} and ${rivalDater?.name || 'the rival'} closed ranks and left you outside.`,
+    }
+  }
+
+  return {
+    title: 'Mixed Signals',
+    description: 'The sealed choices did not resolve cleanly this round.',
+  }
+}
+
 export default function SpeedDateMode({ daters = [], onBack }) {
   const [runNonce, setRunNonce] = useState(0)
   const selectedDaters = useMemo(() => pickTwoDaters(daters, runNonce), [daters, runNonce])
@@ -171,14 +176,12 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   const [stage, setStage] = useState('intro') // intro | run | pick | results
   const [stepIndex, setStepIndex] = useState(0)
   const [exchangeLog, setExchangeLog] = useState([])
-  const [playerLines, setPlayerLines] = useState([])
-  const [playerProfileSummary, setPlayerProfileSummary] = useState('No player line yet; first impression pending.')
   const [playerInput, setPlayerInput] = useState('')
   const [isWorking, setIsWorking] = useState(false)
   const [statusText, setStatusText] = useState('')
   const [playerChoiceId, setPlayerChoiceId] = useState('')
   const [pickDecisions, setPickDecisions] = useState([])
-  const [finalScore, setFinalScore] = useState(null)
+  const [finalOutcome, setFinalOutcome] = useState(null)
   const [errorText, setErrorText] = useState('')
   const [debugText, setDebugText] = useState('')
   const [debugDump, setDebugDump] = useState('')
@@ -191,9 +194,8 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   })
 
   const exchangeLogRef = useRef(exchangeLog)
-  const playerLinesRef = useRef(playerLines)
   const feedRef = useRef(null)
-  const aiPairBusyRef = useRef(false)
+  const aiLineBusyRef = useRef(false)
   const playerInputRef = useRef(null)
   const targetWrapRef = useRef(null)
   const targetCardRef = useRef(null)
@@ -206,10 +208,6 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   useEffect(() => {
     exchangeLogRef.current = exchangeLog
   }, [exchangeLog])
-
-  useEffect(() => {
-    playerLinesRef.current = playerLines
-  }, [playerLines])
 
   useEffect(() => {
     if (!feedRef.current) return
@@ -269,14 +267,12 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setStage('intro')
     setStepIndex(0)
     setExchangeLog([])
-    setPlayerLines([])
-    setPlayerProfileSummary('No player line yet; first impression pending.')
     setPlayerInput('')
     setIsWorking(false)
     setStatusText('')
     setPlayerChoiceId('')
     setPickDecisions([])
-    setFinalScore(null)
+    setFinalOutcome(null)
     setErrorText('')
     setDebugText('')
     setDebugDump('')
@@ -347,10 +343,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
 
     ;(async () => {
       try {
-        const batchMap = await generateSpeedDatingOneLinerBatch({
-          linePlan,
-          playerProfileSummary: PREFETCH_PLAYER_STYLE_SUMMARY,
-        })
+        const batchMap = await generateSpeedDatingOneLinerBatch({ linePlan })
         if (prefetchStateRef.current.runId !== runId) return
         linePlan.forEach((entry) => {
           if (!entry?.key) return
@@ -419,12 +412,9 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     return { ok: true, reason: '', missingKeys: [] }
   }, [batchLinePlan, ensurePrefetchReady])
 
-  const getPrefetchedLine = useCallback(async ({
-    step,
-    role = '',
-  }) => {
+  const getPrefetchedLine = useCallback(async ({ step }) => {
     ensurePrefetchReady(batchLinePlan)
-    const key = getPrefetchKey(step, role)
+    const key = getPrefetchKey(step)
     const deferred = prefetchStateRef.current.deferredByKey.get(key)
     if (!deferred) return null
     try {
@@ -462,7 +452,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     if (stage !== 'run') return
     if (stepIndex < sequence.length) return
     setStage('pick')
-    setStatusText('All lines are in. Pick your favorite dater.')
+    setStatusText('Pick one. Then everyone reveals.')
   }, [stage, stepIndex, sequence.length])
 
   useEffect(() => () => {
@@ -506,72 +496,46 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     let cancelled = false
     if (stage !== 'run') return undefined
     const step = sequence[stepIndex]
-    if (!step || step.type !== 'ai_pair') return undefined
-    if (aiPairBusyRef.current) return undefined
+    if (!step || step.type !== 'ai_line') return undefined
+    if (aiLineBusyRef.current) return undefined
 
-    const runAiPair = async () => {
-      aiPairBusyRef.current = true
+    const runAiLine = async () => {
+      aiLineBusyRef.current = true
       setErrorText('')
       setIsWorking(true)
       try {
-        setStatusText(`${step.first.name} takes the first shot at ${step.second.name}.`)
-        const lineOne = await getPrefetchedLine({
-          step,
-          role: 'first',
-        })
+        setStatusText(`${step.speaker.name} takes a shot at ${step.target.name}.`)
+        const line = await getPrefetchedLine({ step })
         if (cancelled) return
-        if (lineOne) {
+        if (line) {
           appendExchange({
             exchangeId: step.id,
-            exchangeLabel: `${step.first.name} ↔ ${step.second.name}`,
-            fromId: String(step.first.id),
-            fromName: step.first.name,
-            toId: String(step.second.id),
-            toName: step.second.name,
-            text: lineOne,
+            exchangeLabel: `${step.speaker.name} → ${step.target.name}`,
+            fromId: String(step.speaker.id),
+            fromName: step.speaker.name,
+            toId: String(step.target.id),
+            toName: step.target.name,
+            text: line,
             kind: 'dater',
           })
-          await speakLineBlocking({ text: lineOne, speaker: 'dater', dater: step.first })
-        }
-
-        await wait(LINE_GAP_MS)
-        if (cancelled) return
-
-        setStatusText(`${step.second.name} takes a shot at ${step.first.name}.`)
-        const lineTwo = await getPrefetchedLine({
-          step,
-          role: 'second',
-        })
-        if (cancelled) return
-        if (lineTwo) {
-          appendExchange({
-            exchangeId: step.id,
-            exchangeLabel: `${step.first.name} ↔ ${step.second.name}`,
-            fromId: String(step.second.id),
-            fromName: step.second.name,
-            toId: String(step.first.id),
-            toName: step.first.name,
-            text: lineTwo,
-            kind: 'dater',
-          })
-          await speakLineBlocking({ text: lineTwo, speaker: 'dater', dater: step.second })
+          await speakLineBlocking({ text: line, speaker: 'dater', dater: step.speaker })
         } else if (!cancelled) {
-          setErrorText(`${step.second.name} had a line glitch this round. Continuing.`)
+          setErrorText(`${step.speaker.name} had a line glitch this round. Continuing.`)
         }
 
         setStepIndex((prev) => prev + 1)
       } catch (error) {
         if (!cancelled) {
-          console.error('SpeedDate ai_pair error:', error)
+          console.error('SpeedDate ai_line error:', error)
           setErrorText('Could not generate an exchange line. Try replaying this run.')
         }
       } finally {
-        aiPairBusyRef.current = false
+        aiLineBusyRef.current = false
         if (!cancelled) setIsWorking(false)
       }
     }
 
-    runAiPair()
+    runAiLine()
     return () => {
       cancelled = true
     }
@@ -602,13 +566,11 @@ export default function SpeedDateMode({ daters = [], onBack }) {
       setStage('run')
       setStepIndex(0)
       setExchangeLog([])
-      setPlayerLines([])
-      setPlayerProfileSummary('No player line yet; first impression pending.')
       setPlayerInput('')
-      setStatusText('Watch the first exchange, then you jump in.')
+      setStatusText('Watch the first shot, then answer in kind.')
       setPlayerChoiceId('')
       setPickDecisions([])
-      setFinalScore(null)
+      setFinalOutcome(null)
     } catch (error) {
       const llmError = getLlmErrorMessage()
       const llmDebug = getLlmDebugSnapshot()
@@ -669,7 +631,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setErrorText('')
     appendExchange({
       exchangeId: step.id,
-      exchangeLabel: `${PLAYER_NAME} ↔ ${step.target.name}`,
+      exchangeLabel: `${PLAYER_NAME} → ${step.target.name}`,
       fromId: PLAYER_ID,
       fromName: PLAYER_NAME,
       toId: String(step.target.id),
@@ -679,34 +641,9 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     })
     setPlayerInput('')
 
-    const nextPlayerLines = [...playerLinesRef.current, trimmed]
-    playerLinesRef.current = nextPlayerLines
-    setPlayerLines(nextPlayerLines)
-    const profileSummary = summarizePlayerPickupStyle(nextPlayerLines)
-    setPlayerProfileSummary(profileSummary)
-
     try {
-      // Resolve prefetched reply while player VO runs.
-      const replyPromise = getPrefetchedLine({
-        step,
-      })
       await speakLineBlocking({ text: trimmed, speaker: 'avatar' })
-      setStatusText(`${step.target.name} has a line for you...`)
-      const reply = await replyPromise
-      if (reply) {
-        appendExchange({
-          exchangeId: step.id,
-          exchangeLabel: `${PLAYER_NAME} ↔ ${step.target.name}`,
-          fromId: String(step.target.id),
-          fromName: step.target.name,
-          toId: PLAYER_ID,
-          toName: PLAYER_NAME,
-          text: reply,
-          kind: 'dater',
-        })
-        await speakLineBlocking({ text: reply, speaker: 'dater', dater: step.target })
-      }
-
+      setStatusText('Sealed choices are getting closer.')
       setStepIndex((prev) => prev + 1)
     } catch (error) {
       console.error('SpeedDate player round error:', error)
@@ -714,7 +651,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     } finally {
       setIsWorking(false)
     }
-  }, [appendExchange, getPrefetchedLine, isWorking, playerInput, sequence, speakLineBlocking, stage, stepIndex])
+  }, [appendExchange, isWorking, playerInput, sequence, speakLineBlocking, stage, stepIndex])
 
   const incomingByDater = useMemo(() => {
     const map = new Map(selectedDaters.map((dater) => [String(dater.id), new Map()]))
@@ -735,17 +672,18 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     if (!playerChoiceId || isWorking) return
     setIsWorking(true)
     setErrorText('')
-    setStatusText('Everyone is choosing...')
+    setStatusText('Everyone is locking a sealed choice...')
 
     try {
       const decisions = []
       for (const dater of selectedDaters) {
         const incoming = [...(incomingByDater.get(String(dater.id))?.values() || [])]
-        if (!incoming.length) continue
+        if (incoming.length < 2) {
+          throw new Error(`Missing locked-choice inputs for ${dater.name}`)
+        }
         const decision = await decideSpeedDatingPick({
           chooser: dater,
           incomingLines: incoming,
-          playerProfileSummary,
         })
         if (!decision) {
           throw new Error(`No valid pick output for ${dater.name}`)
@@ -753,29 +691,45 @@ export default function SpeedDateMode({ daters = [], onBack }) {
         decisions.push(decision)
       }
 
-      const picksYou = decisions.filter((decision) => String(decision.pickedId) === PLAYER_ID).length
-      const mutualMatch = decisions.some(
-        (decision) =>
-          String(decision.chooserId) === String(playerChoiceId) &&
-          String(decision.pickedId) === PLAYER_ID
-      )
-      const total = (picksYou * 500) + (mutualMatch ? 1000 : 0)
+      const playerTarget = selectedDaters.find((dater) => String(dater.id) === String(playerChoiceId)) || null
+      const rivalDater = selectedDaters.find((dater) => String(dater.id) !== String(playerChoiceId)) || null
+      const targetDecision = decisions.find((decision) => String(decision.chooserId) === String(playerChoiceId)) || null
+      const rivalDecision = rivalDater
+        ? decisions.find((decision) => String(decision.chooserId) === String(rivalDater.id)) || null
+        : null
 
-      setPickDecisions(decisions)
-      setFinalScore({
-        picksYou,
-        mutualMatch,
-        total,
-      })
+      if (!playerTarget || !rivalDater || !targetDecision || !rivalDecision) {
+        throw new Error('Could not resolve sealed choices.')
+      }
+
+      const playerDecision = {
+        chooserId: PLAYER_ID,
+        chooserName: PLAYER_NAME,
+        pickedId: String(playerTarget.id),
+        pickedName: playerTarget.name,
+      }
+
+      setPickDecisions([
+        playerDecision,
+        ...selectedDaters
+          .map((dater) => decisions.find((decision) => String(decision.chooserId) === String(dater.id)))
+          .filter(Boolean),
+      ])
+      setFinalOutcome(buildSpeedDateOutcome({
+        playerTarget,
+        rivalDater,
+        targetDecision,
+        rivalDecision,
+      }))
       setStage('results')
-      setStatusText('Picks locked.')
+      setStatusText('Sealed choices revealed.')
     } catch (error) {
       console.error('SpeedDate lock-in error:', error)
       setErrorText('Could not resolve picks. Please replay this run.')
     } finally {
       setIsWorking(false)
     }
-  }, [incomingByDater, isWorking, playerChoiceId, playerProfileSummary, selectedDaters])
+  }, [incomingByDater, isWorking, playerChoiceId, selectedDaters])
 
   const playerChosenName = senderLookup.get(String(playerChoiceId)) || 'No one selected'
 
@@ -796,7 +750,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
       <div className="speed-date-header">
         <button type="button" className="speed-date-back" onClick={handleBackClick}>← Back</button>
         <h2 className="speed-date-title">Speed Date</h2>
-        <p className="speed-date-subtitle">Kickflip and Adam. Fast one-liners. You make the final call.</p>
+        <p className="speed-date-subtitle">Four shots. One sealed choice. Then the room turns on itself.</p>
       </div>
 
       {stage === 'intro' && (
@@ -811,7 +765,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
             ))}
           </div>
           <p className="speed-date-rule">
-            You’ll see dater-to-dater exchanges first, then trade lines yourself.
+            Watch each dater get hit first. Then answer with your own one-liner.
           </p>
           <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking}>
             {isWorking ? 'Generating One-Liners...' : 'Start Speed Round'}
@@ -936,13 +890,13 @@ export default function SpeedDateMode({ daters = [], onBack }) {
             </form>
           )}
 
-          {stage === 'run' && currentStep?.type === 'ai_pair' && (
-            <div className="speed-date-waiting">Daters are exchanging lines…</div>
+          {stage === 'run' && currentStep?.type === 'ai_line' && (
+            <div className="speed-date-waiting">Opening salvo in progress…</div>
           )}
 
           {stage === 'pick' && (
             <div className="speed-date-pick-wrap">
-              <p className="speed-date-pick-title">Who do you pick?</p>
+              <p className="speed-date-pick-title">Who gets your sealed choice?</p>
               <div className="speed-date-pick-grid">
                 {selectedDaters.map((dater) => (
                   <button
@@ -963,18 +917,15 @@ export default function SpeedDateMode({ daters = [], onBack }) {
                 onClick={handleLockInPicks}
                 disabled={isWorking || !playerChoiceId}
               >
-                Lock My Pick
+                Reveal The Trap
               </button>
             </div>
           )}
 
-          {stage === 'results' && finalScore && (
+          {stage === 'results' && finalOutcome && (
             <div className="speed-date-results">
-              <div className="speed-date-score-total">{finalScore.total}</div>
-              <p className="speed-date-score-breakdown">
-                Picked you: {finalScore.picksYou} × 500
-                {finalScore.mutualMatch ? ' + 1000 mutual bonus' : ' + 0 mutual bonus'}
-              </p>
+              <div className="speed-date-outcome-title">{finalOutcome.title}</div>
+              <p className="speed-date-outcome-summary">{finalOutcome.description}</p>
               <p className="speed-date-player-pick">You picked: <strong>{playerChosenName}</strong></p>
               <div className="speed-date-results-list">
                 {pickDecisions.map((decision) => {

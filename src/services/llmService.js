@@ -5051,49 +5051,6 @@ function normalizeChooserKeywordList(values = []) {
     .filter((token) => token.length >= 3)
 }
 
-const SPEED_DATE_PLAYER_ID = 'player'
-const SPEED_DATE_PLAYER_BASE_PICK_BIAS = 14
-const SPEED_DATE_PLAYER_TIE_MARGIN = 7
-
-function computePlayerPickBias(lineText = '') {
-  const text = String(lineText || '').trim()
-  if (!text) return SPEED_DATE_PLAYER_BASE_PICK_BIAS - 6
-
-  let bonus = SPEED_DATE_PLAYER_BASE_PICK_BIAS
-  if (hasHumorSignal(text)) bonus += 5
-  if (!isLikelyBlandDaterLine(text)) bonus += 3
-  if (hasClichePickupPhrase(text)) bonus -= 6
-  if (PICKUP_STALE_FRAME_PATTERN.test(text)) bonus -= 4
-  if (countWords(text) >= 6 && countWords(text) <= 16) bonus += 2
-
-  return Math.max(4, Math.min(24, bonus))
-}
-
-function applyPlayerBiasToScoredRows(scoredRows = [], incomingLines = []) {
-  const incomingBySender = new Map(
-    (Array.isArray(incomingLines) ? incomingLines : []).map((line, idx) => {
-      const senderId = String(line?.senderId || `sender-${idx}`)
-      return [senderId, String(line?.line || line?.text || '')]
-    })
-  )
-
-  return scoredRows.map((row) => {
-    if (String(row?.senderId) !== SPEED_DATE_PLAYER_ID) return row
-    const playerLine = incomingBySender.get(SPEED_DATE_PLAYER_ID) || ''
-    const bonus = computePlayerPickBias(playerLine)
-    const boosted = Math.max(0, Math.min(100, Math.round(Number(row?.score || 0) + bonus)))
-    const reason = String(row?.reason || '').trim()
-    const augmentedReason = reason
-      ? `${reason}; player bias +${bonus}`
-      : `player bias +${bonus}`
-    return {
-      ...row,
-      score: boosted,
-      reason: clipPromptText(augmentedReason, 72),
-    }
-  })
-}
-
 function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
   const chooserName = chooser?.name || 'Dater'
   const chooserId = String(chooser?.id ?? chooserName)
@@ -5134,13 +5091,8 @@ function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
     return { senderId, senderName, score, reason }
   })
 
-  const biasedScored = applyPlayerBiasToScoredRows(scored, incomingLines)
-  biasedScored.sort((a, b) => b.score - a.score)
-  const highest = biasedScored[0] || null
-  const playerRow = biasedScored.find((row) => String(row.senderId) === SPEED_DATE_PLAYER_ID) || null
-  const picked = (highest && playerRow && (highest.score - playerRow.score) <= SPEED_DATE_PLAYER_TIE_MARGIN)
-    ? playerRow
-    : highest
+  scored.sort((a, b) => b.score - a.score)
+  const picked = scored[0] || null
 
   if (!picked) return null
 
@@ -5149,8 +5101,8 @@ function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
     chooserName,
     pickedId: picked.senderId,
     pickedName: picked.senderName,
-    scores: biasedScored,
-    rationale: `${chooserName} picked the strongest mix of humor, chemistry, and fit.`,
+    scores: scored,
+    rationale: `${chooserName} picked the strongest direct line.`,
   }
 }
 
@@ -5166,7 +5118,6 @@ function buildHeuristicSpeedDatingDecision({ chooser, incomingLines = [] }) {
 export async function decideSpeedDatingPick({
   chooser,
   incomingLines = [],
-  playerProfileSummary = '',
 }) {
   if (!chooser || !Array.isArray(incomingLines) || incomingLines.length === 0) return null
 
@@ -5184,14 +5135,12 @@ export async function decideSpeedDatingPick({
 
   const systemPrompt = `You are ${chooserName} deciding who you want to date in a speed-dating game.
 Judge only the lines sent directly to you.
+Base your choice only on those received one-liners.
+Ignore scene order and ignore any line you did not personally receive.
 
 Your attraction lens:
 - Usually drawn to: ${chooserLikes}
 - Usually turned off by: ${chooserDealbreakers}
-
-Player profile summary:
-${SPEED_DATING_PLAYER_CANON_PROFILE}
-- Style summary: ${clipPromptText(playerProfileSummary || '', 220) || 'Not enough data yet.'}
 
 Return ONLY JSON:
 {
@@ -5204,10 +5153,9 @@ Return ONLY JSON:
 
 Rules:
 - Score every sender provided.
-- Higher score means stronger romantic interest.
+- Higher score means the stronger one-liner addressed to you.
 - Weighting: profile fit 40%, chemistry/flirty energy 35%, humor/punchline 25%.
-- Soft player bias: if player score is close, lean player.
-- Picked sender must be the highest score after applying that bias.`
+- Picked sender must be the highest score.`
 
   const userPrompt = `Incoming lines addressed to you:
 ${optionBlock}
@@ -5282,11 +5230,10 @@ Choose now. JSON only.`
     }])
   )
   normalized.forEach((row) => defaultsBySender.set(row.senderId, row))
-  const scores = applyPlayerBiasToScoredRows([...defaultsBySender.values()], incomingLines)
+  const scores = [...defaultsBySender.values()]
 
   scores.sort((a, b) => b.score - a.score)
   const highest = scores[0]
-  const playerRow = scores.find((row) => String(row.senderId) === SPEED_DATE_PLAYER_ID)
   const parsedPickedId = parsed?.pickedId ? String(parsed.pickedId).trim() : ''
   const parsedPickedName = String(parsed?.pickedName || '').trim().toLowerCase()
   const resolvedPickedId = senderMap.has(parsedPickedId)
@@ -5297,10 +5244,7 @@ Choose now. JSON only.`
       return buildHeuristicSpeedDatingDecision({ chooser, incomingLines })
     }
   }
-  const tiePreferredId = (highest?.senderId && playerRow && (highest.score - playerRow.score) <= SPEED_DATE_PLAYER_TIE_MARGIN)
-    ? playerRow.senderId
-    : ''
-  const pickedId = tiePreferredId || highest?.senderId || resolvedPickedId
+  const pickedId = highest?.senderId || resolvedPickedId
   const picked = senderMap.get(pickedId) || { senderId: pickedId, senderName: pickedId || 'Unknown' }
 
   return {
