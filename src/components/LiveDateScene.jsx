@@ -2108,10 +2108,11 @@ RULES:
     console.log('▶️ PLAYING BACK pre-generated conversation (dater only)...')
     const { attribute, exchanges, question } = preGenData
 
+    await waitForAllAudio()
+
     for (let i = 0; i < exchanges.length; i++) {
       const exchange = exchanges[i]
       if (exchange.daterReaction) {
-        // Snappier flow: quick reveal of dater answer, then a brief beat before the quip.
         await new Promise(r => setTimeout(r, 250))
         showDaterAnswerBanner(exchange.daterQuickAnswer || daterQuickAnswerRef.current)
         await new Promise(r => setTimeout(r, 450))
@@ -3360,7 +3361,7 @@ BAD examples (do NOT do this):
       partyClient.clearVotes()
     }
     
-    // Generate and play back dater response flow (no narrator readback here).
+    speak(playerAnswer, 'narrator')
     const llmPromise = new Promise(resolve => {
       setTimeout(() => resolve(generateDateConversation(playerAnswer)), 100)
     })
@@ -4230,9 +4231,6 @@ BAD examples (do NOT do this):
                 duration: 0.8, 
                 ease: [0.22, 1, 0.36, 1] // Custom ease for smooth entrance
               }}
-              onAnimationStart={() => {
-                void playSfxCue('questionAppears')
-              }}
               onAnimationComplete={() => {
                 // Mark animation as complete (timer already started)
                 if (livePhase === 'phase1' && !roundPromptAnimationComplete) {
@@ -4487,9 +4485,6 @@ BAD examples (do NOT do this):
                   initial={{ scale: 0.9, opacity: 0, y: 10 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: -10 }}
-                  onAnimationStart={() => {
-                    void playSfxCue('answerAppears')
-                  }}
                 >
                   <AnimatedText
                     text={daterBubble}

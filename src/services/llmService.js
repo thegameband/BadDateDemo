@@ -382,8 +382,8 @@ const ADAM_ARCHAIC_NORMALIZE_MAP = {
 
 const ADAM_ARCHAIC_REPLACEMENT_RULES = [
   { pattern: /\bi think\b/i, replacement: 'methinks', score: 200 },
-  { pattern: /\bhonestly\b/i, replacement: 'verily', score: 140 },
-  { pattern: /\breally\b/i, replacement: 'verily', score: 130 },
+  { pattern: /\bhonestly\b/i, replacement: 'in truth', score: 140 },
+  { pattern: /\breally\b/i, replacement: 'in sooth', score: 130 },
   { pattern: /\btruly\b/i, replacement: 'verily', score: 120 },
   { pattern: /\bplease\b/i, replacement: 'pray', score: 115 },
   { pattern: /\bsadly\b/i, replacement: 'alas', score: 110 },
@@ -434,6 +434,13 @@ function selectAdamArchaicReplacementCandidate(text) {
   return best
 }
 
+const ADAM_POSITIVE_PREFIXES = ['Methinks', 'Pray tell', 'In truth', 'How curious', 'Remarkable']
+const ADAM_NEGATIVE_PREFIXES = ['Alas', 'Woe', 'How lamentable', 'A pity']
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
 function enforceExactlyOneAdamArchaicTerm(text) {
   const modernized = normalizeAdamArchaicToModern(String(text || '')).replace(/\s+/g, ' ').trim()
   if (!modernized) return modernized
@@ -445,7 +452,7 @@ function enforceExactlyOneAdamArchaicTerm(text) {
   }
 
   const negativeCue = /\b(no|not|never|hate|dealbreaker|awful|terrible|wrong|disagree|hard no)\b/i.test(modernized)
-  const prefix = negativeCue ? 'Alas' : 'Verily'
+  const prefix = negativeCue ? pickRandom(ADAM_NEGATIVE_PREFIXES) : pickRandom(ADAM_POSITIVE_PREFIXES)
   return `${prefix}, ${modernized}`
 }
 
@@ -710,7 +717,7 @@ const MAIN_ADAM_RESPONSE_CHECKLIST = `
 
 ✅ ADAM'S VOICE — USE THIS REGISTER:
 - Elevated but accessible prose — Latinate vocabulary, 19th-century Romantic cadence
-- Old English phrasing is his default: "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst"
+- Old English phrasing is his default: "methinks," "prithee," "in sooth," "in truth," "pleaseth," "hast," "dost," "wouldst" — rotate freely, avoid repeating the same term across turns
 - "Thee/thou/thy" are RARE — only in emotional extremes (deep attraction, pain, awe). Use "you/your" normally.
 - Short, poetic directness — weighted, building to a point
 - Deadpan delivery — the more alarming the content, the calmer the tone
@@ -724,7 +731,7 @@ ADAM EXAMPLE RESPONSES (match this voice exactly):
 ✅ RIGHT: "How extraordinary. My mind has weathered much, yet this gives me pause. Prithee, say more."
 
 ❌ WRONG: "Huh, that's new. I genuinely don't know what to say."
-✅ RIGHT: "How peculiar. I have known the silence of mountains and the cold of creation, yet this moment eludes me. I am verily without words."
+✅ RIGHT: "How peculiar. I have known the silence of mountains and the cold of creation, yet this moment eludes me. In sooth, I am without words."
 
 ❌ WRONG: "Oh my GOD, yes! That's SO attractive!"
 ✅ RIGHT: "That pleaseth me profoundly. There is a quality in you I recognise, something not so unlike my own nature. I confess, I did not expect to find it here."
@@ -772,7 +779,7 @@ function buildPromptTail(dater) {
              '\n\n⚠️ FINAL OVERRIDE — ADAM\'S VOICE TAKES ABSOLUTE PRIORITY:\n' +
              'Everything above about Gen-Z speech, modern slang, and casual reaction examples does NOT apply to Adam.\n' +
              'Adam speaks with 19th-century Romantic prose, old-English phrasing, poetic deadpan, and Latinate vocabulary.\n' +
-             'He uses old English words like "methinks," "verily," "prithee," "pleaseth," "hast," "dost," "wouldst" regularly.\n' +
+             'He uses old English words like "methinks," "prithee," "in sooth," "in truth," "pleaseth," "hast," "dost," "wouldst" — rotating freely.\n' +
              'IMPORTANT: "Thee," "thou," and "thy" are RARE — only in emotional extremes. Use "you/your" for normal address.\n' +
              'Use 1-2 sentences and aim for <= 280 characters total.\n' +
              'Adam speaks in 2-3 weighted sentences — poetic, purposeful, and complete.\n' +

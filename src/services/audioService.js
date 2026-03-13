@@ -26,6 +26,7 @@ const SFX_CUES = [
   { id: 'compatibilityNegative', label: 'Compatibility - Negative', defaultTrackRef: '/sounds/compatibility-negative.mp3' },
   { id: 'ratingsPositive', label: 'Ratings - Positive', defaultTrackRef: '/sounds/ratings-positive.mp3' },
   { id: 'ratingsNegative', label: 'Ratings - Negative', defaultTrackRef: '/sounds/ratings-negative.mp3' },
+  { id: 'buttonPress', label: 'Button Press', defaultTrackRef: '/sounds/answer-appears.mp3' },
 ]
 
 const DEFAULT_SFX_CUE_ASSIGNMENTS = Object.fromEntries(
@@ -43,6 +44,7 @@ const BUILT_IN_TRACKS = [
   { id: 'builtin:compatibility-negative', name: 'Compatibility Negative', trackRef: '/sounds/compatibility-negative.mp3', source: 'built-in' },
   { id: 'builtin:ratings-positive', name: 'Ratings Positive', trackRef: '/sounds/ratings-positive.mp3', source: 'built-in' },
   { id: 'builtin:ratings-negative', name: 'Ratings Negative', trackRef: '/sounds/ratings-negative.mp3', source: 'built-in' },
+  { id: 'builtin:button-press', name: 'Button Press', trackRef: '/sounds/answer-appears.mp3', source: 'built-in' },
 ]
 
 function clampVolume(value, fallback) {

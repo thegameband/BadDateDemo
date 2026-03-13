@@ -25,7 +25,7 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.05.26'
+const GAME_VERSION = '0.05.27'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
 const BAD_DATE_FTUE_SLIDES = [
@@ -173,19 +173,9 @@ function LiveLobby() {
   }, [])
 
   useEffect(() => {
-    let nextMode = null
-    if (view === 'main') nextMode = 'lobby'
-    if (view === 'drop-a-line') nextMode = 'rizzCraft'
-    if (view === 'speed-date') nextMode = 'speedDate'
-    if (view === 'roses') nextMode = 'roses'
-    void setMusicMode(nextMode)
-  }, [view])
-
-  useEffect(() => {
-    return () => {
-      void setMusicMode(null)
-    }
-  }, [])
+    if (view === 'drop-a-line' && dropALineScreen === 'scene') return
+    void setMusicMode('lobby')
+  }, [view, dropALineScreen])
   
   // Connect to the registry room for room discovery
   useEffect(() => {
@@ -942,6 +932,24 @@ function LiveLobby() {
                       </button>
                     </div>
                     
+                    {/* Section: Reset Tutorials */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Tutorials</div>
+                      <motion.button
+                        className="debug-action-btn"
+                        onClick={() => {
+                          localStorage.removeItem(BAD_DATE_FTUE_KEY)
+                          localStorage.removeItem(RIZZ_CRAFT_FTUE_KEY)
+                          setAdminStatus('Tutorials reset!')
+                        }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="btn-icon">📖</span>
+                        <span>Reset Tutorials (FTUE)</span>
+                      </motion.button>
+                    </div>
+
                     {/* Section: Skip To */}
                     <div className="debug-section">
                       <div className="debug-section-label">Skip To</div>

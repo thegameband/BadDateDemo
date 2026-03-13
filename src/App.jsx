@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useGameStore } from './store/gameStore'
+import { playSfxCue } from './services/audioService'
 import Lobby from './components/Lobby'
 import Matchmaking from './components/Matchmaking'
 import ChatPhase from './components/ChatPhase'
@@ -26,6 +27,16 @@ function App() {
     } else {
       document.body.classList.remove('force-mobile')
     }
+  }, [])
+
+  useEffect(() => {
+    const handler = (e) => {
+      const target = e.target.closest('button, [role="button"]')
+      if (!target || target.dataset.noSfx != null) return
+      void playSfxCue('buttonPress')
+    }
+    document.addEventListener('click', handler, true)
+    return () => document.removeEventListener('click', handler, true)
   }, [])
   
   const renderPhase = () => {
