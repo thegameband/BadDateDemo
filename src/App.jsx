@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useGameStore } from './store/gameStore'
-import { playSfxCue } from './services/audioService'
+import { playSfxCue, tryResumeMusic } from './services/audioService'
 import Lobby from './components/Lobby'
 import Matchmaking from './components/Matchmaking'
 import ChatPhase from './components/ChatPhase'
@@ -31,6 +31,7 @@ function App() {
 
   useEffect(() => {
     const handler = (e) => {
+      tryResumeMusic()
       const target = e.target.closest('button, [role="button"]')
       if (!target || target.dataset.noSfx != null) return
       void playSfxCue('buttonPress')

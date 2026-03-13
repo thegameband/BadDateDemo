@@ -19,14 +19,14 @@ const DEFAULT_TRACK_ASSIGNMENTS = {
 const SFX_CUES = [
   { id: 'questionAppears', label: 'Question Appears (Hard Launch)', defaultTrackRef: '/sounds/question-appears.mp3' },
   { id: 'answerAppears', label: 'Answer Appears (Hard Launch)', defaultTrackRef: '/sounds/answer-appears.mp3' },
-  { id: 'resultGood', label: 'Result - Good', defaultTrackRef: '/sounds/result-good.mp3' },
-  { id: 'resultAverage', label: 'Result - Average', defaultTrackRef: '/sounds/result-average.mp3' },
-  { id: 'resultBad', label: 'Result - Bad', defaultTrackRef: '/sounds/result-bad.mp3' },
+  { id: 'resultGood', label: 'Result - Good', defaultTrackRef: '/sounds/result-good.mp3', gainDb: -9 },
+  { id: 'resultAverage', label: 'Result - Average', defaultTrackRef: '/sounds/result-average.mp3', gainDb: -9 },
+  { id: 'resultBad', label: 'Result - Bad', defaultTrackRef: '/sounds/result-bad.mp3', gainDb: -9 },
   { id: 'compatibilityPositive', label: 'Compatibility - Positive', defaultTrackRef: '/sounds/compatibility-positive.mp3' },
   { id: 'compatibilityNegative', label: 'Compatibility - Negative', defaultTrackRef: '/sounds/compatibility-negative.mp3' },
   { id: 'ratingsPositive', label: 'Ratings - Positive', defaultTrackRef: '/sounds/ratings-positive.mp3' },
   { id: 'ratingsNegative', label: 'Ratings - Negative', defaultTrackRef: '/sounds/ratings-negative.mp3' },
-  { id: 'buttonPress', label: 'Button Press', defaultTrackRef: '/sounds/answer-appears.mp3' },
+  { id: 'buttonPress', label: 'Button Press', defaultTrackRef: '/sounds/answer-appears.mp3', gainDb: -3 },
 ]
 
 const DEFAULT_SFX_CUE_ASSIGNMENTS = Object.fromEntries(
@@ -142,6 +142,12 @@ function ensureMusicAudio() {
     musicAudio.loop = true
     musicAudio.preload = 'auto'
     musicAudio.volume = musicVolume
+    musicAudio.addEventListener('timeupdate', () => {
+      const el = musicAudio
+      if (el && el.duration > 0 && el.currentTime >= el.duration - 0.1) {
+        el.currentTime = 0
+      }
+    })
   }
   return musicAudio
 }
@@ -150,6 +156,7 @@ function attachResumeListeners(audioEl) {
   if (listenersArmed || typeof window === 'undefined') return
   listenersArmed = true
   const resumeOnInteraction = () => {
+    listenersArmed = false
     audioEl.muted = false
     audioEl.volume = musicVolume
     void audioEl.play().catch(() => {})
@@ -376,6 +383,45 @@ export async function resolveTrackSrc(trackRef) {
   return normalizedRef
 }
 
+let fadeTimer = null
+
+function cancelFade() {
+  if (fadeTimer) {
+    clearInterval(fadeTimer)
+    fadeTimer = null
+  }
+}
+
+function fadeOutMusic(durationMs = 1000) {
+  const audioEl = ensureMusicAudio()
+  if (!audioEl || audioEl.paused) return Promise.resolve()
+  cancelFade()
+  return new Promise((resolve) => {
+    const startVol = audioEl.volume
+    if (startVol <= 0) {
+      audioEl.pause()
+      audioEl.volume = musicVolume
+      resolve()
+      return
+    }
+    const steps = Math.max(1, Math.ceil(durationMs / 50))
+    const decrement = startVol / steps
+    let step = 0
+    fadeTimer = setInterval(() => {
+      step++
+      if (step >= steps) {
+        audioEl.volume = 0
+        audioEl.pause()
+        audioEl.volume = musicVolume
+        cancelFade()
+        resolve()
+        return
+      }
+      audioEl.volume = Math.max(0, startVol - decrement * step)
+    }, 50)
+  })
+}
+
 export async function setMusicMode(mode) {
   const normalizedMode = MUSIC_MODES.includes(mode) ? mode : null
   currentMusicMode = normalizedMode
@@ -386,7 +432,7 @@ export async function setMusicMode(mode) {
   if (!audioEl) return
 
   if (!normalizedMode) {
-    audioEl.pause()
+    await fadeOutMusic(1000)
     audioEl.currentTime = 0
     lastResolvedTrackRef = null
     return
@@ -394,7 +440,7 @@ export async function setMusicMode(mode) {
 
   const trackRef = getTrackForMode(normalizedMode)
   if (!trackRef) {
-    audioEl.pause()
+    await fadeOutMusic(1000)
     audioEl.currentTime = 0
     lastResolvedTrackRef = null
     return
@@ -403,13 +449,15 @@ export async function setMusicMode(mode) {
   const src = await resolveTrackSrc(trackRef)
   if (requestId !== musicRequestId) return
   if (!src) {
-    audioEl.pause()
+    await fadeOutMusic(1000)
     audioEl.currentTime = 0
     lastResolvedTrackRef = null
     return
   }
 
+  cancelFade()
   if (lastResolvedTrackRef !== trackRef || audioEl.src !== src) {
+    audioEl.volume = musicVolume
     audioEl.src = src
     audioEl.currentTime = 0
     lastResolvedTrackRef = trackRef
@@ -418,19 +466,29 @@ export async function setMusicMode(mode) {
 }
 
 export function stopMusic() {
+  cancelFade()
   const audioEl = ensureMusicAudio()
   if (!audioEl) return
   audioEl.pause()
   audioEl.currentTime = 0
+  audioEl.volume = musicVolume
   currentMusicMode = null
   lastResolvedTrackRef = null
 }
 
-export function playSfx(src) {
+export function tryResumeMusic() {
+  const audioEl = ensureMusicAudio()
+  if (!audioEl || !audioEl.src || !audioEl.paused) return
+  audioEl.volume = musicVolume
+  audioEl.muted = false
+  void audioEl.play().catch(() => {})
+}
+
+export function playSfx(src, volume) {
   if (typeof Audio === 'undefined' || !src || sfxVolume <= 0) return
   const audio = new Audio(src)
   audio.preload = 'auto'
-  audio.volume = sfxVolume
+  audio.volume = typeof volume === 'number' ? clampVolume(volume, sfxVolume) : sfxVolume
   void audio.play().catch(() => {})
 }
 
@@ -441,5 +499,6 @@ export async function playSfxCue(cueId) {
   const trackRef = sfxCueAssignments[cueId] || cue.defaultTrackRef
   const src = await resolveTrackSrc(trackRef)
   if (!src) return
-  playSfx(src)
+  const effectiveVolume = sfxVolume * Math.pow(10, (cue.gainDb ?? 0) / 20)
+  playSfx(src, effectiveVolume)
 }
