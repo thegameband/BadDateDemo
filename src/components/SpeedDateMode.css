@@ -41,14 +41,6 @@
   line-height: 0.95;
 }
 
-.speed-date-subtitle {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 0.82rem;
-  width: 100%;
-  padding-left: 2px;
-}
-
 .speed-date-intro {
   padding: 20px 14px 18px;
   display: flex;
@@ -106,6 +98,11 @@
   gap: 12px;
 }
 
+.speed-date-main.results-stage {
+  gap: 8px;
+  padding-top: 8px;
+}
+
 .speed-date-run-meta {
   display: flex;
   align-items: center;
@@ -123,6 +120,24 @@
 .speed-date-status {
   text-align: right;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.speed-date.speed-date-stage-results .speed-date-header {
+  gap: 4px;
+  padding-bottom: 8px;
+}
+
+.speed-date.speed-date-stage-results .speed-date-title {
+  font-size: 1.36rem;
+}
+
+.speed-date.speed-date-stage-results .speed-date-run-meta {
+  flex: 0 0 auto;
+}
+
+.speed-date.speed-date-stage-results .speed-date-status {
+  font-size: 0.72rem;
+  max-width: 56%;
 }
 
 .speed-date-feed {
@@ -475,6 +490,8 @@
 .speed-date-results {
   position: relative;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
   border-radius: 18px;
   border: 1px solid rgba(255, 216, 228, 0.28);
   background:
@@ -482,10 +499,10 @@
     radial-gradient(circle at 12% 18%, rgba(255, 116, 164, 0.2), transparent 34%),
     radial-gradient(circle at 88% 16%, rgba(145, 200, 255, 0.18), transparent 32%),
     linear-gradient(180deg, rgba(18, 9, 20, 0.96), rgba(28, 14, 26, 0.98));
-  padding: 16px 14px 14px;
+  padding: 12px 12px 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 22px 44px rgba(0, 0, 0, 0.28);
@@ -519,8 +536,8 @@
 .speed-date-outcome-title,
 .speed-date-score-total {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(2.3rem, 7.5vw, 3.6rem);
-  letter-spacing: 0.06em;
+  font-size: clamp(1.8rem, 4.2vh, 2.5rem);
+  letter-spacing: 0.05em;
   color: #ffe8be;
   text-align: center;
   line-height: 1;
@@ -542,7 +559,7 @@
 .speed-date-player-pick {
   position: relative;
   z-index: 1;
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 229, 238, 0.72);
@@ -552,35 +569,36 @@
   color: #fff1d5;
   font-family: 'Bebas Neue', sans-serif;
   letter-spacing: 0.06em;
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
 
 .speed-date-reveal-stage {
   position: relative;
   z-index: 1;
   display: flex;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   perspective: 1200px;
 }
 
 .speed-date-reveal-suspense,
 .speed-date-reveal-card,
-.speed-date-reveal-fanfare,
 .speed-date-outcome-wrap {
   position: relative;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 16px;
 }
 
 .speed-date-reveal-suspense {
-  padding: 18px 16px;
+  padding: 14px 12px;
   border: 1px solid rgba(255, 231, 195, 0.3);
   background:
     linear-gradient(180deg, rgba(40, 18, 25, 0.94), rgba(22, 10, 20, 0.98));
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   text-align: center;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -589,7 +607,6 @@
 
 .speed-date-reveal-suspense::after,
 .speed-date-reveal-card::after,
-.speed-date-reveal-fanfare::after,
 .speed-date-outcome-wrap::after {
   content: '';
   position: absolute;
@@ -600,35 +617,33 @@
   animation: speed-date-sheen 1.2s ease-out forwards;
 }
 
-.speed-date-reveal-suspense strong,
-.speed-date-reveal-fanfare strong {
+.speed-date-reveal-suspense strong {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(1.55rem, 5vw, 2.1rem);
-  letter-spacing: 0.05em;
+  font-size: clamp(1.08rem, 3.4vh, 1.7rem);
+  letter-spacing: 0.04em;
   line-height: 0.95;
   color: #fff1d7;
 }
 
-.speed-date-reveal-suspense p,
-.speed-date-reveal-fanfare p {
+.speed-date-reveal-suspense p {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.38;
+  font-size: 0.74rem;
+  line-height: 1.25;
   color: rgba(255, 235, 226, 0.78);
 }
 
 .speed-date-reveal-kicker {
   font-family: 'Space Mono', monospace;
-  font-size: 0.66rem;
-  letter-spacing: 0.18em;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(255, 228, 174, 0.72);
 }
 
 .speed-date-reveal-card {
-  padding: 18px 16px;
+  padding: 12px 12px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   justify-items: center;
   text-align: center;
   transform-origin: center top;
@@ -665,42 +680,32 @@
 }
 
 .speed-date-reveal-chooser {
-  font-size: clamp(1.7rem, 5.6vw, 2.6rem);
+  font-size: clamp(1.25rem, 3.6vh, 1.9rem);
   color: #fff5e5;
 }
 
 .speed-date-reveal-picked {
-  font-size: clamp(2.05rem, 6.5vw, 3.05rem);
+  font-size: clamp(1.7rem, 4.7vh, 2.45rem);
   color: #fff6cf;
   text-shadow: 0 0 20px rgba(255, 213, 153, 0.26);
 }
 
 .speed-date-reveal-arrow {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 2.2rem;
+  font-size: 1.65rem;
   line-height: 1;
   color: rgba(255, 233, 205, 0.72);
 }
 
 .speed-date-reveal-climax {
   display: flex;
+  min-height: 0;
   flex-direction: column;
-  gap: 14px;
-}
-
-.speed-date-reveal-fanfare {
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 219, 171, 0.3);
-  background:
-    linear-gradient(135deg, rgba(56, 20, 25, 0.94), rgba(93, 30, 34, 0.9) 48%, rgba(40, 13, 23, 0.96));
-  text-align: center;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 248, 219, 0.08),
-    0 14px 28px rgba(0, 0, 0, 0.24);
+  gap: 10px;
 }
 
 .speed-date-outcome-wrap {
-  padding: 18px 16px 16px;
+  padding: 12px 12px 10px;
   border: 1px solid rgba(255, 225, 170, 0.42);
   background:
     radial-gradient(circle at 50% -30%, rgba(255, 217, 129, 0.42), transparent 45%),
@@ -716,20 +721,20 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 
 .speed-date-result-row {
   border-radius: 12px;
   border: 1px solid rgba(255, 235, 224, 0.14);
   background: rgba(255, 248, 243, 0.06);
-  padding: 10px 12px;
+  padding: 7px 9px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   color: rgba(255, 240, 233, 0.78);
 }
 
@@ -741,9 +746,15 @@
 .speed-date-result-row em {
   font-style: normal;
   color: #b0ffb7;
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.speed-date-results .speed-date-primary-btn {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  font-size: 1rem;
 }
 
 .speed-date-error {
@@ -791,16 +802,15 @@
   }
 
   .speed-date-results {
-    padding: 14px 12px 12px;
+    padding: 10px 10px 9px;
   }
 
   .speed-date-reveal-card,
   .speed-date-reveal-suspense,
-  .speed-date-reveal-fanfare,
   .speed-date-outcome-wrap {
-    border-radius: 16px;
-    padding-left: 14px;
-    padding-right: 14px;
+    border-radius: 14px;
+    padding-left: 10px;
+    padding-right: 10px;
   }
 
   .speed-date-result-row {
@@ -808,10 +818,54 @@
   }
 }
 
+@media (max-height: 860px) {
+  .speed-date.speed-date-stage-results .speed-date-header {
+    padding-top: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-back {
+    padding: 5px 9px;
+    font-size: 0.8rem;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-run-meta {
+    font-size: 0.72rem;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-results {
+    padding: 9px 9px 8px;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-reveal-stage,
+  .speed-date.speed-date-stage-results .speed-date-reveal-climax {
+    gap: 8px;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-player-pick {
+    font-size: 0.62rem;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-player-pick strong {
+    font-size: 0.92rem;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-reveal-card {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .speed-date.speed-date-stage-results .speed-date-outcome-wrap,
+  .speed-date.speed-date-stage-results .speed-date-reveal-suspense {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .speed-date-reveal-suspense::after,
   .speed-date-reveal-card::after,
-  .speed-date-reveal-fanfare::after,
   .speed-date-outcome-wrap::after {
     animation: none;
     display: none;

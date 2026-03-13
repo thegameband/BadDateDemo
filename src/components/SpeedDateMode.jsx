@@ -795,11 +795,10 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   }
 
   return (
-    <div className="speed-date">
+    <div className={`speed-date speed-date-stage-${stage}`}>
       <div className="speed-date-header">
         <button type="button" className="speed-date-back" onClick={handleBackClick}>← Back</button>
         <h2 className="speed-date-title">Speed Date</h2>
-        <p className="speed-date-subtitle">Four shots. One sealed choice. Then the room turns on itself.</p>
       </div>
 
       {stage === 'intro' && (
@@ -828,45 +827,47 @@ export default function SpeedDateMode({ daters = [], onBack }) {
       )}
 
       {(stage === 'run' || stage === 'pick' || stage === 'results') && (
-        <div className="speed-date-main">
+        <div className={`speed-date-main ${stage === 'results' ? 'results-stage' : ''}`}>
           <div className="speed-date-run-meta">
             <span className="speed-date-step">Step {Math.min(stepIndex + 1, sequence.length)} / {sequence.length}</span>
             <span className="speed-date-status">{statusText || ' '}</span>
           </div>
 
-          <div className="speed-date-feed" ref={feedRef}>
-            <AnimatePresence initial={false}>
-              {exchangeGroups.map((group, groupIndex) => (
-                <motion.div
-                  key={group.id}
-                  className="speed-date-exchange-group"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                >
-                  <div className="speed-date-exchange-meta">
-                    <span className="speed-date-exchange-count">Exchange {groupIndex + 1}</span>
-                    <span className="speed-date-exchange-label">{group.label}</span>
-                  </div>
-                  <div className="speed-date-exchange-lines">
-                    {group.lines.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className={`speed-date-line ${entry.fromId === PLAYER_ID ? 'from-player' : 'from-dater'}`}
-                      >
-                        <div className="speed-date-line-meta">
-                          <span>{entry.fromName}</span>
-                          <span>→</span>
-                          <span>{entry.toName}</span>
+          {stage !== 'results' && (
+            <div className="speed-date-feed" ref={feedRef}>
+              <AnimatePresence initial={false}>
+                {exchangeGroups.map((group, groupIndex) => (
+                  <motion.div
+                    key={group.id}
+                    className="speed-date-exchange-group"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                  >
+                    <div className="speed-date-exchange-meta">
+                      <span className="speed-date-exchange-count">Exchange {groupIndex + 1}</span>
+                      <span className="speed-date-exchange-label">{group.label}</span>
+                    </div>
+                    <div className="speed-date-exchange-lines">
+                      {group.lines.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className={`speed-date-line ${entry.fromId === PLAYER_ID ? 'from-player' : 'from-dater'}`}
+                        >
+                          <div className="speed-date-line-meta">
+                            <span>{entry.fromName}</span>
+                            <span>→</span>
+                            <span>{entry.toName}</span>
+                          </div>
+                          <p className="speed-date-line-text">{entry.text}</p>
                         </div>
-                        <p className="speed-date-line-text">{entry.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
 
           {stage === 'run' && currentStep?.type === 'player_round' && (
             <form className="speed-date-input-wrap is-active" onSubmit={handlePlayerSubmit}>
@@ -966,7 +967,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
                 onClick={handleLockInPicks}
                 disabled={isWorking || !playerChoiceId}
               >
-                Reveal The Trap
+                See Picks 👀
               </button>
             </div>
           )}
@@ -1015,16 +1016,6 @@ export default function SpeedDateMode({ daters = [], onBack }) {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.28, ease: 'easeOut' }}
                   >
-                    <motion.div
-                      className="speed-date-reveal-fanfare"
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.42, ease: 'easeOut' }}
-                    >
-                      <span className="speed-date-reveal-kicker">Final Reveal</span>
-                      <strong>{finalOutcome.playerTarget?.name || 'Your pick'} decides the whole round.</strong>
-                    </motion.div>
-
                     <motion.div
                       className="speed-date-reveal-card target"
                       initial={{ opacity: 0, scale: 0.88, y: 32 }}
