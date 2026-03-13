@@ -26,6 +26,17 @@ export function getOrCreateRosesPlayerId() {
   return playerId
 }
 
+export function getStoredRosesPlayerId() {
+  try {
+    const existing = localStorage.getItem(PLAYER_STORAGE_KEY)
+    if (!existing) return ''
+    const parsed = JSON.parse(existing)
+    return typeof parsed?.playerId === 'string' ? parsed.playerId : ''
+  } catch {
+    return ''
+  }
+}
+
 export function getBrowserTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 }
@@ -78,6 +89,14 @@ export async function saveRosesProfile({ playerId, timezone, localDay, fields, m
 
 export async function fetchRosesLeaderboard(limit = 25) {
   return postJson('/api/roses/leaderboard/get', { limit })
+}
+
+export async function fetchRosesSpeedDatePool({ excludePlayerId = '', limit = 200, includeSeeds = false } = {}) {
+  return postJson('/api/roses/pool/get', {
+    excludePlayerId,
+    limit,
+    includeSeeds,
+  })
 }
 
 export async function startRosesRound({ playerId }) {

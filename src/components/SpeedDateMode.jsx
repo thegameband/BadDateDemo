@@ -12,6 +12,7 @@ import {
   stopAllAudio,
 } from '../services/ttsService'
 import { setMusicMode } from '../services/audioService'
+import { fetchRosesSpeedDatePool, getStoredRosesPlayerId } from '../services/rosesApi'
 import './SpeedDateMode.css'
 
 const PLAYER_ID = 'player'
@@ -21,8 +22,20 @@ const TTS_MIN_TIMEOUT_MS = 4500
 const TTS_MAX_TIMEOUT_MS = 15000
 const RIVAL_REVEAL_DELAY_MS = 2200
 const FINAL_REVEAL_DELAY_MS = 5200
+const ROSES_SPEED_DATE_POOL_LIMIT = 200
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function normalizePoolText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+function clipPoolText(value = '', maxLength = 260) {
+  const normalized = normalizePoolText(value)
+  if (!normalized) return ''
+  if (normalized.length <= maxLength) return normalized
+  return `${normalized.slice(0, maxLength).trimEnd()}...`
+}
 
 function createDeferredValue() {
   let resolve
@@ -48,18 +61,9 @@ function getPrefetchKey(step) {
 function pickTwoDaters(daters = [], nonce = 0) {
   const pool = Array.isArray(daters) ? [...daters] : []
   if (!pool.length) return []
+  if (pool.length <= 2) return pool.slice(0, 2)
 
-  const priorityNames = ['Kickflip', 'Adam']
-  const byName = new Map(pool.map((dater) => [String(dater?.name || ''), dater]))
-  const preferred = priorityNames
-    .map((name) => byName.get(name))
-    .filter(Boolean)
-
-  if (preferred.length === 2) return preferred
-
-  // Fallback (only if one of the preferred daters is missing): stable-ish random fill.
-  const usedIds = new Set(preferred.map((dater) => String(dater.id)))
-  const remaining = pool.filter((dater) => !usedIds.has(String(dater.id)))
+  const remaining = [...pool]
   const offset = Math.abs(Number(nonce) || 0)
   for (let i = remaining.length - 1; i > 0; i -= 1) {
     const j = (Math.floor(Math.random() * (i + 1)) + offset) % (i + 1)
@@ -67,7 +71,58 @@ function pickTwoDaters(daters = [], nonce = 0) {
     remaining[i] = remaining[j]
     remaining[j] = temp
   }
-  return [...preferred, ...remaining].slice(0, 2)
+  return remaining.slice(0, 2)
+}
+
+function adaptRosesProfileToSpeedDateDater(profile) {
+  const profileId = String(profile?.playerId || '').trim()
+  const fields = profile?.fields || {}
+  const name = normalizePoolText(fields?.name)
+  if (!profileId || !name) return null
+
+  const occupation = clipPoolText(fields?.occupation || '', 80)
+  const bio = clipPoolText(fields?.bio || '', 420)
+  const introTagline = clipPoolText(fields?.introTagline || '', 140)
+  const pronouns = normalizePoolText(fields?.pronouns || '')
+  const age = Number.parseInt(String(fields?.age ?? ''), 10)
+  const description = clipPoolText([
+    occupation ? `${name} is ${occupation}.` : '',
+    bio,
+  ].filter(Boolean).join(' '), 620)
+  const values = clipPoolText([
+    occupation ? `Occupation: ${occupation}.` : '',
+    introTagline ? `Intro: ${introTagline}.` : '',
+    bio ? `Bio: ${bio}` : '',
+  ].filter(Boolean).join(' '), 620)
+
+  return {
+    id: `roses:${profileId}`,
+    sourceType: 'roses',
+    sourceProfileId: profileId,
+    name,
+    age: Number.isFinite(age) ? age : undefined,
+    pronouns,
+    archetype: occupation || 'Roses Wildcard',
+    tagline: introTagline || `${name} is making an entrance.`,
+    description: description || introTagline || `${name} has a mysterious Roses profile.`,
+    values: values || description || introTagline,
+  }
+}
+
+function mergeSpeedDateDaters(baseDaters = [], rosesDaters = []) {
+  const merged = []
+  const seenIds = new Set()
+
+  ;[...(Array.isArray(baseDaters) ? baseDaters : []), ...(Array.isArray(rosesDaters) ? rosesDaters : [])]
+    .filter(Boolean)
+    .forEach((dater) => {
+      const id = String(dater?.id || '').trim()
+      if (!id || seenIds.has(id)) return
+      seenIds.add(id)
+      merged.push(dater)
+    })
+
+  return merged
 }
 
 function buildSpeedSequence(selectedDaters = []) {
@@ -180,7 +235,10 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   }, [])
 
   const [runNonce, setRunNonce] = useState(0)
-  const selectedDaters = useMemo(() => pickTwoDaters(daters, runNonce), [daters, runNonce])
+  const [rosesDaters, setRosesDaters] = useState([])
+  const [isLoadingPool, setIsLoadingPool] = useState(true)
+  const availableDaters = useMemo(() => mergeSpeedDateDaters(daters, rosesDaters), [daters, rosesDaters])
+  const [selectedDaters, setSelectedDaters] = useState(() => pickTwoDaters(daters, 0))
   const sequence = useMemo(() => buildSpeedSequence(selectedDaters), [selectedDaters])
 
   const [stage, setStage] = useState('intro') // intro | run | pick | results
@@ -215,6 +273,45 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     runId: 0,
     deferredByKey: new Map(),
   })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadRosesPool = async () => {
+      setIsLoadingPool(true)
+      try {
+        const response = await fetchRosesSpeedDatePool({
+          excludePlayerId: getStoredRosesPlayerId(),
+          limit: ROSES_SPEED_DATE_POOL_LIMIT,
+        })
+        if (cancelled) return
+        const adapted = (Array.isArray(response?.profiles) ? response.profiles : [])
+          .map((profile) => adaptRosesProfileToSpeedDateDater(profile))
+          .filter(Boolean)
+        setRosesDaters(adapted)
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('SpeedDate could not load Roses profile pool; using built-in daters only.', error)
+          setRosesDaters([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingPool(false)
+        }
+      }
+    }
+
+    loadRosesPool()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (stage !== 'intro') return
+    setSelectedDaters(pickTwoDaters(availableDaters, runNonce))
+  }, [availableDaters, runNonce, stage])
 
   useEffect(() => {
     exchangeLogRef.current = exchangeLog
@@ -815,8 +912,8 @@ export default function SpeedDateMode({ daters = [], onBack }) {
           <p className="speed-date-rule">
             Exchange one-liners and judge each other!
           </p>
-          <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking}>
-            {isWorking ? 'Generating One-Liners...' : 'Start Speed Round'}
+          <button type="button" className="speed-date-primary-btn" onClick={handleStart} disabled={isWorking || isLoadingPool}>
+            {isLoadingPool ? 'Loading Dater Pool...' : isWorking ? 'Generating One-Liners...' : 'Start Speed Round'}
           </button>
           {errorText && <p className="speed-date-error">{errorText}</p>}
           {debugText && <p className="speed-date-error">{debugText}</p>}
