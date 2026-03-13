@@ -469,23 +469,60 @@
 }
 
 .speed-date-results {
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.45);
-  padding: 12px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 216, 228, 0.28);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 214, 168, 0.2), transparent 38%),
+    radial-gradient(circle at 12% 18%, rgba(255, 116, 164, 0.2), transparent 34%),
+    radial-gradient(circle at 88% 16%, rgba(145, 200, 255, 0.18), transparent 32%),
+    linear-gradient(180deg, rgba(18, 9, 20, 0.96), rgba(28, 14, 26, 0.98));
+  padding: 16px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 22px 44px rgba(0, 0, 0, 0.28);
+}
+
+.speed-date-results::before,
+.speed-date-results::after {
+  content: '';
+  position: absolute;
+  inset: auto;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.speed-date-results::before {
+  width: 240px;
+  height: 240px;
+  top: -120px;
+  right: -70px;
+  background: radial-gradient(circle, rgba(255, 184, 120, 0.28), transparent 68%);
+}
+
+.speed-date-results::after {
+  width: 220px;
+  height: 220px;
+  bottom: -120px;
+  left: -90px;
+  background: radial-gradient(circle, rgba(255, 128, 170, 0.2), transparent 70%);
 }
 
 .speed-date-outcome-title,
 .speed-date-score-total {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 2rem;
-  letter-spacing: 0.05em;
-  color: #ffcfda;
+  font-size: clamp(2.3rem, 7.5vw, 3.6rem);
+  letter-spacing: 0.06em;
+  color: #ffe8be;
   text-align: center;
   line-height: 1;
+  text-shadow:
+    0 0 18px rgba(255, 209, 140, 0.28),
+    0 8px 18px rgba(0, 0, 0, 0.24);
 }
 
 .speed-date-outcome-summary,
@@ -493,33 +530,216 @@
 .speed-date-player-pick {
   margin: 0;
   text-align: center;
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.84rem;
+  color: rgba(255, 243, 235, 0.86);
   line-height: 1.35;
 }
 
-.speed-date-results-list {
+.speed-date-player-pick {
+  position: relative;
+  z-index: 1;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 229, 238, 0.72);
+}
+
+.speed-date-player-pick strong {
+  color: #fff1d5;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.06em;
+  font-size: 1.2rem;
+}
+
+.speed-date-reveal-stage {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  perspective: 1200px;
+}
+
+.speed-date-reveal-suspense,
+.speed-date-reveal-card,
+.speed-date-reveal-fanfare,
+.speed-date-outcome-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.speed-date-reveal-suspense {
+  padding: 18px 16px;
+  border: 1px solid rgba(255, 231, 195, 0.3);
+  background:
+    linear-gradient(180deg, rgba(40, 18, 25, 0.94), rgba(22, 10, 20, 0.98));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 30px rgba(0, 0, 0, 0.26);
+}
+
+.speed-date-reveal-suspense::after,
+.speed-date-reveal-card::after,
+.speed-date-reveal-fanfare::after,
+.speed-date-outcome-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 20%, rgba(255, 255, 255, 0.12) 48%, transparent 72%);
+  transform: translateX(-120%);
+  animation: speed-date-sheen 1.2s ease-out forwards;
+}
+
+.speed-date-reveal-suspense strong,
+.speed-date-reveal-fanfare strong {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.55rem, 5vw, 2.1rem);
+  letter-spacing: 0.05em;
+  line-height: 0.95;
+  color: #fff1d7;
+}
+
+.speed-date-reveal-suspense p,
+.speed-date-reveal-fanfare p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.38;
+  color: rgba(255, 235, 226, 0.78);
+}
+
+.speed-date-reveal-kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 228, 174, 0.72);
+}
+
+.speed-date-reveal-card {
+  padding: 18px 16px;
+  display: grid;
   gap: 6px;
+  justify-items: center;
+  text-align: center;
+  transform-origin: center top;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 34px rgba(0, 0, 0, 0.28);
+}
+
+.speed-date-reveal-card.rival {
+  border: 1px solid rgba(210, 222, 255, 0.34);
+  background:
+    radial-gradient(circle at 50% -20%, rgba(189, 205, 255, 0.22), transparent 40%),
+    linear-gradient(180deg, rgba(29, 31, 50, 0.94), rgba(18, 18, 34, 0.98));
+}
+
+.speed-date-reveal-card.target {
+  border: 1px solid rgba(255, 224, 167, 0.46);
+  background:
+    radial-gradient(circle at 50% -10%, rgba(255, 206, 121, 0.34), transparent 42%),
+    radial-gradient(circle at 50% 120%, rgba(255, 104, 146, 0.22), transparent 44%),
+    linear-gradient(180deg, rgba(73, 24, 32, 0.94), rgba(35, 12, 22, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 249, 227, 0.12),
+    0 0 0 1px rgba(255, 190, 104, 0.16),
+    0 22px 40px rgba(0, 0, 0, 0.34),
+    0 0 34px rgba(255, 152, 102, 0.22);
+}
+
+.speed-date-reveal-chooser,
+.speed-date-reveal-picked {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.06em;
+  line-height: 0.94;
+}
+
+.speed-date-reveal-chooser {
+  font-size: clamp(1.7rem, 5.6vw, 2.6rem);
+  color: #fff5e5;
+}
+
+.speed-date-reveal-picked {
+  font-size: clamp(2.05rem, 6.5vw, 3.05rem);
+  color: #fff6cf;
+  text-shadow: 0 0 20px rgba(255, 213, 153, 0.26);
+}
+
+.speed-date-reveal-arrow {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: rgba(255, 233, 205, 0.72);
+}
+
+.speed-date-reveal-climax {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.speed-date-reveal-fanfare {
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 219, 171, 0.3);
+  background:
+    linear-gradient(135deg, rgba(56, 20, 25, 0.94), rgba(93, 30, 34, 0.9) 48%, rgba(40, 13, 23, 0.96));
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 219, 0.08),
+    0 14px 28px rgba(0, 0, 0, 0.24);
+}
+
+.speed-date-outcome-wrap {
+  padding: 18px 16px 16px;
+  border: 1px solid rgba(255, 225, 170, 0.42);
+  background:
+    radial-gradient(circle at 50% -30%, rgba(255, 217, 129, 0.42), transparent 45%),
+    linear-gradient(180deg, rgba(92, 30, 32, 0.98), rgba(49, 17, 25, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 218, 0.12),
+    0 18px 34px rgba(0, 0, 0, 0.28),
+    0 0 44px rgba(255, 170, 113, 0.18);
+}
+
+.speed-date-results-list {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .speed-date-result-row {
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 235, 224, 0.14);
+  background: rgba(255, 248, 243, 0.06);
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.78rem;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: rgba(255, 240, 233, 0.78);
+}
+
+.speed-date-result-row strong {
+  color: #fff2d8;
+  font-family: 'Bricolage Grotesque', sans-serif;
 }
 
 .speed-date-result-row em {
   font-style: normal;
-  color: #8dff98;
+  color: #b0ffb7;
   font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .speed-date-error {
@@ -564,5 +784,42 @@
 
   .speed-date-dater-card {
     min-height: 0;
+  }
+
+  .speed-date-results {
+    padding: 14px 12px 12px;
+  }
+
+  .speed-date-reveal-card,
+  .speed-date-reveal-suspense,
+  .speed-date-reveal-fanfare,
+  .speed-date-outcome-wrap {
+    border-radius: 16px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .speed-date-result-row {
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speed-date-reveal-suspense::after,
+  .speed-date-reveal-card::after,
+  .speed-date-reveal-fanfare::after,
+  .speed-date-outcome-wrap::after {
+    animation: none;
+    display: none;
+  }
+}
+
+@keyframes speed-date-sheen {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(120%);
   }
 }

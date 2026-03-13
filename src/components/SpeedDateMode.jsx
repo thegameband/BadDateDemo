@@ -18,6 +18,8 @@ const PLAYER_NAME = 'You'
 const PLAYER_INPUT_MAX = 90
 const TTS_MIN_TIMEOUT_MS = 4500
 const TTS_MAX_TIMEOUT_MS = 15000
+const RIVAL_REVEAL_DELAY_MS = 2200
+const FINAL_REVEAL_DELAY_MS = 5200
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -182,6 +184,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   const [playerChoiceId, setPlayerChoiceId] = useState('')
   const [pickDecisions, setPickDecisions] = useState([])
   const [finalOutcome, setFinalOutcome] = useState(null)
+  const [resultRevealPhase, setResultRevealPhase] = useState('hidden')
   const [errorText, setErrorText] = useState('')
   const [debugText, setDebugText] = useState('')
   const [debugDump, setDebugDump] = useState('')
@@ -273,6 +276,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setPlayerChoiceId('')
     setPickDecisions([])
     setFinalOutcome(null)
+    setResultRevealPhase('hidden')
     setErrorText('')
     setDebugText('')
     setDebugDump('')
@@ -455,6 +459,31 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setStatusText('Pick one. Then everyone reveals.')
   }, [stage, stepIndex, sequence.length])
 
+  useEffect(() => {
+    if (stage !== 'results' || !finalOutcome) {
+      setResultRevealPhase('hidden')
+      return undefined
+    }
+
+    setResultRevealPhase('opening')
+    setStatusText(`${finalOutcome.rivalDater?.name || 'The rival'} reveals first...`)
+
+    const rivalTimer = window.setTimeout(() => {
+      setResultRevealPhase('rival')
+      setStatusText(`${finalOutcome.playerTarget?.name || 'Your pick'} is holding the whole room.`)
+    }, RIVAL_REVEAL_DELAY_MS)
+
+    const finalTimer = window.setTimeout(() => {
+      setResultRevealPhase('final')
+      setStatusText(finalOutcome.title || 'The trap closes.')
+    }, FINAL_REVEAL_DELAY_MS)
+
+    return () => {
+      window.clearTimeout(rivalTimer)
+      window.clearTimeout(finalTimer)
+    }
+  }, [finalOutcome, stage])
+
   useEffect(() => () => {
     stopAllAudio()
     invalidatePrefetch()
@@ -571,6 +600,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
       setPlayerChoiceId('')
       setPickDecisions([])
       setFinalOutcome(null)
+      setResultRevealPhase('hidden')
     } catch (error) {
       const llmError = getLlmErrorMessage()
       const llmDebug = getLlmDebugSnapshot()
@@ -715,14 +745,23 @@ export default function SpeedDateMode({ daters = [], onBack }) {
           .map((dater) => decisions.find((decision) => String(decision.chooserId) === String(dater.id)))
           .filter(Boolean),
       ])
-      setFinalOutcome(buildSpeedDateOutcome({
+      const outcome = buildSpeedDateOutcome({
         playerTarget,
         rivalDater,
         targetDecision,
         rivalDecision,
-      }))
+      })
+      setFinalOutcome({
+        ...outcome,
+        playerTarget,
+        rivalDater,
+        playerDecision,
+        targetDecision,
+        rivalDecision,
+      })
+      setResultRevealPhase('hidden')
       setStage('results')
-      setStatusText('Sealed choices revealed.')
+      setStatusText('The room goes still.')
     } catch (error) {
       console.error('SpeedDate lock-in error:', error)
       setErrorText('Could not resolve picks. Please replay this run.')
@@ -732,6 +771,8 @@ export default function SpeedDateMode({ daters = [], onBack }) {
   }, [incomingByDater, isWorking, playerChoiceId, selectedDaters])
 
   const playerChosenName = senderLookup.get(String(playerChoiceId)) || 'No one selected'
+  const revealRivalDecision = finalOutcome?.rivalDecision || null
+  const revealTargetDecision = finalOutcome?.targetDecision || null
 
   if (selectedDaters.length < 2) {
     return (
@@ -924,24 +965,99 @@ export default function SpeedDateMode({ daters = [], onBack }) {
 
           {stage === 'results' && finalOutcome && (
             <div className="speed-date-results">
-              <div className="speed-date-outcome-title">{finalOutcome.title}</div>
-              <p className="speed-date-outcome-summary">{finalOutcome.description}</p>
               <p className="speed-date-player-pick">You picked: <strong>{playerChosenName}</strong></p>
-              <div className="speed-date-results-list">
-                {pickDecisions.map((decision) => {
-                  const pickedYou = String(decision.pickedId) === PLAYER_ID
-                  return (
-                    <div key={decision.chooserId} className="speed-date-result-row">
-                      <span>{decision.chooserName} picked</span>
-                      <strong>{decision.pickedName}</strong>
-                      {pickedYou && <em>picked you</em>}
+              <div className="speed-date-reveal-stage">
+                <AnimatePresence mode="wait">
+                  {resultRevealPhase === 'opening' && (
+                    <motion.div
+                      key="opening"
+                      className="speed-date-reveal-suspense"
+                      initial={{ opacity: 0, scale: 0.94, y: 18 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 1.02, y: -16 }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                    >
+                      <span className="speed-date-reveal-kicker">First Reveal</span>
+                      <strong>{finalOutcome.rivalDater?.name || 'The rival'} gets exposed first.</strong>
+                      <p>The unpicked dater flips their sealed choice while your real gamble hangs in the air.</p>
+                    </motion.div>
+                  )}
+
+                  {(resultRevealPhase === 'rival' || resultRevealPhase === 'final') && revealRivalDecision && (
+                    <motion.div
+                      key="rival-reveal"
+                      className="speed-date-reveal-card rival"
+                      initial={{ opacity: 0, scale: 0.86, rotateX: -14, y: 26 }}
+                      animate={{ opacity: 1, scale: 1, rotateX: 0, y: 0 }}
+                      transition={{ duration: 0.62, ease: 'easeOut' }}
+                    >
+                      <span className="speed-date-reveal-kicker">Unpicked Dater</span>
+                      <div className="speed-date-reveal-chooser">{finalOutcome.rivalDater?.name || revealRivalDecision.chooserName}</div>
+                      <div className="speed-date-reveal-arrow">→</div>
+                      <div className="speed-date-reveal-picked">{revealRivalDecision.pickedName}</div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {resultRevealPhase === 'final' && revealTargetDecision && (
+                  <motion.div
+                    key="final-reveal"
+                    className="speed-date-reveal-climax"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.28, ease: 'easeOut' }}
+                  >
+                    <motion.div
+                      className="speed-date-reveal-fanfare"
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.42, ease: 'easeOut' }}
+                    >
+                      <span className="speed-date-reveal-kicker">Final Reveal</span>
+                      <strong>{finalOutcome.playerTarget?.name || 'Your pick'} decides the whole round.</strong>
+                    </motion.div>
+
+                    <motion.div
+                      className="speed-date-reveal-card target"
+                      initial={{ opacity: 0, scale: 0.88, y: 32 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ duration: 0.62, delay: 0.08, ease: 'easeOut' }}
+                    >
+                      <span className="speed-date-reveal-kicker">Chosen Dater</span>
+                      <div className="speed-date-reveal-chooser">{finalOutcome.playerTarget?.name || revealTargetDecision.chooserName}</div>
+                      <div className="speed-date-reveal-arrow">→</div>
+                      <div className="speed-date-reveal-picked">{revealTargetDecision.pickedName}</div>
+                    </motion.div>
+
+                    <motion.div
+                      className="speed-date-outcome-wrap"
+                      initial={{ opacity: 0, scale: 0.8, y: 28 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ duration: 0.78, delay: 0.34, ease: 'easeOut' }}
+                    >
+                      <div className="speed-date-outcome-title">{finalOutcome.title}</div>
+                      <p className="speed-date-outcome-summary">{finalOutcome.description}</p>
+                    </motion.div>
+
+                    <div className="speed-date-results-list">
+                      {pickDecisions.map((decision) => {
+                        const pickedYou = String(decision.pickedId) === PLAYER_ID
+                        return (
+                          <div key={decision.chooserId} className="speed-date-result-row">
+                            <span>{decision.chooserName} picked</span>
+                            <strong>{decision.pickedName}</strong>
+                            {pickedYou && <em>picked you</em>}
+                          </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
+
+                    <button type="button" className="speed-date-primary-btn" onClick={handleReplay}>
+                      Replay
+                    </button>
+                  </motion.div>
+                )}
               </div>
-              <button type="button" className="speed-date-primary-btn" onClick={handleReplay}>
-                Replay
-              </button>
             </div>
           )}
 
