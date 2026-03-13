@@ -20,8 +20,7 @@ const PLAYER_NAME = 'You'
 const PLAYER_INPUT_MAX = 90
 const TTS_MIN_TIMEOUT_MS = 4500
 const TTS_MAX_TIMEOUT_MS = 15000
-const RIVAL_REVEAL_DELAY_MS = 2200
-const FINAL_REVEAL_DELAY_MS = 5200
+const FINAL_REVEAL_DELAY_MS = 2800
 const ROSES_SPEED_DATE_POOL_LIMIT = 200
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -274,6 +273,11 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     runId: 0,
     deferredByKey: new Map(),
   })
+  const pickResolutionRef = useRef({
+    key: '',
+    promise: null,
+    decisions: null,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -372,6 +376,14 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     })
   }, [])
 
+  const clearPickResolution = useCallback(() => {
+    pickResolutionRef.current = {
+      key: '',
+      promise: null,
+      decisions: null,
+    }
+  }, [])
+
   const resetRunState = useCallback(() => {
     setStage('intro')
     setStepIndex(0)
@@ -387,7 +399,8 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setErrorText('')
     setDebugText('')
     setDebugDump('')
-  }, [])
+    clearPickResolution()
+  }, [clearPickResolution])
 
   const withTimeout = useCallback((promise, ms) => (
     Promise.race([
@@ -572,13 +585,8 @@ export default function SpeedDateMode({ daters = [], onBack }) {
       return undefined
     }
 
-    setResultRevealPhase('opening')
+    setResultRevealPhase('rival')
     setStatusText(`${finalOutcome.rivalDater?.name || 'The rival'} reveals first...`)
-
-    const rivalTimer = window.setTimeout(() => {
-      setResultRevealPhase('rival')
-      setStatusText(`${finalOutcome.playerTarget?.name || 'Your pick'} is holding the whole room.`)
-    }, RIVAL_REVEAL_DELAY_MS)
 
     const finalTimer = window.setTimeout(() => {
       setResultRevealPhase('final')
@@ -586,7 +594,6 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     }, FINAL_REVEAL_DELAY_MS)
 
     return () => {
-      window.clearTimeout(rivalTimer)
       window.clearTimeout(finalTimer)
     }
   }, [finalOutcome, stage])
@@ -806,6 +813,81 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     return map
   }, [exchangeLog, selectedDaters])
 
+  const canResolveDaterPicks = useMemo(() => (
+    selectedDaters.length >= 2
+    && selectedDaters.every((dater) => (incomingByDater.get(String(dater.id))?.size || 0) >= 2)
+  ), [incomingByDater, selectedDaters])
+
+  const pickResolutionKey = useMemo(() => {
+    if (!canResolveDaterPicks) return ''
+    return selectedDaters
+      .map((dater) => {
+        const incoming = [...(incomingByDater.get(String(dater.id))?.values() || [])]
+          .sort((left, right) => String(left.senderId || '').localeCompare(String(right.senderId || '')))
+          .map((entry) => `${entry.senderId}:${entry.line}`)
+          .join('|')
+        return `${dater.id}:${incoming}`
+      })
+      .join('||')
+  }, [canResolveDaterPicks, incomingByDater, selectedDaters])
+
+  const resolveDaterPickDecisions = useCallback(() => {
+    if (!canResolveDaterPicks || !pickResolutionKey) {
+      return Promise.reject(new Error('Dater picks are not ready yet.'))
+    }
+
+    const cached = pickResolutionRef.current
+    if (cached.key === pickResolutionKey) {
+      if (cached.decisions) return Promise.resolve(cached.decisions)
+      if (cached.promise) return cached.promise
+    }
+
+    const decisionPromise = Promise.all(selectedDaters.map(async (dater) => {
+      const incoming = [...(incomingByDater.get(String(dater.id))?.values() || [])]
+      const decision = await decideSpeedDatingPick({
+        chooser: dater,
+        incomingLines: incoming,
+      })
+      if (!decision) {
+        throw new Error(`No valid pick output for ${dater.name}`)
+      }
+      return decision
+    }))
+
+    pickResolutionRef.current = {
+      key: pickResolutionKey,
+      promise: decisionPromise,
+      decisions: null,
+    }
+
+    decisionPromise
+      .then((decisions) => {
+        if (pickResolutionRef.current.key !== pickResolutionKey) return
+        pickResolutionRef.current = {
+          key: pickResolutionKey,
+          promise: null,
+          decisions,
+        }
+      })
+      .catch(() => {
+        if (pickResolutionRef.current.key !== pickResolutionKey) return
+        pickResolutionRef.current = {
+          key: pickResolutionKey,
+          promise: null,
+          decisions: null,
+        }
+      })
+
+    return decisionPromise
+  }, [canResolveDaterPicks, incomingByDater, pickResolutionKey, selectedDaters])
+
+  useEffect(() => {
+    if ((stage !== 'run' && stage !== 'pick') || !canResolveDaterPicks || !pickResolutionKey) return
+    void resolveDaterPickDecisions().catch((error) => {
+      console.warn('SpeedDate background pick resolution failed:', error)
+    })
+  }, [canResolveDaterPicks, pickResolutionKey, resolveDaterPickDecisions, stage])
+
   const handleLockInPicks = useCallback(async () => {
     if (!playerChoiceId || isWorking) return
     setIsWorking(true)
@@ -813,21 +895,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     setStatusText('Everyone is locking a sealed choice...')
 
     try {
-      const decisions = []
-      for (const dater of selectedDaters) {
-        const incoming = [...(incomingByDater.get(String(dater.id))?.values() || [])]
-        if (incoming.length < 2) {
-          throw new Error(`Missing locked-choice inputs for ${dater.name}`)
-        }
-        const decision = await decideSpeedDatingPick({
-          chooser: dater,
-          incomingLines: incoming,
-        })
-        if (!decision) {
-          throw new Error(`No valid pick output for ${dater.name}`)
-        }
-        decisions.push(decision)
-      }
+      const decisions = await resolveDaterPickDecisions()
 
       const playerTarget = selectedDaters.find((dater) => String(dater.id) === String(playerChoiceId)) || null
       const rivalDater = selectedDaters.find((dater) => String(dater.id) !== String(playerChoiceId)) || null
@@ -876,7 +944,7 @@ export default function SpeedDateMode({ daters = [], onBack }) {
     } finally {
       setIsWorking(false)
     }
-  }, [incomingByDater, isWorking, playerChoiceId, selectedDaters])
+  }, [isWorking, playerChoiceId, resolveDaterPickDecisions, selectedDaters])
 
   const playerChosenName = senderLookup.get(String(playerChoiceId)) || 'No one selected'
   const revealRivalDecision = finalOutcome?.rivalDecision || null
@@ -1123,37 +1191,20 @@ export default function SpeedDateMode({ daters = [], onBack }) {
             <div className="speed-date-results">
               <p className="speed-date-player-pick">You picked: <strong>{playerChosenName}</strong></p>
               <div className="speed-date-reveal-stage">
-                <AnimatePresence mode="wait">
-                  {resultRevealPhase === 'opening' && (
-                    <motion.div
-                      key="opening"
-                      className="speed-date-reveal-suspense"
-                      initial={{ opacity: 0, scale: 0.94, y: 18 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 1.02, y: -16 }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                    >
-                      <span className="speed-date-reveal-kicker">First Reveal</span>
-                      <strong>{finalOutcome.rivalDater?.name || 'The rival'} gets exposed first.</strong>
-                      <p>The unpicked dater flips their sealed choice while your real gamble hangs in the air.</p>
-                    </motion.div>
-                  )}
-
-                  {(resultRevealPhase === 'rival' || resultRevealPhase === 'final') && revealRivalDecision && (
-                    <motion.div
-                      key="rival-reveal"
-                      className="speed-date-reveal-card rival"
-                      initial={{ opacity: 0, scale: 0.86, rotateX: -14, y: 26 }}
-                      animate={{ opacity: 1, scale: 1, rotateX: 0, y: 0 }}
-                      transition={{ duration: 0.62, ease: 'easeOut' }}
-                    >
-                      <span className="speed-date-reveal-kicker">Unpicked Dater</span>
-                      <div className="speed-date-reveal-chooser">{finalOutcome.rivalDater?.name || revealRivalDecision.chooserName}</div>
-                      <div className="speed-date-reveal-arrow">→</div>
-                      <div className="speed-date-reveal-picked">{revealRivalDecision.pickedName}</div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {(resultRevealPhase === 'rival' || resultRevealPhase === 'final') && revealRivalDecision && (
+                  <motion.div
+                    key="rival-reveal"
+                    className="speed-date-reveal-card rival"
+                    initial={{ opacity: 0, scale: 0.86, rotateX: -14, y: 26 }}
+                    animate={{ opacity: 1, scale: 1, rotateX: 0, y: 0 }}
+                    transition={{ duration: 0.62, ease: 'easeOut' }}
+                  >
+                    <span className="speed-date-reveal-kicker">Unpicked Dater</span>
+                    <div className="speed-date-reveal-chooser">{finalOutcome.rivalDater?.name || revealRivalDecision.chooserName}</div>
+                    <div className="speed-date-reveal-arrow">→</div>
+                    <div className="speed-date-reveal-picked">{revealRivalDecision.pickedName}</div>
+                  </motion.div>
+                )}
 
                 {resultRevealPhase === 'final' && revealTargetDecision && (
                   <motion.div
