@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line n
 import { useGameStore, SCORING_MODES } from '../store/gameStore'
 import { getDaterDateResponse, getDaterQuickAnswer, getDaterResponseToPlayerAnswer, generateDaterValues, groupSimilarAnswers, generatePlotTwistSummary, getLlmErrorMessage, getLlmDebugSnapshot, decideLikesDislikesFromAnswer, evaluateLikesDislikesResponse, evaluateBingoBlindLockoutResponse, evaluateBingoActionsResponse, generateFinalDateDecision, paraphraseForDisplay } from '../services/llmService'
 import { speak, stopAllAudio, waitForAllAudio, onTTSStatus, setVoice } from '../services/ttsService'
+import { playSfxCue, setMusicMode } from '../services/audioService'
 import { getDaterPortrait, preloadDaterImages } from '../services/expressionService'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import AnimatedText, { EMOTION_SPEEDS } from './AnimatedText'
@@ -87,6 +88,13 @@ function LiveDateScene() {
   const suggestedAttributes = useGameStore((state) => state.suggestedAttributes)
   const numberedAttributes = useGameStore((state) => state.numberedAttributes)
   const playerChat = useGameStore((state) => state.playerChat)
+
+  useEffect(() => {
+    void setMusicMode('badDate')
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
   const username = useGameStore((state) => state.username)
   const dateConversation = useGameStore((state) => state.dateConversation)
   const latestAttribute = useGameStore((state) => state.latestAttribute)
@@ -171,6 +179,12 @@ function LiveDateScene() {
   }
   
   const [scoringSummary, setScoringSummary] = useState(() => getScoringSummary())
+  const [meterPulse, setMeterPulse] = useState({ compatibility: null, ratings: null })
+  const meterPulseTimeoutsRef = useRef({ compatibility: null, ratings: null })
+  const prevMeterScoresRef = useRef({
+    compatibility: clampMeterValue(getScoringSummary()?.compatibilityScore ?? 0),
+    ratings: clampMeterValue(getScoringSummary()?.ratingsScore ?? 0),
+  })
   
   // Reaction feedback - reserved for legacy/system notices
   const [reactionFeedback, setReactionFeedback] = useState(null)
@@ -221,6 +235,7 @@ function LiveDateScene() {
   const daterQuickAnswerRef = useRef('')
   const lastQuickAnswerQuestionRef = useRef('')
   const lastRoundDaterBubbleAtRef = useRef(0)
+  const finalResultSfxPlayedRef = useRef(false)
   
   // Starting Stats Mode state
   const [startingStatsInput, setStartingStatsInput] = useState('')
@@ -297,22 +312,29 @@ function LiveDateScene() {
     }
   }
   
-  // Show reaction feedback temporarily (auto-clears after 6 seconds)
-  const REACTION_FEEDBACK_DURATION_MS = 6000
-  const showRealtimeFeedback = (text, category = 'answer-reveal') => {
-    if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
-    const payload = { text, category }
-    setReactionFeedback(payload)
-    if (partyClient && isHost) {
-      partyClient.syncState({ reactionFeedback: payload })
-    }
+  // Legacy no-op: score feedback is now conveyed by animated meter pulses.
+  const showRealtimeFeedback = () => {}
 
-    reactionFeedbackTimeout.current = setTimeout(() => {
-      setReactionFeedback(null)
-      if (partyClient && isHost) {
-        partyClient.syncState({ reactionFeedback: null })
-      }
-    }, REACTION_FEEDBACK_DURATION_MS)
+  const triggerMeterPulse = (meterType, direction) => {
+    if (!meterType || !direction) return
+    const currentTimeout = meterPulseTimeoutsRef.current[meterType]
+    if (currentTimeout) clearTimeout(currentTimeout)
+    setMeterPulse((prev) => ({ ...prev, [meterType]: direction }))
+    if (meterType === 'compatibility') {
+      void playSfxCue(direction === 'up' ? 'compatibilityPositive' : 'compatibilityNegative')
+    } else if (meterType === 'ratings') {
+      void playSfxCue(direction === 'up' ? 'ratingsPositive' : 'ratingsNegative')
+    }
+    meterPulseTimeoutsRef.current[meterType] = setTimeout(() => {
+      setMeterPulse((prev) => ({ ...prev, [meterType]: null }))
+      meterPulseTimeoutsRef.current[meterType] = null
+    }, 650)
+  }
+
+  const getMeterPulseClass = (meterType) => {
+    const direction = meterPulse[meterType]
+    if (!direction) return ''
+    return `is-pulsing pulse-${direction}`
   }
 
   const toTitleCase = (text = '') => String(text).replace(/\b\w/g, (c) => c.toUpperCase())
@@ -1030,9 +1052,49 @@ function LiveDateScene() {
     setScoringSummary(useGameStore.getState().getScoringSummary())
   }, [scoring])
 
+  useEffect(() => {
+    if (livePhase !== 'ended') {
+      finalResultSfxPlayedRef.current = false
+      return
+    }
+    if (finalResultSfxPlayedRef.current) return
+
+    const summary = scoringSummary || useGameStore.getState().getScoringSummary()
+    if (summary?.mode !== SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS) return
+    const outcomeKey = summary?.dateOutcomeKey
+    if (!outcomeKey) return
+
+    if (outcomeKey === 'perfect-date') {
+      void playSfxCue('resultGood')
+    } else if (outcomeKey === 'total-failure') {
+      void playSfxCue('resultBad')
+    } else {
+      void playSfxCue('resultAverage')
+    }
+    finalResultSfxPlayedRef.current = true
+  }, [livePhase, scoringSummary?.mode, scoringSummary?.dateOutcomeKey])
+
+  useEffect(() => {
+    const nextCompatibility = clampMeterValue(scoringSummary?.compatibilityScore ?? 0)
+    const nextRatings = clampMeterValue(scoringSummary?.ratingsScore ?? 0)
+    const prevCompatibility = prevMeterScoresRef.current.compatibility
+    const prevRatings = prevMeterScoresRef.current.ratings
+
+    if (nextCompatibility !== prevCompatibility) {
+      triggerMeterPulse('compatibility', nextCompatibility > prevCompatibility ? 'up' : 'down')
+    }
+    if (nextRatings !== prevRatings) {
+      triggerMeterPulse('ratings', nextRatings > prevRatings ? 'up' : 'down')
+    }
+
+    prevMeterScoresRef.current = { compatibility: nextCompatibility, ratings: nextRatings }
+  }, [scoringSummary?.compatibilityScore, scoringSummary?.ratingsScore])
+
   useEffect(() => () => {
     if (reactionFeedbackTimeout.current) clearTimeout(reactionFeedbackTimeout.current)
     if (boardPanelFlashTimeout.current) clearTimeout(boardPanelFlashTimeout.current)
+    if (meterPulseTimeoutsRef.current.compatibility) clearTimeout(meterPulseTimeoutsRef.current.compatibility)
+    if (meterPulseTimeoutsRef.current.ratings) clearTimeout(meterPulseTimeoutsRef.current.ratings)
   }, [])
   
   // No phase timer: progression is turn-based (player submits → dater reacts → advance).
@@ -1743,7 +1805,7 @@ RULES:
     switch (tutorialStep) {
       case 1:
         return {
-          title: 'Welcome to Bad Date!',
+          title: 'Welcome to Hard Launch!',
           text: "Your goal is simple: score as high as you can in the mode you selected. Watch live scoring feedback after each dater line.",
           highlight: null
         }
@@ -3949,9 +4011,9 @@ BAD examples (do NOT do this):
       )}
       
       {/* Header Section - Centered layout */}
-      <div className={`live-header ${showTutorial && getTutorialContent().highlight === 'compatibility' ? 'tutorial-highlight' : ''} ${reactionFeedback ? 'showing-feedback' : ''}`}>
+      <div className={`live-header ${showTutorial && getTutorialContent().highlight === 'compatibility' ? 'tutorial-highlight' : ''}`}>
         <AnimatePresence mode="wait" initial={false}>
-          {reactionFeedback ? (
+          {false ? (
             <motion.div
               key="header-feedback"
               className={`header-feedback-banner ${reactionFeedback.category}`}
@@ -3992,9 +4054,9 @@ BAD examples (do NOT do this):
                     <span className="top-meter-label">Compatibility</span>
                     <div className="top-meter-row">
                       <span className="top-meter-icon" role="img" aria-label="low compatibility">💔</span>
-                      <div className="top-meter-track compatibility">
+                      <div className={`top-meter-track compatibility ${getMeterPulseClass('compatibility')}`}>
                         <div
-                          className="top-meter-fill compatibility"
+                          className={`top-meter-fill compatibility ${getMeterPulseClass('compatibility')}`}
                           style={{ width: `${getMeterFillPercent(scoringSummary?.compatibilityScore ?? 0)}%` }}
                         />
                       </div>
@@ -4005,9 +4067,9 @@ BAD examples (do NOT do this):
                     <span className="top-meter-label">Ratings</span>
                     <div className="top-meter-row">
                       <span className="top-meter-icon" role="img" aria-label="boring">💤</span>
-                      <div className="top-meter-track ratings">
+                      <div className={`top-meter-track ratings ${getMeterPulseClass('ratings')}`}>
                         <div
-                          className="top-meter-fill ratings"
+                          className={`top-meter-fill ratings ${getMeterPulseClass('ratings')}`}
                           style={{ width: `${getMeterFillPercent(scoringSummary?.ratingsScore ?? 0)}%` }}
                         />
                       </div>
@@ -4029,9 +4091,9 @@ BAD examples (do NOT do this):
                       >
                         {chip.kind === 'meter' ? (
                           <>
-                            <span className={`chaos-meter-track ${chip.meterType || ''}`}>
+                            <span className={`chaos-meter-track ${chip.meterType || ''} ${getMeterPulseClass(chip.meterType || '')}`}>
                               <span
-                                className={`chaos-meter-fill ${chip.meterType || ''}`}
+                                className={`chaos-meter-fill ${chip.meterType || ''} ${getMeterPulseClass(chip.meterType || '')}`}
                                 style={{ width: `${getMeterFillPercent(chip.meterValue)}%` }}
                               />
                             </span>
@@ -4167,6 +4229,9 @@ BAD examples (do NOT do this):
               transition={{ 
                 duration: 0.8, 
                 ease: [0.22, 1, 0.36, 1] // Custom ease for smooth entrance
+              }}
+              onAnimationStart={() => {
+                void playSfxCue('questionAppears')
               }}
               onAnimationComplete={() => {
                 // Mark animation as complete (timer already started)
@@ -4422,6 +4487,9 @@ BAD examples (do NOT do this):
                   initial={{ scale: 0.9, opacity: 0, y: 10 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: -10 }}
+                  onAnimationStart={() => {
+                    void playSfxCue('answerAppears')
+                  }}
                 >
                   <AnimatedText
                     text={daterBubble}

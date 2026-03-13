@@ -18,6 +18,7 @@ import {
 } from '../services/rosesLlmService'
 import { daters } from '../data/daters'
 import { onAudioStart, primeTTSPlayback, setVoice, speakAndWait, stopAllAudio } from '../services/ttsService'
+import { setMusicMode } from '../services/audioService'
 import { useWebHaptics } from 'web-haptics/react'
 import './RosesMode.css'
 
@@ -466,6 +467,13 @@ function LeaderboardPanel({ title, mode, entries = [], currentPlayerId = '', wee
 }
 
 function RosesMode({ onBack }) {
+  useEffect(() => {
+    void setMusicMode('roses')
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
+
   const { trigger: triggerHaptic } = useWebHaptics()
   const [stage, setStage] = useState('loading')
   const [playerId, setPlayerId] = useState('')

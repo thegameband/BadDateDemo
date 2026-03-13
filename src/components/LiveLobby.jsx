@@ -1,31 +1,77 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion' // eslint-disable-line no-unused-vars -- motion used as JSX
 import { useGameStore, SCORING_MODES, DATER_RESPONSE_MODES } from '../store/gameStore'
 import { PartyGameClient, generateRoomCode, generatePlayerId } from '../services/partyClient'
 import PartySocket from 'partysocket'
-import { setTTSEnabled, isTTSEnabled } from '../services/ttsService'
+import { setTTSEnabled, isTTSEnabled, getVoiceVolume, setVoiceVolume } from '../services/ttsService'
+import { formatDb, getMusicVolume, setMusicMode, setMusicVolume, getSfxVolume, setSfxVolume } from '../services/audioService'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
+import DropALineDied from './DropALineDied'
 import SpeedDateMode from './SpeedDateMode'
 import RosesMode from './RosesMode'
+import AudioManager from './AudioManager'
+import ModeOnboarding from './ModeOnboarding'
 import { useWebHaptics } from 'web-haptics/react'
 import './DropALineReels.css'
 import './DropALineProfile.css'
 import './DropALineScene.css'
 import './LiveLobby.css'
+import './AudioManager.css'
 
 // PartyKit host - update after deployment
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.04.85'
+const GAME_VERSION = '0.05.11'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
+const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
+const BAD_DATE_FTUE_SLIDES = [
+  {
+    title: 'Welcome to Hard Launch',
+    image: '/images/ftue/hard-launch-1.png',
+    text: "You've just been cast on the hottest reality dating show on TV \u2014 Hard Launch. Paired with a random Dater, you'll each be grilled by our host \u2014 and you'll need to bring the heat.",
+  },
+  {
+    title: 'Love Connection',
+    image: '/images/ftue/hard-launch-2.png',
+    text: '5 questions, 1 chance. Spark a real connection with your answers in order to lock down that second date.',
+  },
+  {
+    title: 'Ratings, Ratings, Ratings',
+    image: '/images/ftue/hard-launch-3.png',
+    text: "But remember to be entertaining \u2014 this is television, after all. Connection alone won't cut it. Be bold, be memorable, or the show gets canceled.",
+  },
+  {
+    title: "Go Get 'Em!",
+    image: '/images/ftue/hard-launch-4.png',
+    text: 'Top out both your chemistry and ratings meters to Hard Launch your relationship!',
+  },
+]
+const RIZZ_CRAFT_FTUE_KEY = 'ftue_rizz-craft_seen'
+const RIZZ_CRAFT_FTUE_SLIDES = [
+  {
+    title: 'Welcome to Rizz-craft',
+    image: '/images/ftue/rizz-craft-1.png',
+    text: 'One stranger. One location. One shot at the perfect pickup line.',
+  },
+  {
+    title: 'Do Your Homework',
+    image: '/images/ftue/rizz-craft-2.png',
+    text: "Study your Dater\u2019s profile closely \u2014 their personality, their quirks, their dealbreakers.",
+  },
+  {
+    title: 'One Line to Rule Them All',
+    image: '/images/ftue/rizz-craft-3.png',
+    text: 'You get exactly one pickup line. Make it clever \u2014 or watch it crash and burn in spectacular fashion.',
+  },
+]
 const RANDOM_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Rowan', 'Sage', 'Finley', 'Dakota', 'Reese', 'Emery', 'Charlie', 'Skyler', 'River', 'Blake', 'Drew']
 const getRandomFallbackName = () => RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]
 
-// Main game entry screen - Bad Date
+// Main game entry screen - Hard Launch
 
 function LiveLobby() {
   const { trigger: triggerHaptic } = useWebHaptics()
@@ -56,6 +102,10 @@ function LiveLobby() {
   const [qrRoomCode, setQrRoomCode] = useState(null) // Room code from QR scan
   const [selectedDaterName, setSelectedDaterName] = useState('Adam') // Debug: which dater to use
   const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
+  const [musicVol, setMusicVol] = useState(() => getMusicVolume())
+  const [sfxVol, setSfxVol] = useState(() => getSfxVolume())
+  const [voiceVol, setVoiceVol] = useState(() => getVoiceVolume())
+  const [showAudioManager, setShowAudioManager] = useState(false)
   const [showDaterPicker, setShowDaterPicker] = useState(false)
   const [debugScoringMode, setDebugScoringMode] = useState(SCORING_MODES.LIKES_MINUS_DISLIKES_CHAOS)
   const [dropALineEnabled, setDropALineEnabled] = useState(() => {
@@ -63,11 +113,14 @@ function LiveLobby() {
     if (stored == null) return true
     return stored === 'true'
   })
-  const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene'
+  const [dropALineScreen, setDropALineScreen] = useState('reels') // 'reels' | 'profile' | 'scene' | 'died'
   const [dropALinePayload, setDropALinePayload] = useState(null) // { dater, location }
+  const [forceReelPairing, setForceReelPairing] = useState(null) // { daterName, location } | null
+  const [showFtue, setShowFtue] = useState(null)
   const [runtimeCapabilities, setRuntimeCapabilities] = useState(() => getCachedRuntimeCapabilities())
   const hasOpenAiKey = Boolean(runtimeCapabilities.openai)
   const hasAnthropicKey = Boolean(runtimeCapabilities.anthropic)
+  const prefersReducedMotion = useReducedMotion()
   
   // Registry connection for room discovery
   const registryRef = useRef(null)
@@ -118,6 +171,21 @@ function LiveLobby() {
       mounted = false
     }
   }, [])
+
+  useEffect(() => {
+    let nextMode = null
+    if (view === 'main') nextMode = 'lobby'
+    if (view === 'drop-a-line') nextMode = 'rizzCraft'
+    if (view === 'speed-date') nextMode = 'speedDate'
+    if (view === 'roses') nextMode = 'roses'
+    void setMusicMode(nextMode)
+  }, [view])
+
+  useEffect(() => {
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
   
   // Connect to the registry room for room discovery
   useEffect(() => {
@@ -154,7 +222,7 @@ function LiveLobby() {
   }, [view])
   
   // Single-player: Play → Dater Bio Page → START THE DATE → 3 questions → date
-  const handlePlayNow = () => {
+  const startBadDateSession = () => {
     void triggerHaptic('heavy')
     const playerName = username.trim() || getRandomFallbackName()
     const odId = generatePlayerId()
@@ -172,9 +240,33 @@ function LiveLobby() {
     setPhase('dater-bio')
   }
 
+  const handlePlayNow = () => {
+    if (localStorage.getItem(BAD_DATE_FTUE_KEY) !== 'true') {
+      setShowFtue('bad-date')
+      return
+    }
+    startBadDateSession()
+  }
+
+  const completeBadDateFtue = () => {
+    localStorage.setItem(BAD_DATE_FTUE_KEY, 'true')
+    setShowFtue(null)
+    startBadDateSession()
+  }
+
   const handleSelectMode = (nextView) => {
     void triggerHaptic('heavy')
+    if (nextView === 'drop-a-line' && localStorage.getItem(RIZZ_CRAFT_FTUE_KEY) !== 'true') {
+      setShowFtue('rizz-craft')
+      return
+    }
     setView(nextView)
+  }
+
+  const completeRizzCraftFtue = () => {
+    localStorage.setItem(RIZZ_CRAFT_FTUE_KEY, 'true')
+    setShowFtue(null)
+    setView('drop-a-line')
   }
 
   const handleCreate = async () => {
@@ -342,30 +434,40 @@ function LiveLobby() {
         {/* Floating hearts background */}
         <div className="lobby-background">
           <div className="floating-hearts">
-            {heartConfigs.map((cfg, i) => (
-              <motion.span
-                key={i}
-                className="floating-heart"
-                initial={{
-                  y: '100vh',
-                  x: cfg.x,
-                  opacity: 0,
-                  rotate: cfg.rotateInitial
-                }}
-                animate={{
-                  y: '-20vh',
-                  opacity: [0, 1, 1, 0],
-                  rotate: cfg.rotateAnimate
-                }}
-                transition={{
-                  duration: cfg.duration,
-                  repeat: Infinity,
-                  delay: cfg.delay,
-                  ease: 'linear'
-                }}
-              >
-                {cfg.emoji}
-              </motion.span>
+            {(prefersReducedMotion ? heartConfigs.slice(0, 4) : heartConfigs).map((cfg, i) => (
+              prefersReducedMotion ? (
+                <span
+                  key={i}
+                  className="floating-heart floating-heart-static"
+                  style={{ left: cfg.x, top: `${12 + i * 18}%` }}
+                >
+                  {cfg.emoji}
+                </span>
+              ) : (
+                <motion.span
+                  key={i}
+                  className="floating-heart"
+                  initial={{
+                    y: '100vh',
+                    x: cfg.x,
+                    opacity: 0,
+                    rotate: cfg.rotateInitial
+                  }}
+                  animate={{
+                    y: '-20vh',
+                    opacity: [0, 1, 1, 0],
+                    rotate: cfg.rotateAnimate
+                  }}
+                  transition={{
+                    duration: cfg.duration,
+                    repeat: Infinity,
+                    delay: cfg.delay,
+                    ease: 'linear'
+                  }}
+                >
+                  {cfg.emoji}
+                </motion.span>
+              )
             ))}
           </div>
         </div>
@@ -381,7 +483,7 @@ function LiveLobby() {
             className="title-container"
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            transition={{ delay: 0.2, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
             <h1 className="game-title">
               <span className="title-bad">Bad</span>
@@ -471,56 +573,81 @@ function LiveLobby() {
         {/* Floating hearts background */}
         <div className="lobby-background">
           <div className="floating-hearts">
-            {mainHeartConfigs.map((cfg, i) => (
-              <motion.span
-                key={i}
-                className="floating-heart"
-                initial={{
-                  y: '100vh',
-                  x: cfg.x,
-                  opacity: 0,
-                  rotate: cfg.rotateInitial
-                }}
-                animate={{
-                  y: '-20vh',
-                  opacity: [0, 1, 1, 0],
-                  rotate: cfg.rotateAnimate
-                }}
-                transition={{
-                  duration: cfg.duration,
-                  repeat: Infinity,
-                  delay: cfg.delay,
-                  ease: 'linear'
-                }}
-              >
-                {cfg.emoji}
-              </motion.span>
+            {(prefersReducedMotion ? mainHeartConfigs.slice(0, 5) : mainHeartConfigs).map((cfg, i) => (
+              prefersReducedMotion ? (
+                <span
+                  key={i}
+                  className="floating-heart floating-heart-static"
+                  style={{ left: cfg.x, top: `${10 + i * 14}%` }}
+                >
+                  {cfg.emoji}
+                </span>
+              ) : (
+                <motion.span
+                  key={i}
+                  className="floating-heart"
+                  initial={{
+                    y: '100vh',
+                    x: cfg.x,
+                    opacity: 0,
+                    rotate: cfg.rotateInitial
+                  }}
+                  animate={{
+                    y: '-20vh',
+                    opacity: [0, 1, 1, 0],
+                    rotate: cfg.rotateAnimate
+                  }}
+                  transition={{
+                    duration: cfg.duration,
+                    repeat: Infinity,
+                    delay: cfg.delay,
+                    ease: 'linear'
+                  }}
+                >
+                  {cfg.emoji}
+                </motion.span>
+              )
             ))}
           </div>
         </div>
         
-        <motion.div 
-          className="live-lobby-card main-card"
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.4 }}
-        >
+        {showFtue === 'bad-date' ? (
+          <ModeOnboarding
+            slides={BAD_DATE_FTUE_SLIDES}
+            onComplete={completeBadDateFtue}
+            onSkip={completeBadDateFtue}
+          />
+        ) : showFtue === 'rizz-craft' ? (
+          <ModeOnboarding
+            slides={RIZZ_CRAFT_FTUE_SLIDES}
+            onComplete={completeRizzCraftFtue}
+            onSkip={completeRizzCraftFtue}
+          />
+        ) : (
+          <motion.div
+            className="live-lobby-card main-card"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
           {/* Game Title */}
           <motion.div 
             className="title-container"
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            transition={{ delay: 0.2, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
             <h1 className="game-title">
               <span className="title-bad">Bad</span>
-              <span 
+              <button
+                type="button"
                 className="title-heart clickable-heart"
                 onClick={() => setShowAdminModal(true)}
-                title="Debug Menu"
+                title="Open debug menu"
+                aria-label="Open debug menu"
               >
                 💔
-              </span>
+              </button>
               <span className="title-date">Date</span>
             </h1>
             <p className="game-tagline">Be funny, be charming, be literally anything!</p>
@@ -609,6 +736,62 @@ function LiveLobby() {
                       </AnimatePresence>
                     </div>
                     
+                    {/* Section: Volume */}
+                    <div className="debug-section">
+                      <div className="debug-section-label">Volume</div>
+
+                      <label className="debug-volume-row">
+                        <span>Music</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={musicVol}
+                          onChange={(e) => {
+                            const value = Number.parseFloat(e.target.value)
+                            setMusicVol(value)
+                            setMusicVolume(value)
+                          }}
+                        />
+                        <span>{formatDb(musicVol)}</span>
+                      </label>
+
+                      <label className="debug-volume-row">
+                        <span>SFX</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={sfxVol}
+                          onChange={(e) => {
+                            const value = Number.parseFloat(e.target.value)
+                            setSfxVol(value)
+                            setSfxVolume(value)
+                          }}
+                        />
+                        <span>{formatDb(sfxVol)}</span>
+                      </label>
+
+                      <label className="debug-volume-row">
+                        <span>Voice</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={voiceVol}
+                          onChange={(e) => {
+                            const value = Number.parseFloat(e.target.value)
+                            setVoiceVol(value)
+                            setVoiceVolume(value)
+                          }}
+                        />
+                        <span>{formatDb(voiceVol)}</span>
+                      </label>
+                    </div>
+
                     {/* Section: Voice Over toggle */}
                     <div className="debug-section">
                       <div className="debug-section-label">Audio</div>
@@ -768,7 +951,7 @@ function LiveLobby() {
                           setShowAdminModal(false)
                           setShowDaterPicker(false)
                           useGameStore.setState({ debugSkipToPlotTwist: true })
-                          handlePlayNow()
+                          startBadDateSession()
                         }}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -806,6 +989,26 @@ function LiveLobby() {
               </motion.div>
             )}
           </AnimatePresence>
+          <AudioManager
+            isOpen={showAudioManager}
+            onClose={() => setShowAudioManager(false)}
+            currentMode="lobby"
+            musicVol={musicVol}
+            sfxVol={sfxVol}
+            voiceVol={voiceVol}
+            onMusicVolumeChange={(value) => {
+              setMusicVol(value)
+              setMusicVolume(value)
+            }}
+            onSfxVolumeChange={(value) => {
+              setSfxVol(value)
+              setSfxVolume(value)
+            }}
+            onVoiceVolumeChange={(value) => {
+              setVoiceVol(value)
+              setVoiceVolume(value)
+            }}
+          />
           
           {error && (
             <motion.div 
@@ -827,7 +1030,7 @@ function LiveLobby() {
                 whileTap={{ scale: 0.98 }}
               >
                 <span className="btn-icon">🎮</span>
-                <span className="btn-text">Play Now</span>
+                <span className="btn-text">Hard Launch</span>
               </motion.button>
               {dropALineEnabled && (
                 <motion.button
@@ -873,7 +1076,21 @@ function LiveLobby() {
               <span>~10 min per game</span>
             </div>
           </div>
-        </motion.div>
+          </motion.div>
+        )}
+        {!showFtue && !showAudioManager && (
+          <div className="main-audio-manager-launch">
+            <motion.button
+              className="main-audio-manager-btn"
+              onClick={() => setShowAudioManager(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="btn-icon">🎚️</span>
+              <span className="btn-text">Audio Manager</span>
+            </motion.button>
+          </div>
+        )}
       </div>
     )
   }
@@ -905,6 +1122,7 @@ function LiveLobby() {
     const handleBackToMain = () => {
       setDropALineScreen('reels')
       setDropALinePayload(null)
+      setForceReelPairing(null)
       setView('main')
     }
     if (dropALineScreen === 'profile') {
@@ -915,6 +1133,24 @@ function LiveLobby() {
             payload={dropALinePayload}
             onContinue={() => setDropALineScreen('scene')}
             onBack={() => setDropALineScreen('reels')}
+            onJump={() => setDropALineScreen('died')}
+          />
+        </div>
+      )
+    }
+    if (dropALineScreen === 'died') {
+      return (
+        <div className="phone-frame">
+          <div className="version-number">v{GAME_VERSION}</div>
+          <DropALineDied
+            onTryAgain={() => {
+              const daterName = dropALinePayload?.dater?.name
+              const location = dropALinePayload?.location
+              if (daterName && location) {
+                setForceReelPairing({ daterName, location })
+              }
+              setDropALineScreen('reels')
+            }}
           />
         </div>
       )
@@ -923,6 +1159,7 @@ function LiveLobby() {
       const handleReplay = () => {
         setDropALineScreen('reels')
         setDropALinePayload(null)
+        setForceReelPairing(null)
       }
       return (
         <div className="phone-frame">
@@ -966,6 +1203,8 @@ function LiveLobby() {
         <div className="drop-a-line-reels-center">
           <DropALineReels
             daters={daters}
+            forcePairing={forceReelPairing}
+            onForcePairingConsumed={() => setForceReelPairing(null)}
             onContinue={(payload) => {
               setDropALinePayload(payload)
               setDropALineScreen('profile')

@@ -42,7 +42,7 @@ function GameHeader() {
           animate={{ opacity: 1, x: 0 }}
         >
           <span className="logo-icon">💔</span>
-          <span className="logo-text">Bad Date</span>
+          <span className="logo-text">Hard Launch</span>
         </motion.div>
       </div>
       

@@ -1,24 +1,65 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Caveat:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-  /* Warm, romantic color palette with playful accents */
-  --bg-dark: #1a1216;
-  --bg-primary: #1a1216;
-  --bg-card: #2d1f26;
-  --bg-card-hover: #3d2a33;
-  --accent-pink: #ff4d6d;
-  --accent-coral: #ff6b6b;
-  --accent-gold: #ffd166;
-  --accent-mint: #06d6a0;
-  --accent-purple: #9d4edd;
-  --text-primary: #fef9f3;
-  --text-secondary: #c9b8be;
-  --text-muted: #8a7a80;
-  --gradient-love: linear-gradient(135deg, #ff4d6d 0%, #ff6b6b 50%, #ffd166 100%);
-  --gradient-chaos: linear-gradient(135deg, #9d4edd 0%, #ff4d6d 100%);
-  --gradient-success: linear-gradient(135deg, #06d6a0 0%, #00b4d8 100%);
-  --shadow-glow: 0 0 40px rgba(255, 77, 109, 0.3);
+  /* Editorial-drama palette (bold) */
+  --nm-bg-0: #09070f;
+  --nm-bg-1: #140f1f;
+  --nm-bg-2: #201631;
+  --nm-bg-3: #2f1f47;
+  --nm-magenta: #ff4f8f;
+  --nm-violet: #8a74ff;
+  --nm-cyan: #47c6ff;
+  --nm-mint: #57ddb6;
+  --nm-amber: #ffc56f;
+  --nm-text-main: #f6f1ff;
+  --nm-text-soft: #cec2e6;
+  --nm-text-muted: #9689b2;
+
+  --bg-dark: var(--nm-bg-0);
+  --bg-primary: var(--nm-bg-0);
+  --bg-card: var(--nm-bg-2);
+  --bg-card-hover: var(--nm-bg-3);
+  --accent-pink: var(--nm-magenta);
+  --accent-coral: #ff5f93;
+  --accent-gold: var(--nm-amber);
+  --accent-mint: var(--nm-mint);
+  --accent-purple: var(--nm-violet);
+  --text-primary: var(--nm-text-main);
+  --text-secondary: var(--nm-text-soft);
+  --text-muted: var(--nm-text-muted);
+  --gradient-love: linear-gradient(125deg, var(--nm-magenta) 0%, #d55bff 55%, var(--nm-violet) 100%);
+  --gradient-chaos: linear-gradient(125deg, #4e3bde 0%, var(--nm-magenta) 100%);
+  --gradient-success: linear-gradient(125deg, var(--nm-mint) 0%, var(--nm-cyan) 100%);
+  --shadow-glow: 0 0 42px rgba(255, 62, 169, 0.34);
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* Shared UI tokens (lobby + audio manager) */
+  --ui-white: #f7f5ff;
+  --ui-overlay-dark: rgba(10, 8, 18, 0.9);
+  --ui-overlay-modal: rgba(10, 8, 18, 0.9);
+  --ui-surface-strong: rgba(28, 20, 43, 0.96);
+  --ui-surface-card: rgba(25, 17, 39, 0.94);
+  --ui-surface-soft: rgba(138, 116, 255, 0.18);
+  --ui-surface-subtle: rgba(138, 116, 255, 0.11);
+  --ui-surface-mid: rgba(138, 116, 255, 0.26);
+  --ui-border-subtle: rgba(138, 116, 255, 0.33);
+  --ui-border-soft: rgba(138, 116, 255, 0.45);
+  --ui-border-strong: rgba(255, 79, 143, 0.62);
+  --ui-text-dim: rgba(236, 228, 255, 0.84);
+  --ui-text-muted: rgba(218, 206, 248, 0.72);
+  --ui-text-faint: rgba(218, 206, 248, 0.63);
+  --ui-title-bad: #ff6a9d;
+  --ui-title-date: #aab6ff;
+  --ui-title-lobby: #e7deff;
+  --ui-shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.3);
+  --ui-shadow-soft-hover: 0 10px 22px rgba(0, 0, 0, 0.34);
+  --ui-focus-ring: #ffc56f;
+  --ui-focus-ring-shadow: rgba(255, 197, 111, 0.25);
+  --ui-accent-lilac: #9f8fff;
+  --ui-accent-lilac-border: rgba(141, 109, 255, 0.78);
+  --ui-accent-lilac-inset: rgba(141, 109, 255, 0.34);
+  --ui-danger-border: rgba(255, 105, 146, 0.76);
+  --ui-danger-text: #ffc1d5;
 }
 
 * {
@@ -56,10 +97,10 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 80%, rgba(255, 77, 109, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(157, 78, 221, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(255, 209, 102, 0.05) 0%, transparent 70%);
+  background:
+    radial-gradient(circle at 16% 20%, rgba(255, 79, 143, 0.16) 0%, transparent 42%),
+    radial-gradient(circle at 86% 18%, rgba(138, 116, 255, 0.15) 0%, transparent 45%),
+    radial-gradient(circle at 54% 82%, rgba(71, 198, 255, 0.1) 0%, transparent 46%);
   pointer-events: none;
   z-index: -1;
 }

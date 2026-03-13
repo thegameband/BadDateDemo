@@ -48,6 +48,20 @@ let mediaPlaybackPrimed = false
 const SILENT_WAV_DATA_URI =
   'data:audio/wav;base64,UklGRjoAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
 const PLAY_START_TIMEOUT_MS = 1600
+const VOICE_VOL_KEY = 'bdVoiceVolume'
+
+function clampVolume(value, fallback = 1) {
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return fallback
+  if (parsed < 0) return 0
+  if (parsed > 1) return 1
+  return parsed
+}
+
+let voiceVolume = 1
+if (typeof window !== 'undefined') {
+  voiceVolume = clampVolume(window.localStorage.getItem(VOICE_VOL_KEY), 1)
+}
 
 if (typeof window !== 'undefined') {
   fetchRuntimeCapabilities().catch(() => {})
@@ -226,6 +240,20 @@ export function setTTSEnabled(enabled) {
  */
 export function isTTSEnabled() {
   return ttsEnabled
+}
+
+export function getVoiceVolume() {
+  return voiceVolume
+}
+
+export function setVoiceVolume(value) {
+  voiceVolume = clampVolume(value, voiceVolume)
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(VOICE_VOL_KEY, String(voiceVolume))
+  }
+  if (currentAudio) {
+    currentAudio.volume = voiceVolume
+  }
 }
 
 /**
@@ -460,7 +488,7 @@ async function processQueue() {
 
     utterance.rate = speaker === 'narrator' ? 0.92 : speaker === 'dater' ? getDaterPlaybackRate() : 1.0
     utterance.pitch = speaker === 'narrator' ? 1.0 : (speaker === 'dater' ? (daterVoiceIsMale ? 0.9 : 1.05) : 1.0)
-    utterance.volume = 1
+    utterance.volume = voiceVolume
     let didStart = false
     let didFinish = false
     const startTimeoutId = setTimeout(() => {
@@ -523,6 +551,7 @@ async function processQueue() {
     currentAudio.src = audioUrl
     currentAudio.load?.()
     currentAudio.playbackRate = speaker === 'dater' ? getDaterPlaybackRate() : 1.0
+    currentAudio.volume = voiceVolume
     let didStart = false
     let didFinish = false
     const startTimeoutId = setTimeout(() => {

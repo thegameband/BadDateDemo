@@ -8,6 +8,7 @@ import {
   speakPreloaded,
   stopAllAudio,
 } from '../services/ttsService'
+import { playSfxCue, setMusicMode } from '../services/audioService'
 import { DROP_A_LINE_LOCATION_PHRASES } from '../data/dropALineLocations'
 import './DropALineScene.css'
 
@@ -42,6 +43,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   const replayTimeoutRef = useRef(null)
   const shareCaptureRef = useRef(null)
   const preloadedComebackRef = useRef(null)
+  const resultSfxPlayedRef = useRef(false)
 
   const dropALineImages = payload?.dater?.dropALineImages
   const daterName = payload?.dater?.name ?? 'Someone'
@@ -58,6 +60,13 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
   }, [dropALineImages, phase, evaluation?.score, payload?.dater?.dropALineCharacterImage])
   const hasImage = Boolean(sceneImageUrl)
   const finalScore = evaluation?.score ?? 0
+
+  useEffect(() => {
+    void setMusicMode('rizzCraft')
+    return () => {
+      void setMusicMode(null)
+    }
+  }, [])
 
   const buildShareImage = useCallback(async () => {
     if (!evaluation || !shareCaptureRef.current) return null
@@ -96,6 +105,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       setEvaluation(null)
       setComebackText('')
       setShareStatus('')
+      resultSfxPlayedRef.current = false
       preloadedComebackRef.current = null
       if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current)
       submitTimeoutRef.current = setTimeout(async () => {
@@ -209,6 +219,13 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
     }
   }, [phase])
 
+  useEffect(() => {
+    if (phase !== 'stamp' || !evaluation || resultSfxPlayedRef.current) return
+    const isGoodResult = evaluation.score >= SUCCESS_THRESHOLD
+    void playSfxCue(isGoodResult ? 'resultGood' : 'resultBad')
+    resultSfxPlayedRef.current = true
+  }, [phase, evaluation])
+
   const handleShare = useCallback(async () => {
     if (!evaluation || !shareCaptureRef.current || isShareBusy) return
     setIsShareBusy(true)
@@ -228,7 +245,7 @@ export default function DropALineScene({ payload, onBack, onReplay }) {
       if (canNativeShare) {
         await navigator.share({
           files: [file],
-          title: 'Bad Date Demo',
+          title: 'Hard Launch',
           text: `I scored ${evaluation.score}% with ${daterName}.`,
         })
         setShareStatus('Shared!')
