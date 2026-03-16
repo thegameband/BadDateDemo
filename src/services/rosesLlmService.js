@@ -328,11 +328,6 @@ function normalizeGeneratedName(rawValue = '') {
     .replace(/\s+/g, ' ')
     .trim()
 
-  const words = text.split(' ').filter(Boolean)
-  if (words.length > 3) {
-    return words.slice(0, 3).join(' ')
-  }
-
   return text
 }
 
@@ -824,7 +819,7 @@ export async function generateRosesField(field, fields = {}) {
     ? [
       'Name field rules: output only a person name.',
       'Name field rules: never include age, numbers, commas, parentheses, or descriptors.',
-      'Name field rules: one to three words only.',
+      'Name field rules: any number of words is allowed if it still reads like a person name and fits the character limit.',
       'Name field rules: avoid placeholder defaults like Maya, Alex, Sam, or Jordan unless context explicitly requires one.',
     ]
     : field === 'bio'
