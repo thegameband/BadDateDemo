@@ -502,9 +502,24 @@ function LeaderboardPanel({
 }) {
   const weekLabel = mode === 'weekly' ? formatWeekStartLabel(weekKey) : ''
   const displayRows = buildLeaderboardDisplayRows({ entries, mode, currentPlayerId, maxRows })
+  const [activeTooltipId, setActiveTooltipId] = useState('')
+  const panelRef = useRef(null)
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!panelRef.current?.contains(event.target)) {
+        setActiveTooltipId('')
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [])
 
   return (
-    <section className="roses-lb-panel">
+    <section ref={panelRef} className="roses-lb-panel">
       <div className="roses-lb-panel-head">
         <h3>{title}</h3>
         {mode === 'weekly' && weekLabel && (
@@ -532,6 +547,9 @@ function LeaderboardPanel({
             const isYou = String(entry?.playerId || '') === String(currentPlayerId || '')
             const primaryScore = getPrimaryScoreForBoard(entry, mode)
             const displayName = String(entry?.name || '').trim() || 'Unnamed'
+            const occupation = String(entry?.occupation || '').trim()
+            const tooltipId = `roses-lb-occupation-${mode}-${entry.playerId}`
+            const isTooltipOpen = activeTooltipId === entry.playerId
 
             return (
               <li
@@ -542,8 +560,42 @@ function LeaderboardPanel({
                 ].filter(Boolean).join(' ')}
               >
                 <span className="roses-lb-rank">#{rank}</span>
-                <span className="roses-lb-name" title={displayName}>
-                  {displayName}{isYou ? ' (you)' : ''}
+                <span
+                  className="roses-lb-name-wrap"
+                  onMouseEnter={() => {
+                    if (occupation) setActiveTooltipId(entry.playerId)
+                  }}
+                  onMouseLeave={() => {
+                    setActiveTooltipId((current) => (current === entry.playerId ? '' : current))
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="roses-lb-name-button"
+                    title={displayName}
+                    aria-label={occupation ? `${displayName}, occupation: ${occupation}` : displayName}
+                    aria-describedby={occupation && isTooltipOpen ? tooltipId : undefined}
+                    onFocus={() => {
+                      if (occupation) setActiveTooltipId(entry.playerId)
+                    }}
+                    onBlur={() => {
+                      setActiveTooltipId((current) => (current === entry.playerId ? '' : current))
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      if (!occupation) return
+                      setActiveTooltipId((current) => (current === entry.playerId ? '' : entry.playerId))
+                    }}
+                  >
+                    <span className="roses-lb-name">
+                      {displayName}{isYou ? ' (you)' : ''}
+                    </span>
+                  </button>
+                  {occupation && isTooltipOpen && (
+                    <span id={tooltipId} role="tooltip" className="roses-lb-tooltip">
+                      {occupation}
+                    </span>
+                  )}
                 </span>
                 <span className="roses-lb-score">{primaryScore} 🌹</span>
               </li>

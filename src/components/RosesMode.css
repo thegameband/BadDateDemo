@@ -882,6 +882,62 @@
   text-overflow: ellipsis;
 }
 
+.roses-lb-name-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.roses-lb-name-button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.roses-lb-name-button:focus-visible .roses-lb-name,
+.roses-lb-name-button:hover .roses-lb-name {
+  color: #fff7ed;
+}
+
+.roses-lb-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 5;
+  min-width: 120px;
+  max-width: min(220px, 72vw);
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(6, 10, 20, 0.96);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.36);
+  color: #f8fafc;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.roses-lb-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 10px;
+  height: 10px;
+  background: rgba(6, 10, 20, 0.96);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  transform: translate(-50%, -5px) rotate(45deg);
+}
+
 .roses-lb-score {
   color: #ffd7e5;
   font-size: 0.8rem;
