@@ -36,12 +36,20 @@ const TURN_COUNT = 3
 const INTRO_PHASE_HOLD_MS = 220
 const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
+const TUTORIAL_LINE_HOLD_MS = 340
 const ADMIRER_SLOTS = ['A', 'B', 'C']
 const DASHBOARD_TABS = [
   { id: 'profile', label: 'Profile' },
   { id: 'stats', label: 'Stats' },
   { id: 'boards', label: 'Boards' },
 ]
+const ONBOARDING_TUTORIAL_LINES = {
+  intro: "Let's let our first set of admirers introduce themselves!",
+  compose: 'Compose your question! What would you want to know about a prospective partner?',
+  afterFirstAnswer: 'You get three questions to learn as much as you can about your Admirers.',
+  afterSecondAnswer: 'This is your last question, make it a good one!',
+  finalChoice: "Which Admirer's answers did you like the best? You only have one Rose to give!",
+}
 
 const ROSES_VOICE_POOL = [
   { voiceId: 'EXAVITQu4vr4xnSDxMaL', isMale: false }, // Bella
@@ -309,13 +317,15 @@ function RevealCard({ profile, title, emphasis = 'default' }) {
   )
 }
 
-function TutorialCue({ title, body }) {
-  if (!String(title || '').trim() && !String(body || '').trim()) return null
+function isTurnLogEntry(entry) {
+  return String(entry?.type || 'turn') === 'turn'
+}
 
+function TutorialLogEntry({ message }) {
+  if (!String(message || '').trim()) return null
   return (
     <div className="roses-tutorial-card" role="note" aria-live="polite">
-      {String(title || '').trim() && <div className="roses-tutorial-title">{title}</div>}
-      {String(body || '').trim() && <p className="roses-tutorial-body">{body}</p>}
+      <p className="roses-tutorial-body">{message}</p>
     </div>
   )
 }
@@ -554,34 +564,29 @@ function RosesMode({ onBack }) {
     () => buildAdmirerVoiceAssignments(orderedCandidates),
     [orderedCandidates],
   )
+  const introTutorialEntry = useMemo(
+    () => chatLog.find((entry) => String(entry?.id || '') === 'tutorial-intro') || null,
+    [chatLog],
+  )
+  const postIntroLogEntries = useMemo(
+    () => chatLog.filter((entry) => String(entry?.id || '') !== 'tutorial-intro'),
+    [chatLog],
+  )
+  const turnEntries = useMemo(
+    () => chatLog.filter((entry) => isTurnLogEntry(entry)),
+    [chatLog],
+  )
 
   const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
-  const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, chatLog.length)
+  const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, turnEntries.length)
   const activePromptOptionIndex = questionPromptIndexes[currentTurnPromptIndex] ?? 0
   const activePrompt = QUESTION_BANK[activePromptOptionIndex] || QUESTION_BANK[0] || { template: '', options: [] }
   const activePromptTemplate = activePrompt.template || ''
   const activePromptOptions = activePrompt.options || []
-  const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
+  const introActive = stage === 'chat' && introPhase !== 'done'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const displayedSentimentKeywords = sentimentKeywords.slice(0, 10)
   const hasSentimentKeywords = sentimentKeywords.length > 0
-  const onboardingChatTutorial = onboardingRoundActive
-    ? chatLog.length === 0
-      ? {
-        title: 'Meet your admirers.',
-        body: 'These three Daters are all competing for your Rose.',
-      }
-      : {
-        title: 'Ask all 3 the same question.',
-        body: 'Tap a fill or write your own. Every admirer answers the exact same prompt.',
-      }
-    : null
-  const onboardingChooseTutorial = onboardingRoundActive
-    ? {
-      title: 'You only get one Rose.',
-      body: 'Pick the admirer whose answers won you over.',
-    }
-    : null
 
   const speakRosesLine = useCallback(async ({
     text,
@@ -621,6 +626,23 @@ function RosesMode({ onBack }) {
     }
   }, [admirerVoiceByCandidateId])
 
+  const appendTutorialLine = useCallback(async (key, message) => {
+    const trimmedMessage = String(message || '').trim()
+    const entryId = `tutorial-${String(key || '').trim()}`
+    if (!onboardingRoundActive || !trimmedMessage || !entryId) return
+
+    setChatLog((prev) => {
+      if (prev.some((entry) => String(entry?.id || '') === entryId)) return prev
+      return [...prev, { type: 'tutorial', id: entryId, message: trimmedMessage }]
+    })
+
+    await speakRosesLine({
+      text: trimmedMessage,
+      speaker: 'avatar',
+    })
+    await wait(TUTORIAL_LINE_HOLD_MS)
+  }, [onboardingRoundActive, speakRosesLine])
+
   useEffect(() => {
     if (stage !== 'chat') return
     const node = chatLogRef.current
@@ -645,7 +667,7 @@ function RosesMode({ onBack }) {
 
   useEffect(() => {
     if (stage !== 'chat') return
-    if (chatLog.length > 0) {
+    if (turnEntries.length > 0) {
       setIntroPhase('done')
       return
     }
@@ -656,6 +678,9 @@ function RosesMode({ onBack }) {
     const playIntro = async () => {
       setIntroPhase('idle')
       setIntroTaglines({})
+      if (onboardingRoundActive) {
+        await appendTutorialLine('intro', ONBOARDING_TUTORIAL_LINES.intro)
+      }
       await wait(INTRO_PHASE_HOLD_MS)
       if (cancelled) return
 
@@ -680,6 +705,12 @@ function RosesMode({ onBack }) {
         }
       }
 
+      if (onboardingRoundActive) {
+        setIntroPhase('tutorial')
+        await appendTutorialLine('compose', ONBOARDING_TUTORIAL_LINES.compose)
+        if (cancelled) return
+      }
+
       setIntroPhase('done')
     }
 
@@ -688,7 +719,7 @@ function RosesMode({ onBack }) {
     return () => {
       cancelled = true
     }
-  }, [stage, chatLog.length, orderedCandidates, speakRosesLine])
+  }, [stage, turnEntries.length, orderedCandidates, speakRosesLine, onboardingRoundActive, appendTutorialLine])
 
   useEffect(() => () => {
     stopAllAudio()
@@ -970,7 +1001,7 @@ function RosesMode({ onBack }) {
     const question = fillQuestionTemplate(activePromptTemplate, blankSource).trim()
     if (!question) return
     const normalizedQuestion = normalizeQuestionForDuplicateCheck(question)
-    const alreadyAskedThisRound = chatLog.some(
+    const alreadyAskedThisRound = turnEntries.some(
       (turn) => normalizeQuestionForDuplicateCheck(turn?.question) === normalizedQuestion,
     )
     if (alreadyAskedThisRound) {
@@ -991,7 +1022,7 @@ function RosesMode({ onBack }) {
     const previousChatLog = chatLog
 
     try {
-      const buildsPriorTurns = (candidateId) => chatLog
+      const buildsPriorTurns = (candidateId) => turnEntries
         .map((turn) => {
           const answer = (turn.answers || []).find((item) => String(item.candidateId) === String(candidateId))
           if (!answer) return null
@@ -1005,16 +1036,16 @@ function RosesMode({ onBack }) {
         return
       }
 
-      const nextTurnNumber = chatLog.length + 1
+      const nextTurnNumber = turnEntries.length + 1
       const appendAnswerToTurn = (answerEntry) => {
-        setChatLog((prev) => prev.map((turn) => {
-          if (turn.turnNumber !== nextTurnNumber) return turn
-          const existingAnswers = Array.isArray(turn.answers) ? turn.answers : []
+        setChatLog((prev) => prev.map((entry) => {
+          if (!isTurnLogEntry(entry) || entry.turnNumber !== nextTurnNumber) return entry
+          const existingAnswers = Array.isArray(entry.answers) ? entry.answers : []
           const filteredAnswers = existingAnswers.filter(
             (item) => String(item?.candidateId || '') !== String(answerEntry?.candidateId || ''),
           )
           return {
-            ...turn,
+            ...entry,
             answers: [...filteredAnswers, answerEntry],
           }
         }))
@@ -1030,6 +1061,7 @@ function RosesMode({ onBack }) {
       setChatLog((prev) => [
         ...prev,
         {
+          type: 'turn',
           turnNumber: nextTurnNumber,
           question,
           answers: [],
@@ -1102,6 +1134,16 @@ function RosesMode({ onBack }) {
       setRound((prev) => ({ ...prev, ...response.round }))
       setQuestionInput('')
 
+      if (onboardingRoundActive) {
+        if (nextTurnNumber === 1) {
+          await appendTutorialLine('after-first-answer', ONBOARDING_TUTORIAL_LINES.afterFirstAnswer)
+        } else if (nextTurnNumber === 2) {
+          await appendTutorialLine('after-second-answer', ONBOARDING_TUTORIAL_LINES.afterSecondAnswer)
+        } else if (nextTurnNumber === TURN_COUNT) {
+          await appendTutorialLine('final-choice', ONBOARDING_TUTORIAL_LINES.finalChoice)
+        }
+      }
+
       if (response.round?.doneAsking) {
         setStage('choose')
       }
@@ -1142,7 +1184,7 @@ function RosesMode({ onBack }) {
     void triggerHaptic('heavy')
     setQuestionPromptIndexes((prev) => {
       const next = [...prev]
-      const turnIndex = Math.min(TURN_COUNT - 1, chatLog.length)
+      const turnIndex = Math.min(TURN_COUNT - 1, turnEntries.length)
       const currentValue = Number(next[turnIndex] || 0)
       const usedInOtherTurns = new Set(
         next
@@ -1285,15 +1327,14 @@ function RosesMode({ onBack }) {
             <span className="roses-chat-progress">Question {questionNumber} / {TURN_COUNT}</span>
           </div>
 
-          {onboardingChatTutorial && (
-            <TutorialCue
-              title={onboardingChatTutorial.title}
-              body={onboardingChatTutorial.body}
-            />
-          )}
-
           <div ref={chatLogRef} className="roses-chat-log">
-            {chatLog.length === 0 && (
+            {introTutorialEntry && (
+              <TutorialLogEntry
+                key={introTutorialEntry.id || introTutorialEntry.message}
+                message={introTutorialEntry.message}
+              />
+            )}
+            {turnEntries.length === 0 && introPhase !== 'done' && (
               <div className="roses-intro-sequence">
                 {orderedCandidates.map((candidate, index) => {
                   const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
@@ -1315,28 +1356,34 @@ function RosesMode({ onBack }) {
                 })}
               </div>
             )}
-            {chatLog.map((turn) => (
-              <div key={`turn-${turn.turnNumber}`} className="roses-turn-card">
-                <div className="roses-chat-question">Q{turn.turnNumber}: {turn.question}</div>
-                <div className="roses-answers-grid">
-                  {(turn.answers || []).map((answer) => {
-                    const answerKey = `${turn.turnNumber}-${answer.candidateId}`
-                    return (
-                      <div
-                        key={answerKey}
-                        className={[
-                          'roses-answer-panel',
-                          activeSpeechAnswerKey === answerKey ? 'is-speaking' : '',
-                        ].filter(Boolean).join(' ')}
-                      >
-                      <div className="roses-answer-head">{admirerLabelFromSlot(answer.candidateSlot)}</div>
-                      <div className="roses-chat-answer">{answer.response}</div>
-                      </div>
-                    )
-                  })}
+            {postIntroLogEntries.map((entry) => {
+              if (!isTurnLogEntry(entry)) {
+                return <TutorialLogEntry key={entry.id || entry.message} message={entry.message} />
+              }
+
+              return (
+                <div key={`turn-${entry.turnNumber}`} className="roses-turn-card">
+                  <div className="roses-chat-question">Q{entry.turnNumber}: {entry.question}</div>
+                  <div className="roses-answers-grid">
+                    {(entry.answers || []).map((answer) => {
+                      const answerKey = `${entry.turnNumber}-${answer.candidateId}`
+                      return (
+                        <div
+                          key={answerKey}
+                          className={[
+                            'roses-answer-panel',
+                            activeSpeechAnswerKey === answerKey ? 'is-speaking' : '',
+                          ].filter(Boolean).join(' ')}
+                        >
+                        <div className="roses-answer-head">{admirerLabelFromSlot(answer.candidateSlot)}</div>
+                        <div className="roses-chat-answer">{answer.response}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="roses-question-row">
@@ -1405,40 +1452,39 @@ function RosesMode({ onBack }) {
             <span className="roses-chat-progress">Final Choice</span>
           </div>
 
-          {onboardingChooseTutorial && (
-            <TutorialCue
-              title={onboardingChooseTutorial.title}
-              body={onboardingChooseTutorial.body}
-            />
-          )}
-
           <div className="roses-chat-log roses-choose-log">
-            {chatLog.map((turn) => (
-              <div key={`choose-turn-${turn.turnNumber}`} className="roses-turn-card">
-                <div className="roses-chat-question">Q{turn.turnNumber}: {turn.question}</div>
-                <div className="roses-answers-grid">
-                  {orderedCandidates.map((candidate, index) => {
-                    const answer = (turn.answers || []).find(
-                      (item) => String(item.candidateId) === String(candidate?.playerId || ''),
-                    )
-                    const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
-                    const responseText = String(answer?.response || 'No answer logged.')
-                    return (
-                      <div
-                        key={`choose-turn-${turn.turnNumber}-cand-${candidate?.playerId || index}`}
-                        className={[
-                          'roses-answer-panel',
-                          responseText === 'No answer logged.' ? 'is-empty' : '',
-                        ].filter(Boolean).join(' ')}
-                      >
-                        <div className="roses-answer-head">{admirerLabelFromSlot(slot)}</div>
-                        <div className="roses-chat-answer">{responseText}</div>
-                      </div>
-                    )
-                  })}
+            {chatLog.map((entry) => {
+              if (!isTurnLogEntry(entry)) {
+                return <TutorialLogEntry key={entry.id || entry.message} message={entry.message} />
+              }
+
+              return (
+                <div key={`choose-turn-${entry.turnNumber}`} className="roses-turn-card">
+                  <div className="roses-chat-question">Q{entry.turnNumber}: {entry.question}</div>
+                  <div className="roses-answers-grid">
+                    {orderedCandidates.map((candidate, index) => {
+                      const answer = (entry.answers || []).find(
+                        (item) => String(item.candidateId) === String(candidate?.playerId || ''),
+                      )
+                      const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
+                      const responseText = String(answer?.response || 'No answer logged.')
+                      return (
+                        <div
+                          key={`choose-turn-${entry.turnNumber}-cand-${candidate?.playerId || index}`}
+                          className={[
+                            'roses-answer-panel',
+                            responseText === 'No answer logged.' ? 'is-empty' : '',
+                          ].filter(Boolean).join(' ')}
+                        >
+                          <div className="roses-answer-head">{admirerLabelFromSlot(slot)}</div>
+                          <div className="roses-chat-answer">{responseText}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="roses-choose-row">

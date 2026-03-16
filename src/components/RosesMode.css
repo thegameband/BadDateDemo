@@ -12,6 +12,9 @@
 
 .roses-mode.roses-mode-chat {
   padding: 10px;
+  overflow: hidden;
+  display: flex;
+  min-height: 0;
 }
 
 .roses-card {
@@ -58,6 +61,10 @@
 .roses-chat-shell {
   padding: 10px;
   gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .roses-chat-shell .roses-chat-head {
@@ -157,6 +164,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 0 0 auto;
 }
 
 .roses-tutorial-title {
@@ -801,16 +809,17 @@
 }
 
 .roses-chat-log {
-  max-height: 420px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding-right: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .roses-chat-shell .roses-chat-log {
-  max-height: 430px;
   gap: 10px;
   padding-right: 0;
 }
@@ -941,6 +950,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 0 0 auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(14, 11, 33, 0) 0%, rgba(14, 11, 33, 0.84) 18%);
 }
 
 .roses-question-template {
@@ -1032,6 +1045,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 0 0 auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(14, 11, 33, 0) 0%, rgba(14, 11, 33, 0.84) 18%);
 }
 
 .roses-choose-actions {
