@@ -580,16 +580,11 @@
 }
 
 .roses-panel-body.is-clamped {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-  line-clamp: 5;
-}
-
-.roses-panel-body.is-clamped.is-tight {
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: block;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .roses-topics-panel {
