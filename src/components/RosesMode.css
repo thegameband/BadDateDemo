@@ -733,6 +733,7 @@
   min-height: 0;
   padding: 8px 10px;
   gap: 5px;
+  overflow: hidden;
 }
 
 .roses-lb-panel.is-compact .roses-lb-panel-head {
@@ -749,7 +750,10 @@
 }
 
 .roses-lb-panel.is-compact .roses-lb-list {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .roses-lb-panel.is-compact .roses-lb-row {

@@ -356,7 +356,7 @@ function buildLeaderboardDisplayRows({
   maxRows = 10,
 }) {
   const normalizedEntries = Array.isArray(entries) ? entries : []
-  const limit = Math.max(3, Math.min(10, Number(maxRows) || 10))
+  const limit = Math.max(10, Number(maxRows) || 10)
 
   if (normalizedEntries.length <= limit) {
     return normalizedEntries.slice(0, limit).map((entry, absoluteIndex) => ({
@@ -387,9 +387,9 @@ function buildLeaderboardDisplayRows({
     }))
   }
 
-  const topCount = Math.max(2, Math.min(4, limit - 2))
-  const aroundCount = Math.max(1, limit - topCount - 1)
-  const aroundStart = Math.max(0, playerIndex - Math.max(0, aroundCount - 1))
+  const topCount = 5
+  const aroundCount = 5
+  const aroundStart = Math.max(0, playerIndex - 2)
   const aroundEnd = Math.min(normalizedEntries.length, aroundStart + aroundCount)
   const adjustedAroundStart = Math.max(0, aroundEnd - aroundCount)
 
@@ -1718,7 +1718,7 @@ function RosesMode({ onBack }) {
                     mode="allTime"
                     entries={leaderboard.allTime}
                     currentPlayerId={playerId}
-                    maxRows={4}
+                    maxRows={10}
                     compact
                   />
                   <LeaderboardPanel
@@ -1727,7 +1727,7 @@ function RosesMode({ onBack }) {
                     entries={leaderboard.weekly}
                     currentPlayerId={playerId}
                     weekKey={leaderboard.weekKey}
-                    maxRows={4}
+                    maxRows={10}
                     compact
                   />
                 </div>
