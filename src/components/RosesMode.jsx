@@ -37,6 +37,7 @@ const INTRO_PHASE_HOLD_MS = 220
 const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
 const TUTORIAL_LINE_HOLD_MS = 340
+const CHOOSE_STAGE_DELAY_MS = 340
 const ADMIRER_SLOTS = ['A', 'B', 'C']
 const DASHBOARD_TABS = [
   { id: 'profile', label: 'Profile' },
@@ -541,6 +542,7 @@ function RosesMode({ onBack }) {
   const [activeSpeechSlot, setActiveSpeechSlot] = useState('')
   const [activeSpeechAnswerKey, setActiveSpeechAnswerKey] = useState('')
   const [questionInput, setQuestionInput] = useState('')
+  const [lockedQuestion, setLockedQuestion] = useState('')
   const [questionPromptIndexes, setQuestionPromptIndexes] = useState(() => randomPromptPlan())
   const [sendingQuestion, setSendingQuestion] = useState(false)
   const [choosingWinner, setChoosingWinner] = useState(false)
@@ -614,12 +616,17 @@ function RosesMode({ onBack }) {
   )
 
   const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
-  const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, turnEntries.length)
+  const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, Number(round?.turnIndex || 0))
   const activePromptOptionIndex = questionPromptIndexes[currentTurnPromptIndex] ?? 0
   const activePrompt = QUESTION_BANK[activePromptOptionIndex] || QUESTION_BANK[0] || { template: '', options: [] }
   const activePromptTemplate = activePrompt.template || ''
   const activePromptOptions = activePrompt.options || []
   const introActive = stage === 'chat' && introPhase !== 'done'
+  const composerState = introActive
+    ? 'intro'
+    : sendingQuestion
+      ? 'locked'
+      : 'compose'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const displayedSentimentKeywords = sentimentKeywords.slice(0, 10)
   const hasSentimentKeywords = sentimentKeywords.length > 0
@@ -1023,6 +1030,7 @@ function RosesMode({ onBack }) {
       setActiveSpeechSlot('')
       setActiveSpeechAnswerKey('')
       setQuestionInput('')
+      setLockedQuestion('')
       setQuestionPromptIndexes(randomPromptPlan())
       setReveal(null)
       setOnboardingRoundActive(Boolean(onboarding))
@@ -1061,9 +1069,11 @@ function RosesMode({ onBack }) {
 
     await primeTTSPlayback()
     setSendingQuestion(true)
+    setLockedQuestion(question)
     setError('')
     void triggerHaptic('heavy')
     const previousChatLog = chatLog
+    let shouldAdvanceToChoose = false
 
     try {
       const buildsPriorTurns = (candidateId) => turnEntries
@@ -1189,18 +1199,25 @@ function RosesMode({ onBack }) {
       }
 
       if (response.round?.doneAsking) {
+        shouldAdvanceToChoose = true
+        setStatus('Time to give out your Rose...')
+        await wait(CHOOSE_STAGE_DELAY_MS)
         setStage('choose')
       }
     } catch (turnError) {
       console.error(turnError)
       setChatLog(previousChatLog)
       setError(turnError.message || 'Failed to send question.')
+      setLockedQuestion('')
       void triggerHaptic('error')
     } finally {
       setStatus('')
       setActiveSpeechSlot('')
       setActiveSpeechAnswerKey('')
       setSendingQuestion(false)
+      if (!shouldAdvanceToChoose) {
+        setLockedQuestion('')
+      }
     }
   }
 
@@ -1263,7 +1280,13 @@ function RosesMode({ onBack }) {
     const nextValue = String(value || '').trim()
     if (!nextValue) return
     setQuestionInput(nextValue)
-    handleSendQuestion(nextValue)
+    requestAnimationFrame(() => {
+      const node = questionInputRef.current
+      if (!node) return
+      node.focus()
+      const pos = String(nextValue).length
+      node.setSelectionRange(pos, pos)
+    })
   }
 
   const handleExitRound = () => {
@@ -1272,6 +1295,7 @@ function RosesMode({ onBack }) {
     setActiveSpeechAnswerKey('')
     setIntroPhase('idle')
     setStatus('')
+    setLockedQuestion('')
     setOnboardingRoundActive(false)
     if (profile?.fields) {
       setStage('dashboard')
@@ -1444,55 +1468,72 @@ function RosesMode({ onBack }) {
           </div>
 
           <div className="roses-question-row">
-            <div className="roses-question-template">{activePromptTemplate}</div>
-            <div className="roses-question-options" role="group" aria-label="Quick fill options">
-              {activePromptOptions.map((option) => (
-                <button
-                  key={`${activePromptTemplate}-${option}`}
-                  type="button"
-                  className={[
-                    'roses-question-option',
-                    String(questionInput || '').trim().toLowerCase() === String(option).toLowerCase()
-                      ? 'is-selected'
-                      : '',
-                  ].filter(Boolean).join(' ')}
-                  onClick={() => handleQuickFillQuestion(option)}
+            {composerState === 'compose' ? (
+              <>
+                <div className="roses-question-phase">Compose your next question</div>
+                <div className="roses-question-template">{activePromptTemplate}</div>
+                <div className="roses-question-options" role="group" aria-label="Quick fill options">
+                  {activePromptOptions.map((option) => (
+                    <button
+                      key={`${activePromptTemplate}-${option}`}
+                      type="button"
+                      className={[
+                        'roses-question-option',
+                        String(questionInput || '').trim().toLowerCase() === String(option).toLowerCase()
+                          ? 'is-selected'
+                          : '',
+                      ].filter(Boolean).join(' ')}
+                      onClick={() => handleQuickFillQuestion(option)}
+                      disabled={sendingQuestion || introActive}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  ref={questionInputRef}
+                  type="text"
+                  value={questionInput}
+                  onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
+                  onKeyDown={handleQuestionKeyDown}
+                  onFocus={handleQuestionFocus}
+                  placeholder="Or any custom text!"
                   disabled={sendingQuestion || introActive}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-            <input
-              ref={questionInputRef}
-              type="text"
-              value={questionInput}
-              onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
-              onKeyDown={handleQuestionKeyDown}
-              onFocus={handleQuestionFocus}
-              placeholder="Or any custom text!"
-              disabled={sendingQuestion || introActive}
-            />
-            <div className="roses-question-actions">
-              <button
-                type="button"
-                className="roses-question-dice"
-                aria-label="Randomize question prompt"
-                onClick={handleUseSuggestedQuestion}
-                disabled={sendingQuestion || introActive}
-                title="Randomize question prompt"
-              >
-                🎲
-              </button>
-              <button
-                type="button"
-                className="roses-primary"
-                onClick={() => handleSendQuestion()}
-                disabled={sendingQuestion || introActive || !questionInput.trim()}
-              >
-                {sendingQuestion ? 'Getting All Answers...' : 'Ask All Admirers'}
-              </button>
-            </div>
+                />
+                <div className="roses-question-actions">
+                  <button
+                    type="button"
+                    className="roses-question-dice"
+                    aria-label="Randomize question prompt"
+                    onClick={handleUseSuggestedQuestion}
+                    disabled={sendingQuestion || introActive}
+                    title="Randomize question prompt"
+                  >
+                    🎲
+                  </button>
+                  <button
+                    type="button"
+                    className="roses-primary"
+                    onClick={() => handleSendQuestion()}
+                    disabled={sendingQuestion || introActive || !questionInput.trim()}
+                  >
+                    Ask All Admirers
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="roses-question-locked">
+                <div className="roses-question-phase">
+                  {introActive ? 'Meet your admirers first' : 'Now asking'}
+                </div>
+                <div className="roses-question-template">
+                  {lockedQuestion || 'Your question is on the way.'}
+                </div>
+                <div className="roses-question-locked-note">
+                  {introActive ? 'Questioning opens right after introductions.' : 'Waiting for all three admirers to answer...'}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1582,8 +1623,7 @@ function RosesMode({ onBack }) {
                     <div key={`preview-turn-${turn.turnNumber}`} className="roses-choose-preview-line">
                       <span className="roses-choose-preview-label">Q{turn.turnNumber}</span>
                       <span className="roses-choose-preview-copy">
-                        {turn.question}
-                        {' '}
+                        <span>{turn.question}</span>
                         <strong>{answer.response}</strong>
                       </span>
                     </div>

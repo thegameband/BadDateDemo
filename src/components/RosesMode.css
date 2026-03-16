@@ -950,6 +950,26 @@
   background: linear-gradient(180deg, rgba(14, 11, 33, 0) 0%, rgba(14, 11, 33, 0.84) 18%);
 }
 
+.roses-question-phase {
+  color: rgba(249, 168, 212, 0.92);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.roses-question-locked {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.roses-question-locked-note {
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 0.8rem;
+  line-height: 1.28;
+}
+
 .roses-question-template {
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -1048,8 +1068,6 @@
 .roses-choose-preview {
   align-self: center;
   width: min(100%, 540px);
-  max-height: 196px;
-  overflow-y: auto;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(4, 7, 15, 0.88);
@@ -1085,6 +1103,9 @@
   color: rgba(248, 250, 252, 0.92);
   font-size: 0.8rem;
   line-height: 1.28;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .roses-choose-preview-copy strong {
@@ -1287,7 +1308,6 @@
 
   .roses-choose-preview {
     width: 100%;
-    max-height: 220px;
   }
 
   .roses-profile-actions,
