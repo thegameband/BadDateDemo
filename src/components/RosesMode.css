@@ -1045,6 +1045,53 @@
   background: linear-gradient(180deg, rgba(14, 11, 33, 0) 0%, rgba(14, 11, 33, 0.84) 18%);
 }
 
+.roses-choose-preview {
+  align-self: center;
+  width: min(100%, 540px);
+  max-height: 196px;
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(4, 7, 15, 0.88);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.roses-choose-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.roses-choose-preview-line {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.roses-choose-preview-label {
+  color: rgba(249, 168, 212, 0.9);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.roses-choose-preview-copy {
+  color: rgba(248, 250, 252, 0.92);
+  font-size: 0.8rem;
+  line-height: 1.28;
+}
+
+.roses-choose-preview-copy strong {
+  color: #fbcfe8;
+  font-weight: 700;
+}
+
 .roses-choose-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1236,6 +1283,11 @@
 
   .roses-choose-actions {
     grid-template-columns: 1fr;
+  }
+
+  .roses-choose-preview {
+    width: 100%;
+    max-height: 220px;
   }
 
   .roses-profile-actions,

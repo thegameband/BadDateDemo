@@ -544,6 +544,7 @@ function RosesMode({ onBack }) {
   const [questionPromptIndexes, setQuestionPromptIndexes] = useState(() => randomPromptPlan())
   const [sendingQuestion, setSendingQuestion] = useState(false)
   const [choosingWinner, setChoosingWinner] = useState(false)
+  const [previewCandidateId, setPreviewCandidateId] = useState('')
   const [reveal, setReveal] = useState(null)
   const [onboardingRoundActive, setOnboardingRoundActive] = useState(false)
   const [dashboardTab, setDashboardTab] = useState(DASHBOARD_TABS[0]?.id || 'profile')
@@ -602,6 +603,14 @@ function RosesMode({ onBack }) {
   const turnEntries = useMemo(
     () => chatLog.filter((entry) => isTurnLogEntry(entry)),
     [chatLog],
+  )
+  const previewCandidate = useMemo(
+    () => orderedCandidates.find((candidate) => String(candidate?.playerId || '') === String(previewCandidateId || '')) || null,
+    [orderedCandidates, previewCandidateId],
+  )
+  const previewIntroEntry = useMemo(
+    () => introLogEntries.find((entry) => String(entry?.slot || '') === String(previewCandidate?.slot || '')) || null,
+    [introLogEntries, previewCandidate],
   )
 
   const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
@@ -758,6 +767,12 @@ function RosesMode({ onBack }) {
   useEffect(() => {
     if (stage === 'dashboard') {
       setDashboardTab(DASHBOARD_TABS[0]?.id || 'profile')
+    }
+  }, [stage])
+
+  useEffect(() => {
+    if (stage !== 'choose') {
+      setPreviewCandidateId('')
     }
   }, [stage])
 
@@ -1302,6 +1317,30 @@ function RosesMode({ onBack }) {
     }
   }
 
+  const handlePreviewChoice = (candidateId) => {
+    const nextId = String(candidateId || '').trim()
+    if (!nextId) return
+    setPreviewCandidateId(nextId)
+  }
+
+  const handlePreviewLeave = () => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches) return
+    setPreviewCandidateId('')
+  }
+
+  const handleChooseButtonPress = (candidateId) => {
+    const nextId = String(candidateId || '').trim()
+    if (!nextId || choosingWinner) return
+
+    const requiresPreviewTap = typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches
+    if (requiresPreviewTap && previewCandidateId !== nextId) {
+      setPreviewCandidateId(nextId)
+      return
+    }
+
+    handleChooseWinner(nextId)
+  }
+
   if (stage === 'loading') {
     return (
     <div className={['roses-mode', stage === 'dashboard' ? 'roses-mode-dashboard' : ''].filter(Boolean).join(' ')}>
@@ -1520,19 +1559,53 @@ function RosesMode({ onBack }) {
           </div>
 
           <div className="roses-choose-row">
-            <div className="roses-question-template">Choose your favorite admirer. You must pick one.</div>
-            <div className="roses-choose-actions">
+            <div className="roses-question-template">Give your Rose to your favorite Admirer!</div>
+            {previewCandidate && (
+              <div className="roses-choose-preview" role="note" aria-live="polite">
+                <div className="roses-choose-preview-head">
+                  <span className="roses-answer-head">{admirerLabelFromSlot(previewCandidate?.slot || '')}</span>
+                  <span className="roses-muted">{previewCandidate?.fields?.name || ''}</span>
+                </div>
+                {previewIntroEntry?.message && (
+                  <div className="roses-choose-preview-line">
+                    <span className="roses-choose-preview-label">Intro</span>
+                    <span className="roses-choose-preview-copy">{previewIntroEntry.message}</span>
+                  </div>
+                )}
+                {turnEntries.map((turn) => {
+                  const answer = (turn.answers || []).find(
+                    (item) => String(item?.candidateId || '') === String(previewCandidate?.playerId || ''),
+                  )
+                  if (!answer) return null
+
+                  return (
+                    <div key={`preview-turn-${turn.turnNumber}`} className="roses-choose-preview-line">
+                      <span className="roses-choose-preview-label">Q{turn.turnNumber}</span>
+                      <span className="roses-choose-preview-copy">
+                        {turn.question}
+                        {' '}
+                        <strong>{answer.response}</strong>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <div className="roses-choose-actions" onMouseLeave={handlePreviewLeave}>
               {orderedCandidates.map((candidate, index) => {
                 const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
+                const candidateId = String(candidate?.playerId || '')
                 return (
                   <button
-                    key={`pick-${candidate?.playerId || index}`}
+                    key={`pick-${candidateId || index}`}
                     type="button"
                     className="roses-choose-btn"
-                    onClick={() => candidate?.playerId && handleChooseWinner(candidate.playerId)}
-                    disabled={choosingWinner || !candidate?.playerId}
+                    onMouseEnter={() => handlePreviewChoice(candidateId)}
+                    onFocus={() => handlePreviewChoice(candidateId)}
+                    onClick={() => handleChooseButtonPress(candidateId)}
+                    disabled={choosingWinner || !candidateId}
                   >
-                    {choosingWinner ? 'Submitting...' : `Give Rose to ${admirerLabelFromSlot(slot)}`}
+                    {choosingWinner ? 'Submitting...' : `${admirerLabelFromSlot(slot)} 🌹`}
                   </button>
                 )
               })}
