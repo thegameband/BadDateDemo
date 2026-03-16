@@ -23,14 +23,14 @@ import { setMusicMode } from '../services/audioService'
 import { useWebHaptics } from 'web-haptics/react'
 import './RosesMode.css'
 
-const PROFILE_FIELDS = [
+const EDIT_PROFILE_FIELDS = [
   { id: 'name', label: 'Name', multiline: false, placeholder: 'Smurf Blaster', half: true },
-  { id: 'age', label: 'Age (18+)', multiline: false, placeholder: '28', half: true },
-  { id: 'pronouns', label: 'Pronouns', multiline: false, placeholder: 'she/her', half: true },
   { id: 'occupation', label: 'Occupation', multiline: false, placeholder: 'Game Developer', half: true },
   { id: 'bio', label: 'Bio', multiline: true, rows: 5, placeholder: "I'm the developer of the biggest video games in the world: Where Cards Fall, Blaseball, and Dead Man's Party. I'm also extremely hot and successful. I bought a 1:1 scale replica Batcave." },
   { id: 'introTagline', label: 'Intro Tagline', multiline: true, rows: 3, placeholder: 'The line they open with in chat' },
 ]
+const CREATION_FACT_LIMIT = 10
+const CREATION_STEPS = ['name', 'occupation', 'final']
 
 const TURN_COUNT = 3
 const INTRO_PHASE_HOLD_MS = 220
@@ -72,12 +72,34 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 function emptyFields() {
   return {
     name: '',
-    age: '',
-    pronouns: '',
     occupation: '',
     bio: '',
     introTagline: '',
   }
+}
+
+function cleanFactValue(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+function punctuateFact(value = '') {
+  const trimmed = cleanFactValue(value)
+  if (!trimmed) return ''
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
+}
+
+function buildBioFromFacts({ name = '', occupation = '', facts = [] }) {
+  const normalizedFacts = (Array.isArray(facts) ? facts : [])
+    .map((fact) => punctuateFact(fact))
+    .filter(Boolean)
+
+  if (normalizedFacts.length) {
+    return normalizedFacts.join(' ')
+  }
+
+  const safeName = String(name || '').trim() || 'This person'
+  const safeOccupation = String(occupation || '').trim() || 'person'
+  return `${safeName} works as ${safeOccupation}.`
 }
 
 function scoreWordSize(count = 1) {
@@ -284,7 +306,7 @@ function FieldInput({ field, value, onChange, onGenerate, generating }) {
             onBlur={() => setIsFocused(false)}
             maxLength={maxLength}
             placeholder={field.placeholder}
-            inputMode={field.id === 'age' ? 'numeric' : 'text'}
+            inputMode="text"
           />
         )}
         {showCounter && (
@@ -317,9 +339,6 @@ function RevealCard({ profile, title, emphasis = 'default' }) {
 
       <div className="roses-reveal-identity">
         <div className="roses-reveal-name">{profile?.fields?.name || 'Unknown'}</div>
-        <div className="roses-reveal-subhead">
-          {[profile?.fields?.pronouns, profile?.fields?.age].filter(Boolean).join(' · ') || '-'}
-        </div>
         <div className="roses-reveal-subhead occupation">{profile?.fields?.occupation || '-'}</div>
       </div>
 
@@ -545,6 +564,8 @@ function RosesMode({ onBack }) {
 
   const [fields, setFields] = useState(emptyFields)
   const [manualTouched, setManualTouched] = useState({})
+  const [creationStep, setCreationStep] = useState(CREATION_STEPS[0])
+  const [creationFacts, setCreationFacts] = useState([''])
   const [savingProfile, setSavingProfile] = useState(false)
   const [generatingField, setGeneratingField] = useState('')
   const [autoFilling, setAutoFilling] = useState(false)
@@ -567,6 +588,7 @@ function RosesMode({ onBack }) {
   const questionInputRef = useRef(null)
   const bottomPanelRef = useRef(null)
   const revealAnnouncementRef = useRef('')
+  const profileStepNarrationRef = useRef('')
 
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -578,13 +600,13 @@ function RosesMode({ onBack }) {
   }, [fields, manualTouched])
 
   const allFieldsFilled = useMemo(() => (
-    PROFILE_FIELDS
+    EDIT_PROFILE_FIELDS
       .map((field) => field.id)
       .every((fieldId) => String(fields[fieldId] || '').trim())
   ), [fields])
 
   const hasAnyFieldValue = useMemo(() => (
-    PROFILE_FIELDS
+    EDIT_PROFILE_FIELDS
       .map((field) => field.id)
       .some((fieldId) => String(fields[fieldId] || '').trim())
   ), [fields])
@@ -642,6 +664,23 @@ function RosesMode({ onBack }) {
     : sendingQuestion
       ? 'locked'
       : 'compose'
+  const isCreatingProfile = stage === 'profile' && !profile
+  const creationFactsUsed = useMemo(
+    () => creationFacts.map((fact) => cleanFactValue(fact)).filter(Boolean),
+    [creationFacts],
+  )
+  const creationStepIndex = Math.max(0, CREATION_STEPS.indexOf(creationStep))
+  const currentCreationPrompt = useMemo(() => {
+    const name = String(fields.name || '').trim() || 'this character'
+
+    if (creationStep === 'name') {
+      return "Roses isn't just about judging - it's about being judged! Your goal is to make a profile that will accumulate as many Roses as possible from other players. Let's start with a name!"
+    }
+    if (creationStep === 'occupation') {
+      return `It's delightful to meet ${name}. What do they do?`
+    }
+    return "Last step! Your character's Tagline is how they will introduce themselves in chat. Optionally, you are welcome to enter any additional facts about this character you want. When you're done, submit this profile to the global pool and start gathering your Roses!"
+  }, [creationStep, fields.name])
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const displayedSentimentKeywords = sentimentKeywords.slice(0, 10)
   const hasSentimentKeywords = sentimentKeywords.length > 0
@@ -864,6 +903,39 @@ function RosesMode({ onBack }) {
     })
   }, [stage, nonWinnerAnnouncement, winnerAnnouncement, speakRosesLine])
 
+  useEffect(() => {
+    if (!isCreatingProfile) {
+      profileStepNarrationRef.current = ''
+      return
+    }
+
+    const narrationKey = `${creationStep}:${currentCreationPrompt}:${fields.name}`
+    if (profileStepNarrationRef.current === narrationKey) return
+    profileStepNarrationRef.current = narrationKey
+
+    void speakRosesLine({
+      text: currentCreationPrompt,
+      speaker: 'avatar',
+    })
+  }, [isCreatingProfile, creationStep, currentCreationPrompt, fields.name, speakRosesLine])
+
+  useEffect(() => {
+    if (!isCreatingProfile) return
+
+    requestAnimationFrame(() => {
+      const targetId = creationStep === 'final'
+        ? 'roses-field-introTagline'
+        : `roses-create-${creationStep}`
+      const node = document.getElementById(targetId)
+      if (!node || typeof node.focus !== 'function') return
+      node.focus()
+      if ('value' in node && typeof node.value === 'string' && typeof node.setSelectionRange === 'function') {
+        const pos = node.value.length
+        node.setSelectionRange(pos, pos)
+      }
+    })
+  }, [isCreatingProfile, creationStep])
+
   const loadEverything = async (pid, tz, day) => {
     setStage('loading')
     setError('')
@@ -887,6 +959,8 @@ function RosesMode({ onBack }) {
     if (profileResp.profile?.fields) {
       setFields(sanitizeRosesFields(profileResp.profile.fields))
       setManualTouched({})
+      setCreationStep(CREATION_STEPS[0])
+      setCreationFacts([''])
       setOnboardingRoundActive(false)
       setStage('dashboard')
       return
@@ -894,6 +968,8 @@ function RosesMode({ onBack }) {
 
     setFields(emptyFields())
     setManualTouched({})
+    setCreationStep(CREATION_STEPS[0])
+    setCreationFacts([''])
     setOnboardingRoundActive(false)
     setStage(profileResp.canPlayIntroRound ? 'onboarding' : 'profile')
   }
@@ -913,17 +989,65 @@ function RosesMode({ onBack }) {
   }, [])
 
   const setFieldValue = (fieldId, rawValue) => {
-    let nextValue = String(rawValue || '')
-    if (fieldId === 'age') {
-      nextValue = nextValue.replace(/[^0-9]/g, '')
-    }
-
+    const nextValue = String(rawValue || '')
     setFields((prev) => ({ ...prev, [fieldId]: nextValue }))
   }
 
   const handleFieldChange = (fieldId, value) => {
     setFieldValue(fieldId, value)
     setManualTouched((prev) => ({ ...prev, [fieldId]: true }))
+  }
+
+  const handleCreationFactChange = (index, value) => {
+    setCreationFacts((prev) => prev.map((fact, idx) => (idx === index ? value : fact)))
+  }
+
+  const handleAddCreationFact = () => {
+    setCreationFacts((prev) => {
+      if (prev.length >= CREATION_FACT_LIMIT) return prev
+      return [...prev, '']
+    })
+  }
+
+  const handleRemoveCreationFact = (index) => {
+    setCreationFacts((prev) => {
+      if (prev.length <= 1) return ['']
+      return prev.filter((_, idx) => idx !== index)
+    })
+  }
+
+  const handleCreationNext = () => {
+    setError('')
+    const name = String(fields.name || '').trim()
+    const occupation = String(fields.occupation || '').trim()
+
+    if (creationStep === 'name') {
+      if (!name) {
+        setError('Enter a name to continue.')
+        return
+      }
+      setCreationStep('occupation')
+      return
+    }
+
+    if (creationStep === 'occupation') {
+      if (!occupation) {
+        setError('Enter an occupation to continue.')
+        return
+      }
+      setCreationStep('final')
+    }
+  }
+
+  const handleCreationBack = () => {
+    setError('')
+    if (creationStep === 'final') {
+      setCreationStep('occupation')
+      return
+    }
+    if (creationStep === 'occupation') {
+      setCreationStep('name')
+    }
   }
 
   const handleGenerateField = async (fieldId) => {
@@ -954,7 +1078,7 @@ function RosesMode({ onBack }) {
 
   const fillMissingFields = async (startFields) => {
     const next = { ...startFields }
-    const missing = PROFILE_FIELDS
+    const missing = EDIT_PROFILE_FIELDS
       .map((field) => field.id)
       .filter((fieldId) => !String(next[fieldId] || '').trim())
 
@@ -1006,6 +1130,75 @@ function RosesMode({ onBack }) {
     }
   }
 
+  const handlePublishCreatedProfile = async () => {
+    setError('')
+    setStatus('')
+    void triggerHaptic('heavy')
+
+    const name = String(fields.name || '').trim()
+    const occupation = String(fields.occupation || '').trim()
+    const introTagline = String(fields.introTagline || '').trim()
+    const bio = buildBioFromFacts({ name, occupation, facts: creationFacts })
+
+    if (!name) {
+      setError('Enter a name to continue.')
+      void triggerHaptic('error')
+      return
+    }
+    if (!occupation) {
+      setError('Enter an occupation to continue.')
+      void triggerHaptic('error')
+      return
+    }
+    if (!introTagline) {
+      setError('Enter an intro tagline before publishing.')
+      void triggerHaptic('error')
+      return
+    }
+
+    setSavingProfile(true)
+
+    try {
+      const normalized = sanitizeRosesFields({
+        ...fields,
+        bio,
+      })
+      const response = await saveRosesProfile({
+        playerId,
+        timezone,
+        localDay: getLocalDayKey(timezone),
+        fields: normalized,
+        manualFieldCount: 1,
+      })
+
+      setProfile(response.profile)
+      setCanPlay(Boolean(response.canPlay))
+      setCanPlayIntroRound(false)
+      setMustCreateProfileBeforeNextRound(false)
+      setCanEditToday(Boolean(response.canEditToday))
+      setFields(normalized)
+      setCreationFacts([''])
+      setCreationStep(CREATION_STEPS[0])
+      setStatus('Profile published to the global Roses pool.')
+      void triggerHaptic('success')
+
+      const leaderboardResp = await fetchRosesLeaderboard(25)
+      setLeaderboard({
+        allTime: leaderboardResp.allTime || [],
+        weekly: leaderboardResp.weekly || [],
+        weekKey: leaderboardResp.weekKey || '',
+      })
+
+      setStage('dashboard')
+    } catch (saveError) {
+      console.error(saveError)
+      setError(saveError.message || 'Failed to publish profile.')
+      void triggerHaptic('error')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
   const handlePublishProfile = async () => {
     setError('')
     setStatus('')
@@ -1026,19 +1219,12 @@ function RosesMode({ onBack }) {
       return
     }
 
-    const missingStill = PROFILE_FIELDS
+    const missingStill = EDIT_PROFILE_FIELDS
       .map((field) => field.id)
       .filter((fieldId) => !String(normalized[fieldId] || '').trim())
 
     if (missingStill.length) {
       setError('Some fields are still empty. Use Generate Empties first.')
-      void triggerHaptic('error')
-      return
-    }
-
-    const age = Number.parseInt(String(normalized.age || ''), 10)
-    if (!Number.isFinite(age) || age < 18) {
-      setError('Age must be 18 or older.')
       void triggerHaptic('error')
       return
     }
@@ -1091,6 +1277,8 @@ function RosesMode({ onBack }) {
     const base = sanitizeRosesFields(profile?.fields || emptyFields())
     setFields(base)
     setManualTouched({})
+    setCreationStep(CREATION_STEPS[0])
+    setCreationFacts([''])
     setStatus('')
     setError('')
     setStage('profile')
@@ -1788,58 +1976,175 @@ function RosesMode({ onBack }) {
         {status && <div className="roses-status">{status}</div>}
 
         {stage === 'profile' ? (
-          <>
-            <p className="roses-profile-subtitle">
-              {mustCreateProfileBeforeNextRound && !profile
-                ? 'You gave out your first Rose. Now build your own profile so the pool can judge you back.'
-                : 'Build the most enticing imaginary dating profile possible!'}
-            </p>
-            <div className="roses-form-grid">
-              {PROFILE_FIELDS.map((field) => (
-                <FieldInput
-                  key={field.id}
-                  field={field}
-                  value={fields[field.id] || ''}
-                  onChange={handleFieldChange}
-                  onGenerate={handleGenerateField}
-                  generating={generatingField === field.id}
-                />
-              ))}
+          profile ? (
+            <>
+              <p className="roses-profile-subtitle">
+                Build the most enticing imaginary dating profile possible!
+              </p>
+              <div className="roses-form-grid">
+                {EDIT_PROFILE_FIELDS.map((field) => (
+                  <FieldInput
+                    key={field.id}
+                    field={field}
+                    value={fields[field.id] || ''}
+                    onChange={handleFieldChange}
+                    onGenerate={handleGenerateField}
+                    generating={generatingField === field.id}
+                  />
+                ))}
+              </div>
+              <div className="roses-profile-actions">
+                <button
+                  type="button"
+                  className="roses-secondary"
+                  onClick={() => {
+                    setFields(profile?.fields ? sanitizeRosesFields(profile.fields) : emptyFields())
+                    setManualTouched({})
+                    setStatus('')
+                  }}
+                >
+                  Reset Form
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    'roses-primary',
+                    !hasAnyFieldValue ? 'roses-fill-any-fields' : '',
+                    hasAnyFieldValue && !allFieldsFilled ? 'roses-generate-empties' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={allFieldsFilled ? handlePublishProfile : handleGenerateEmpties}
+                  disabled={!hasAnyFieldValue || savingProfile || autoFilling}
+                >
+                  {!hasAnyFieldValue
+                    ? 'Fill Any Fields'
+                    : autoFilling
+                    ? 'Generating...'
+                    : savingProfile
+                      ? 'Publishing...'
+                      : allFieldsFilled
+                        ? 'Publish Profile'
+                        : 'Generate Empties'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="roses-create-shell">
+              <div className="roses-create-head">
+                <div className="roses-create-step">Step {creationStepIndex + 1} / {CREATION_STEPS.length}</div>
+                <p className="roses-profile-subtitle">
+                  You gave out your first Rose. Now build your own profile so the pool can judge you back.
+                </p>
+              </div>
+
+              {creationStep === 'name' && (
+                <div className="roses-create-panel">
+                  <label className="roses-create-label" htmlFor="roses-create-name">Name</label>
+                  <input
+                    id="roses-create-name"
+                    className="roses-create-input"
+                    type="text"
+                    maxLength={ROSES_FIELD_LIMITS.name}
+                    value={fields.name || ''}
+                    onChange={(event) => setFieldValue('name', event.target.value)}
+                    placeholder="Smurf Blaster"
+                  />
+                </div>
+              )}
+
+              {creationStep === 'occupation' && (
+                <div className="roses-create-panel">
+                  <label className="roses-create-label" htmlFor="roses-create-occupation">Occupation</label>
+                  <input
+                    id="roses-create-occupation"
+                    className="roses-create-input"
+                    type="text"
+                    maxLength={ROSES_FIELD_LIMITS.occupation}
+                    value={fields.occupation || ''}
+                    onChange={(event) => setFieldValue('occupation', event.target.value)}
+                    placeholder="Game Developer"
+                  />
+                </div>
+              )}
+
+              {creationStep === 'final' && (
+                <div className="roses-create-panel is-final">
+                  <div className="roses-field-row full singleline show-counter">
+                    <div className="roses-field-head">
+                      <label htmlFor="roses-field-introTagline">Intro Tagline</label>
+                    </div>
+                    <div className="roses-field-input-wrap">
+                      <input
+                        id="roses-field-introTagline"
+                        value={fields.introTagline || ''}
+                        onChange={(event) => setFieldValue('introTagline', event.target.value)}
+                        maxLength={ROSES_FIELD_LIMITS.introTagline}
+                        placeholder="The line they open with in chat"
+                      />
+                      <span className="roses-field-counter">{String(fields.introTagline || '').length}/{ROSES_FIELD_LIMITS.introTagline}</span>
+                    </div>
+                  </div>
+
+                  <div className="roses-create-facts-head">
+                    <div>
+                      <h3 className="roses-panel-title">Character Facts</h3>
+                      <p className="roses-create-helper">Add up to {CREATION_FACT_LIMIT} optional facts. We&apos;ll turn them directly into the Bio.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="roses-secondary"
+                      onClick={handleAddCreationFact}
+                      disabled={creationFacts.length >= CREATION_FACT_LIMIT}
+                    >
+                      Add Fact
+                    </button>
+                  </div>
+
+                  <div className="roses-create-facts-list">
+                    {creationFacts.map((fact, index) => (
+                      <div key={`fact-${index}`} className="roses-create-fact-row">
+                        <input
+                          id={index === 0 ? 'roses-create-fact-0' : undefined}
+                          className="roses-create-input"
+                          type="text"
+                          value={fact}
+                          maxLength={120}
+                          onChange={(event) => handleCreationFactChange(index, event.target.value)}
+                          placeholder={`Fact ${index + 1}`}
+                        />
+                        <button
+                          type="button"
+                          className="roses-create-fact-remove"
+                          onClick={() => handleRemoveCreationFact(index)}
+                          disabled={creationFacts.length === 1 && !creationFactsUsed.length}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="roses-profile-actions">
+                <button
+                  type="button"
+                  className="roses-secondary"
+                  onClick={handleCreationBack}
+                  disabled={creationStep === 'name' || savingProfile}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="roses-primary"
+                  onClick={creationStep === 'final' ? handlePublishCreatedProfile : handleCreationNext}
+                  disabled={savingProfile}
+                >
+                  {savingProfile ? 'Publishing...' : creationStep === 'final' ? 'Publish Profile' : 'Next'}
+                </button>
+              </div>
             </div>
-            <div className="roses-profile-actions">
-              <button
-                type="button"
-                className="roses-secondary"
-                onClick={() => {
-                  setFields(profile?.fields ? sanitizeRosesFields(profile.fields) : emptyFields())
-                  setManualTouched({})
-                  setStatus('')
-                }}
-              >
-                Reset Form
-              </button>
-              <button
-                type="button"
-                className={[
-                  'roses-primary',
-                  !hasAnyFieldValue ? 'roses-fill-any-fields' : '',
-                  hasAnyFieldValue && !allFieldsFilled ? 'roses-generate-empties' : '',
-                ].filter(Boolean).join(' ')}
-                onClick={allFieldsFilled ? handlePublishProfile : handleGenerateEmpties}
-                disabled={!hasAnyFieldValue || savingProfile || autoFilling}
-              >
-                {!hasAnyFieldValue
-                  ? 'Fill Any Fields'
-                  : autoFilling
-                  ? 'Generating...'
-                  : savingProfile
-                    ? 'Publishing...'
-                    : allFieldsFilled
-                      ? 'Publish Profile'
-                      : 'Generate Empties'}
-              </button>
-            </div>
-          </>
+          )
         ) : (
           <div className="roses-dashboard-frame">
             <div
@@ -1872,14 +2177,6 @@ function RosesMode({ onBack }) {
                       <div className="roses-panel-item">
                         <span className="roses-panel-label">Name</span>
                         <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
-                      </div>
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">Age</span>
-                        <span className="roses-panel-value">{profile?.fields?.age || '-'}</span>
-                      </div>
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">Pronouns</span>
-                        <span className="roses-panel-value">{profile?.fields?.pronouns || '-'}</span>
                       </div>
                       <div className="roses-panel-item">
                         <span className="roses-panel-label">Occupation</span>

@@ -15,8 +15,6 @@ import { ROSES_BUILT_IN_KEYWORD_BLOCKLIST } from '../../src/data/rosesQuestionBa
 
 export const PROFILE_FIELDS = [
   'name',
-  'age',
-  'pronouns',
   'occupation',
   'bio',
   'introTagline',
@@ -105,8 +103,6 @@ function buildSeedProfileTemplates(nowMs = Date.now()) {
       lastEditedTimezone: 'UTC',
       fields: normalizeProfileFields({
         name: dater?.name,
-        age: dater?.age,
-        pronouns: dater?.pronouns,
         occupation,
         bio,
         introTagline: dater?.tagline,
@@ -124,24 +120,17 @@ function toTrimmed(value) {
 }
 
 export function normalizeProfileFields(input = {}) {
-  const normalized = {
+  return {
     name: toTrimmed(input.name),
-    age: Number.parseInt(String(input.age ?? ''), 10),
-    pronouns: toTrimmed(input.pronouns),
     occupation: toTrimmed(input.occupation),
     bio: toTrimmed(input.bio),
     introTagline: toTrimmed(input.introTagline),
   }
-
-  if (!Number.isFinite(normalized.age)) normalized.age = NaN
-  return normalized
 }
 
 export function isCompleteProfile(fields = {}) {
   const normalized = normalizeProfileFields(fields)
   if (!normalized.name) return false
-  if (!Number.isFinite(normalized.age) || normalized.age < 18) return false
-  if (!normalized.pronouns) return false
   if (!normalized.occupation) return false
   if (!normalized.bio) return false
   if (!normalized.introTagline) return false
@@ -405,9 +394,6 @@ export function createOrUpdateProfile({
   }
 
   if (!isCompleteProfile(normalized)) {
-    if (!Number.isFinite(normalized.age) || normalized.age < 18) {
-      return { error: 'Age must be at least 18.' }
-    }
     return { error: 'All profile fields are required before publish.' }
   }
 

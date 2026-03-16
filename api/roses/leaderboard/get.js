@@ -5,8 +5,6 @@ function toEntry(profile, allTimeRank, weeklyRank, weekKey) {
   return {
     playerId: profile.playerId,
     name: profile.fields?.name || 'Unknown',
-    age: Number(profile.fields?.age || 0),
-    pronouns: profile.fields?.pronouns || '',
     occupation: profile.fields?.occupation || '',
     introTagline: profile.fields?.introTagline || '',
     stats: {

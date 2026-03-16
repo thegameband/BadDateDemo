@@ -1204,8 +1204,6 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
   const profileCallbackTokens = Array.from(extractProfileCallbackTokens(profileBehaviorText))
   const context = [
     `Name: ${profile?.fields?.name || 'Unknown'}`,
-    `Age: ${profile?.fields?.age || ''}`,
-    `Pronouns: ${profile?.fields?.pronouns || ''}`,
     `Occupation: ${profile?.fields?.occupation || ''}`,
     `Bio: ${profile?.fields?.bio || ''}`,
     `Intro Tagline: ${profile?.fields?.introTagline || ''}`,
@@ -1290,13 +1288,6 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
     '',
     'Return only the phrase text.',
   ].join('\n')
-
-  const parseAndValidate = (rawValue = '') => {
-    const cleaned = normalizeUltraShortReplyPhrase(rawValue || '')
-    if (!isUltraShortPhraseValid(cleaned)) return ''
-    if (isRefusalLikeRosesReply(cleaned)) return ''
-    return cleaned
-  }
 
   const styleModes = pickReplyStyleModes(5)
   const candidateReplies = []
