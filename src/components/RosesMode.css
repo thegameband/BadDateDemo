@@ -1227,17 +1227,6 @@
   font-weight: 650;
 }
 
-.roses-reveal-bio {
-  margin: 2px 0 0;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(4, 7, 15, 0.55);
-  color: rgba(241, 245, 249, 0.86);
-  font-size: 0.8rem;
-  line-height: 1.36;
-  padding: 7px 8px;
-}
-
 .roses-reveal-cta {
   width: 100%;
   min-height: 62px;

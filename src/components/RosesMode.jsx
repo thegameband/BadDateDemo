@@ -306,7 +306,6 @@ function RevealCard({ profile, title, emphasis = 'default' }) {
           {[profile?.fields?.pronouns, profile?.fields?.age].filter(Boolean).join(' · ') || '-'}
         </div>
         <div className="roses-reveal-subhead occupation">{profile?.fields?.occupation || '-'}</div>
-        <p className="roses-reveal-bio">{profile?.fields?.bio || '-'}</p>
       </div>
 
       <div className="roses-reveal-ranks">
