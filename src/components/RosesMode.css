@@ -934,6 +934,9 @@
 .roses-chat-answer {
   color: #fbcfe8;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .roses-chat-shell .roses-chat-answer {
