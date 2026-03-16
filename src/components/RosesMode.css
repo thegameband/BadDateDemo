@@ -849,7 +849,19 @@
 }
 
 .roses-lb-row.is-you {
-  background: rgba(244, 114, 182, 0.08);
+  background:
+    linear-gradient(90deg, rgba(244, 63, 94, 0.22) 0%, rgba(219, 39, 119, 0.14) 14%, rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: inset 3px 0 0 rgba(253, 224, 71, 0.95);
+}
+
+.roses-lb-row.is-you .roses-lb-rank,
+.roses-lb-row.is-you .roses-lb-score {
+  color: #fff3c4;
+}
+
+.roses-lb-row.is-you .roses-lb-name {
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .roses-lb-rank {
