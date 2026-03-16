@@ -824,41 +824,23 @@
   padding-right: 0;
 }
 
-.roses-intro-sequence {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.roses-intro-card {
-  min-height: 94px;
-  border-radius: 10px;
+.roses-intro-log-card {
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(4, 7, 15, 0.78);
-  padding: 8px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   transition: border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
 }
 
-.roses-intro-card.is-revealed {
-  border-color: rgba(251, 207, 232, 0.28);
-}
-
-.roses-intro-card.is-active {
+.roses-intro-log-card.is-speaking {
   border-color: rgba(35, 207, 255, 0.72);
   box-shadow: 0 0 0 1px rgba(35, 207, 255, 0.3), 0 0 18px rgba(141, 109, 255, 0.24);
   background:
     linear-gradient(180deg, rgba(244, 114, 182, 0.12) 0%, rgba(15, 23, 42, 0.24) 100%),
     rgba(4, 7, 15, 0.78);
-}
-
-.roses-intro-tagline {
-  min-height: 2.8em;
-  color: #fbcfe8;
-  line-height: 1.34;
-  white-space: pre-wrap;
 }
 
 .roses-turn-card {
@@ -1236,7 +1218,6 @@
   .roses-form-grid,
   .roses-leaderboards,
   .roses-answers-grid,
-  .roses-intro-sequence,
   .roses-reveal-multi-grid {
     grid-template-columns: 1fr;
   }

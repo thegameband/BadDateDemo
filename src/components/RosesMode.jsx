@@ -321,11 +321,31 @@ function isTurnLogEntry(entry) {
   return String(entry?.type || 'turn') === 'turn'
 }
 
+function isIntroLogEntry(entry) {
+  return String(entry?.type || '') === 'intro'
+}
+
 function TutorialLogEntry({ message }) {
   if (!String(message || '').trim()) return null
   return (
     <div className="roses-tutorial-card" role="note" aria-live="polite">
       <p className="roses-tutorial-body">{message}</p>
+    </div>
+  )
+}
+
+function IntroLogEntry({ slot, message, isSpeaking = false }) {
+  if (!String(message || '').trim()) return null
+
+  return (
+    <div
+      className={[
+        'roses-intro-log-card',
+        isSpeaking ? 'is-speaking' : '',
+      ].filter(Boolean).join(' ')}
+    >
+      <div className="roses-answer-head">{admirerLabelFromSlot(slot)}</div>
+      <div className="roses-chat-answer">{message}</div>
     </div>
   )
 }
@@ -518,7 +538,6 @@ function RosesMode({ onBack }) {
   const [candidates, setCandidates] = useState([])
   const [chatLog, setChatLog] = useState([])
   const [introPhase, setIntroPhase] = useState('idle')
-  const [introTaglines, setIntroTaglines] = useState({})
   const [activeSpeechSlot, setActiveSpeechSlot] = useState('')
   const [activeSpeechAnswerKey, setActiveSpeechAnswerKey] = useState('')
   const [questionInput, setQuestionInput] = useState('')
@@ -653,7 +672,7 @@ function RosesMode({ onBack }) {
     })
 
     return () => cancelAnimationFrame(frameId)
-  }, [stage, chatLog, introTaglines])
+  }, [stage, chatLog])
 
   useEffect(() => {
     return onAudioStart((_text, speaker) => {
@@ -677,7 +696,6 @@ function RosesMode({ onBack }) {
 
     const playIntro = async () => {
       setIntroPhase('idle')
-      setIntroTaglines({})
       if (onboardingRoundActive) {
         await appendTutorialLine('intro', ONBOARDING_TUTORIAL_LINES.intro)
       }
@@ -690,7 +708,11 @@ function RosesMode({ onBack }) {
         const tagline = String(candidate?.fields?.introTagline || '...')
 
         setIntroPhase(slot.toLowerCase())
-        setIntroTaglines((prev) => ({ ...prev, [slot]: tagline }))
+        setChatLog((prev) => {
+          const entryId = `intro-${slot}`
+          if (prev.some((entry) => String(entry?.id || '') === entryId)) return prev
+          return [...prev, { type: 'intro', id: entryId, slot, message: tagline }]
+        })
         await speakRosesLine({
           text: withAdmirerSpeechTag(slot, tagline),
           speaker: 'dater',
@@ -975,7 +997,6 @@ function RosesMode({ onBack }) {
       setCandidates(response.candidates || [])
       setChatLog([])
       setIntroPhase('idle')
-      setIntroTaglines({})
       setActiveSpeechSlot('')
       setActiveSpeechAnswerKey('')
       setQuestionInput('')
@@ -1227,7 +1248,6 @@ function RosesMode({ onBack }) {
     setActiveSpeechSlot('')
     setActiveSpeechAnswerKey('')
     setIntroPhase('idle')
-    setIntroTaglines({})
     setStatus('')
     setOnboardingRoundActive(false)
     if (profile?.fields) {
@@ -1334,29 +1354,17 @@ function RosesMode({ onBack }) {
                 message={introTutorialEntry.message}
               />
             )}
-            {turnEntries.length === 0 && introPhase !== 'done' && (
-              <div className="roses-intro-sequence">
-                {orderedCandidates.map((candidate, index) => {
-                  const slot = String(candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1))
-                  const tagline = introTaglines[slot] || ''
-                  const active = activeSpeechSlot === slot
-                  return (
-                  <div
-                    key={`intro-${slot}`}
-                    className={[
-                      'roses-intro-card',
-                      active ? 'is-active' : '',
-                      tagline ? 'is-revealed' : '',
-                    ].filter(Boolean).join(' ')}
-                  >
-                    <div className="roses-answer-head">{admirerLabelFromSlot(slot)}</div>
-                    <div className="roses-intro-tagline">{tagline}</div>
-                  </div>
-                  )
-                })}
-              </div>
-            )}
             {postIntroLogEntries.map((entry) => {
+              if (isIntroLogEntry(entry)) {
+                return (
+                  <IntroLogEntry
+                    key={entry.id || `${entry.slot}-${entry.message}`}
+                    slot={entry.slot}
+                    message={entry.message}
+                    isSpeaking={activeSpeechSlot === entry.slot}
+                  />
+                )
+              }
               if (!isTurnLogEntry(entry)) {
                 return <TutorialLogEntry key={entry.id || entry.message} message={entry.message} />
               }
@@ -1454,6 +1462,15 @@ function RosesMode({ onBack }) {
 
           <div className="roses-chat-log roses-choose-log">
             {chatLog.map((entry) => {
+              if (isIntroLogEntry(entry)) {
+                return (
+                  <IntroLogEntry
+                    key={entry.id || `${entry.slot}-${entry.message}`}
+                    slot={entry.slot}
+                    message={entry.message}
+                  />
+                )
+              }
               if (!isTurnLogEntry(entry)) {
                 return <TutorialLogEntry key={entry.id || entry.message} message={entry.message} />
               }
