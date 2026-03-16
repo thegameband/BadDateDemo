@@ -542,7 +542,6 @@ function RosesMode({ onBack }) {
   const [activeSpeechSlot, setActiveSpeechSlot] = useState('')
   const [activeSpeechAnswerKey, setActiveSpeechAnswerKey] = useState('')
   const [questionInput, setQuestionInput] = useState('')
-  const [lockedQuestion, setLockedQuestion] = useState('')
   const [questionPromptIndexes, setQuestionPromptIndexes] = useState(() => randomPromptPlan())
   const [sendingQuestion, setSendingQuestion] = useState(false)
   const [choosingWinner, setChoosingWinner] = useState(false)
@@ -670,7 +669,7 @@ function RosesMode({ onBack }) {
     }
   }, [admirerVoiceByCandidateId])
 
-  const appendTutorialLine = useCallback(async (key, message) => {
+  const appendTutorialLine = useCallback(async (key, message, { waitForPlayback = true } = {}) => {
     const trimmedMessage = String(message || '').trim()
     const entryId = `tutorial-${String(key || '').trim()}`
     if (!onboardingRoundActive || !trimmedMessage || !entryId) return
@@ -680,10 +679,14 @@ function RosesMode({ onBack }) {
       return [...prev, { type: 'tutorial', id: entryId, message: trimmedMessage }]
     })
 
-    await speakRosesLine({
+    const playback = speakRosesLine({
       text: trimmedMessage,
       speaker: 'avatar',
     })
+
+    if (!waitForPlayback) return
+
+    await playback
     await wait(TUTORIAL_LINE_HOLD_MS)
   }, [onboardingRoundActive, speakRosesLine])
 
@@ -781,8 +784,7 @@ function RosesMode({ onBack }) {
 
       if (onboardingRoundActive) {
         setIntroPhase('tutorial')
-        await appendTutorialLine('compose', ONBOARDING_TUTORIAL_LINES.compose)
-        if (cancelled) return
+        void appendTutorialLine('compose', ONBOARDING_TUTORIAL_LINES.compose, { waitForPlayback: false })
       }
 
       setIntroPhase('done')
@@ -1058,7 +1060,6 @@ function RosesMode({ onBack }) {
       setActiveSpeechSlot('')
       setActiveSpeechAnswerKey('')
       setQuestionInput('')
-      setLockedQuestion('')
       setQuestionPromptIndexes(randomPromptPlan())
       setReveal(null)
       setOnboardingRoundActive(Boolean(onboarding))
@@ -1097,11 +1098,9 @@ function RosesMode({ onBack }) {
 
     await primeTTSPlayback()
     setSendingQuestion(true)
-    setLockedQuestion(question)
     setError('')
     void triggerHaptic('heavy')
     const previousChatLog = chatLog
-    let shouldAdvanceToChoose = false
 
     try {
       const buildsPriorTurns = (candidateId) => turnEntries
@@ -1222,12 +1221,11 @@ function RosesMode({ onBack }) {
         } else if (nextTurnNumber === 2) {
           await appendTutorialLine('after-second-answer', ONBOARDING_TUTORIAL_LINES.afterSecondAnswer)
         } else if (nextTurnNumber === TURN_COUNT) {
-          await appendTutorialLine('final-choice', ONBOARDING_TUTORIAL_LINES.finalChoice)
+          void appendTutorialLine('final-choice', ONBOARDING_TUTORIAL_LINES.finalChoice, { waitForPlayback: false })
         }
       }
 
       if (response.round?.doneAsking) {
-        shouldAdvanceToChoose = true
         setStatus('Time to give out your Rose...')
         await wait(CHOOSE_STAGE_DELAY_MS)
         setStage('choose')
@@ -1236,16 +1234,12 @@ function RosesMode({ onBack }) {
       console.error(turnError)
       setChatLog(previousChatLog)
       setError(turnError.message || 'Failed to send question.')
-      setLockedQuestion('')
       void triggerHaptic('error')
     } finally {
       setStatus('')
       setActiveSpeechSlot('')
       setActiveSpeechAnswerKey('')
       setSendingQuestion(false)
-      if (!shouldAdvanceToChoose) {
-        setLockedQuestion('')
-      }
     }
   }
 
@@ -1317,7 +1311,6 @@ function RosesMode({ onBack }) {
     setActiveSpeechAnswerKey('')
     setIntroPhase('idle')
     setStatus('')
-    setLockedQuestion('')
     setOnboardingRoundActive(false)
     if (profile?.fields) {
       setStage('dashboard')
@@ -1545,17 +1538,7 @@ function RosesMode({ onBack }) {
               </>
             ) : (
               <div className="roses-question-locked">
-                {introActive ? (
-                  <div className="roses-question-template">Waiting...</div>
-                ) : (
-                  <>
-                    <div className="roses-question-phase">Now asking</div>
-                    <div className="roses-question-template">
-                      {lockedQuestion || 'Waiting...'}
-                    </div>
-                    <div className="roses-question-locked-note">Waiting...</div>
-                  </>
-                )}
+                <div className="roses-question-template">Waiting...</div>
               </div>
             )}
           </div>
