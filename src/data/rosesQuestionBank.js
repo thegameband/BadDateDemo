@@ -63,6 +63,18 @@ const LEGACY_FILTER_PROMPTS = [
     template: "What's your preference when it comes to _____?",
     options: ['season', 'love language', 'extended families'],
   },
+  {
+    template: 'Where would you take me on a first date?',
+    options: [],
+  },
+  {
+    template: "What's something you do that would impress me?",
+    options: [],
+  },
+  {
+    template: 'If you had a million dollars, how would you spend it?',
+    options: [],
+  },
 ]
 
 export const ROSES_BUILT_IN_KEYWORD_BLOCKLIST = new Set(

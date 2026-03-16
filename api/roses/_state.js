@@ -10,6 +10,8 @@ import {
 } from './_keys.js'
 import { kvGetJSON, kvSetJSON } from './_storage.js'
 import { daters } from '../../src/data/daters.js'
+import { topKeywords } from './_keywords.js'
+import { ROSES_BUILT_IN_KEYWORD_BLOCKLIST } from '../../src/data/rosesQuestionBank.js'
 
 export const PROFILE_FIELDS = [
   'name',
@@ -153,6 +155,7 @@ export function profileToView(profile, rankings) {
   const weeklyRank = rankings?.weeklyRanks?.[pid] || null
   const week = rankings?.weekKey || currentWeekKey()
   const weeklyRoses = Number(profile.stats?.weeklyRoses?.[week] || 0)
+  const keywordCounts = profile.stats?.keywordCounts || {}
 
   return {
     playerId: pid,
@@ -171,7 +174,10 @@ export function profileToView(profile, rankings) {
       allTime: allTimeRank,
       weekly: weeklyRank,
     },
-    sentimentKeywords: profile.sentimentKeywords || [],
+    // Rebuild visible keywords from raw counts so legacy cached arrays also respect the blocklist.
+    sentimentKeywords: topKeywords(keywordCounts, 32, {
+      ignoreWords: ROSES_BUILT_IN_KEYWORD_BLOCKLIST,
+    }),
   }
 }
 
