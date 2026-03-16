@@ -453,8 +453,22 @@ async function processQueue() {
   const { text, voiceId, speaker, useBrowserTTS, preloadedAudioUrl, onStart, onEnd } = audioQueue.shift()
   
   let startTime = null
+  let interruptionTimeoutId = null
+  let completionTimeoutId = null
+
+  const clearPlaybackTimers = () => {
+    if (interruptionTimeoutId) {
+      clearTimeout(interruptionTimeoutId)
+      interruptionTimeoutId = null
+    }
+    if (completionTimeoutId) {
+      clearTimeout(completionTimeoutId)
+      completionTimeoutId = null
+    }
+  }
 
   const fallbackToBrowserTTS = (reason = 'ElevenLabs audio failed; using browser voice fallback.') => {
+    clearPlaybackTimers()
     notifyTTSStatus({
       code: 'ELEVENLABS_FAILED',
       level: 'warning',
@@ -554,38 +568,84 @@ async function processQueue() {
     currentAudio.volume = voiceVolume
     let didStart = false
     let didFinish = false
+    const finishPlayback = (duration = 0, { notifyEnd = true } = {}) => {
+      if (didFinish) return
+      didFinish = true
+      clearPlaybackTimers()
+      clearCurrentObjectUrl()
+      currentAudio = null
+      if (notifyEnd) {
+        notifyAudioEnd(text, speaker)
+      }
+      if (onEnd) onEnd(duration)
+      processQueue()
+    }
     const startTimeoutId = setTimeout(() => {
       if (didStart || didFinish) return
       didFinish = true
+      clearPlaybackTimers()
       console.warn('⚠️ HTMLAudioElement start timeout')
       currentAudio?.pause?.()
       fallbackToBrowserTTS('ElevenLabs audio start timed out; using browser voice fallback.')
     }, PLAY_START_TIMEOUT_MS)
+
+    const scheduleInterruptionFailOpen = (reason = 'interrupted') => {
+      if (!didStart || didFinish) return
+      if (!currentAudio?.paused) return
+      if (currentAudio?.ended) return
+      if (interruptionTimeoutId) clearTimeout(interruptionTimeoutId)
+      interruptionTimeoutId = setTimeout(() => {
+        if (didFinish) return
+        if (!currentAudio?.paused || currentAudio?.ended) return
+        const duration = startTime ? Date.now() - startTime : 0
+        console.warn(`⚠️ Audio playback ${reason}; continuing game flow`)
+        finishPlayback(duration)
+      }, 600)
+    }
+
+    const scheduleCompletionFailOpen = () => {
+      if (!didStart || didFinish) return
+      if (completionTimeoutId) clearTimeout(completionTimeoutId)
+      const remainingMs = Number.isFinite(currentAudio?.duration)
+        ? Math.max(2500, ((currentAudio.duration - currentAudio.currentTime) * 1000) + 1500)
+        : 12000
+      completionTimeoutId = setTimeout(() => {
+        if (didFinish) return
+        const duration = startTime ? Date.now() - startTime : 0
+        console.warn('⚠️ Audio completion watchdog fired; continuing game flow')
+        finishPlayback(duration)
+      }, remainingMs)
+    }
     
     currentAudio.onended = () => {
       if (didFinish) return
-      didFinish = true
       clearTimeout(startTimeoutId)
       const duration = startTime ? Date.now() - startTime : 0
       console.log(`⏹️ Audio ended for ${speaker} (${duration}ms)`)
-      clearCurrentObjectUrl()
-      currentAudio = null
-      // Notify listeners that audio ended
-      notifyAudioEnd(text, speaker)
-      // Call onEnd callback if provided
-      if (onEnd) onEnd(duration)
-      // Process next item in queue
-      processQueue()
+      finishPlayback(duration)
     }
     
     currentAudio.onerror = (err) => {
       if (didFinish) return
-      didFinish = true
       clearTimeout(startTimeoutId)
       console.error('❌ Audio playback error:', err)
-      clearCurrentObjectUrl()
-      currentAudio = null
       fallbackToBrowserTTS('ElevenLabs audio playback failed; using browser voice fallback.')
+    }
+
+    currentAudio.onpause = () => {
+      scheduleInterruptionFailOpen('paused')
+    }
+
+    currentAudio.onabort = () => {
+      scheduleInterruptionFailOpen('aborted')
+    }
+
+    currentAudio.onstalled = () => {
+      scheduleInterruptionFailOpen('stalled')
+    }
+
+    currentAudio.onsuspend = () => {
+      scheduleInterruptionFailOpen('suspended')
     }
     
     // Notify when audio actually starts playing
@@ -593,11 +653,16 @@ async function processQueue() {
       if (didFinish) return
       didStart = true
       clearTimeout(startTimeoutId)
+      if (interruptionTimeoutId) {
+        clearTimeout(interruptionTimeoutId)
+        interruptionTimeoutId = null
+      }
       startTime = Date.now()
       console.log(`▶️ Audio started for ${speaker}`)
       notifyTTSStatus({ code: 'ELEVENLABS_OK', level: 'ok', message: '' })
       notifyAudioStart(text, speaker)
       if (onStart) onStart()
+      scheduleCompletionFailOpen()
     }
     
     await currentAudio.play()
