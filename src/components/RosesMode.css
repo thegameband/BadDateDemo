@@ -1047,14 +1047,6 @@
   background: linear-gradient(180deg, rgba(14, 11, 33, 0) 0%, rgba(14, 11, 33, 0.84) 18%);
 }
 
-.roses-question-phase {
-  color: rgba(249, 168, 212, 0.92);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .roses-question-locked {
   display: flex;
   flex-direction: column;

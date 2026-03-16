@@ -1724,7 +1724,6 @@ function RosesMode({ onBack }) {
           <div ref={bottomPanelRef} className="roses-question-row">
             {composerState === 'compose' ? (
               <>
-                <div className="roses-question-phase">Compose your next question</div>
                 <div className="roses-question-template">{activePromptTemplate}</div>
                 <div className="roses-question-options" role="group" aria-label="Quick fill options">
                   {activePromptOptions.map((option) => (
