@@ -1254,21 +1254,13 @@ function RosesMode({ onBack }) {
           {status && <div className="roses-status">{status}</div>}
 
           <div className="roses-onboarding-hero">
-            <div className="roses-onboarding-kicker">First Round</div>
-            <h3 className="roses-onboarding-title">Judge first. Make your profile after.</h3>
-            <p className="roses-onboarding-copy">
-              Start with a real round of Roses. Meet three admirers, ask all three the same
-              questions, and hand one of them your Rose.
-            </p>
-            <p className="roses-onboarding-copy">
-              After the reveal, you&apos;ll make your own profile so the pool can judge you back.
-            </p>
+            <h3 className="roses-onboarding-title">Giving Roses</h3>
+            <div className="roses-onboarding-copy-list">
+              <p className="roses-onboarding-copy">Meet 3 mystery admirers 🕵️</p>
+              <p className="roses-onboarding-copy">Ask them some telling questions 👀</p>
+              <p className="roses-onboarding-copy">Review their answers and give your Rose to your favorite 🌹</p>
+            </div>
           </div>
-
-          <TutorialCue
-            title="How Roses Works"
-            body="Ask all 3 admirers the same questions. After 3 exchanges, give your Rose to your favorite."
-          />
 
           <button
             type="button"

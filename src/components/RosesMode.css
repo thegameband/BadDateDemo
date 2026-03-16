@@ -115,33 +115,31 @@
     radial-gradient(circle at top right, rgba(35, 207, 255, 0.18), transparent 42%),
     radial-gradient(circle at bottom left, rgba(255, 62, 169, 0.24), transparent 48%),
     rgba(4, 7, 15, 0.82);
-  padding: 18px 18px 16px;
+  padding: 18px 18px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.roses-onboarding-kicker {
-  color: #f9a8d4;
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  gap: 12px;
 }
 
 .roses-onboarding-title {
   margin: 0;
   color: #fff7ed;
-  font-size: clamp(1.5rem, 4vw, 2.25rem);
-  line-height: 0.96;
+  font-size: clamp(1.35rem, 3.8vw, 1.9rem);
+  line-height: 1;
   letter-spacing: 0.01em;
+}
+
+.roses-onboarding-copy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .roses-onboarding-copy {
   margin: 0;
   color: rgba(248, 250, 252, 0.9);
-  font-size: 0.98rem;
-  line-height: 1.48;
+  font-size: 1rem;
+  line-height: 1.38;
 }
 
 .roses-onboarding-cta {
