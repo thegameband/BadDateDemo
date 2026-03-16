@@ -271,12 +271,6 @@ function randomPromptPlan(count = TURN_COUNT) {
   return picks
 }
 
-function withAdmirerSpeechTag(slot, text) {
-  const clean = String(text || '').trim()
-  if (!clean) return ''
-  return `${admirerLabelFromSlot(slot)}: ${clean}`
-}
-
 function FieldInput({ field, value, onChange, onGenerate, generating }) {
   const maxLength = ROSES_FIELD_LIMITS[field.id] || 200
   const [isFocused, setIsFocused] = useState(false)
@@ -922,7 +916,7 @@ function RosesMode({ onBack }) {
           return [...prev, { type: 'intro', id: entryId, slot, message: tagline }]
         })
         await speakRosesLine({
-          text: withAdmirerSpeechTag(slot, tagline),
+          text: tagline,
           speaker: 'dater',
           slot,
           candidate,
@@ -1544,7 +1538,7 @@ function RosesMode({ onBack }) {
 
         setStatus(`${admirerLabelFromSlot(slot)} responds...`)
         await speakRosesLine({
-          text: withAdmirerSpeechTag(slot, item.response),
+          text: item.response,
           speaker: 'dater',
           slot,
           candidate,
