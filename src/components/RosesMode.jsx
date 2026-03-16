@@ -44,6 +44,10 @@ const DASHBOARD_TABS = [
   { id: 'stats', label: 'Stats' },
   { id: 'boards', label: 'Boards' },
 ]
+const BOARD_TABS = [
+  { id: 'allTime', label: 'All-time' },
+  { id: 'weekly', label: 'Weekly' },
+]
 const ONBOARDING_TUTORIAL_LINES = {
   intro: "Let's let our first set of admirers introduce themselves!",
   compose: 'Compose your question! What would you want to know about a prospective partner?',
@@ -495,13 +499,12 @@ function LeaderboardPanel({
   currentPlayerId = '',
   weekKey = '',
   maxRows = 10,
-  compact = false,
 }) {
   const weekLabel = mode === 'weekly' ? formatWeekStartLabel(weekKey) : ''
   const displayRows = buildLeaderboardDisplayRows({ entries, mode, currentPlayerId, maxRows })
 
   return (
-    <section className={['roses-lb-panel', compact ? 'is-compact' : ''].filter(Boolean).join(' ')}>
+    <section className="roses-lb-panel">
       <div className="roses-lb-panel-head">
         <h3>{title}</h3>
         {mode === 'weekly' && weekLabel && (
@@ -538,13 +541,11 @@ function LeaderboardPanel({
                   isYou ? 'is-you' : '',
                 ].filter(Boolean).join(' ')}
               >
-                <div className="roses-lb-meta">
-                  <span className="roses-lb-rank">#{rank}</span>
-                  <span className="roses-lb-score">{primaryScore} 🌹</span>
-                </div>
+                <span className="roses-lb-rank">#{rank}</span>
                 <span className="roses-lb-name" title={displayName}>
                   {displayName}{isYou ? ' (you)' : ''}
                 </span>
+                <span className="roses-lb-score">{primaryScore} 🌹</span>
               </li>
             )
           })}
@@ -597,6 +598,7 @@ function RosesMode({ onBack }) {
   const [reveal, setReveal] = useState(null)
   const [onboardingRoundActive, setOnboardingRoundActive] = useState(false)
   const [dashboardTab, setDashboardTab] = useState(DASHBOARD_TABS[0]?.id || 'profile')
+  const [boardsTab, setBoardsTab] = useState(BOARD_TABS[0]?.id || 'allTime')
   const chatLogRef = useRef(null)
   const questionInputRef = useRef(null)
   const bottomPanelRef = useRef(null)
@@ -903,6 +905,7 @@ function RosesMode({ onBack }) {
   useEffect(() => {
     if (stage === 'dashboard') {
       setDashboardTab(DASHBOARD_TABS[0]?.id || 'profile')
+      setBoardsTab(BOARD_TABS[0]?.id || 'allTime')
     }
   }, [stage])
 
@@ -2331,22 +2334,31 @@ function RosesMode({ onBack }) {
 
               {dashboardTab === 'boards' && (
                 <div className="roses-leaderboards roses-leaderboards-dashboard">
+                  <div className="roses-board-tabbar" role="tablist" aria-label="Roses leaderboard views">
+                    {BOARD_TABS.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={boardsTab === tab.id}
+                        className={[
+                          'roses-board-tab',
+                          boardsTab === tab.id ? 'is-active' : '',
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => setBoardsTab(tab.id)}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <LeaderboardPanel
-                    title="All-Time Roses"
-                    mode="allTime"
-                    entries={leaderboard.allTime}
-                    currentPlayerId={playerId}
-                    maxRows={10}
-                    compact
-                  />
-                  <LeaderboardPanel
-                    title="Top Roses This Week"
-                    mode="weekly"
-                    entries={leaderboard.weekly}
+                    title={boardsTab === 'allTime' ? 'All-Time Roses' : 'Top Roses This Week'}
+                    mode={boardsTab}
+                    entries={boardsTab === 'allTime' ? leaderboard.allTime : leaderboard.weekly}
                     currentPlayerId={playerId}
                     weekKey={leaderboard.weekKey}
                     maxRows={10}
-                    compact
                   />
                 </div>
               )}

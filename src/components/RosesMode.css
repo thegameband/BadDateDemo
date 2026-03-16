@@ -484,6 +484,8 @@
 
 .roses-dashboard-page.is-boards {
   grid-template-rows: minmax(0, 1fr);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .roses-profile-actions .roses-secondary,
@@ -744,10 +746,37 @@
 }
 
 .roses-leaderboards-dashboard {
-  height: 100%;
   grid-template-columns: 1fr;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto;
   gap: 8px;
+  align-content: start;
+}
+
+.roses-board-tabbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(5, 9, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.roses-board-tab {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.82);
+  min-height: 42px;
+  padding: 9px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.roses-board-tab.is-active {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.92) 0%, rgba(219, 39, 119, 0.92) 100%);
+  color: #fff7ed;
 }
 
 .roses-lb-panel {
@@ -796,11 +825,11 @@
 }
 
 .roses-lb-row {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
-  padding: 7px 0 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -823,18 +852,10 @@
   background: rgba(244, 114, 182, 0.08);
 }
 
-.roses-lb-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .roses-lb-rank {
   color: rgba(226, 232, 240, 0.9);
   font-size: 0.77rem;
   font-weight: 700;
-  text-align: left;
   white-space: nowrap;
 }
 
@@ -842,8 +863,11 @@
   font-weight: 600;
   font-size: 0.82rem;
   color: #f8fafc;
-  line-height: 1.28;
-  overflow-wrap: anywhere;
+  line-height: 1.15;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .roses-lb-score {
@@ -854,61 +878,9 @@
   white-space: nowrap;
 }
 
-.roses-lb-panel.is-compact {
-  min-height: 0;
-  padding: 8px 10px;
-  gap: 5px;
-  overflow: hidden;
-}
-
-.roses-lb-panel.is-compact .roses-lb-panel-head {
-  gap: 2px;
-}
-
-.roses-lb-panel.is-compact .roses-lb-panel-head h3 {
-  font-size: 0.88rem;
-}
-
-.roses-lb-panel.is-compact .roses-lb-subhead,
-.roses-lb-panel.is-compact .roses-lb-empty {
-  font-size: 0.72rem;
-}
-
-.roses-lb-panel.is-compact .roses-lb-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.roses-lb-panel.is-compact .roses-lb-row {
-  gap: 2px;
-  padding: 5px 0;
-}
-
-.roses-lb-panel.is-compact .roses-lb-gap {
-  padding: 2px 0 4px;
-  font-size: 0.8rem;
-}
-
-.roses-lb-panel.is-compact .roses-lb-rank,
-.roses-lb-panel.is-compact .roses-lb-score {
-  font-size: 0.72rem;
-}
-
-.roses-lb-panel.is-compact .roses-lb-name {
-  font-size: 0.76rem;
-  line-height: 1.18;
-}
-
 @media (min-width: 760px) {
   .roses-profile-copy-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .roses-leaderboards-dashboard {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: 1fr;
   }
 }
 
