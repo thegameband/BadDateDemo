@@ -17,6 +17,7 @@ import {
   sanitizeRosesFields,
 } from '../services/rosesLlmService'
 import { daters } from '../data/daters'
+import { QUESTION_BANK } from '../data/rosesQuestionBank'
 import { onAudioStart, primeTTSPlayback, setVoice, speakAndWait, stopAllAudio } from '../services/ttsService'
 import { setMusicMode } from '../services/audioService'
 import { useWebHaptics } from 'web-haptics/react'
@@ -36,36 +37,6 @@ const INTRO_PHASE_HOLD_MS = 220
 const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
 const ADMIRER_SLOTS = ['A', 'B', 'C']
-const QUESTION_BANK = [
-  {
-    template: "What's your hottest take about _____?",
-    options: ['dating', 'capitalism', 'food'],
-  },
-  {
-    template: 'Do you think _____ is a red flag?',
-    options: ['baggage', 'crime', 'stupidity'],
-  },
-  {
-    template: "What's your favorite _____?",
-    options: ['movie', 'book', 'historical disaster'],
-  },
-  {
-    template: "What's the earliest you'd _____ in a relationship?",
-    options: ['kiss', 'open up', 'move in'],
-  },
-  {
-    template: 'Do you think _____ is ever justifiable?',
-    options: ['capital punishment', 'double dipping', 'cheating'],
-  },
-  {
-    template: "I'm running around _____. What do you do?",
-    options: ['on fire', 'with your bff', 'lying'],
-  },
-  {
-    template: 'I confess to you that _____. What do you do?',
-    options: ["i'm in love", "i'm a killer", 'i have kids'],
-  },
-]
 
 const ROSES_VOICE_POOL = [
   { voiceId: 'EXAVITQu4vr4xnSDxMaL', isMale: false }, // Bella

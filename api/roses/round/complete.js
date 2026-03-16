@@ -2,6 +2,10 @@ import { requirePost, readJsonBody, sendJson } from '../_json.js'
 import { addKeywordCounts, topKeywords } from '../_keywords.js'
 import { currentWeekKey } from '../_keys.js'
 import {
+  extractRosesCustomQuestionText,
+  ROSES_BUILT_IN_KEYWORD_BLOCKLIST,
+} from '../../src/data/rosesQuestionBank.js'
+import {
   buildRankings,
   getAllProfiles,
   getHistory,
@@ -228,7 +232,10 @@ export default async function handler(req, res) {
 
       let keywordCounts = { ...(stats.keywordCounts || {}) }
       ;(Array.isArray(turns) ? turns : []).forEach((turn) => {
-        keywordCounts = addKeywordCounts(keywordCounts, String(turn.question || ''))
+        const customQuestionText = extractRosesCustomQuestionText(String(turn.question || ''))
+        keywordCounts = addKeywordCounts(keywordCounts, customQuestionText, {
+          ignoreWords: ROSES_BUILT_IN_KEYWORD_BLOCKLIST,
+        })
       })
 
       profile.stats = {
@@ -239,7 +246,9 @@ export default async function handler(req, res) {
         weeklyRoses,
         keywordCounts,
       }
-      profile.sentimentKeywords = topKeywords(keywordCounts, 32)
+      profile.sentimentKeywords = topKeywords(keywordCounts, 32, {
+        ignoreWords: ROSES_BUILT_IN_KEYWORD_BLOCKLIST,
+      })
       profile.updatedAt = Date.now()
     }
 
