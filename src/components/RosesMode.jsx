@@ -1498,7 +1498,7 @@ function RosesMode({ onBack }) {
                     key={entry.id || `${entry.slot}-${entry.message}`}
                     slot={entry.slot}
                     message={entry.message}
-                    isSpeaking={activeSpeechSlot === entry.slot}
+                    isSpeaking={introPhase === String(entry.slot || '').toLowerCase() && activeSpeechSlot === entry.slot}
                   />
                 ))}
               </div>
