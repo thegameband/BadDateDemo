@@ -97,6 +97,21 @@ function admirerLabelFromSlot(slot) {
   return `Admirer ${admirerNumberFromSlot(slot)}`
 }
 
+function revealName(profile, fallback = 'Unknown') {
+  return String(profile?.fields?.name || '').trim() || fallback
+}
+
+function formatRevealNameList(items = []) {
+  const names = (Array.isArray(items) ? items : [])
+    .map((item, index) => revealName(item, `Admirer ${index + 1}`))
+    .filter(Boolean)
+
+  if (!names.length) return 'them'
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`
+}
+
 function stableVoiceHash(value = '') {
   const text = String(value || '')
   let hash = 0
@@ -551,6 +566,7 @@ function RosesMode({ onBack }) {
   const chatLogRef = useRef(null)
   const questionInputRef = useRef(null)
   const bottomPanelRef = useRef(null)
+  const revealAnnouncementRef = useRef('')
 
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -629,6 +645,22 @@ function RosesMode({ onBack }) {
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
   const displayedSentimentKeywords = sentimentKeywords.slice(0, 10)
   const hasSentimentKeywords = sentimentKeywords.length > 0
+  const revealNonWinners = useMemo(
+    () => (Array.isArray(reveal?.nonWinners) ? reveal.nonWinners : [reveal?.loser].filter(Boolean)),
+    [reveal],
+  )
+  const nonWinnerAnnouncement = useMemo(
+    () => `You didn't pick ${formatRevealNameList(revealNonWinners)}.`,
+    [revealNonWinners],
+  )
+  const nonWinnerTutorialBanner = useMemo(
+    () => `${nonWinnerAnnouncement} Hit the button below to reveal your chosen!`,
+    [nonWinnerAnnouncement],
+  )
+  const winnerAnnouncement = useMemo(
+    () => `You gave your rose to ${revealName(reveal?.winner, 'your chosen admirer')}!`,
+    [reveal],
+  )
 
   const speakRosesLine = useCallback(async ({
     text,
@@ -811,6 +843,26 @@ function RosesMode({ onBack }) {
       setPreviewCandidateId('')
     }
   }, [stage])
+
+  useEffect(() => {
+    if (stage !== 'reveal-nonwinners' && stage !== 'reveal-winner') {
+      revealAnnouncementRef.current = ''
+      return
+    }
+
+    const message = stage === 'reveal-nonwinners'
+      ? nonWinnerAnnouncement
+      : winnerAnnouncement
+
+    const key = `${stage}:${message}`
+    if (!message || revealAnnouncementRef.current === key) return
+    revealAnnouncementRef.current = key
+
+    void speakRosesLine({
+      text: message,
+      speaker: 'avatar',
+    })
+  }, [stage, nonWinnerAnnouncement, winnerAnnouncement, speakRosesLine])
 
   const loadEverything = async (pid, tz, day) => {
     setStage('loading')
@@ -1662,16 +1714,13 @@ function RosesMode({ onBack }) {
   }
 
   if (stage === 'reveal-nonwinners') {
-    const nonWinnerProfiles = Array.isArray(reveal?.nonWinners)
-      ? reveal.nonWinners
-      : [reveal?.loser].filter(Boolean)
-
     return (
       <div className="roses-mode">
         <div className="roses-card">
+          {onboardingRoundActive && <div className="roses-reveal-banner">{nonWinnerTutorialBanner}</div>}
           <h2 className="roses-reveal-stage-title is-loser">Admirers Not Chosen</h2>
           <div className="roses-reveal-multi-grid">
-            {nonWinnerProfiles.map((item, index) => (
+            {revealNonWinners.map((item, index) => (
               <RevealCard
                 key={`nonwinner-${item?.playerId || index}`}
                 profile={item}
@@ -1699,6 +1748,7 @@ function RosesMode({ onBack }) {
     return (
       <div className="roses-mode">
         <div className="roses-card">
+          {onboardingRoundActive && <div className="roses-reveal-banner">{winnerAnnouncement}</div>}
           <RevealCard profile={reveal?.winner} title="Rose Winner" />
           <button
             type="button"
