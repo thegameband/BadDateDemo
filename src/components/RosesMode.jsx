@@ -2043,9 +2043,6 @@ function RosesMode({ onBack }) {
             <div className="roses-create-shell">
               <div className="roses-create-head">
                 <div className="roses-create-step">Step {creationStepIndex + 1} / {CREATION_STEPS.length}</div>
-                <p className="roses-profile-subtitle">
-                  You gave out your first Rose. Now build your own profile so the pool can judge you back.
-                </p>
               </div>
 
               <div className="roses-tutorial-card roses-create-instruction" role="note" aria-live="polite">
