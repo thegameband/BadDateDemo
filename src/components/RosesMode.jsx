@@ -664,7 +664,6 @@ function RosesMode({ onBack }) {
     [introLogEntries, previewCandidate],
   )
 
-  const questionNumber = Math.min(TURN_COUNT, Number(round?.turnIndex || 0) + 1)
   const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, Number(round?.turnIndex || 0))
   const activePromptOptionIndex = questionPromptIndexes[currentTurnPromptIndex] ?? 0
   const activePrompt = QUESTION_BANK[activePromptOptionIndex] || QUESTION_BANK[0] || { template: '', options: [] }
@@ -1584,20 +1583,6 @@ function RosesMode({ onBack }) {
     handleSendQuestion(nextValue)
   }
 
-  const handleExitRound = () => {
-    stopAllAudio()
-    setActiveSpeechSlot('')
-    setActiveSpeechAnswerKey('')
-    setIntroPhase('idle')
-    setStatus('')
-    setOnboardingRoundActive(false)
-    if (profile?.fields) {
-      setStage('dashboard')
-      return
-    }
-    setStage(canPlayIntroRound ? 'onboarding' : 'profile')
-  }
-
   const handleChooseWinner = async (winnerId) => {
     if (!round || choosingWinner) return
 
@@ -1706,12 +1691,6 @@ function RosesMode({ onBack }) {
     return (
       <div className="roses-mode roses-mode-chat">
         <div className="roses-card roses-chat-shell">
-          <div className="roses-chat-head">
-            <button className="roses-back" type="button" onClick={handleExitRound}>Exit Round</button>
-            <h2>Roses Chat</h2>
-            <span className="roses-chat-progress">Question {questionNumber} / {TURN_COUNT}</span>
-          </div>
-
           <div ref={chatLogRef} className="roses-chat-log">
             {introTutorialEntry && (
               <TutorialLogEntry
@@ -1829,12 +1808,6 @@ function RosesMode({ onBack }) {
     return (
       <div className="roses-mode roses-mode-chat">
         <div className="roses-card roses-chat-shell roses-choose-shell">
-          <div className="roses-chat-head">
-            <button className="roses-back" type="button" onClick={handleExitRound}>Exit Round</button>
-            <h2>Award One Rose</h2>
-            <span className="roses-chat-progress">Final Choice</span>
-          </div>
-
           {error && <div className="roses-error">{error}</div>}
           {status && <div className="roses-status">{status}</div>}
 
