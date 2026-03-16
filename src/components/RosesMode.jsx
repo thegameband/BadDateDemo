@@ -2221,16 +2221,6 @@ function RosesMode({ onBack }) {
                     </>
                   ) : (
                     <>
-                      <section className="roses-info-panel roses-empty-panel roses-empty-panel-compact">
-                        <div className="roses-empty-panel-copy">
-                          <h3 className="roses-panel-title">No Profile Yet</h3>
-                          <p className="roses-panel-body">
-                            Create a character profile if you want other players to judge you, discuss you, and start sending Roses your way.
-                          </p>
-                        </div>
-                        <div className="roses-empty-panel-arrow" aria-hidden="true">↘</div>
-                      </section>
-
                       <div className="roses-dashboard-actions">
                         <button
                           type="button"
@@ -2249,6 +2239,15 @@ function RosesMode({ onBack }) {
                           Create Profile
                         </button>
                       </div>
+
+                      <section className="roses-info-panel roses-empty-panel roses-empty-panel-compact roses-empty-panel-create-accent">
+                        <div className="roses-empty-panel-copy">
+                          <h3 className="roses-panel-title">No Profile Yet</h3>
+                          <p className="roses-panel-body">
+                            Create a character profile if you want other players to judge you, discuss you, and start sending Roses your way.
+                          </p>
+                        </div>
+                      </section>
 
                       <section className="roses-info-panel roses-awarded-panel">
                         <h3 className="roses-panel-title">Roses You&apos;ve Given Out</h3>

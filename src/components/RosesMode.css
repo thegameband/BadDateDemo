@@ -545,14 +545,13 @@
 }
 
 .roses-empty-panel-compact {
-  position: relative;
   justify-content: flex-start;
   padding: 8px 12px 6px;
   gap: 4px;
 }
 
 .roses-empty-panel-copy {
-  max-width: calc(100% - 32px);
+  max-width: 100%;
 }
 
 .roses-empty-panel-compact .roses-panel-title {
@@ -565,13 +564,11 @@
   line-height: 1.24;
 }
 
-.roses-empty-panel-arrow {
-  position: absolute;
-  right: 14px;
-  bottom: 6px;
-  color: #fde68a;
-  font-size: 1.1rem;
-  line-height: 1;
+.roses-empty-panel-create-accent {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgba(9, 11, 24, 0.94), rgba(9, 11, 24, 0.94)) padding-box,
+    linear-gradient(135deg, #f43f8d 0%, #8d6dff 58%, #23cfff 100%) border-box;
 }
 
 .roses-panel-title {
