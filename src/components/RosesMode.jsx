@@ -552,6 +552,7 @@ function RosesMode({ onBack }) {
   const [dashboardTab, setDashboardTab] = useState(DASHBOARD_TABS[0]?.id || 'profile')
   const chatLogRef = useRef(null)
   const questionInputRef = useRef(null)
+  const bottomPanelRef = useRef(null)
 
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -621,7 +622,7 @@ function RosesMode({ onBack }) {
   const activePrompt = QUESTION_BANK[activePromptOptionIndex] || QUESTION_BANK[0] || { template: '', options: [] }
   const activePromptTemplate = activePrompt.template || ''
   const activePromptOptions = activePrompt.options || []
-  const introActive = stage === 'chat' && introPhase !== 'done'
+  const introActive = stage === 'chat' && introPhase !== 'done' && introPhase !== 'tutorial'
   const composerState = introActive
     ? 'intro'
     : sendingQuestion
@@ -697,6 +698,33 @@ function RosesMode({ onBack }) {
 
     return () => cancelAnimationFrame(frameId)
   }, [stage, chatLog])
+
+  useEffect(() => {
+    if (stage !== 'chat' && stage !== 'choose') return undefined
+    const logNode = chatLogRef.current
+    const panelNode = bottomPanelRef.current
+    if (!logNode || !panelNode || typeof ResizeObserver === 'undefined') return undefined
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        logNode.scrollTop = logNode.scrollHeight
+      })
+    })
+
+    observer.observe(panelNode)
+    return () => observer.disconnect()
+  }, [stage, composerState, previewCandidateId])
+
+  useEffect(() => {
+    if (stage !== 'chat' || introPhase !== 'tutorial' || sendingQuestion) return
+    requestAnimationFrame(() => {
+      const node = questionInputRef.current
+      if (!node) return
+      node.focus()
+      const pos = String(node.value || '').length
+      node.setSelectionRange(pos, pos)
+    })
+  }, [stage, introPhase, sendingQuestion])
 
   useEffect(() => {
     return onAudioStart((_text, speaker) => {
@@ -1280,13 +1308,7 @@ function RosesMode({ onBack }) {
     const nextValue = String(value || '').trim()
     if (!nextValue) return
     setQuestionInput(nextValue)
-    requestAnimationFrame(() => {
-      const node = questionInputRef.current
-      if (!node) return
-      node.focus()
-      const pos = String(nextValue).length
-      node.setSelectionRange(pos, pos)
-    })
+    handleSendQuestion(nextValue)
   }
 
   const handleExitRound = () => {
@@ -1467,7 +1489,7 @@ function RosesMode({ onBack }) {
             })}
           </div>
 
-          <div className="roses-question-row">
+          <div ref={bottomPanelRef} className="roses-question-row">
             {composerState === 'compose' ? (
               <>
                 <div className="roses-question-phase">Compose your next question</div>
@@ -1523,15 +1545,17 @@ function RosesMode({ onBack }) {
               </>
             ) : (
               <div className="roses-question-locked">
-                <div className="roses-question-phase">
-                  {introActive ? 'Meet your admirers first' : 'Now asking'}
-                </div>
-                <div className="roses-question-template">
-                  {lockedQuestion || 'Your question is on the way.'}
-                </div>
-                <div className="roses-question-locked-note">
-                  {introActive ? 'Questioning opens right after introductions.' : 'Waiting for all three admirers to answer...'}
-                </div>
+                {introActive ? (
+                  <div className="roses-question-template">Waiting...</div>
+                ) : (
+                  <>
+                    <div className="roses-question-phase">Now asking</div>
+                    <div className="roses-question-template">
+                      {lockedQuestion || 'Waiting...'}
+                    </div>
+                    <div className="roses-question-locked-note">Waiting...</div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1599,7 +1623,7 @@ function RosesMode({ onBack }) {
             })}
           </div>
 
-          <div className="roses-choose-row">
+          <div ref={bottomPanelRef} className="roses-choose-row">
             <div className="roses-question-template">Give your Rose to your favorite Admirer!</div>
             {previewCandidate && (
               <div className="roses-choose-preview" role="note" aria-live="polite">
