@@ -38,8 +38,35 @@ export const QUESTION_BANK = [
   },
 ]
 
+const LEGACY_FILTER_PROMPTS = [
+  {
+    template: "What's your favorite _____?",
+    options: ['food', 'movie', 'date night'],
+  },
+  {
+    template: "What's your least favorite _____?",
+    options: ['meal', 'historical figure', 'sensation'],
+  },
+  {
+    template: "You see me and I'm _____. What do you do?",
+    options: ['asleep', 'in trouble', 'smiling'],
+  },
+  {
+    template: 'How often do you _____?',
+    options: ['date', 'regret', 'lie'],
+  },
+  {
+    template: "What's your biggest _____?",
+    options: ['regret', 'accomplishment', 'desire'],
+  },
+  {
+    template: "What's your preference when it comes to _____?",
+    options: ['season', 'love language', 'extended families'],
+  },
+]
+
 export const ROSES_BUILT_IN_KEYWORD_BLOCKLIST = new Set(
-  QUESTION_BANK.flatMap((entry) => [
+  [...QUESTION_BANK, ...LEGACY_FILTER_PROMPTS].flatMap((entry) => [
     ...toKeywordTokenList(entry?.template || ''),
     ...(Array.isArray(entry?.options)
       ? entry.options.flatMap((option) => toKeywordTokenList(option))
