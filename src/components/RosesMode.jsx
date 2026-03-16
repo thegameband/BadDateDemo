@@ -987,6 +987,7 @@ function RosesMode({ onBack }) {
       weekly: leaderboardResp.weekly || [],
       weekKey: leaderboardResp.weekKey || '',
     })
+    setRosesGiven(Array.isArray(profileResp.rosesGiven) ? profileResp.rosesGiven : [])
 
     if (profileResp.profile?.fields) {
       setFields(sanitizeRosesFields(profileResp.profile.fields))
