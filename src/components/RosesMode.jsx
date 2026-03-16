@@ -1622,6 +1622,7 @@ function RosesMode({ onBack }) {
         fetchRosesLeaderboard(25),
       ])
       setProfile(profileResp.profile || null)
+      setRosesGiven(Array.isArray(profileResp.rosesGiven) ? profileResp.rosesGiven : [])
       setCanPlay(Boolean(profileResp.canPlay))
       setCanPlayIntroRound(Boolean(profileResp.canPlayIntroRound))
       setMustCreateProfileBeforeNextRound(Boolean(profileResp.mustCreateProfileBeforeNextRound))
