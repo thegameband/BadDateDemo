@@ -2327,7 +2327,7 @@ function RosesMode({ onBack }) {
                         ))}
                       </div>
                     ) : (
-                      <div className="roses-lb-empty">Custom topics will show up here after a few rounds.</div>
+                      <div className="roses-lb-empty">Topics that people discuss with your profile will begin to appear here after it has participated in few conversations. Check back later!</div>
                     )}
                   </section>
                 </>
