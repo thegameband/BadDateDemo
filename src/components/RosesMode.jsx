@@ -1739,7 +1739,7 @@ function RosesMode({ onBack }) {
                       onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
                       onKeyDown={handleQuestionKeyDown}
                       onFocus={handleQuestionFocus}
-                      placeholder="fill in the blank"
+                      placeholder="type here"
                       disabled={sendingQuestion || introActive}
                     />
                     {activePromptParts.after && (
