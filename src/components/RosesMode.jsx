@@ -1872,7 +1872,7 @@ function RosesMode({ onBack }) {
                     onClick={() => handleChooseButtonPress(candidateId)}
                     disabled={choosingWinner || !candidateId}
                   >
-                    {choosingWinner ? 'Submitting...' : (isOpen ? 'Give Rose' : `${admirerLabelFromSlot(slot)} 🌹`)}
+                    {choosingWinner ? 'Submitting...' : (isOpen ? `Give Rose 🌹 to ${admirerLabelFromSlot(slot)}` : `${admirerLabelFromSlot(slot)} 🌹`)}
                   </button>
                 )
               })}
