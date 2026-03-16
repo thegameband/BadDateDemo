@@ -1200,7 +1200,7 @@ function RosesMode({ onBack }) {
         weekly: leaderboardResp.weekly || [],
         weekKey: leaderboardResp.weekKey || '',
       })
-      setRosesGiven(Array.isArray(response.rosesGiven) ? response.rosesGiven : [])
+      setRosesGiven((prev) => (Array.isArray(response.rosesGiven) ? response.rosesGiven : prev))
 
       setStage('dashboard')
     } catch (saveError) {
@@ -1261,7 +1261,7 @@ function RosesMode({ onBack }) {
         weekly: leaderboardResp.weekly || [],
         weekKey: leaderboardResp.weekKey || '',
       })
-      setRosesGiven(Array.isArray(response.rosesGiven) ? response.rosesGiven : [])
+      setRosesGiven((prev) => (Array.isArray(response.rosesGiven) ? response.rosesGiven : prev))
 
       setStage('dashboard')
     } catch (saveError) {

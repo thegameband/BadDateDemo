@@ -4,6 +4,8 @@ import {
   canEditProfileToday,
   createOrUpdateProfile,
   getAllProfiles,
+  getHistory,
+  getHistoryEntry,
   getProfile,
   isCompleteProfile,
   profileToView,
@@ -51,12 +53,30 @@ export default async function handler(req, res) {
 
     await saveProfile(result.profile)
 
-    const allProfiles = await getAllProfiles()
+    const [allProfiles, history] = await Promise.all([
+      getAllProfiles(),
+      getHistory(playerId),
+    ])
     const rankings = buildRankings(allProfiles)
+    const rosesGiven = allProfiles
+      .map((candidateProfile) => {
+        const entry = getHistoryEntry(history, candidateProfile?.playerId)
+        return {
+          playerId: String(candidateProfile?.playerId || ''),
+          name: String(candidateProfile?.fields?.name || '').trim() || 'Unknown',
+          count: Number(entry.rosesGiven || 0),
+        }
+      })
+      .filter((entry) => entry.playerId && entry.count > 0)
+      .sort((a, b) => {
+        if (a.count !== b.count) return b.count - a.count
+        return a.name.localeCompare(b.name)
+      })
 
     sendJson(res, 200, {
       ok: true,
       profile: profileToView(result.profile, rankings),
+      rosesGiven,
       canPlay: isCompleteProfile(result.profile.fields),
       canEditToday: canEditProfileToday(result.profile, localDay),
       weekKey: rankings.weekKey,
