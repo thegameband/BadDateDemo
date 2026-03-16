@@ -3,9 +3,7 @@ import {
   findRoundCandidates,
   getAllProfiles,
   getHistory,
-  getProfile,
   getRandomId,
-  isCompleteProfile,
   saveRound,
 } from '../_state.js'
 
@@ -32,19 +30,10 @@ export default async function handler(req, res) {
       return
     }
 
-    const [bachelorProfile, allProfiles, history] = await Promise.all([
-      getProfile(playerId),
+    const [allProfiles, history] = await Promise.all([
       getAllProfiles(),
       getHistory(playerId),
     ])
-
-    const hasPublishedProfile = Boolean(bachelorProfile && isCompleteProfile(bachelorProfile.fields))
-    const hasCompletedIntroRound = Object.keys(history || {}).length > 0
-
-    if (!hasPublishedProfile && hasCompletedIntroRound) {
-      sendJson(res, 400, { error: 'Create and publish your profile before playing another Roses round.' })
-      return
-    }
 
     const candidates = findRoundCandidates({
       allProfiles,

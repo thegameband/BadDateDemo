@@ -11,7 +11,6 @@ import {
   submitRosesTurn,
 } from '../services/rosesApi'
 import {
-  generateRosesField,
   generateRosesReply,
   ROSES_FIELD_LIMITS,
   sanitizeRosesFields,
@@ -104,19 +103,6 @@ function buildBioFromFacts({ name = '', occupation = '', facts = [] }) {
   const safeName = String(name || '').trim() || 'This person'
   const safeOccupation = String(occupation || '').trim() || 'person'
   return `${safeName} works as ${safeOccupation}.`
-}
-
-function splitGeneratedBioIntoFacts(value = '') {
-  const cleaned = String(value || '').replace(/\s+/g, ' ').trim()
-  if (!cleaned) return ['']
-
-  const parts = cleaned
-    .split(/(?<=[.!?])\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .slice(0, CREATION_FACT_LIMIT)
-
-  return parts.length ? parts : [cleaned]
 }
 
 function scoreWordSize(count = 1) {
@@ -271,7 +257,7 @@ function randomPromptPlan(count = TURN_COUNT) {
   return picks
 }
 
-function FieldInput({ field, value, onChange, onGenerate, generating }) {
+function FieldInput({ field, value, onChange }) {
   const maxLength = ROSES_FIELD_LIMITS[field.id] || 200
   const [isFocused, setIsFocused] = useState(false)
   const showCounter = isFocused && String(value || '').length > 0
@@ -287,14 +273,6 @@ function FieldInput({ field, value, onChange, onGenerate, generating }) {
     >
       <div className="roses-field-head">
         <label htmlFor={`roses-field-${field.id}`}>{field.label}</label>
-        <button
-          type="button"
-          className="roses-generate-btn"
-          onClick={() => onGenerate(field.id)}
-          disabled={Boolean(generating)}
-        >
-          {generating ? 'Generating...' : 'Generate'}
-        </button>
       </div>
       <div className="roses-field-input-wrap">
         {field.multiline ? (
@@ -617,7 +595,6 @@ function RosesMode({ onBack }) {
   const [profile, setProfile] = useState(null)
   const [canPlay, setCanPlay] = useState(false)
   const [canPlayIntroRound, setCanPlayIntroRound] = useState(false)
-  const [mustCreateProfileBeforeNextRound, setMustCreateProfileBeforeNextRound] = useState(false)
   const [canEditToday, setCanEditToday] = useState(true)
   const [leaderboard, setLeaderboard] = useState({ allTime: [], weekly: [] })
   const [rosesGiven, setRosesGiven] = useState([])
@@ -627,8 +604,6 @@ function RosesMode({ onBack }) {
   const [creationStep, setCreationStep] = useState(CREATION_STEPS[0])
   const [creationFacts, setCreationFacts] = useState([''])
   const [savingProfile, setSavingProfile] = useState(false)
-  const [generatingField, setGeneratingField] = useState('')
-  const [autoFilling, setAutoFilling] = useState(false)
 
   const [round, setRound] = useState(null)
   const [candidates, setCandidates] = useState([])
@@ -660,17 +635,7 @@ function RosesMode({ onBack }) {
       .length
   }, [fields, manualTouched])
 
-  const allFieldsFilled = useMemo(() => (
-    EDIT_PROFILE_FIELDS
-      .map((field) => field.id)
-      .every((fieldId) => String(fields[fieldId] || '').trim())
-  ), [fields])
-
-  const hasAnyFieldValue = useMemo(() => (
-    EDIT_PROFILE_FIELDS
-      .map((field) => field.id)
-      .some((fieldId) => String(fields[fieldId] || '').trim())
-  ), [fields])
+  const hasProfile = Boolean(profile?.fields && String(profile?.playerId || '').trim())
 
   const orderedCandidates = useMemo(() => (
     [...candidates].sort((a, b) => {
@@ -961,6 +926,16 @@ function RosesMode({ onBack }) {
     }
   }, [stage])
 
+  const startCreateProfileFlow = useCallback(() => {
+    setFields(emptyFields())
+    setManualTouched({})
+    setCreationStep(CREATION_STEPS[0])
+    setCreationFacts([''])
+    setStatus('')
+    setError('')
+    setStage('profile')
+  }, [])
+
   useEffect(() => {
     if (stage !== 'reveal-nonwinners' && stage !== 'reveal-winner') {
       revealAnnouncementRef.current = ''
@@ -1026,7 +1001,6 @@ function RosesMode({ onBack }) {
     setProfile(profileResp.profile || null)
     setCanPlay(Boolean(profileResp.canPlay))
     setCanPlayIntroRound(Boolean(profileResp.canPlayIntroRound))
-    setMustCreateProfileBeforeNextRound(Boolean(profileResp.mustCreateProfileBeforeNextRound))
     setCanEditToday(Boolean(profileResp.canEditToday))
     setLeaderboard({
       allTime: leaderboardResp.allTime || [],
@@ -1050,7 +1024,7 @@ function RosesMode({ onBack }) {
     setCreationStep(CREATION_STEPS[0])
     setCreationFacts([''])
     setOnboardingRoundActive(false)
-    setStage(profileResp.canPlayIntroRound ? 'onboarding' : 'profile')
+    setStage(profileResp.canPlayIntroRound ? 'onboarding' : 'dashboard')
   }
 
   useEffect(() => {
@@ -1062,7 +1036,7 @@ function RosesMode({ onBack }) {
 
     loadEverything(pid, tz, day).catch((loadError) => {
       console.error(loadError)
-      setStage('profile')
+      setStage('dashboard')
       setError(loadError.message || 'Failed to load Roses mode data.')
     })
   }, [])
@@ -1093,32 +1067,6 @@ function RosesMode({ onBack }) {
       if (prev.length <= 1) return ['']
       return prev.filter((_, idx) => idx !== index)
     })
-  }
-
-  const handleGenerateCreationFacts = async () => {
-    setError('')
-    setStatus('')
-    setGeneratingField('bio')
-    void triggerHaptic('heavy')
-
-    try {
-      const generated = await generateRosesField('bio', fields)
-      const facts = splitGeneratedBioIntoFacts(generated)
-      if (!facts.length || !String(facts[0] || '').trim()) {
-        setError('Could not generate character facts. Try again.')
-        void triggerHaptic('error')
-        return
-      }
-      setCreationFacts(facts)
-      setStatus('Generated character facts.')
-      void triggerHaptic('success')
-    } catch (genError) {
-      console.error(genError)
-      setError('Could not generate character facts.')
-      void triggerHaptic('error')
-    } finally {
-      setGeneratingField('')
-    }
   }
 
   const handleCreationNext = () => {
@@ -1152,86 +1100,6 @@ function RosesMode({ onBack }) {
     }
     if (creationStep === 'occupation') {
       setCreationStep('name')
-    }
-  }
-
-  const handleGenerateField = async (fieldId) => {
-    setError('')
-    setStatus('')
-    setGeneratingField(fieldId)
-    void triggerHaptic('heavy')
-
-    try {
-      const value = await generateRosesField(fieldId, fields)
-      if (!value) {
-        setError(`Could not generate ${fieldId}. Try again.`)
-        void triggerHaptic('error')
-        return
-      }
-      setFieldValue(fieldId, value)
-      setManualTouched((prev) => ({ ...prev, [fieldId]: true }))
-      setStatus(`Generated ${fieldId}.`)
-      void triggerHaptic('success')
-    } catch (genError) {
-      console.error(genError)
-      setError(`Could not generate ${fieldId}.`)
-      void triggerHaptic('error')
-    } finally {
-      setGeneratingField('')
-    }
-  }
-
-  const fillMissingFields = async (startFields) => {
-    const next = { ...startFields }
-    const missing = EDIT_PROFILE_FIELDS
-      .map((field) => field.id)
-      .filter((fieldId) => !String(next[fieldId] || '').trim())
-
-    if (!missing.length) return next
-
-    setAutoFilling(true)
-    setStatus('Generating missing profile fields...')
-
-    try {
-      for (const fieldId of missing) {
-        const generated = await generateRosesField(fieldId, next)
-        if (!generated) {
-          throw new Error(`Could not auto-generate ${fieldId}.`)
-        }
-        next[fieldId] = generated
-        setFieldValue(fieldId, generated)
-      }
-      return next
-    } finally {
-      setAutoFilling(false)
-    }
-  }
-
-  const handleGenerateEmpties = async () => {
-    setError('')
-    setStatus('')
-
-    const rawFields = sanitizeRosesFields(fields)
-    const allEmpty = Object.values(rawFields).every((value) => !String(value || '').trim())
-
-    if (allEmpty) {
-      setError('Add at least one field manually before publishing.')
-      return
-    }
-
-    if (manualFieldCount < 1) {
-      setError('Add at least one field manually before publishing.')
-      return
-    }
-
-    try {
-      const completedFields = await fillMissingFields(rawFields)
-      const normalized = sanitizeRosesFields(completedFields)
-      setFields(normalized)
-      setStatus('Filled empty fields. Review your profile, then publish.')
-    } catch (fillError) {
-      console.error(fillError)
-      setError(fillError.message || 'Failed to generate missing fields.')
     }
   }
 
@@ -1279,7 +1147,6 @@ function RosesMode({ onBack }) {
       setProfile(response.profile)
       setCanPlay(Boolean(response.canPlay))
       setCanPlayIntroRound(false)
-      setMustCreateProfileBeforeNextRound(false)
       setCanEditToday(Boolean(response.canEditToday))
       setFields(normalized)
       setCreationFacts([''])
@@ -1311,26 +1178,19 @@ function RosesMode({ onBack }) {
     void triggerHaptic('heavy')
 
     const normalized = sanitizeRosesFields(fields)
-    const allEmpty = Object.values(normalized).every((value) => !String(value || '').trim())
-
-    if (allEmpty) {
-      setError('Add at least one field manually before publishing.')
-      void triggerHaptic('error')
-      return
-    }
-
-    if (manualFieldCount < 1) {
-      setError('Add at least one field manually before publishing.')
-      void triggerHaptic('error')
-      return
-    }
 
     const missingStill = EDIT_PROFILE_FIELDS
       .map((field) => field.id)
       .filter((fieldId) => !String(normalized[fieldId] || '').trim())
 
     if (missingStill.length) {
-      setError('Some fields are still empty. Use Generate Empties first.')
+      setError('Fill out every profile field before publishing.')
+      void triggerHaptic('error')
+      return
+    }
+
+    if (manualFieldCount < 1) {
+      setError('Edit at least one field before publishing.')
       void triggerHaptic('error')
       return
     }
@@ -1349,7 +1209,6 @@ function RosesMode({ onBack }) {
       setProfile(response.profile)
       setCanPlay(Boolean(response.canPlay))
       setCanPlayIntroRound(false)
-      setMustCreateProfileBeforeNextRound(false)
       setCanEditToday(Boolean(response.canEditToday))
       setFields(normalized)
       setManualTouched({})
@@ -1371,11 +1230,15 @@ function RosesMode({ onBack }) {
       void triggerHaptic('error')
     } finally {
       setSavingProfile(false)
-      setAutoFilling(false)
     }
   }
 
   const handleEditProfile = () => {
+    if (!hasProfile) {
+      startCreateProfileFlow()
+      return
+    }
+
     if (!canEditToday) {
       setError('You can publish edits once per local calendar day.')
       return
@@ -1675,7 +1538,6 @@ function RosesMode({ onBack }) {
       setRosesGiven(Array.isArray(profileResp.rosesGiven) ? profileResp.rosesGiven : [])
       setCanPlay(Boolean(profileResp.canPlay))
       setCanPlayIntroRound(Boolean(profileResp.canPlayIntroRound))
-      setMustCreateProfileBeforeNextRound(Boolean(profileResp.mustCreateProfileBeforeNextRound))
       setCanEditToday(Boolean(profileResp.canEditToday))
       setLeaderboard({
         allTime: leaderboardResp.allTime || [],
@@ -2021,16 +1883,41 @@ function RosesMode({ onBack }) {
         <div className="roses-card">
           {onboardingRoundActive && <div className="roses-reveal-banner">{winnerAnnouncement}</div>}
           <RevealCard profile={reveal?.winner} title="Rose Winner" />
-          <button
-            type="button"
-            className="roses-primary"
-            onClick={() => {
-              setOnboardingRoundActive(false)
-              setStage(mustCreateProfileBeforeNextRound ? 'profile' : 'dashboard')
-            }}
-          >
-            {mustCreateProfileBeforeNextRound ? 'Make Your Roses Profile' : 'Back to Roses Dashboard'}
-          </button>
+          {onboardingRoundActive ? (
+            <div className="roses-profile-actions">
+              <button
+                type="button"
+                className="roses-secondary"
+                onClick={() => {
+                  setOnboardingRoundActive(false)
+                  void handleStartRound({ onboarding: false })
+                }}
+              >
+                Continue Judging
+              </button>
+              <button
+                type="button"
+                className="roses-primary"
+                onClick={() => {
+                  setOnboardingRoundActive(false)
+                  startCreateProfileFlow()
+                }}
+              >
+                Make a Profile
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="roses-primary"
+              onClick={() => {
+                setOnboardingRoundActive(false)
+                setStage('dashboard')
+              }}
+            >
+              Back to Roses Dashboard
+            </button>
+          )}
         </div>
       </div>
     )
@@ -2071,8 +1958,6 @@ function RosesMode({ onBack }) {
                     field={field}
                     value={fields[field.id] || ''}
                     onChange={handleFieldChange}
-                    onGenerate={handleGenerateField}
-                    generating={generatingField === field.id}
                   />
                 ))}
               </div>
@@ -2090,23 +1975,11 @@ function RosesMode({ onBack }) {
                 </button>
                 <button
                   type="button"
-                  className={[
-                    'roses-primary',
-                    !hasAnyFieldValue ? 'roses-fill-any-fields' : '',
-                    hasAnyFieldValue && !allFieldsFilled ? 'roses-generate-empties' : '',
-                  ].filter(Boolean).join(' ')}
-                  onClick={allFieldsFilled ? handlePublishProfile : handleGenerateEmpties}
-                  disabled={!hasAnyFieldValue || savingProfile || autoFilling}
+                  className="roses-primary"
+                  onClick={handlePublishProfile}
+                  disabled={savingProfile}
                 >
-                  {!hasAnyFieldValue
-                    ? 'Fill Any Fields'
-                    : autoFilling
-                    ? 'Generating...'
-                    : savingProfile
-                      ? 'Publishing...'
-                      : allFieldsFilled
-                        ? 'Publish Profile'
-                        : 'Generate Empties'}
+                  {savingProfile ? 'Publishing...' : 'Publish Profile'}
                 </button>
               </div>
             </>
@@ -2124,14 +1997,6 @@ function RosesMode({ onBack }) {
                 <div className="roses-create-panel">
                   <div className="roses-create-field-head">
                     <label className="roses-create-label" htmlFor="roses-create-name">Name</label>
-                    <button
-                      type="button"
-                      className="roses-generate-btn"
-                      onClick={() => handleGenerateField('name')}
-                      disabled={Boolean(generatingField)}
-                    >
-                      {generatingField === 'name' ? 'Generating...' : 'Generate'}
-                    </button>
                   </div>
                   <input
                     id="roses-create-name"
@@ -2149,14 +2014,6 @@ function RosesMode({ onBack }) {
                 <div className="roses-create-panel">
                   <div className="roses-create-field-head">
                     <label className="roses-create-label" htmlFor="roses-create-occupation">Occupation</label>
-                    <button
-                      type="button"
-                      className="roses-generate-btn"
-                      onClick={() => handleGenerateField('occupation')}
-                      disabled={Boolean(generatingField)}
-                    >
-                      {generatingField === 'occupation' ? 'Generating...' : 'Generate'}
-                    </button>
                   </div>
                   <input
                     id="roses-create-occupation"
@@ -2175,14 +2032,6 @@ function RosesMode({ onBack }) {
                   <div className="roses-field-row full singleline show-counter">
                     <div className="roses-field-head">
                       <label htmlFor="roses-field-introTagline">Intro Tagline</label>
-                      <button
-                        type="button"
-                        className="roses-generate-btn"
-                        onClick={() => handleGenerateField('introTagline')}
-                        disabled={Boolean(generatingField)}
-                      >
-                        {generatingField === 'introTagline' ? 'Generating...' : 'Generate'}
-                      </button>
                     </div>
                     <div className="roses-field-input-wrap">
                       <input
@@ -2204,16 +2053,8 @@ function RosesMode({ onBack }) {
                     <button
                       type="button"
                       className="roses-secondary"
-                      onClick={handleGenerateCreationFacts}
-                      disabled={Boolean(generatingField)}
-                    >
-                      {generatingField === 'bio' ? 'Generating...' : 'Generate Facts'}
-                    </button>
-                    <button
-                      type="button"
-                      className="roses-secondary"
                       onClick={handleAddCreationFact}
-                      disabled={creationFacts.length >= CREATION_FACT_LIMIT || Boolean(generatingField)}
+                      disabled={creationFacts.length >= CREATION_FACT_LIMIT}
                     >
                       Add Fact
                     </button>
@@ -2278,69 +2119,85 @@ function RosesMode({ onBack }) {
               {dashboardTab === 'profile' && (
                 <>
                   <div className="roses-dashboard-actions">
-                    <button type="button" className="roses-primary" onClick={() => handleStartRound()} disabled={!canPlay}>
+                    <button
+                      type="button"
+                      className={hasProfile ? 'roses-primary' : 'roses-secondary'}
+                      onClick={() => handleStartRound()}
+                      disabled={!canPlay}
+                    >
                       Judge Profiles
                     </button>
                     <button
                       type="button"
-                      className="roses-secondary"
+                      className={hasProfile ? 'roses-secondary' : 'roses-primary roses-create-profile-cta'}
                       onClick={handleEditProfile}
-                      disabled={!canEditToday}
-                      title={canEditToday ? 'Edit profile' : 'Edit available once per local day'}
+                      disabled={hasProfile && !canEditToday}
+                      title={hasProfile ? (canEditToday ? 'Edit profile' : 'Edit available once per local day') : 'Create profile'}
                     >
-                      {canEditToday ? 'Edit Profile' : 'One Edit Daily'}
+                      {hasProfile ? (canEditToday ? 'Edit Profile' : 'One Edit Daily') : 'Create Profile'}
                     </button>
                   </div>
 
-                  <section className="roses-info-panel roses-profile-panel">
-                    <div className="roses-profile-grid roses-panel-grid">
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">Name</span>
-                        <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
+                  {hasProfile ? (
+                    <section className="roses-info-panel roses-profile-panel">
+                      <div className="roses-profile-grid roses-panel-grid">
+                        <div className="roses-panel-item">
+                          <span className="roses-panel-label">Name</span>
+                          <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
+                        </div>
+                        <div className="roses-panel-item">
+                          <span className="roses-panel-label">Occupation</span>
+                          <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
+                        </div>
                       </div>
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">Occupation</span>
-                        <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
-                      </div>
-                    </div>
 
-                    <div className="roses-profile-copy-grid">
-                      <div className="roses-panel-copy">
-                        <h3 className="roses-panel-title">Intro Tagline</h3>
-                        <p className="roses-panel-body is-clamped is-tight">{profile?.fields?.introTagline || '-'}</p>
+                      <div className="roses-profile-copy-grid">
+                        <div className="roses-panel-copy">
+                          <h3 className="roses-panel-title">Intro Tagline</h3>
+                          <p className="roses-panel-body is-clamped is-tight">{profile?.fields?.introTagline || '-'}</p>
+                        </div>
+                        <div className="roses-panel-copy">
+                          <h3 className="roses-panel-title">Bio</h3>
+                          <p className="roses-panel-body is-clamped">{profile?.fields?.bio || '-'}</p>
+                        </div>
                       </div>
-                      <div className="roses-panel-copy">
-                        <h3 className="roses-panel-title">Bio</h3>
-                        <p className="roses-panel-body is-clamped">{profile?.fields?.bio || '-'}</p>
-                      </div>
-                    </div>
-                  </section>
+                    </section>
+                  ) : (
+                    <section className="roses-info-panel roses-empty-panel">
+                      <h3 className="roses-panel-title">No Profile Yet</h3>
+                      <p className="roses-panel-body">
+                        Create a character profile if you want other players to judge you, discuss you, and start sending Roses your way.
+                      </p>
+                    </section>
+                  )}
                 </>
               )}
 
               {dashboardTab === 'stats' && (
                 <>
-                  <section className="roses-info-panel">
-                    <h3 className="roses-panel-title">Stats</h3>
-                    <div className="roses-profile-grid roses-panel-grid">
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">Times Chatted</span>
-                        <span className="roses-panel-value">{profile?.stats?.shownCount ?? 0}</span>
+                  {hasProfile && (
+                    <section className="roses-info-panel">
+                      <h3 className="roses-panel-title">Stats</h3>
+                      <div className="roses-profile-grid roses-panel-grid">
+                        <div className="roses-panel-item">
+                          <span className="roses-panel-label">Times Chatted</span>
+                          <span className="roses-panel-value">{profile?.stats?.shownCount ?? 0}</span>
+                        </div>
+                        <div className="roses-panel-item">
+                          <span className="roses-panel-label">Roses Won</span>
+                          <span className="roses-panel-value">{profile?.stats?.roseCount ?? 0}</span>
+                        </div>
+                        <div className="roses-panel-item">
+                          <span className="roses-panel-label">All-Time Rank</span>
+                          <span className="roses-panel-value">#{profile?.ranks?.allTime || '-'}</span>
+                        </div>
+                        <div className="roses-panel-item">
+                          <span className="roses-panel-label">Weekly Rank</span>
+                          <span className="roses-panel-value">#{profile?.ranks?.weekly || '-'}</span>
+                        </div>
                       </div>
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">Roses Won</span>
-                        <span className="roses-panel-value">{profile?.stats?.roseCount ?? 0}</span>
-                      </div>
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">All-Time Rank</span>
-                        <span className="roses-panel-value">#{profile?.ranks?.allTime || '-'}</span>
-                      </div>
-                      <div className="roses-panel-item">
-                        <span className="roses-panel-label">Weekly Rank</span>
-                        <span className="roses-panel-value">#{profile?.ranks?.weekly || '-'}</span>
-                      </div>
-                    </div>
-                  </section>
+                    </section>
+                  )}
 
                   <section className="roses-info-panel roses-awarded-panel">
                     <h3 className="roses-panel-title">Roses You've Given Out</h3>
@@ -2358,42 +2215,60 @@ function RosesMode({ onBack }) {
                     )}
                   </section>
 
-                  <section className="roses-info-panel roses-topics-panel">
-                    <h3 className="roses-panel-title">Topics Discussed with {profile?.fields?.name || 'Profile'}</h3>
-                    {hasSentimentKeywords ? (
-                      <div className="roses-word-cloud">
-                        {displayedSentimentKeywords.map((item) => (
-                          <span
-                            key={item.word}
-                            className="roses-word"
-                            style={{ fontSize: scoreWordSize(item.count) }}
-                          >
-                            {item.word}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="roses-lb-empty">Topics that people discuss with your profile will begin to appear here after it has participated in few conversations. Check back later!</div>
-                    )}
-                  </section>
+                  {hasProfile ? (
+                    <section className="roses-info-panel roses-topics-panel">
+                      <h3 className="roses-panel-title">Topics Discussed with {profile?.fields?.name || 'Profile'}</h3>
+                      {hasSentimentKeywords ? (
+                        <div className="roses-word-cloud">
+                          {displayedSentimentKeywords.map((item) => (
+                            <span
+                              key={item.word}
+                              className="roses-word"
+                              style={{ fontSize: scoreWordSize(item.count) }}
+                            >
+                              {item.word}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="roses-lb-empty">Topics that people discuss with your profile will begin to appear here after it has participated in few conversations. Check back later!</div>
+                      )}
+                    </section>
+                  ) : (
+                    <section className="roses-info-panel roses-empty-panel">
+                      <h3 className="roses-panel-title">Profile Stats Unlock Later</h3>
+                      <p className="roses-panel-body">
+                        Create a profile to start collecting Roses, leaderboard ranks, and discussion topics from other players.
+                      </p>
+                    </section>
+                  )}
                 </>
               )}
 
               {dashboardTab === 'boards' && (
-                <div className="roses-leaderboards roses-leaderboards-dashboard">
-                  <LeaderboardPanel
-                    title={boardsTab === 'allTime' ? 'All-Time Roses' : 'Top Roses This Week'}
-                    mode={boardsTab}
-                    entries={boardsTab === 'allTime' ? leaderboard.allTime : leaderboard.weekly}
-                    currentPlayerId={playerId}
-                    weekKey={leaderboard.weekKey}
-                    maxRows={10}
-                  />
-                </div>
+                hasProfile ? (
+                  <div className="roses-leaderboards roses-leaderboards-dashboard">
+                    <LeaderboardPanel
+                      title={boardsTab === 'allTime' ? 'All-Time Roses' : 'Top Roses This Week'}
+                      mode={boardsTab}
+                      entries={boardsTab === 'allTime' ? leaderboard.allTime : leaderboard.weekly}
+                      currentPlayerId={playerId}
+                      weekKey={leaderboard.weekKey}
+                      maxRows={10}
+                    />
+                  </div>
+                ) : (
+                  <section className="roses-info-panel roses-empty-panel">
+                    <h3 className="roses-panel-title">Leaderboards Await</h3>
+                    <p className="roses-panel-body">
+                      Create a profile to appear on the Roses boards and see how your character stacks up against the rest of the pool.
+                    </p>
+                  </section>
+                )
               )}
             </div>
 
-            {dashboardTab === 'boards' && (
+            {dashboardTab === 'boards' && hasProfile && (
               <div className="roses-board-tabbar" role="tablist" aria-label="Roses leaderboard views">
                 {BOARD_TABS.map((tab) => (
                   <button

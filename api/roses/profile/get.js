@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
     const hasPublishedProfile = Boolean(profile && isCompleteProfile(profile.fields))
     const hasCompletedIntroRound = Object.keys(history || {}).length > 0
-    const canPlay = hasPublishedProfile
+    const canPlay = true
     const canEditToday = canEditProfileToday(profile, localDay)
     const rosesGiven = allProfiles
       .map((candidateProfile) => {
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       rosesGiven,
       canPlay,
       canPlayIntroRound: !hasPublishedProfile && !hasCompletedIntroRound,
-      mustCreateProfileBeforeNextRound: !hasPublishedProfile && hasCompletedIntroRound,
+      mustCreateProfileBeforeNextRound: false,
       canEditToday,
       weekKey: rankings.weekKey,
     })

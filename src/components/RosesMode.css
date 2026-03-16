@@ -511,6 +511,13 @@
   padding: 8px 10px;
 }
 
+.roses-empty-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
 .roses-panel-title {
   margin: 0 0 6px;
   font-size: 1.04rem;
@@ -624,6 +631,10 @@
   min-height: 52px;
   font-size: 1rem;
   padding: 12px 14px;
+}
+
+.roses-create-profile-cta {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 8px 20px rgba(244, 63, 141, 0.24);
 }
 
 .roses-dashboard-tabbar {
