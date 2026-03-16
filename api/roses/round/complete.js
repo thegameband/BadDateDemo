@@ -4,7 +4,7 @@ import { currentWeekKey } from '../_keys.js'
 import {
   extractRosesCustomQuestionText,
   ROSES_BUILT_IN_KEYWORD_BLOCKLIST,
-} from '../../src/data/rosesQuestionBank.js'
+} from '../../../src/data/rosesQuestionBank.js'
 import {
   buildRankings,
   getAllProfiles,

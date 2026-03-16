@@ -1460,6 +1460,9 @@ function RosesMode({ onBack }) {
             <span className="roses-chat-progress">Final Choice</span>
           </div>
 
+          {error && <div className="roses-error">{error}</div>}
+          {status && <div className="roses-status">{status}</div>}
+
           <div className="roses-chat-log roses-choose-log">
             {chatLog.map((entry) => {
               if (isIntroLogEntry(entry)) {
