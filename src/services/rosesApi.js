@@ -92,11 +92,11 @@ export async function fetchRosesLeaderboard(limit = 25) {
 }
 
 export async function fetchRosesDebugTaglines() {
-  return postJson('/api/roses/debug/taglines/get', {})
+  return postJson('/api/roses/debug', { action: 'getTaglines' })
 }
 
 export async function saveRosesDebugTaglines(entries = []) {
-  return postJson('/api/roses/debug/taglines/save', { entries })
+  return postJson('/api/roses/debug', { action: 'saveTaglines', entries })
 }
 
 export async function fetchRosesSpeedDatePool({ excludePlayerId = '', limit = 200, includeSeeds = false } = {}) {
