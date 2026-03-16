@@ -576,7 +576,7 @@ function LeaderboardPanel({
                     onClick={(event) => {
                       event.preventDefault()
                       if (!occupation) return
-                      setActiveTooltipId((current) => (current === entry.playerId ? '' : entry.playerId))
+                      setActiveTooltipId(entry.playerId)
                     }}
                   >
                     <span className="roses-lb-name">
