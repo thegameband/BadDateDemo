@@ -1856,21 +1856,23 @@ function RosesMode({ onBack }) {
             )}
             <div className="roses-choose-actions" onMouseLeave={handlePreviewLeave}>
               {orderedCandidates.map((candidate) => {
+                const slot = candidate?.slot || ''
                 const candidateId = String(candidate?.playerId || '')
+                const isOpen = previewCandidateId === candidateId
                 return (
                   <button
                     key={`pick-${candidateId || 'unknown'}`}
                     type="button"
                     className={[
                       'roses-choose-btn',
-                      previewCandidateId === candidateId ? 'is-open' : '',
+                      isOpen ? 'is-open' : '',
                     ].filter(Boolean).join(' ')}
                     onMouseEnter={() => handlePreviewChoice(candidateId)}
                     onFocus={() => handlePreviewChoice(candidateId)}
                     onClick={() => handleChooseButtonPress(candidateId)}
                     disabled={choosingWinner || !candidateId}
                   >
-                    {choosingWinner ? 'Submitting...' : 'Give Rose'}
+                    {choosingWinner ? 'Submitting...' : (isOpen ? 'Give Rose' : `${admirerLabelFromSlot(slot)} 🌹`)}
                   </button>
                 )
               })}
