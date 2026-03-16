@@ -572,9 +572,6 @@ function LeaderboardPanel({
                     onFocus={() => {
                       if (occupation) setActiveTooltipId(entry.playerId)
                     }}
-                    onBlur={() => {
-                      setActiveTooltipId((current) => (current === entry.playerId ? '' : current))
-                    }}
                     onClick={(event) => {
                       event.preventDefault()
                       if (!occupation) return
