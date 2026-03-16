@@ -545,6 +545,7 @@
 }
 
 .roses-empty-panel-compact {
+  position: relative;
   justify-content: flex-start;
   padding: 8px 12px 6px;
   gap: 4px;
@@ -569,6 +570,23 @@
   background:
     linear-gradient(rgba(9, 11, 24, 0.94), rgba(9, 11, 24, 0.94)) padding-box,
     linear-gradient(135deg, #f43f8d 0%, #8d6dff 58%, #23cfff 100%) border-box;
+}
+
+.roses-empty-panel-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 247, 237, 0.9);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .roses-panel-title {

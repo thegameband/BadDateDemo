@@ -51,6 +51,7 @@ const BOARD_TABS = [
   { id: 'allTime', label: 'All-time' },
   { id: 'weekly', label: 'Weekly' },
 ]
+const ROSES_NO_PROFILE_HINT_DISMISSED_KEY = 'roses:no-profile-hint-dismissed:v1'
 const ONBOARDING_TUTORIAL_LINES = {
   intro: "Let's let our first set of admirers introduce themselves!",
   compose: 'Compose your first question by filling in the blank! What might you want to know about a prospective partner?',
@@ -637,6 +638,7 @@ function RosesMode({ onBack }) {
   const [previewCandidateId, setPreviewCandidateId] = useState('')
   const [reveal, setReveal] = useState(null)
   const [onboardingRoundActive, setOnboardingRoundActive] = useState(false)
+  const [hideNoProfileHint, setHideNoProfileHint] = useState(false)
   const [dashboardTab, setDashboardTab] = useState(DASHBOARD_TABS[0]?.id || 'profile')
   const [boardsTab, setBoardsTab] = useState(BOARD_TABS[0]?.id || 'allTime')
   const chatLogRef = useRef(null)
@@ -1071,6 +1073,14 @@ function RosesMode({ onBack }) {
     })
   }, [])
 
+  useEffect(() => {
+    try {
+      setHideNoProfileHint(localStorage.getItem(ROSES_NO_PROFILE_HINT_DISMISSED_KEY) === '1')
+    } catch {
+      setHideNoProfileHint(false)
+    }
+  }, [])
+
   const setFieldValue = (fieldId, rawValue) => {
     const nextValue = String(rawValue || '')
     setFields((prev) => ({ ...prev, [fieldId]: nextValue }))
@@ -1282,6 +1292,15 @@ function RosesMode({ onBack }) {
     setStatus('')
     setError('')
     setStage('profile')
+  }
+
+  const handleDismissNoProfileHint = () => {
+    setHideNoProfileHint(true)
+    try {
+      localStorage.setItem(ROSES_NO_PROFILE_HINT_DISMISSED_KEY, '1')
+    } catch {
+      // Ignore storage write failures.
+    }
   }
 
   const handleStartRound = async ({ onboarding = false } = {}) => {
@@ -2237,14 +2256,24 @@ function RosesMode({ onBack }) {
                         </button>
                       </div>
 
-                      <section className="roses-info-panel roses-empty-panel roses-empty-panel-compact roses-empty-panel-create-accent">
-                        <div className="roses-empty-panel-copy">
-                          <h3 className="roses-panel-title">No Profile Yet</h3>
-                          <p className="roses-panel-body">
-                            Create a character profile if you want other players to judge you, discuss you, and start sending Roses your way.
-                          </p>
-                        </div>
-                      </section>
+                      {!hideNoProfileHint && (
+                        <section className="roses-info-panel roses-empty-panel roses-empty-panel-compact roses-empty-panel-create-accent">
+                          <button
+                            type="button"
+                            className="roses-empty-panel-dismiss"
+                            aria-label="Dismiss no profile message"
+                            onClick={handleDismissNoProfileHint}
+                          >
+                            X
+                          </button>
+                          <div className="roses-empty-panel-copy">
+                            <h3 className="roses-panel-title">No Profile Yet</h3>
+                            <p className="roses-panel-body">
+                              Create a character profile if you want other players to judge you, discuss you, and start sending Roses your way.
+                            </p>
+                          </div>
+                        </section>
+                      )}
 
                       <section className="roses-info-panel roses-awarded-panel">
                         <h3 className="roses-panel-title">Roses You&apos;ve Given Out</h3>
