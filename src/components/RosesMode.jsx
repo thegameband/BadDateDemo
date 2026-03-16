@@ -2297,7 +2297,7 @@ function RosesMode({ onBack }) {
                   </section>
 
                   <section className="roses-info-panel roses-awarded-panel">
-                    <h3 className="roses-panel-title">Roses Given</h3>
+                    <h3 className="roses-panel-title">Roses You've Given Out</h3>
                     {rosesGiven.length > 0 ? (
                       <div className="roses-awarded-list">
                         {rosesGiven.map((entry) => (
