@@ -1324,8 +1324,11 @@
   align-self: center;
   width: min(100%, 540px);
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(4, 7, 15, 0.88);
+  border: 1px solid rgba(252, 211, 77, 0.38);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.14) 0%, rgba(249, 115, 22, 0.08) 100%),
+    rgba(4, 7, 15, 0.9);
+  box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.08), 0 16px 32px rgba(120, 53, 15, 0.2);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
@@ -1347,7 +1350,7 @@
 }
 
 .roses-choose-preview-label {
-  color: rgba(249, 168, 212, 0.9);
+  color: #fde68a;
   font-size: 0.73rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -1364,7 +1367,7 @@
 }
 
 .roses-choose-preview-copy strong {
-  color: #fbcfe8;
+  color: #fff3c4;
   font-weight: 700;
 }
 
