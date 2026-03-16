@@ -2334,24 +2334,6 @@ function RosesMode({ onBack }) {
 
               {dashboardTab === 'boards' && (
                 <div className="roses-leaderboards roses-leaderboards-dashboard">
-                  <div className="roses-board-tabbar" role="tablist" aria-label="Roses leaderboard views">
-                    {BOARD_TABS.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={boardsTab === tab.id}
-                        className={[
-                          'roses-board-tab',
-                          boardsTab === tab.id ? 'is-active' : '',
-                        ].filter(Boolean).join(' ')}
-                        onClick={() => setBoardsTab(tab.id)}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
                   <LeaderboardPanel
                     title={boardsTab === 'allTime' ? 'All-Time Roses' : 'Top Roses This Week'}
                     mode={boardsTab}
@@ -2363,6 +2345,26 @@ function RosesMode({ onBack }) {
                 </div>
               )}
             </div>
+
+            {dashboardTab === 'boards' && (
+              <div className="roses-board-tabbar" role="tablist" aria-label="Roses leaderboard views">
+                {BOARD_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={boardsTab === tab.id}
+                    className={[
+                      'roses-board-tab',
+                      boardsTab === tab.id ? 'is-active' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => setBoardsTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="roses-dashboard-tabbar" role="tablist" aria-label="Roses dashboard pages">
               {DASHBOARD_TABS.map((tab) => (
