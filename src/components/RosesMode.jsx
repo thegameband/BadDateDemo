@@ -1921,27 +1921,33 @@ function RosesMode({ onBack }) {
           {onboardingRoundActive && <div className="roses-reveal-banner">{winnerAnnouncement}</div>}
           <RevealCard profile={reveal?.winner} title="Rose Winner" />
           {onboardingRoundActive ? (
-            <div className="roses-profile-actions">
-              <button
-                type="button"
-                className="roses-secondary"
-                onClick={() => {
-                  setOnboardingRoundActive(false)
-                  void handleStartRound({ onboarding: false })
-                }}
-              >
-                Continue Judging
-              </button>
-              <button
-                type="button"
-                className="roses-primary"
-                onClick={() => {
-                  setOnboardingRoundActive(false)
-                  startCreateProfileFlow()
-                }}
-              >
-                Make a Profile
-              </button>
+            <div className="roses-choice-stack">
+              <div className="roses-choice-option">
+                <p className="roses-choice-copy">If you&apos;d like to create a profile to join the chaos and gather Roses,</p>
+                <button
+                  type="button"
+                  className="roses-primary"
+                  onClick={() => {
+                    setOnboardingRoundActive(false)
+                    startCreateProfileFlow()
+                  }}
+                >
+                  Make a Profile
+                </button>
+              </div>
+              <div className="roses-choice-option">
+                <p className="roses-choice-copy">If you&apos;d just like to keep flirting with weirdos,</p>
+                <button
+                  type="button"
+                  className="roses-primary"
+                  onClick={() => {
+                    setOnboardingRoundActive(false)
+                    void handleStartRound({ onboarding: false })
+                  }}
+                >
+                  Continue Judging
+                </button>
+              </div>
             </div>
           ) : (
             <button
