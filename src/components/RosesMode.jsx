@@ -1702,21 +1702,23 @@ function RosesMode({ onBack }) {
                   {activePromptParts.before && (
                     <span className="roses-question-fillcopy">{activePromptParts.before}</span>
                   )}
-                  <input
-                    ref={questionInputRef}
-                    id="roses-question-input"
-                    className="roses-question-fillinput"
-                    type="text"
-                    value={questionInput}
-                    onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
-                    onKeyDown={handleQuestionKeyDown}
-                    onFocus={handleQuestionFocus}
-                    placeholder="fill in the blank"
-                    disabled={sendingQuestion || introActive}
-                  />
-                  {activePromptParts.after && (
-                    <span className="roses-question-fillcopy">{activePromptParts.after}</span>
-                  )}
+                  <span className="roses-question-fillslot">
+                    <input
+                      ref={questionInputRef}
+                      id="roses-question-input"
+                      className="roses-question-fillinput"
+                      type="text"
+                      value={questionInput}
+                      onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
+                      onKeyDown={handleQuestionKeyDown}
+                      onFocus={handleQuestionFocus}
+                      placeholder="fill in the blank"
+                      disabled={sendingQuestion || introActive}
+                    />
+                    {activePromptParts.after && (
+                      <span className="roses-question-fillcopy roses-question-fillafter">{activePromptParts.after}</span>
+                    )}
+                  </span>
                 </label>
                 <div className="roses-question-options" role="group" aria-label="Quick fill options">
                   {activePromptOptions.map((option) => (

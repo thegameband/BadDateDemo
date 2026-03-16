@@ -1170,9 +1170,19 @@
   color: inherit;
 }
 
+.roses-question-fillslot {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  flex: 1 1 180px;
+  min-width: 140px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
 .roses-question-fillinput {
   flex: 1 1 140px;
-  min-width: 110px;
+  min-width: 0;
   border: none;
   border-bottom: 2px solid rgba(244, 114, 182, 0.7);
   border-radius: 0;
@@ -1191,6 +1201,10 @@
 .roses-question-fillinput:focus {
   outline: none;
   border-bottom-color: #facc15;
+}
+
+.roses-question-fillafter {
+  flex: 0 0 auto;
 }
 
 .roses-question-options {
