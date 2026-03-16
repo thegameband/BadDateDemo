@@ -2282,7 +2282,7 @@ function RosesMode({ onBack }) {
                             {rosesGiven.map((entry) => (
                               <div key={entry.playerId} className="roses-awarded-row">
                                 <span className="roses-awarded-name">{entry.name}</span>
-                                <span className="roses-awarded-count">{entry.count}</span>
+                                <span className="roses-awarded-count">{entry.count} 🌹</span>
                               </div>
                             ))}
                           </div>
@@ -2328,7 +2328,7 @@ function RosesMode({ onBack }) {
                         {rosesGiven.map((entry) => (
                           <div key={entry.playerId} className="roses-awarded-row">
                             <span className="roses-awarded-name">{entry.name}</span>
-                            <span className="roses-awarded-count">{entry.count}</span>
+                            <span className="roses-awarded-count">{entry.count} 🌹</span>
                           </div>
                         ))}
                       </div>
