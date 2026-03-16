@@ -102,6 +102,19 @@ function buildBioFromFacts({ name = '', occupation = '', facts = [] }) {
   return `${safeName} works as ${safeOccupation}.`
 }
 
+function splitGeneratedBioIntoFacts(value = '') {
+  const cleaned = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ['']
+
+  const parts = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, CREATION_FACT_LIMIT)
+
+  return parts.length ? parts : [cleaned]
+}
+
 function scoreWordSize(count = 1) {
   const base = 0.85
   const extra = Math.min(1.3, Math.log2(Math.max(1, count)) * 0.35)
@@ -332,20 +345,19 @@ function RevealCard({ profile, title, emphasis = 'default' }) {
           {title}
         </h3>
       )}
-      <div className="roses-reveal-ranks">
-        <span>All-Time Rank: #{profile?.ranks?.allTime || '-'}</span>
-        <span>Weekly Rank: #{profile?.ranks?.weekly || '-'}</span>
-      </div>
-
       <div className="roses-reveal-identity">
+        <div className="roses-reveal-rank-strip">
+          <div className="roses-reveal-rank-pill">
+            <span className="roses-reveal-rank-label">All-Time</span>
+            <span className="roses-reveal-rank-value">#{profile?.ranks?.allTime || '-'}</span>
+          </div>
+          <div className="roses-reveal-rank-pill">
+            <span className="roses-reveal-rank-label">This Week</span>
+            <span className="roses-reveal-rank-value">#{profile?.ranks?.weekly || '-'}</span>
+          </div>
+        </div>
         <div className="roses-reveal-name">{profile?.fields?.name || 'Unknown'}</div>
         <div className="roses-reveal-subhead occupation">{profile?.fields?.occupation || '-'}</div>
-      </div>
-
-      <div className="roses-reveal-ranks">
-        <span>Times Chatted: {profile?.stats?.shownCount ?? 0}</span>
-        <span>Roses Won: {profile?.stats?.roseCount ?? 0}</span>
-        <span>Roses This Week: {profile?.stats?.weeklyRoses ?? 0}</span>
       </div>
     </div>
   )
@@ -761,7 +773,7 @@ function RosesMode({ onBack }) {
   }, [onboardingRoundActive, speakRosesLine])
 
   useEffect(() => {
-    if (stage !== 'chat') return
+    if (stage !== 'chat' && stage !== 'choose') return
     const node = chatLogRef.current
     if (!node) return
 
@@ -1014,6 +1026,32 @@ function RosesMode({ onBack }) {
       if (prev.length <= 1) return ['']
       return prev.filter((_, idx) => idx !== index)
     })
+  }
+
+  const handleGenerateCreationFacts = async () => {
+    setError('')
+    setStatus('')
+    setGeneratingField('bio')
+    void triggerHaptic('heavy')
+
+    try {
+      const generated = await generateRosesField('bio', fields)
+      const facts = splitGeneratedBioIntoFacts(generated)
+      if (!facts.length || !String(facts[0] || '').trim()) {
+        setError('Could not generate character facts. Try again.')
+        void triggerHaptic('error')
+        return
+      }
+      setCreationFacts(facts)
+      setStatus('Generated character facts.')
+      void triggerHaptic('success')
+    } catch (genError) {
+      console.error(genError)
+      setError('Could not generate character facts.')
+      void triggerHaptic('error')
+    } finally {
+      setGeneratingField('')
+    }
   }
 
   const handleCreationNext = () => {
@@ -1456,9 +1494,11 @@ function RosesMode({ onBack }) {
 
       if (onboardingRoundActive) {
         if (nextTurnNumber === 1) {
-          await appendTutorialLine('after-first-answer', ONBOARDING_TUTORIAL_LINES.afterFirstAnswer)
+          setSendingQuestion(false)
+          void appendTutorialLine('after-first-answer', ONBOARDING_TUTORIAL_LINES.afterFirstAnswer, { waitForPlayback: false })
         } else if (nextTurnNumber === 2) {
-          await appendTutorialLine('after-second-answer', ONBOARDING_TUTORIAL_LINES.afterSecondAnswer)
+          setSendingQuestion(false)
+          void appendTutorialLine('after-second-answer', ONBOARDING_TUTORIAL_LINES.afterSecondAnswer, { waitForPlayback: false })
         } else if (nextTurnNumber === TURN_COUNT) {
           void appendTutorialLine('final-choice', ONBOARDING_TUTORIAL_LINES.finalChoice, { waitForPlayback: false })
         }
@@ -2035,9 +2075,23 @@ function RosesMode({ onBack }) {
                 </p>
               </div>
 
+              <div className="roses-tutorial-card roses-create-instruction" role="note" aria-live="polite">
+                <p className="roses-tutorial-body">{currentCreationPrompt}</p>
+              </div>
+
               {creationStep === 'name' && (
                 <div className="roses-create-panel">
-                  <label className="roses-create-label" htmlFor="roses-create-name">Name</label>
+                  <div className="roses-create-field-head">
+                    <label className="roses-create-label" htmlFor="roses-create-name">Name</label>
+                    <button
+                      type="button"
+                      className="roses-generate-btn"
+                      onClick={() => handleGenerateField('name')}
+                      disabled={Boolean(generatingField)}
+                    >
+                      {generatingField === 'name' ? 'Generating...' : 'Generate'}
+                    </button>
+                  </div>
                   <input
                     id="roses-create-name"
                     className="roses-create-input"
@@ -2052,7 +2106,17 @@ function RosesMode({ onBack }) {
 
               {creationStep === 'occupation' && (
                 <div className="roses-create-panel">
-                  <label className="roses-create-label" htmlFor="roses-create-occupation">Occupation</label>
+                  <div className="roses-create-field-head">
+                    <label className="roses-create-label" htmlFor="roses-create-occupation">Occupation</label>
+                    <button
+                      type="button"
+                      className="roses-generate-btn"
+                      onClick={() => handleGenerateField('occupation')}
+                      disabled={Boolean(generatingField)}
+                    >
+                      {generatingField === 'occupation' ? 'Generating...' : 'Generate'}
+                    </button>
+                  </div>
                   <input
                     id="roses-create-occupation"
                     className="roses-create-input"
@@ -2070,6 +2134,14 @@ function RosesMode({ onBack }) {
                   <div className="roses-field-row full singleline show-counter">
                     <div className="roses-field-head">
                       <label htmlFor="roses-field-introTagline">Intro Tagline</label>
+                      <button
+                        type="button"
+                        className="roses-generate-btn"
+                        onClick={() => handleGenerateField('introTagline')}
+                        disabled={Boolean(generatingField)}
+                      >
+                        {generatingField === 'introTagline' ? 'Generating...' : 'Generate'}
+                      </button>
                     </div>
                     <div className="roses-field-input-wrap">
                       <input
@@ -2091,8 +2163,16 @@ function RosesMode({ onBack }) {
                     <button
                       type="button"
                       className="roses-secondary"
+                      onClick={handleGenerateCreationFacts}
+                      disabled={Boolean(generatingField)}
+                    >
+                      {generatingField === 'bio' ? 'Generating...' : 'Generate Facts'}
+                    </button>
+                    <button
+                      type="button"
+                      className="roses-secondary"
                       onClick={handleAddCreationFact}
-                      disabled={creationFacts.length >= CREATION_FACT_LIMIT}
+                      disabled={creationFacts.length >= CREATION_FACT_LIMIT || Boolean(generatingField)}
                     >
                       Add Fact
                     </button>
