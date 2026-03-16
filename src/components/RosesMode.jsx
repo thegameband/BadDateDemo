@@ -573,6 +573,7 @@ function RosesMode({ onBack }) {
   const [mustCreateProfileBeforeNextRound, setMustCreateProfileBeforeNextRound] = useState(false)
   const [canEditToday, setCanEditToday] = useState(true)
   const [leaderboard, setLeaderboard] = useState({ allTime: [], weekly: [] })
+  const [rosesGiven, setRosesGiven] = useState([])
 
   const [fields, setFields] = useState(emptyFields)
   const [manualTouched, setManualTouched] = useState({})
@@ -1225,6 +1226,7 @@ function RosesMode({ onBack }) {
         weekly: leaderboardResp.weekly || [],
         weekKey: leaderboardResp.weekKey || '',
       })
+      setRosesGiven(Array.isArray(response.rosesGiven) ? response.rosesGiven : [])
 
       setStage('dashboard')
     } catch (saveError) {
@@ -1293,6 +1295,7 @@ function RosesMode({ onBack }) {
         weekly: leaderboardResp.weekly || [],
         weekKey: leaderboardResp.weekKey || '',
       })
+      setRosesGiven(Array.isArray(response.rosesGiven) ? response.rosesGiven : [])
 
       setStage('dashboard')
     } catch (saveError) {
@@ -2269,6 +2272,25 @@ function RosesMode({ onBack }) {
                         <span className="roses-panel-value">#{profile?.ranks?.weekly || '-'}</span>
                       </div>
                     </div>
+                  </section>
+
+                  <section className="roses-info-panel roses-awarded-panel">
+                    <div className="roses-topics-head">
+                      <h3 className="roses-panel-title">Roses Given</h3>
+                      <span className="roses-muted">{profile?.fields?.name || 'Profile'}</span>
+                    </div>
+                    {rosesGiven.length > 0 ? (
+                      <div className="roses-awarded-list">
+                        {rosesGiven.map((entry) => (
+                          <div key={entry.playerId} className="roses-awarded-row">
+                            <span className="roses-awarded-name">{entry.name}</span>
+                            <span className="roses-awarded-count">{entry.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="roses-lb-empty">Characters you choose will show up here.</div>
+                    )}
                   </section>
 
                   <section className="roses-info-panel roses-topics-panel">

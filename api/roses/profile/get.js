@@ -4,6 +4,7 @@ import {
   canEditProfileToday,
   getAllProfiles,
   getHistory,
+  getHistoryEntry,
   getProfile,
   isCompleteProfile,
   profileToView,
@@ -35,10 +36,25 @@ export default async function handler(req, res) {
     const hasCompletedIntroRound = Object.keys(history || {}).length > 0
     const canPlay = hasPublishedProfile
     const canEditToday = canEditProfileToday(profile, localDay)
+    const rosesGiven = allProfiles
+      .map((candidateProfile) => {
+        const entry = getHistoryEntry(history, candidateProfile?.playerId)
+        return {
+          playerId: String(candidateProfile?.playerId || ''),
+          name: String(candidateProfile?.fields?.name || '').trim() || 'Unknown',
+          count: Number(entry.rosesGiven || 0),
+        }
+      })
+      .filter((entry) => entry.playerId && entry.count > 0)
+      .sort((a, b) => {
+        if (a.count !== b.count) return b.count - a.count
+        return a.name.localeCompare(b.name)
+      })
 
     sendJson(res, 200, {
       ok: true,
       profile: view,
+      rosesGiven,
       canPlay,
       canPlayIntroRound: !hasPublishedProfile && !hasCompletedIntroRound,
       mustCreateProfileBeforeNextRound: !hasPublishedProfile && hasCompletedIntroRound,

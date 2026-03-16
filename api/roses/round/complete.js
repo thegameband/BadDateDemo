@@ -9,6 +9,7 @@ import {
   buildRankings,
   getAllProfiles,
   getHistory,
+  getHistoryEntry,
   getProfile,
   getRound,
   saveHistory,
@@ -263,7 +264,11 @@ export default async function handler(req, res) {
     const history = await getHistory(playerId)
     const completedAt = Date.now()
     candidateIds.forEach((candidateId) => {
-      history[candidateId] = completedAt
+      const previous = getHistoryEntry(history, candidateId)
+      history[candidateId] = {
+        lastSeenAt: completedAt,
+        rosesGiven: previous.rosesGiven + (candidateId === winnerId ? 1 : 0),
+      }
     })
     await saveHistory(playerId, history)
 

@@ -260,6 +260,26 @@ export async function getHistory(playerId) {
   return history
 }
 
+export function getHistoryEntry(history = {}, profileId = '') {
+  const raw = history?.[profileId]
+  if (typeof raw === 'number') {
+    return {
+      lastSeenAt: raw,
+      rosesGiven: 0,
+    }
+  }
+  if (raw && typeof raw === 'object') {
+    return {
+      lastSeenAt: Number(raw.lastSeenAt || 0),
+      rosesGiven: Number(raw.rosesGiven || 0),
+    }
+  }
+  return {
+    lastSeenAt: 0,
+    rosesGiven: 0,
+  }
+}
+
 export async function saveHistory(playerId, history) {
   await kvSetJSON(historyKey(playerId), history || {}, { exSeconds: ROSES_HISTORY_TTL_SECONDS })
 }
@@ -347,7 +367,7 @@ export function findRoundCandidates({
     .filter((profile) => String(profile.playerId) !== String(bachelorId))
     .filter((profile) => isCompleteProfile(profile?.fields))
     .map((profile) => {
-      const lastSeenAt = Number(history?.[profile.playerId] || 0)
+      const lastSeenAt = Number(getHistoryEntry(history, profile.playerId).lastSeenAt || 0)
       const wasSeen = Number.isFinite(lastSeenAt) && lastSeenAt > 0
       const withinLockout = wasSeen && ((nowMs - lastSeenAt) < lockoutMs)
       return {
