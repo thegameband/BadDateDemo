@@ -665,6 +665,23 @@ function RosesMode({ onBack }) {
     [introLogEntries, previewCandidate],
   )
 
+  const scrollChatToBottom = useCallback((attempts = 1, delayMs = 0) => {
+    const run = () => {
+      const node = chatLogRef.current
+      if (!node) return
+      node.scrollTop = node.scrollHeight
+      if (attempts > 1) {
+        requestAnimationFrame(() => scrollChatToBottom(attempts - 1, 0))
+      }
+    }
+
+    if (delayMs > 0) {
+      window.setTimeout(run, delayMs)
+      return
+    }
+    requestAnimationFrame(run)
+  }, [])
+
   const currentTurnPromptIndex = Math.min(TURN_COUNT - 1, Number(round?.turnIndex || 0))
   const activePromptOptionIndex = questionPromptIndexes[currentTurnPromptIndex] ?? 0
   const activePrompt = QUESTION_BANK[activePromptOptionIndex] || QUESTION_BANK[0] || { template: '', options: [] }
@@ -774,15 +791,8 @@ function RosesMode({ onBack }) {
 
   useEffect(() => {
     if (stage !== 'chat' && stage !== 'choose') return
-    const node = chatLogRef.current
-    if (!node) return
-
-    const frameId = requestAnimationFrame(() => {
-      node.scrollTop = node.scrollHeight
-    })
-
-    return () => cancelAnimationFrame(frameId)
-  }, [stage, chatLog])
+    scrollChatToBottom(2)
+  }, [stage, chatLog, scrollChatToBottom])
 
   useEffect(() => {
     if (stage !== 'chat' && stage !== 'choose') return undefined
@@ -791,14 +801,21 @@ function RosesMode({ onBack }) {
     if (!logNode || !panelNode || typeof ResizeObserver === 'undefined') return undefined
 
     const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        logNode.scrollTop = logNode.scrollHeight
-      })
+      scrollChatToBottom(2)
     })
 
     observer.observe(panelNode)
     return () => observer.disconnect()
-  }, [stage, composerState, previewCandidateId])
+  }, [stage, composerState, previewCandidateId, scrollChatToBottom])
+
+  useEffect(() => {
+    if (stage !== 'choose') return undefined
+    scrollChatToBottom(3)
+    const timeoutId = window.setTimeout(() => {
+      scrollChatToBottom(3)
+    }, 180)
+    return () => window.clearTimeout(timeoutId)
+  }, [stage, previewCandidateId, scrollChatToBottom])
 
   useEffect(() => {
     if (stage !== 'chat' || introPhase !== 'tutorial' || sendingQuestion) return
