@@ -119,9 +119,17 @@ function toTrimmed(value) {
   return String(value ?? '').trim()
 }
 
+function repairLegacyProfileName(value = '') {
+  const trimmed = toTrimmed(value)
+  if (trimmed === 'An Adorable Little') {
+    return 'An Adorable Little Puppy'
+  }
+  return trimmed
+}
+
 export function normalizeProfileFields(input = {}) {
   return {
-    name: toTrimmed(input.name),
+    name: repairLegacyProfileName(input.name),
     occupation: toTrimmed(input.occupation),
     bio: toTrimmed(input.bio),
     introTagline: toTrimmed(input.introTagline),
@@ -190,7 +198,10 @@ export async function getProfile(playerId) {
   const profile = await kvGetJSON(profileKey(playerId))
   if (!profile) return null
   if (profile.playerId !== playerId) return null
-  return profile
+  return {
+    ...profile,
+    fields: normalizeProfileFields(profile.fields || {}),
+  }
 }
 
 async function ensureSeedProfiles() {
@@ -236,11 +247,15 @@ async function ensureSeedProfiles() {
 
 export async function saveProfile(profile) {
   if (!profile?.playerId) return
-  await kvSetJSON(profileKey(profile.playerId), profile, { exSeconds: ROSES_PROFILE_TTL_SECONDS })
+  const normalizedProfile = {
+    ...profile,
+    fields: normalizeProfileFields(profile.fields || {}),
+  }
+  await kvSetJSON(profileKey(profile.playerId), normalizedProfile, { exSeconds: ROSES_PROFILE_TTL_SECONDS })
 
   const index = await getProfileIndex()
-  if (!index.includes(profile.playerId)) {
-    await saveProfileIndex([...index, profile.playerId])
+  if (!index.includes(normalizedProfile.playerId)) {
+    await saveProfileIndex([...index, normalizedProfile.playerId])
   }
 }
 
