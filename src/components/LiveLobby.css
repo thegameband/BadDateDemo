@@ -1110,6 +1110,65 @@
   font-variant-numeric: tabular-nums;
 }
 
+.tagline-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tagline-editor-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.tagline-editor-filter,
+.tagline-editor-row textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(9, 11, 24, 0.92);
+  color: #f8fafc;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.tagline-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tagline-editor-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tagline-editor-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.8rem;
+}
+
+.tagline-editor-meta strong {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .title-heart {
     animation: none;

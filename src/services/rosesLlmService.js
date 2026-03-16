@@ -15,7 +15,7 @@ export const ROSES_FIELD_LIMITS = {
   pronouns: 30,
   occupation: 80,
   bio: 650,
-  introTagline: 140,
+  introTagline: 90,
 }
 
 const GENERATED_FIELD_STYLE = {

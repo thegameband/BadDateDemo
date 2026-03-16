@@ -6,6 +6,7 @@ import PartySocket from 'partysocket'
 import { setTTSEnabled, isTTSEnabled, getVoiceVolume, setVoiceVolume } from '../services/ttsService'
 import { formatDb, getMusicVolume, setMusicMode, setMusicVolume, getSfxVolume, setSfxVolume } from '../services/audioService'
 import { fetchRuntimeCapabilities, getCachedRuntimeCapabilities } from '../services/runtimeCapabilities'
+import { fetchRosesDebugTaglines, saveRosesDebugTaglines } from '../services/rosesApi'
 import DropALineReels from './DropALineReels'
 import DropALineProfile from './DropALineProfile'
 import DropALineScene from './DropALineScene'
@@ -25,7 +26,7 @@ import './AudioManager.css'
 const PARTYKIT_HOST = import.meta.env.VITE_PARTYKIT_HOST || 'localhost:1999'
 
 // Game version - increment with each deployment
-const GAME_VERSION = '0.05.57'
+const GAME_VERSION = '0.05.59'
 const RIZZ_CRAFT_MODE_LABEL = 'Rizz-craft'
 const BAD_DATE_FTUE_KEY = 'ftue_bad-date_seen'
 const BAD_DATE_FTUE_SLIDES = [
@@ -99,6 +100,11 @@ function LiveLobby() {
   const [_partyKitReady, _setPartyKitReady] = useState(true) // PartyKit is always "ready"
   const [showAdminModal, setShowAdminModal] = useState(false)
   const [adminStatus, setAdminStatus] = useState('')
+  const [showTaglineEditor, setShowTaglineEditor] = useState(false)
+  const [taglineEditorEntries, setTaglineEditorEntries] = useState([])
+  const [taglineEditorFilter, setTaglineEditorFilter] = useState('')
+  const [taglineEditorLoading, setTaglineEditorLoading] = useState(false)
+  const [taglineEditorSaving, setTaglineEditorSaving] = useState(false)
   const [qrRoomCode, setQrRoomCode] = useState(null) // Room code from QR scan
   const [selectedDaterName, setSelectedDaterName] = useState('Adam') // Debug: which dater to use
   const [voEnabled, setVoEnabled] = useState(() => isTTSEnabled())
@@ -118,6 +124,19 @@ function LiveLobby() {
   const [forceReelPairing, setForceReelPairing] = useState(null) // { daterName, location } | null
   const [showFtue, setShowFtue] = useState(null)
   const [runtimeCapabilities, setRuntimeCapabilities] = useState(() => getCachedRuntimeCapabilities())
+
+  const filteredTaglineEntries = useMemo(() => {
+    const query = String(taglineEditorFilter || '').trim().toLowerCase()
+    if (!query) return taglineEditorEntries
+    return taglineEditorEntries.filter((entry) => {
+      const haystack = [
+        entry?.name,
+        entry?.occupation,
+        entry?.introTagline,
+      ].join(' ').toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [taglineEditorEntries, taglineEditorFilter])
   const hasOpenAiKey = Boolean(runtimeCapabilities.openai)
   const hasAnthropicKey = Boolean(runtimeCapabilities.anthropic)
   const prefersReducedMotion = useReducedMotion()
@@ -126,7 +145,6 @@ function LiveLobby() {
   const registryRef = useRef(null)
   
   // Stable random values for floating hearts (computed once per mount)
-  /* eslint-disable react-hooks/purity -- Math.random intentional inside useMemo for stable values */
   const heartConfigs = useMemo(() => [...Array(8)].map(() => ({
     x: `${Math.random() * 100}vw`,
     rotateInitial: Math.random() * 360,
@@ -143,8 +161,7 @@ function LiveLobby() {
     delay: Math.random() * 5,
     emoji: ['💔', '💕', '❤️', '💘', '💗', '💖', '💝'][Math.floor(Math.random() * 7)]
   })), [])
-  /* eslint-enable react-hooks/purity */
-  
+
   // Check for room code in URL (from QR scan)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -412,6 +429,42 @@ function LiveLobby() {
     
     // Clear status after 3 seconds
     setTimeout(() => setAdminStatus(''), 3000)
+  }
+
+  const loadRosesTaglineEditor = async () => {
+    setTaglineEditorLoading(true)
+    setAdminStatus('Loading Roses taglines...')
+    try {
+      const response = await fetchRosesDebugTaglines()
+      setTaglineEditorEntries(Array.isArray(response?.entries) ? response.entries : [])
+      setShowTaglineEditor(true)
+      setAdminStatus(`Loaded ${Number(response?.entries?.length || 0)} taglines.`)
+    } catch (error) {
+      setAdminStatus(`❌ Error: ${error.message}`)
+    } finally {
+      setTaglineEditorLoading(false)
+    }
+  }
+
+  const handleTaglineEntryChange = (playerId, value) => {
+    setTaglineEditorEntries((prev) => prev.map((entry) => (
+      String(entry?.playerId || '') === String(playerId)
+        ? { ...entry, introTagline: value }
+        : entry
+    )))
+  }
+
+  const handleSaveRosesTaglines = async () => {
+    setTaglineEditorSaving(true)
+    setAdminStatus('Saving Roses taglines...')
+    try {
+      const response = await saveRosesDebugTaglines(taglineEditorEntries)
+      setAdminStatus(`Saved ${Number(response?.savedCount || 0)} taglines.`)
+    } catch (error) {
+      setAdminStatus(`❌ Error: ${error.message}`)
+    } finally {
+      setTaglineEditorSaving(false)
+    }
   }
 
   // QR Join view - Streamlined join from QR code scan
@@ -972,6 +1025,69 @@ function LiveLobby() {
                     {/* Section: Admin Actions */}
                     <div className="debug-section">
                       <div className="debug-section-label">Admin</div>
+                      <motion.button
+                        className="debug-action-btn"
+                        onClick={() => {
+                          if (showTaglineEditor) {
+                            setShowTaglineEditor(false)
+                            return
+                          }
+                          void loadRosesTaglineEditor()
+                        }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="btn-icon">✍️</span>
+                        <span>Edit All Roses Taglines</span>
+                      </motion.button>
+
+                      {showTaglineEditor && (
+                        <div className="tagline-editor-panel">
+                          <div className="tagline-editor-actions">
+                            <input
+                              type="text"
+                              className="tagline-editor-filter"
+                              placeholder="Filter characters..."
+                              value={taglineEditorFilter}
+                              onChange={(e) => setTaglineEditorFilter(e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              className="debug-action-btn"
+                              onClick={() => void loadRosesTaglineEditor()}
+                              disabled={taglineEditorLoading || taglineEditorSaving}
+                            >
+                              {taglineEditorLoading ? 'Loading...' : 'Reload'}
+                            </button>
+                            <button
+                              type="button"
+                              className="debug-action-btn"
+                              onClick={() => void handleSaveRosesTaglines()}
+                              disabled={taglineEditorLoading || taglineEditorSaving}
+                            >
+                              {taglineEditorSaving ? 'Saving...' : 'Save Taglines'}
+                            </button>
+                          </div>
+
+                          <div className="tagline-editor-list">
+                            {filteredTaglineEntries.map((entry) => (
+                              <div key={entry.playerId} className="tagline-editor-row">
+                                <div className="tagline-editor-meta">
+                                  <strong>{entry.name}</strong>
+                                  <span>{entry.occupation || 'No occupation'}</span>
+                                </div>
+                                <textarea
+                                  value={entry.introTagline || ''}
+                                  onChange={(e) => handleTaglineEntryChange(entry.playerId, e.target.value)}
+                                  maxLength={90}
+                                  rows={3}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <motion.button
                         className="debug-action-btn danger"
                         onClick={handleDeleteAllRooms}
