@@ -1605,7 +1605,6 @@ function RosesMode({ onBack }) {
               <div className="roses-choose-preview" role="note" aria-live="polite">
                 <div className="roses-choose-preview-head">
                   <span className="roses-answer-head">{admirerLabelFromSlot(previewCandidate?.slot || '')}</span>
-                  <span className="roses-muted">{previewCandidate?.fields?.name || ''}</span>
                 </div>
                 {previewIntroEntry?.message && (
                   <div className="roses-choose-preview-line">
