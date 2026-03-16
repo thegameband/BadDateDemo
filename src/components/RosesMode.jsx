@@ -921,7 +921,7 @@ function RosesMode({ onBack }) {
       return
     }
 
-    const narrationKey = `${creationStep}:${currentCreationPrompt}:${fields.name}`
+    const narrationKey = creationStep
     if (profileStepNarrationRef.current === narrationKey) return
     profileStepNarrationRef.current = narrationKey
 
@@ -929,7 +929,7 @@ function RosesMode({ onBack }) {
       text: currentCreationPrompt,
       speaker: 'avatar',
     })
-  }, [isCreatingProfile, creationStep, currentCreationPrompt, fields.name, speakRosesLine])
+  }, [isCreatingProfile, creationStep, currentCreationPrompt, speakRosesLine])
 
   useEffect(() => {
     if (!isCreatingProfile) return
