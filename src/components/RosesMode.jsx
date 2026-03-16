@@ -2275,10 +2275,7 @@ function RosesMode({ onBack }) {
                   </section>
 
                   <section className="roses-info-panel roses-awarded-panel">
-                    <div className="roses-topics-head">
-                      <h3 className="roses-panel-title">Roses Given</h3>
-                      <span className="roses-muted">{profile?.fields?.name || 'Profile'}</span>
-                    </div>
+                    <h3 className="roses-panel-title">Roses Given</h3>
                     {rosesGiven.length > 0 ? (
                       <div className="roses-awarded-list">
                         {rosesGiven.map((entry) => (
@@ -2294,10 +2291,7 @@ function RosesMode({ onBack }) {
                   </section>
 
                   <section className="roses-info-panel roses-topics-panel">
-                    <div className="roses-topics-head">
-                      <h3 className="roses-panel-title">Topics Discussed</h3>
-                      <span className="roses-muted">{profile?.fields?.name || 'Profile'}</span>
-                    </div>
+                    <h3 className="roses-panel-title">Topics Discussed with {profile?.fields?.name || 'Profile'}</h3>
                     {hasSentimentKeywords ? (
                       <div className="roses-word-cloud">
                         {displayedSentimentKeywords.map((item) => (
