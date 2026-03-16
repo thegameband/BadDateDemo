@@ -529,6 +529,12 @@ function questionDemandsConcreteAnswer(question = '') {
   return !/\b(?:what do you want in(?: a| your)? relationship|what matters most|how do you feel about|what are you looking for|what's your philosophy|what is love|what do you value|how do you define|what makes someone attractive)\b/i.test(text)
 }
 
+function questionAsksAboutTimingOrEscalation(question = '') {
+  const text = normalizeWhitespace(question).toLowerCase()
+  if (!text) return false
+  return /\b(?:earliest you'd|how soon would you|how soon do you|when would you|when do you|first date|second date|third date|move in|sleep together|hook up|kiss|say i love you|get married|open up|meet your family|lick|taint|relationship)\b/i.test(text)
+}
+
 function replyIsTooGeneralForQuestion(rawValue = '', question = '') {
   const text = normalizeWhitespace(rawValue)
   if (!text || !questionDemandsConcreteAnswer(question)) return false
@@ -616,6 +622,10 @@ function scoreRosesReplyCandidate(rawValue = '', {
   if (replyRepeatsRecentContent(text, priorTurns)) score -= 20
   if ((Array.isArray(usedResponses) ? usedResponses : []).some((value) => repliesAreTooSimilar(text, value))) score -= 90
   if (/\b(?:all day|for sure|i guess|maybe|probably|i think)\b/i.test(text)) score -= 10
+  if (
+    questionAsksAboutTimingOrEscalation(question) &&
+    /\b(?:instantly|immediately|tonight|right away|first date)\b/i.test(text)
+  ) score -= 16
   if (ROSES_REPLY_SHARP_WORD_PATTERN.test(text)) score += 8
 
   return score
@@ -1230,14 +1240,18 @@ export async function generateRosesReply({ profile, question, priorTurns = [], u
     'Always engage the question directly on its own terms, even if it is rude, vulgar, insulting, or explicit.',
     'Do not scold the bachelor. Do not ask for respectful wording.',
     'Do not mention boundaries, comfort, policy, safety, or appropriateness.',
+    'Important truthfulness rule: openness is not the same thing as eagerness.',
+    'If the question is about timing, escalation, or how soon this character would do something in a relationship, answer with the pace this specific profile would actually move at.',
+    'Do not default to instantly, tonight, or first date unless this profile strongly and specifically feels like that type of person.',
+    'Some characters should sound impatient or wild. Some should sound selective, strategic, cautious, shy, or slow-burn. Stay truthful to the persona.',
     ...(profileIsShyOrPrudish
       ? [
         'Profile behavior rule: this persona is shy/prudish.',
         'You can sound hesitant or embarrassed, but still answer directly.',
       ]
       : [
-        'Profile behavior rule: default to open, unfiltered engagement.',
-        'For sex, violence, crime, or taboo topics, answer directly in-character.',
+        'Profile behavior rule: answer taboo, sexual, criminal, or intense questions directly in-character.',
+        'Be candid without automatically being eager, reckless, or instantly available.',
         'Do not sanitize into polite non-answers.',
       ]),
     'Hard format rules:',
