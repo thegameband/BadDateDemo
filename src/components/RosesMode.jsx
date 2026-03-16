@@ -43,6 +43,10 @@ const DASHBOARD_TABS = [
   { id: 'stats', label: 'Stats' },
   { id: 'boards', label: 'Boards' },
 ]
+const DASHBOARD_TABS_NO_PROFILE = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'boards', label: 'Boards' },
+]
 const BOARD_TABS = [
   { id: 'allTime', label: 'All-time' },
   { id: 'weekly', label: 'Weekly' },
@@ -654,6 +658,7 @@ function RosesMode({ onBack }) {
   }, [fields, manualTouched])
 
   const hasProfile = Boolean(profile?.fields && String(profile?.playerId || '').trim())
+  const visibleDashboardTabs = hasProfile ? DASHBOARD_TABS : DASHBOARD_TABS_NO_PROFILE
 
   const orderedCandidates = useMemo(() => (
     [...candidates].sort((a, b) => {
@@ -937,10 +942,16 @@ function RosesMode({ onBack }) {
 
   useEffect(() => {
     if (stage === 'dashboard') {
-      setDashboardTab(DASHBOARD_TABS[0]?.id || 'profile')
+      setDashboardTab((hasProfile ? DASHBOARD_TABS : DASHBOARD_TABS_NO_PROFILE)[0]?.id || 'profile')
       setBoardsTab(BOARD_TABS[0]?.id || 'allTime')
     }
-  }, [stage])
+  }, [stage, hasProfile])
+
+  useEffect(() => {
+    if (!visibleDashboardTabs.some((tab) => tab.id === dashboardTab)) {
+      setDashboardTab(visibleDashboardTabs[0]?.id || 'profile')
+    }
+  }, [dashboardTab, visibleDashboardTabs])
 
   useEffect(() => {
     if (stage !== 'choose') {
@@ -2155,63 +2166,106 @@ function RosesMode({ onBack }) {
               className={[
                 'roses-dashboard-page',
                 dashboardTab === 'profile' ? 'is-profile' : '',
+                dashboardTab === 'profile' && !hasProfile ? 'is-profile-empty' : '',
                 dashboardTab === 'stats' ? 'is-stats' : '',
                 dashboardTab === 'boards' ? 'is-boards' : '',
               ].filter(Boolean).join(' ')}
             >
               {dashboardTab === 'profile' && (
                 <>
-                  <div className="roses-dashboard-actions">
-                    <button
-                      type="button"
-                      className={hasProfile ? 'roses-primary' : 'roses-primary roses-judge-profiles-cta'}
-                      onClick={() => handleStartRound()}
-                      disabled={!canPlay}
-                    >
-                      Judge Profiles
-                    </button>
-                    <button
-                      type="button"
-                      className={hasProfile ? 'roses-secondary' : 'roses-primary roses-create-profile-cta'}
-                      onClick={handleEditProfile}
-                      disabled={hasProfile && !canEditToday}
-                      title={hasProfile ? (canEditToday ? 'Edit profile' : 'Edit available once per local day') : 'Create profile'}
-                    >
-                      {hasProfile ? (canEditToday ? 'Edit Profile' : 'One Edit Daily') : 'Create Profile'}
-                    </button>
-                  </div>
-
                   {hasProfile ? (
-                    <section className="roses-info-panel roses-profile-panel">
-                      <div className="roses-profile-grid roses-panel-grid">
-                        <div className="roses-panel-item">
-                          <span className="roses-panel-label">Name</span>
-                          <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
-                        </div>
-                        <div className="roses-panel-item">
-                          <span className="roses-panel-label">Occupation</span>
-                          <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
-                        </div>
+                    <>
+                      <div className="roses-dashboard-actions">
+                        <button
+                          type="button"
+                          className="roses-primary"
+                          onClick={() => handleStartRound()}
+                          disabled={!canPlay}
+                        >
+                          Judge Profiles
+                        </button>
+                        <button
+                          type="button"
+                          className="roses-secondary"
+                          onClick={handleEditProfile}
+                          disabled={!canEditToday}
+                          title={canEditToday ? 'Edit profile' : 'Edit available once per local day'}
+                        >
+                          {canEditToday ? 'Edit Profile' : 'One Edit Daily'}
+                        </button>
                       </div>
 
-                      <div className="roses-profile-copy-grid">
-                        <div className="roses-panel-copy">
-                          <h3 className="roses-panel-title">Intro Tagline</h3>
-                          <p className="roses-panel-body is-clamped is-tight">{profile?.fields?.introTagline || '-'}</p>
+                      <section className="roses-info-panel roses-profile-panel">
+                        <div className="roses-profile-grid roses-panel-grid">
+                          <div className="roses-panel-item">
+                            <span className="roses-panel-label">Name</span>
+                            <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
+                          </div>
+                          <div className="roses-panel-item">
+                            <span className="roses-panel-label">Occupation</span>
+                            <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
+                          </div>
                         </div>
-                        <div className="roses-panel-copy">
-                          <h3 className="roses-panel-title">Bio</h3>
-                          <p className="roses-panel-body is-clamped">{profile?.fields?.bio || '-'}</p>
+
+                        <div className="roses-profile-copy-grid">
+                          <div className="roses-panel-copy">
+                            <h3 className="roses-panel-title">Intro Tagline</h3>
+                            <p className="roses-panel-body is-clamped is-tight">{profile?.fields?.introTagline || '-'}</p>
+                          </div>
+                          <div className="roses-panel-copy">
+                            <h3 className="roses-panel-title">Bio</h3>
+                            <p className="roses-panel-body is-clamped">{profile?.fields?.bio || '-'}</p>
+                          </div>
                         </div>
-                      </div>
-                    </section>
+                      </section>
+                    </>
                   ) : (
-                    <section className="roses-info-panel roses-empty-panel">
-                      <h3 className="roses-panel-title">No Profile Yet</h3>
-                      <p className="roses-panel-body">
-                        Create a character profile if you want other players to judge you, discuss you, and start sending Roses your way.
-                      </p>
-                    </section>
+                    <>
+                      <section className="roses-info-panel roses-empty-panel roses-empty-panel-compact">
+                        <div className="roses-empty-panel-copy">
+                          <h3 className="roses-panel-title">No Profile Yet</h3>
+                          <p className="roses-panel-body">
+                            Create a character profile if you want other players to judge you, discuss you, and start sending Roses your way.
+                          </p>
+                        </div>
+                        <div className="roses-empty-panel-arrow" aria-hidden="true">↘</div>
+                      </section>
+
+                      <div className="roses-dashboard-actions">
+                        <button
+                          type="button"
+                          className="roses-primary roses-judge-profiles-cta"
+                          onClick={() => handleStartRound()}
+                          disabled={!canPlay}
+                        >
+                          Judge Profiles
+                        </button>
+                        <button
+                          type="button"
+                          className="roses-primary roses-create-profile-cta"
+                          onClick={handleEditProfile}
+                          title="Create profile"
+                        >
+                          Create Profile
+                        </button>
+                      </div>
+
+                      <section className="roses-info-panel roses-awarded-panel">
+                        <h3 className="roses-panel-title">Roses You&apos;ve Given Out</h3>
+                        {rosesGiven.length > 0 ? (
+                          <div className="roses-awarded-list">
+                            {rosesGiven.map((entry) => (
+                              <div key={entry.playerId} className="roses-awarded-row">
+                                <span className="roses-awarded-name">{entry.name}</span>
+                                <span className="roses-awarded-count">{entry.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="roses-lb-empty">Characters you choose will show up here.</div>
+                        )}
+                      </section>
+                    </>
                   )}
                 </>
               )}
@@ -2322,8 +2376,13 @@ function RosesMode({ onBack }) {
               </div>
             )}
 
-            <div className="roses-dashboard-tabbar" role="tablist" aria-label="Roses dashboard pages">
-              {DASHBOARD_TABS.map((tab) => (
+            <div
+              className="roses-dashboard-tabbar"
+              role="tablist"
+              aria-label="Roses dashboard pages"
+              style={{ gridTemplateColumns: `repeat(${visibleDashboardTabs.length}, minmax(0, 1fr))` }}
+            >
+              {visibleDashboardTabs.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
