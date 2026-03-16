@@ -1923,7 +1923,7 @@ function RosesMode({ onBack }) {
           {onboardingRoundActive ? (
             <div className="roses-choice-stack">
               <div className="roses-choice-option">
-                <p className="roses-choice-copy">If you&apos;d like to create a profile to join the chaos and gather Roses,</p>
+                <p className="roses-choice-copy">If you&apos;d like to create a profile to join the chaos and gather Roses</p>
                 <button
                   type="button"
                   className="roses-primary"
@@ -1936,7 +1936,7 @@ function RosesMode({ onBack }) {
                 </button>
               </div>
               <div className="roses-choice-option">
-                <p className="roses-choice-copy">If you&apos;d just like to keep flirting with weirdos,</p>
+                <p className="roses-choice-copy">If you&apos;d just like to keep flirting with weirdos</p>
                 <button
                   type="button"
                   className="roses-primary"
