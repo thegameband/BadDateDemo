@@ -591,6 +591,14 @@ function RosesMode({ onBack }) {
     () => chatLog.filter((entry) => String(entry?.id || '') !== 'tutorial-intro'),
     [chatLog],
   )
+  const introLogEntries = useMemo(
+    () => postIntroLogEntries.filter((entry) => isIntroLogEntry(entry)),
+    [postIntroLogEntries],
+  )
+  const nonIntroLogEntries = useMemo(
+    () => postIntroLogEntries.filter((entry) => !isIntroLogEntry(entry)),
+    [postIntroLogEntries],
+  )
   const turnEntries = useMemo(
     () => chatLog.filter((entry) => isTurnLogEntry(entry)),
     [chatLog],
@@ -1354,17 +1362,19 @@ function RosesMode({ onBack }) {
                 message={introTutorialEntry.message}
               />
             )}
-            {postIntroLogEntries.map((entry) => {
-              if (isIntroLogEntry(entry)) {
-                return (
+            {introLogEntries.length > 0 && (
+              <div className="roses-intro-log-row">
+                {introLogEntries.map((entry) => (
                   <IntroLogEntry
                     key={entry.id || `${entry.slot}-${entry.message}`}
                     slot={entry.slot}
                     message={entry.message}
                     isSpeaking={activeSpeechSlot === entry.slot}
                   />
-                )
-              }
+                ))}
+              </div>
+            )}
+            {nonIntroLogEntries.map((entry) => {
               if (!isTurnLogEntry(entry)) {
                 return <TutorialLogEntry key={entry.id || entry.message} message={entry.message} />
               }
@@ -1464,16 +1474,18 @@ function RosesMode({ onBack }) {
           {status && <div className="roses-status">{status}</div>}
 
           <div className="roses-chat-log roses-choose-log">
-            {chatLog.map((entry) => {
-              if (isIntroLogEntry(entry)) {
-                return (
+            {introLogEntries.length > 0 && (
+              <div className="roses-intro-log-row">
+                {introLogEntries.map((entry) => (
                   <IntroLogEntry
                     key={entry.id || `${entry.slot}-${entry.message}`}
                     slot={entry.slot}
                     message={entry.message}
                   />
-                )
-              }
+                ))}
+              </div>
+            )}
+            {nonIntroLogEntries.map((entry) => {
               if (!isTurnLogEntry(entry)) {
                 return <TutorialLogEntry key={entry.id || entry.message} message={entry.message} />
               }

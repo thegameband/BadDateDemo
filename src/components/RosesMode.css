@@ -824,11 +824,18 @@
   padding-right: 0;
 }
 
+.roses-intro-log-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
 .roses-intro-log-card {
-  border-radius: 12px;
+  min-height: 94px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(4, 7, 15, 0.78);
-  padding: 10px 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -841,6 +848,11 @@
   background:
     linear-gradient(180deg, rgba(244, 114, 182, 0.12) 0%, rgba(15, 23, 42, 0.24) 100%),
     rgba(4, 7, 15, 0.78);
+}
+
+.roses-intro-log-card .roses-chat-answer {
+  min-height: 2.8em;
+  white-space: pre-wrap;
 }
 
 .roses-turn-card {
