@@ -49,8 +49,8 @@ const BOARD_TABS = [
 ]
 const ONBOARDING_TUTORIAL_LINES = {
   intro: "Let's let our first set of admirers introduce themselves!",
-  compose: 'Compose your question! What would you want to know about a prospective partner?',
-  afterFirstAnswer: 'You get three questions to learn as much as you can about your Admirers.',
+  compose: 'Compose your first question by filling in the blank! What might you want to know about a prospective partner?',
+  afterFirstAnswer: 'You get three questions to learn anything you want about your Admirers. Compose your question #2 now!',
   afterSecondAnswer: 'This is your last question, make it a good one!',
   finalChoice: "Which Admirer's answers did you like the best? You only have one Rose to give!",
 }
@@ -223,6 +223,24 @@ function fillQuestionTemplate(template = '', value = '') {
     .trim()
   if (!cleaned) return String(template || '')
   return String(template || '').replace('_____', cleaned)
+}
+
+function splitQuestionTemplate(template = '') {
+  const marker = '_____'
+  const source = String(template || '')
+  const markerIndex = source.indexOf(marker)
+
+  if (markerIndex < 0) {
+    return {
+      before: source,
+      after: '',
+    }
+  }
+
+  return {
+    before: source.slice(0, markerIndex),
+    after: source.slice(markerIndex + marker.length),
+  }
 }
 
 function normalizeQuestionForDuplicateCheck(value = '') {
@@ -700,6 +718,10 @@ function RosesMode({ onBack }) {
   const activePrompt = QUESTION_BANK[activePromptOptionIndex] || QUESTION_BANK[0] || { template: '', options: [] }
   const activePromptTemplate = activePrompt.template || ''
   const activePromptOptions = activePrompt.options || []
+  const activePromptParts = useMemo(
+    () => splitQuestionTemplate(activePromptTemplate),
+    [activePromptTemplate],
+  )
   const introActive = stage === 'chat' && introPhase !== 'done' && introPhase !== 'tutorial'
   const composerState = introActive
     ? 'intro'
@@ -1676,7 +1698,26 @@ function RosesMode({ onBack }) {
           <div ref={bottomPanelRef} className="roses-question-row">
             {composerState === 'compose' ? (
               <>
-                <div className="roses-question-template">{activePromptTemplate}</div>
+                <label className="roses-question-fillline" htmlFor="roses-question-input">
+                  {activePromptParts.before && (
+                    <span className="roses-question-fillcopy">{activePromptParts.before}</span>
+                  )}
+                  <input
+                    ref={questionInputRef}
+                    id="roses-question-input"
+                    className="roses-question-fillinput"
+                    type="text"
+                    value={questionInput}
+                    onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
+                    onKeyDown={handleQuestionKeyDown}
+                    onFocus={handleQuestionFocus}
+                    placeholder="fill in the blank"
+                    disabled={sendingQuestion || introActive}
+                  />
+                  {activePromptParts.after && (
+                    <span className="roses-question-fillcopy">{activePromptParts.after}</span>
+                  )}
+                </label>
                 <div className="roses-question-options" role="group" aria-label="Quick fill options">
                   {activePromptOptions.map((option) => (
                     <button
@@ -1695,16 +1736,6 @@ function RosesMode({ onBack }) {
                     </button>
                   ))}
                 </div>
-                <input
-                  ref={questionInputRef}
-                  type="text"
-                  value={questionInput}
-                  onChange={(event) => setQuestionInput(event.target.value.slice(0, 90))}
-                  onKeyDown={handleQuestionKeyDown}
-                  onFocus={handleQuestionFocus}
-                  placeholder="Or any custom text!"
-                  disabled={sendingQuestion || introActive}
-                />
                 <div className="roses-question-actions">
                   <button
                     type="button"
@@ -1822,20 +1853,22 @@ function RosesMode({ onBack }) {
               </div>
             )}
             <div className="roses-choose-actions" onMouseLeave={handlePreviewLeave}>
-              {orderedCandidates.map((candidate, index) => {
-                const slot = candidate?.slot || ADMIRER_SLOTS[index] || String(index + 1)
+              {orderedCandidates.map((candidate) => {
                 const candidateId = String(candidate?.playerId || '')
                 return (
                   <button
-                    key={`pick-${candidateId || index}`}
+                    key={`pick-${candidateId || 'unknown'}`}
                     type="button"
-                    className="roses-choose-btn"
+                    className={[
+                      'roses-choose-btn',
+                      previewCandidateId === candidateId ? 'is-open' : '',
+                    ].filter(Boolean).join(' ')}
                     onMouseEnter={() => handlePreviewChoice(candidateId)}
                     onFocus={() => handlePreviewChoice(candidateId)}
                     onClick={() => handleChooseButtonPress(candidateId)}
                     disabled={choosingWinner || !candidateId}
                   >
-                    {choosingWinner ? 'Submitting...' : `${admirerLabelFromSlot(slot)} 🌹`}
+                    {choosingWinner ? 'Submitting...' : 'Give Rose'}
                   </button>
                 )
               })}
