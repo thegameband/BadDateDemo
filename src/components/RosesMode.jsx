@@ -2164,7 +2164,7 @@ function RosesMode({ onBack }) {
                   <div className="roses-dashboard-actions">
                     <button
                       type="button"
-                      className={hasProfile ? 'roses-primary' : 'roses-secondary'}
+                      className={hasProfile ? 'roses-primary' : 'roses-primary roses-judge-profiles-cta'}
                       onClick={() => handleStartRound()}
                       disabled={!canPlay}
                     >
@@ -2289,29 +2289,20 @@ function RosesMode({ onBack }) {
               )}
 
               {dashboardTab === 'boards' && (
-                hasProfile ? (
-                  <div className="roses-leaderboards roses-leaderboards-dashboard">
-                    <LeaderboardPanel
-                      title={boardsTab === 'allTime' ? 'All-Time Roses' : 'Top Roses This Week'}
-                      mode={boardsTab}
-                      entries={boardsTab === 'allTime' ? leaderboard.allTime : leaderboard.weekly}
-                      currentPlayerId={playerId}
-                      weekKey={leaderboard.weekKey}
-                      maxRows={10}
-                    />
-                  </div>
-                ) : (
-                  <section className="roses-info-panel roses-empty-panel">
-                    <h3 className="roses-panel-title">Leaderboards Await</h3>
-                    <p className="roses-panel-body">
-                      Create a profile to appear on the Roses boards and see how your character stacks up against the rest of the pool.
-                    </p>
-                  </section>
-                )
+                <div className="roses-leaderboards roses-leaderboards-dashboard">
+                  <LeaderboardPanel
+                    title={boardsTab === 'allTime' ? 'All-Time Roses' : 'Top Roses This Week'}
+                    mode={boardsTab}
+                    entries={boardsTab === 'allTime' ? leaderboard.allTime : leaderboard.weekly}
+                    currentPlayerId={hasProfile ? playerId : ''}
+                    weekKey={leaderboard.weekKey}
+                    maxRows={10}
+                  />
+                </div>
               )}
             </div>
 
-            {dashboardTab === 'boards' && hasProfile && (
+            {dashboardTab === 'boards' && (
               <div className="roses-board-tabbar" role="tablist" aria-label="Roses leaderboard views">
                 {BOARD_TABS.map((tab) => (
                   <button
