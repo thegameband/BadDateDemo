@@ -37,6 +37,11 @@ const INTRO_PHASE_HOLD_MS = 220
 const BETWEEN_INTRO_LINES_MS = 220
 const BETWEEN_ANSWER_LINES_MS = 180
 const ADMIRER_SLOTS = ['A', 'B', 'C']
+const DASHBOARD_TABS = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'stats', label: 'Stats' },
+  { id: 'boards', label: 'Boards' },
+]
 
 const ROSES_VOICE_POOL = [
   { voiceId: 'EXAVITQu4vr4xnSDxMaL', isMale: false }, // Bella
@@ -344,10 +349,17 @@ function getPrimaryScoreForBoard(entry, mode) {
     : Number(entry?.stats?.roseCount || 0)
 }
 
-function buildLeaderboardDisplayRows({ entries = [], mode = 'allTime', currentPlayerId = '' }) {
+function buildLeaderboardDisplayRows({
+  entries = [],
+  mode = 'allTime',
+  currentPlayerId = '',
+  maxRows = 10,
+}) {
   const normalizedEntries = Array.isArray(entries) ? entries : []
-  if (normalizedEntries.length <= 10) {
-    return normalizedEntries.slice(0, 10).map((entry, absoluteIndex) => ({
+  const limit = Math.max(3, Math.min(10, Number(maxRows) || 10))
+
+  if (normalizedEntries.length <= limit) {
+    return normalizedEntries.slice(0, limit).map((entry, absoluteIndex) => ({
       type: 'entry',
       entry,
       absoluteIndex,
@@ -359,7 +371,7 @@ function buildLeaderboardDisplayRows({ entries = [], mode = 'allTime', currentPl
   )
 
   if (playerIndex < 0) {
-    return normalizedEntries.slice(0, 10).map((entry, absoluteIndex) => ({
+    return normalizedEntries.slice(0, limit).map((entry, absoluteIndex) => ({
       type: 'entry',
       entry,
       absoluteIndex,
@@ -367,26 +379,30 @@ function buildLeaderboardDisplayRows({ entries = [], mode = 'allTime', currentPl
   }
 
   const playerRank = getRankForBoard(normalizedEntries[playerIndex], mode, playerIndex)
-  if (playerRank <= 10) {
-    return normalizedEntries.slice(0, 10).map((entry, absoluteIndex) => ({
+  if (playerRank <= limit) {
+    return normalizedEntries.slice(0, limit).map((entry, absoluteIndex) => ({
       type: 'entry',
       entry,
       absoluteIndex,
     }))
   }
 
-  const topRows = normalizedEntries.slice(0, 5).map((entry, absoluteIndex) => ({
+  const topCount = Math.max(2, Math.min(4, limit - 2))
+  const aroundCount = Math.max(1, limit - topCount - 1)
+  const aroundStart = Math.max(0, playerIndex - Math.max(0, aroundCount - 1))
+  const aroundEnd = Math.min(normalizedEntries.length, aroundStart + aroundCount)
+  const adjustedAroundStart = Math.max(0, aroundEnd - aroundCount)
+
+  const topRows = normalizedEntries.slice(0, topCount).map((entry, absoluteIndex) => ({
     type: 'entry',
     entry,
     absoluteIndex,
   }))
 
-  const aroundStart = Math.max(0, playerIndex - 2)
-  const aroundEnd = Math.min(normalizedEntries.length, playerIndex + 3)
-  const aroundRows = normalizedEntries.slice(aroundStart, aroundEnd).map((entry, offset) => ({
+  const aroundRows = normalizedEntries.slice(adjustedAroundStart, aroundEnd).map((entry, offset) => ({
     type: 'entry',
     entry,
-    absoluteIndex: aroundStart + offset,
+    absoluteIndex: adjustedAroundStart + offset,
   }))
 
   return [
@@ -396,12 +412,20 @@ function buildLeaderboardDisplayRows({ entries = [], mode = 'allTime', currentPl
   ]
 }
 
-function LeaderboardPanel({ title, mode, entries = [], currentPlayerId = '', weekKey = '' }) {
+function LeaderboardPanel({
+  title,
+  mode,
+  entries = [],
+  currentPlayerId = '',
+  weekKey = '',
+  maxRows = 10,
+  compact = false,
+}) {
   const weekLabel = mode === 'weekly' ? formatWeekStartLabel(weekKey) : ''
-  const displayRows = buildLeaderboardDisplayRows({ entries, mode, currentPlayerId })
+  const displayRows = buildLeaderboardDisplayRows({ entries, mode, currentPlayerId, maxRows })
 
   return (
-    <section className="roses-lb-panel">
+    <section className={['roses-lb-panel', compact ? 'is-compact' : ''].filter(Boolean).join(' ')}>
       <div className="roses-lb-panel-head">
         <h3>{title}</h3>
         {mode === 'weekly' && weekLabel && (
@@ -493,6 +517,7 @@ function RosesMode({ onBack }) {
   const [choosingWinner, setChoosingWinner] = useState(false)
   const [reveal, setReveal] = useState(null)
   const [onboardingRoundActive, setOnboardingRoundActive] = useState(false)
+  const [dashboardTab, setDashboardTab] = useState(DASHBOARD_TABS[0]?.id || 'profile')
   const chatLogRef = useRef(null)
   const questionInputRef = useRef(null)
 
@@ -538,7 +563,7 @@ function RosesMode({ onBack }) {
   const activePromptOptions = activePrompt.options || []
   const introActive = stage === 'chat' && chatLog.length === 0 && introPhase !== 'done'
   const sentimentKeywords = Array.isArray(profile?.sentimentKeywords) ? profile.sentimentKeywords : []
-  const displayedSentimentKeywords = sentimentKeywords.slice(0, 12)
+  const displayedSentimentKeywords = sentimentKeywords.slice(0, 10)
   const hasSentimentKeywords = sentimentKeywords.length > 0
   const onboardingChatTutorial = onboardingRoundActive
     ? chatLog.length === 0
@@ -668,6 +693,12 @@ function RosesMode({ onBack }) {
   useEffect(() => () => {
     stopAllAudio()
   }, [])
+
+  useEffect(() => {
+    if (stage === 'dashboard') {
+      setDashboardTab(DASHBOARD_TABS[0]?.id || 'profile')
+    }
+  }, [stage])
 
   const loadEverything = async (pid, tz, day) => {
     setStage('loading')
@@ -1203,7 +1234,7 @@ function RosesMode({ onBack }) {
 
   if (stage === 'loading') {
     return (
-      <div className="roses-mode">
+    <div className={['roses-mode', stage === 'dashboard' ? 'roses-mode-dashboard' : ''].filter(Boolean).join(' ')}>
         <div className="roses-card centered">Loading Roses mode...</div>
       </div>
     )
@@ -1497,14 +1528,20 @@ function RosesMode({ onBack }) {
   }
 
   return (
-    <div className="roses-mode">
-      <div className={['roses-card', stage === 'profile' ? 'roses-profile-shell' : ''].filter(Boolean).join(' ')}>
+      <div className="roses-mode">
+      <div
+        className={[
+          'roses-card',
+          stage === 'profile' ? 'roses-profile-shell' : '',
+          stage === 'dashboard' ? 'roses-dashboard-shell' : '',
+        ].filter(Boolean).join(' ')}
+      >
         <div className="roses-topbar">
           <button className="roses-back" type="button" onClick={onBack}>Back</button>
           <h2>
             {stage === 'profile'
               ? (profile ? 'Edit Your Roses Profile' : 'Create Your Roses Profile')
-              : 'Roses Dashboard'}
+              : 'Roses'}
           </h2>
           <span className="roses-topbar-spacer" aria-hidden="true" />
         </div>
@@ -1566,111 +1603,155 @@ function RosesMode({ onBack }) {
             </div>
           </>
         ) : (
-          <>
-            <div className="roses-dashboard-actions">
-              <button type="button" className="roses-primary" onClick={() => handleStartRound()} disabled={!canPlay}>
-                Judge Profiles
-              </button>
-              <button
-                type="button"
-                className="roses-secondary"
-                onClick={handleEditProfile}
-                disabled={!canEditToday}
-                title={canEditToday ? 'Edit profile' : 'Edit available once per local day'}
-              >
-                {canEditToday ? 'Edit Profile' : 'One Edit Daily'}
-              </button>
-            </div>
-
-            <div className="roses-dashboard-panels">
-              <section className="roses-info-panel">
-                <h3 className="roses-panel-title">Profile</h3>
-                <div className="roses-profile-grid roses-panel-grid">
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">Name</span>
-                    <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
-                  </div>
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">Age</span>
-                    <span className="roses-panel-value">{profile?.fields?.age || '-'}</span>
-                  </div>
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">Pronouns</span>
-                    <span className="roses-panel-value">{profile?.fields?.pronouns || '-'}</span>
-                  </div>
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">Occupation</span>
-                    <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
-                  </div>
-                </div>
-
-                <div className="roses-panel-section">
-                  <h4 className="roses-panel-subtitle">Intro Tagline</h4>
-                  <p className="roses-panel-body">{profile?.fields?.introTagline || '-'}</p>
-                </div>
-
-                <div className="roses-panel-section">
-                  <h4 className="roses-panel-subtitle">Bio</h4>
-                  <p className="roses-panel-body">{profile?.fields?.bio || '-'}</p>
-                </div>
-              </section>
-
-              <section className="roses-info-panel">
-                <h3 className="roses-panel-title">Stats</h3>
-                <div className="roses-profile-grid roses-panel-grid">
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">Times Chatted</span>
-                    <span className="roses-panel-value">{profile?.stats?.shownCount ?? 0}</span>
-                  </div>
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">Roses Won</span>
-                    <span className="roses-panel-value">{profile?.stats?.roseCount ?? 0}</span>
-                  </div>
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">All-Time Rank</span>
-                    <span className="roses-panel-value">#{profile?.ranks?.allTime || '-'}</span>
-                  </div>
-                  <div className="roses-panel-item">
-                    <span className="roses-panel-label">Weekly Rank</span>
-                    <span className="roses-panel-value">#{profile?.ranks?.weekly || '-'}</span>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            {hasSentimentKeywords && (
-              <div className="roses-word-cloud-wrap">
-                <h3>Topics Discussed with {profile?.fields?.name || 'This Profile'}</h3>
-                <div className="roses-word-cloud">
-                  {displayedSentimentKeywords.map((item) => (
-                    <span
-                      key={item.word}
-                      className="roses-word"
-                      style={{ fontSize: scoreWordSize(item.count) }}
+          <div className="roses-dashboard-frame">
+            <div
+              className={[
+                'roses-dashboard-page',
+                dashboardTab === 'profile' ? 'is-profile' : '',
+                dashboardTab === 'stats' ? 'is-stats' : '',
+                dashboardTab === 'boards' ? 'is-boards' : '',
+              ].filter(Boolean).join(' ')}
+            >
+              {dashboardTab === 'profile' && (
+                <>
+                  <div className="roses-dashboard-actions">
+                    <button type="button" className="roses-primary" onClick={() => handleStartRound()} disabled={!canPlay}>
+                      Judge Profiles
+                    </button>
+                    <button
+                      type="button"
+                      className="roses-secondary"
+                      onClick={handleEditProfile}
+                      disabled={!canEditToday}
+                      title={canEditToday ? 'Edit profile' : 'Edit available once per local day'}
                     >
-                      {item.word}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+                      {canEditToday ? 'Edit Profile' : 'One Edit Daily'}
+                    </button>
+                  </div>
 
-            <div className="roses-leaderboards">
-              <LeaderboardPanel
-                title="All-Time Roses"
-                mode="allTime"
-                entries={leaderboard.allTime}
-                currentPlayerId={playerId}
-              />
-              <LeaderboardPanel
-                title="Top Roses This Week"
-                mode="weekly"
-                entries={leaderboard.weekly}
-                currentPlayerId={playerId}
-                weekKey={leaderboard.weekKey}
-              />
+                  <section className="roses-info-panel roses-profile-panel">
+                    <div className="roses-profile-grid roses-panel-grid">
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">Name</span>
+                        <span className="roses-panel-value">{profile?.fields?.name || '-'}</span>
+                      </div>
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">Age</span>
+                        <span className="roses-panel-value">{profile?.fields?.age || '-'}</span>
+                      </div>
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">Pronouns</span>
+                        <span className="roses-panel-value">{profile?.fields?.pronouns || '-'}</span>
+                      </div>
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">Occupation</span>
+                        <span className="roses-panel-value">{profile?.fields?.occupation || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="roses-profile-copy-grid">
+                      <div className="roses-panel-copy">
+                        <h3 className="roses-panel-title">Intro Tagline</h3>
+                        <p className="roses-panel-body is-clamped is-tight">{profile?.fields?.introTagline || '-'}</p>
+                      </div>
+                      <div className="roses-panel-copy">
+                        <h3 className="roses-panel-title">Bio</h3>
+                        <p className="roses-panel-body is-clamped">{profile?.fields?.bio || '-'}</p>
+                      </div>
+                    </div>
+                  </section>
+                </>
+              )}
+
+              {dashboardTab === 'stats' && (
+                <>
+                  <section className="roses-info-panel">
+                    <h3 className="roses-panel-title">Stats</h3>
+                    <div className="roses-profile-grid roses-panel-grid">
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">Times Chatted</span>
+                        <span className="roses-panel-value">{profile?.stats?.shownCount ?? 0}</span>
+                      </div>
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">Roses Won</span>
+                        <span className="roses-panel-value">{profile?.stats?.roseCount ?? 0}</span>
+                      </div>
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">All-Time Rank</span>
+                        <span className="roses-panel-value">#{profile?.ranks?.allTime || '-'}</span>
+                      </div>
+                      <div className="roses-panel-item">
+                        <span className="roses-panel-label">Weekly Rank</span>
+                        <span className="roses-panel-value">#{profile?.ranks?.weekly || '-'}</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="roses-info-panel roses-topics-panel">
+                    <div className="roses-topics-head">
+                      <h3 className="roses-panel-title">Topics Discussed</h3>
+                      <span className="roses-muted">{profile?.fields?.name || 'Profile'}</span>
+                    </div>
+                    {hasSentimentKeywords ? (
+                      <div className="roses-word-cloud">
+                        {displayedSentimentKeywords.map((item) => (
+                          <span
+                            key={item.word}
+                            className="roses-word"
+                            style={{ fontSize: scoreWordSize(item.count) }}
+                          >
+                            {item.word}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="roses-lb-empty">Custom topics will show up here after a few rounds.</div>
+                    )}
+                  </section>
+                </>
+              )}
+
+              {dashboardTab === 'boards' && (
+                <div className="roses-leaderboards roses-leaderboards-dashboard">
+                  <LeaderboardPanel
+                    title="All-Time Roses"
+                    mode="allTime"
+                    entries={leaderboard.allTime}
+                    currentPlayerId={playerId}
+                    maxRows={4}
+                    compact
+                  />
+                  <LeaderboardPanel
+                    title="Top Roses This Week"
+                    mode="weekly"
+                    entries={leaderboard.weekly}
+                    currentPlayerId={playerId}
+                    weekKey={leaderboard.weekKey}
+                    maxRows={4}
+                    compact
+                  />
+                </div>
+              )}
             </div>
-          </>
+
+            <div className="roses-dashboard-tabbar" role="tablist" aria-label="Roses dashboard pages">
+              {DASHBOARD_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={dashboardTab === tab.id}
+                  className={[
+                    'roses-dashboard-tab',
+                    dashboardTab === tab.id ? 'is-active' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => setDashboardTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
       </div>

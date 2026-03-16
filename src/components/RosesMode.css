@@ -6,6 +6,10 @@
   color: #f7f7fb;
 }
 
+.roses-mode.roses-mode-dashboard {
+  overflow: hidden;
+}
+
 .roses-mode.roses-mode-chat {
   padding: 10px;
 }
@@ -341,6 +345,7 @@
 .roses-generate-btn:focus-visible,
 .roses-primary:focus-visible,
 .roses-secondary:focus-visible,
+.roses-dashboard-tab:focus-visible,
 .roses-question-option:focus-visible,
 .roses-question-dice:focus-visible,
 .roses-choose-btn:focus-visible,
@@ -359,6 +364,36 @@
 .roses-profile-actions {
   width: 100%;
   justify-content: center;
+}
+
+.roses-dashboard-shell {
+  height: 100%;
+  overflow: hidden;
+}
+
+.roses-dashboard-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roses-dashboard-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.roses-dashboard-page.is-profile,
+.roses-dashboard-page.is-stats {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.roses-dashboard-page.is-boards {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .roses-profile-actions .roses-secondary,
@@ -448,15 +483,49 @@
   width: 100%;
   justify-content: center;
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
 }
 
 .roses-dashboard-actions .roses-secondary,
 .roses-dashboard-actions .roses-primary {
   flex: 1 1 0;
-  min-height: 56px;
-  font-size: 1.08rem;
-  padding: 14px 18px;
+  min-height: 52px;
+  font-size: 1rem;
+  padding: 12px 14px;
+}
+
+.roses-dashboard-tabbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(4, 7, 15, 0.82);
+  box-shadow: 0 -10px 24px rgba(9, 6, 21, 0.22);
+}
+
+.roses-dashboard-tab {
+  min-height: 46px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.86);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.roses-dashboard-tab.is-active {
+  background: linear-gradient(135deg, #f43f8d 0%, #8d6dff 58%, #23cfff 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(141, 109, 255, 0.26);
+}
+
+.roses-dashboard-tab:active {
+  transform: translateY(1px);
 }
 
 .roses-word-cloud-wrap {
@@ -478,16 +547,82 @@
   flex-wrap: wrap;
   gap: 8px 12px;
   align-items: baseline;
+  align-content: flex-start;
 }
 
 .roses-word {
   color: #ffd1dc;
 }
 
+.roses-profile-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.roses-profile-copy-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.roses-panel-copy {
+  min-height: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(5, 9, 20, 0.48);
+  padding: 7px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roses-panel-body.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+}
+
+.roses-panel-body.is-clamped.is-tight {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.roses-topics-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.roses-topics-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.roses-topics-panel .roses-word-cloud {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .roses-leaderboards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.roses-leaderboards-dashboard {
+  height: 100%;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .roses-lb-panel {
@@ -592,6 +727,60 @@
   line-height: 1;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.roses-lb-panel.is-compact {
+  min-height: 0;
+  padding: 8px 10px;
+  gap: 5px;
+}
+
+.roses-lb-panel.is-compact .roses-lb-panel-head {
+  gap: 2px;
+}
+
+.roses-lb-panel.is-compact .roses-lb-panel-head h3 {
+  font-size: 0.88rem;
+}
+
+.roses-lb-panel.is-compact .roses-lb-subhead,
+.roses-lb-panel.is-compact .roses-lb-empty {
+  font-size: 0.72rem;
+}
+
+.roses-lb-panel.is-compact .roses-lb-list {
+  min-height: 0;
+}
+
+.roses-lb-panel.is-compact .roses-lb-row {
+  gap: 2px;
+  padding: 5px 0;
+}
+
+.roses-lb-panel.is-compact .roses-lb-gap {
+  padding: 2px 0 4px;
+  font-size: 0.8rem;
+}
+
+.roses-lb-panel.is-compact .roses-lb-rank,
+.roses-lb-panel.is-compact .roses-lb-score {
+  font-size: 0.72rem;
+}
+
+.roses-lb-panel.is-compact .roses-lb-name {
+  font-size: 0.76rem;
+  line-height: 1.18;
+}
+
+@media (min-width: 760px) {
+  .roses-profile-copy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .roses-leaderboards-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+  }
 }
 
 .roses-turn-indicator {
@@ -1045,6 +1234,24 @@
   .roses-profile-actions,
   .roses-dashboard-actions {
     flex-direction: column;
+  }
+
+  .roses-dashboard-shell .roses-dashboard-actions {
+    flex-direction: row;
+  }
+
+  .roses-dashboard-shell .roses-profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .roses-dashboard-shell .roses-dashboard-tabbar {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .roses-dashboard-shell .roses-dashboard-tab {
+    min-height: 44px;
+    font-size: 0.88rem;
   }
 
   .roses-profile-actions .roses-primary {
